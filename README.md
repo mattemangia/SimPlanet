@@ -2,16 +2,32 @@
 
 A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - Procedural planet generation with Perlin noise
+- **Full geological simulation** (plate tectonics, volcanoes, erosion, sedimentation)
+- **Hydrology system** (rivers, water flow, ocean currents)
+- **Rotating 3D planet minimap** (just like SimEarth!)
 - Climate simulation (temperature, rainfall, humidity)
 - Atmospheric simulation (oxygen, CO2, greenhouse effects)
 - Life evolution from bacteria to civilization
-- Multiple visualization modes
-- Real-time planetary evolution
+- 10 visualization modes with geological overlays
+- Real-time planetary evolution and geological events
 
 ## Features
 
 ### Core Mechanics (SimEarth-like)
 - **Terrain Generation**: Procedural height maps with configurable land/water ratios
+- **Geological Systems**:
+  - 8 tectonic plates with continental drift
+  - Plate boundaries (convergent, divergent, transform)
+  - Mountain building and subduction zones
+  - Volcanic hotspots and eruption mechanics
+  - Earthquakes from tectonic stress
+  - Erosion (rainfall, temperature, glacial)
+  - Sediment transport and deposition
+- **Hydrology System**:
+  - River formation from mountains to oceans
+  - Water flow and valley carving
+  - Ocean currents with Coriolis effect
+  - Soil moisture dynamics
 - **Climate System**: Temperature gradients, rainfall patterns, humidity simulation
 - **Atmosphere**: Oxygen and CO2 cycles, greenhouse effect modeling
 - **Life Evolution**:
@@ -19,6 +35,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Life spreads and adapts based on environmental conditions
   - Biomass dynamics and ecosystem interactions
 - **Time Control**: Adjustable simulation speed (0.25x to 32x)
+- **3D Minimap**: Rotating sphere view of your planet (SimEarth-style!)
 
 ### Visualization Modes
 1. **Terrain**: See the planet surface (oceans, land, forests, deserts, mountains)
@@ -28,6 +45,15 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 5. **Oxygen**: Atmospheric oxygen levels
 6. **CO2**: Carbon dioxide concentration
 7. **Elevation**: Height map view
+8. **Geological**: Rock types (volcanic, sedimentary, crystalline), erosion, sedimentation
+9. **Tectonic Plates**: See all 8 plates with boundaries highlighted
+10. **Volcanoes**: Volcanic activity and lava flows
+
+### Geological Overlays (Toggle On/Off)
+- **Volcanoes**: Red triangles showing active volcanoes
+- **Rivers**: Blue lines showing river networks
+- **Plate Boundaries**: Highlighted convergent, divergent, and transform zones
+- **3D Minimap**: Rotating globe in bottom-left corner
 
 ## Requirements
 
@@ -70,10 +96,24 @@ dotnet run
 | Key | Action |
 |-----|--------|
 | **SPACE** | Pause/Resume simulation |
-| **1-7** | Change view mode (Terrain, Temperature, Rainfall, Life, Oxygen, CO2, Elevation) |
+| **1-0** | Change view modes |
+| **1** | Terrain view |
+| **2** | Temperature view |
+| **3** | Rainfall view |
+| **4** | Life view |
+| **5** | Oxygen view |
+| **6** | CO2 view |
+| **7** | Elevation view |
+| **8** | Geological view (rock types, erosion) |
+| **9** | Tectonic Plates view |
+| **0** | Volcanoes view |
 | **+/-** | Increase/Decrease time speed |
 | **L** | Seed new life forms |
 | **M** | Open map generation options menu |
+| **P** | Toggle 3D rotating minimap |
+| **V** | Toggle volcano overlay |
+| **B** | Toggle river overlay |
+| **N** | Toggle plate boundary overlay |
 | **R** | Regenerate planet with current settings |
 | **H** | Toggle help panel |
 | **ESC** | Quit game |
