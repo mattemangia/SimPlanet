@@ -272,6 +272,12 @@ public class HydrologySimulator
         _rivers.Clear();
         _nextRiverId = 1;
     }
+
+    public void LoadRivers(List<River> rivers)
+    {
+        _rivers = rivers;
+        _nextRiverId = rivers.Any() ? rivers.Max(r => r.Id) + 1 : 1;
+    }
 }
 
 public class River

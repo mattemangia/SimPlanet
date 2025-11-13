@@ -358,7 +358,7 @@ public class TerrainRenderer
         Color baseColor = Color.Lerp(GetTerrainColor(cell), Color.Gray, 0.5f);
 
         // Wind speed as color intensity
-        float windSpeed = MathF.Sqrt(met.WindX * met.WindX + met.WindY * met.WindY);
+        float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
 
         if (windSpeed < 0.1f)
         {
@@ -432,7 +432,7 @@ public class TerrainRenderer
         }
 
         // Highlight areas with high wind (storms)
-        float windSpeed = MathF.Sqrt(met.WindX * met.WindX + met.WindY * met.WindY);
+        float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
         if (windSpeed > 0.8f)
         {
             baseColor = Color.Lerp(baseColor, Color.Red, (windSpeed - 0.8f) * 2.0f);

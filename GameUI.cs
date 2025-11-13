@@ -98,7 +98,8 @@ public class GameUI
                 Color nameColor = civ.AtWar ? Color.Red : Color.Yellow;
                 string warStatus = civ.AtWar ? " [WAR]" : "";
                 DrawText($"{civ.Name}{warStatus}", nameColor);
-                DrawText($"  {civ.CivType} - Pop: {civ.Population / 1000}K", Color.White);
+                int popK = civ.Population / 1000;
+                DrawText($"  {civ.CivType} - Pop: {popK}K", Color.White);
 
                 // Transportation icons
                 string transport = "  Transport: ";
@@ -114,7 +115,8 @@ public class GameUI
             }
             if (_civilizationManager.Civilizations.Count > 3)
             {
-                DrawText($"...and {_civilizationManager.Civilizations.Count - 3} more", Color.Gray);
+                int moreCivs = _civilizationManager.Civilizations.Count - 3;
+                DrawText($"...and {moreCivs} more", Color.Gray);
             }
             textY += 5;
         }

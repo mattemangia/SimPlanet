@@ -95,7 +95,7 @@ public class ClimateSimulator
                 }
 
                 // Evapotranspiration from plants
-                if (cell.LifeType == LifeForm.PlantLife || cell.LifeType == LifeForm.Forest)
+                if (cell.LifeType == LifeForm.PlantLife || cell.IsForest)
                 {
                     evaporation += cell.Biomass * 0.3f;
                 }

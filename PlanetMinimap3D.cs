@@ -13,6 +13,7 @@ public class PlanetMinimap3D
     private Texture2D _minimapTexture;
     private Texture2D _sphereTexture;
     private Color[] _spherePixels;
+    private Color[] _terrainColors;
 
     private float _rotation = 0;
     private const int MinimapSize = 150;
@@ -46,18 +47,18 @@ public class PlanetMinimap3D
     public void UpdateTexture(TerrainRenderer terrainRenderer)
     {
         // Get current terrain colors
-        var terrainColors = new Color[_map.Width * _map.Height];
+        _terrainColors = new Color[_map.Width * _map.Height];
 
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
-                terrainColors[y * _map.Width + x] = GetCellColor(cell);
+                _terrainColors[y * _map.Width + x] = GetCellColor(cell);
             }
         }
 
-        _sphereTexture.SetData(terrainColors);
+        _sphereTexture.SetData(_terrainColors);
 
         // Render 3D sphere
         Render3DSphere();
@@ -127,7 +128,7 @@ public class PlanetMinimap3D
                 texY = Math.Clamp(texY, 0, _map.Height - 1);
 
                 // Sample texture
-                Color baseColor = _sphereTexture.GetData<Color>()[texY * _map.Width + texX];
+                Color baseColor = _terrainColors != null ? _terrainColors[texY * _map.Width + texX] : Color.Gray;
 
                 // Apply shading based on angle to light
                 float lightX = 1.0f;

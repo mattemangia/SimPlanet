@@ -10,6 +10,8 @@ public class CivilizationManager
     private List<Civilization> _civilizations;
     private int _nextCivId = 1;
 
+    public List<Civilization> Civilizations => _civilizations;
+
     private static readonly string[] CivNames = new[]
     {
         "Terrans", "Aquans", "Volcanids", "Glacians", "Foresters",
@@ -420,7 +422,7 @@ public class CivilizationManager
                 Aggression = data.Aggression,
                 EcoFriendliness = data.EcoFriendliness
             };
-            civ.Territory.AddRange(data.Territory);
+            civ.Territory.UnionWith(data.Territory);
             _civilizations.Add(civ);
         }
 
