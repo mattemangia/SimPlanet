@@ -15,6 +15,7 @@ public class GameUI
     private Texture2D _pixelTexture;
     private CivilizationManager? _civilizationManager;
     private WeatherSystem? _weatherSystem;
+    private AnimalEvolutionSimulator? _animalEvolutionSimulator;
 
     public bool ShowHelp { get; set; } = true;
 
@@ -32,6 +33,11 @@ public class GameUI
     {
         _civilizationManager = civilizationManager;
         _weatherSystem = weatherSystem;
+    }
+
+    public void SetAnimalEvolutionSimulator(AnimalEvolutionSimulator animalEvolutionSimulator)
+    {
+        _animalEvolutionSimulator = animalEvolutionSimulator;
     }
 
     public void Draw(GameState state, RenderMode renderMode)
@@ -65,6 +71,14 @@ public class GameUI
 
         DrawText("=== SIM PLANET ===", Color.Yellow);
         DrawText($"Year: {state.Year}", Color.White);
+        if (_animalEvolutionSimulator != null)
+        {
+            string eraName = _animalEvolutionSimulator.GetCurrentEraName();
+            Color eraColor = _animalEvolutionSimulator.DinosaursDominant ? Color.Orange :
+                           _animalEvolutionSimulator.MammalsDominant ? Color.LightBlue :
+                           Color.Gray;
+            DrawText($"Era: {eraName}", eraColor);
+        }
         DrawText($"Speed: {state.TimeSpeed}x", Color.White);
         DrawText($"Paused: {state.IsPaused}", Color.White);
         textY += 5;
@@ -82,9 +96,35 @@ public class GameUI
         DrawText($"Algae: {lifeStats[LifeForm.Algae]}", Color.LightGreen);
         DrawText($"Plants: {lifeStats[LifeForm.PlantLife]}", Color.Green);
         DrawText($"Simple Animals: {lifeStats[LifeForm.SimpleAnimals]}", Color.SandyBrown);
-        DrawText($"Complex Animals: {lifeStats[LifeForm.ComplexAnimals]}", Color.Orange);
-        DrawText($"Intelligence: {lifeStats[LifeForm.Intelligence]}", Color.Gold);
-        DrawText($"Civilization: {lifeStats[LifeForm.Civilization]}", Color.Yellow);
+
+        // Vertebrate evolution
+        if (lifeStats[LifeForm.Fish] > 0)
+            DrawText($"Fish: {lifeStats[LifeForm.Fish]}", new Color(100, 120, 200));
+        if (lifeStats[LifeForm.Amphibians] > 0)
+            DrawText($"Amphibians: {lifeStats[LifeForm.Amphibians]}", new Color(120, 160, 80));
+        if (lifeStats[LifeForm.Reptiles] > 0)
+            DrawText($"Reptiles: {lifeStats[LifeForm.Reptiles]}", new Color(140, 140, 60));
+
+        // Age of Dinosaurs
+        if (lifeStats[LifeForm.Dinosaurs] > 0)
+            DrawText($"DINOSAURS: {lifeStats[LifeForm.Dinosaurs]}", Color.Orange);
+        if (lifeStats[LifeForm.MarineDinosaurs] > 0)
+            DrawText($"Marine Dinosaurs: {lifeStats[LifeForm.MarineDinosaurs]}", new Color(100, 100, 180));
+        if (lifeStats[LifeForm.Pterosaurs] > 0)
+            DrawText($"Pterosaurs: {lifeStats[LifeForm.Pterosaurs]}", new Color(160, 140, 100));
+
+        // Age of Mammals
+        if (lifeStats[LifeForm.Mammals] > 0)
+            DrawText($"Mammals: {lifeStats[LifeForm.Mammals]}", new Color(160, 120, 90));
+        if (lifeStats[LifeForm.Birds] > 0)
+            DrawText($"Birds: {lifeStats[LifeForm.Birds]}", new Color(150, 180, 150));
+
+        if (lifeStats[LifeForm.ComplexAnimals] > 0)
+            DrawText($"Complex Animals: {lifeStats[LifeForm.ComplexAnimals]}", Color.Orange);
+        if (lifeStats[LifeForm.Intelligence] > 0)
+            DrawText($"Intelligence: {lifeStats[LifeForm.Intelligence]}", Color.Gold);
+        if (lifeStats[LifeForm.Civilization] > 0)
+            DrawText($"Civilization: {lifeStats[LifeForm.Civilization]}", Color.Yellow);
         textY += 5;
 
         // Civilization statistics

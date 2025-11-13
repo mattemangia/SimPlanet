@@ -65,8 +65,26 @@ public enum LifeForm
     Bacteria,
     Algae,
     PlantLife,
-    SimpleAnimals,
-    ComplexAnimals,
-    Intelligence,
-    Civilization
+
+    // Early animals
+    SimpleAnimals,      // Invertebrates, worms, early marine life
+
+    // Vertebrate evolution
+    Fish,              // First vertebrates (~500 Mya)
+    Amphibians,        // Land colonization (~370 Mya)
+    Reptiles,          // First true land animals (~320 Mya)
+
+    // Age of Reptiles (Mesozoic Era: 252-66 Mya)
+    Dinosaurs,         // Dominant land animals (230-66 Mya)
+    MarineDinosaurs,   // Plesiosaurs, Mosasaurs
+    Pterosaurs,        // Flying reptiles
+
+    // Mammals and Birds (Cenozoic Era: 66 Mya - present)
+    Mammals,           // Dominant after K-T extinction
+    Birds,             // Evolved from dinosaurs
+
+    // Advanced life
+    ComplexAnimals,    // Advanced ecosystems
+    Intelligence,      // Tool users
+    Civilization       // Advanced civilization
 }

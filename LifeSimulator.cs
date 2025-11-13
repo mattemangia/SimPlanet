@@ -122,6 +122,78 @@ public class LifeSimulator
                 }
                 break;
 
+            case LifeForm.Fish:
+                // Aquatic vertebrates need water and oxygen
+                if (cell.IsWater && cell.Temperature > 0 && cell.Temperature < 35 && cell.Oxygen > 12)
+                {
+                    float foodAvailable = GetNearbyBiomass(x, y);
+                    growth = 0.25f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                }
+                break;
+
+            case LifeForm.Amphibians:
+                // Need both water and land nearby
+                if (cell.Temperature > 5 && cell.Temperature < 40 && cell.Oxygen > 15)
+                {
+                    float foodAvailable = GetNearbyBiomass(x, y);
+                    growth = 0.2f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                }
+                break;
+
+            case LifeForm.Reptiles:
+                // Cold-blooded, need warmth
+                if (cell.IsLand && cell.Temperature > 10 && cell.Temperature < 45 && cell.Oxygen > 16)
+                {
+                    float foodAvailable = GetNearbyBiomass(x, y);
+                    growth = 0.22f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                }
+                break;
+
+            case LifeForm.Dinosaurs:
+                // Large land reptiles, dominant predators/herbivores
+                if (cell.IsLand && cell.Temperature > 15 && cell.Temperature < 40 && cell.Oxygen > 18)
+                {
+                    float foodAvailable = GetNearbyBiomass(x, y);
+                    growth = 0.3f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                }
+                break;
+
+            case LifeForm.MarineDinosaurs:
+                // Marine reptiles
+                if (cell.IsWater && cell.Temperature > 10 && cell.Temperature < 35 && cell.Oxygen > 17)
+                {
+                    float foodAvailable = GetNearbyBiomass(x, y);
+                    growth = 0.28f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                }
+                break;
+
+            case LifeForm.Pterosaurs:
+                // Flying reptiles
+                if (cell.Temperature > 15 && cell.Temperature < 38 && cell.Oxygen > 19)
+                {
+                    float foodAvailable = GetNearbyBiomass(x, y);
+                    growth = 0.25f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                }
+                break;
+
+            case LifeForm.Mammals:
+                // Warm-blooded, more adaptable
+                if (cell.Temperature > -20 && cell.Temperature < 45 && cell.Oxygen > 18)
+                {
+                    float foodAvailable = GetNearbyBiomass(x, y);
+                    growth = 0.27f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                }
+                break;
+
+            case LifeForm.Birds:
+                // Warm-blooded, efficient
+                if (cell.Temperature > -10 && cell.Temperature < 45 && cell.Oxygen > 19)
+                {
+                    float foodAvailable = GetNearbyBiomass(x, y);
+                    growth = 0.26f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                }
+                break;
+
             case LifeForm.ComplexAnimals:
                 // Needs good oxygen and abundant food
                 if (cell.Temperature > -5 && cell.Temperature < 40 && cell.Oxygen > 18)
@@ -185,6 +257,9 @@ public class LifeSimulator
 
     private void SimulateEvolution(float deltaTime)
     {
+        // NOTE: Main evolution logic now handled by AnimalEvolutionSimulator
+        // This only handles basic microbe to plant evolution
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -194,8 +269,11 @@ public class LifeSimulator
                 if (cell.LifeType == LifeForm.None || cell.LifeType == LifeForm.Civilization)
                     continue;
 
-                // Evolution progress
-                if (cell.Biomass > 0.5f)
+                // Evolution progress (only for basic life forms)
+                if (cell.Biomass > 0.5f &&
+                    (cell.LifeType == LifeForm.Bacteria ||
+                     cell.LifeType == LifeForm.Algae ||
+                     cell.LifeType == LifeForm.PlantLife))
                 {
                     cell.Evolution += deltaTime * 0.01f;
 
@@ -211,6 +289,8 @@ public class LifeSimulator
 
     private void TryEvolve(TerrainCell cell)
     {
+        // Only handle basic evolution: bacteria → algae → plants → simple animals
+        // AnimalEvolutionSimulator handles the rest
         switch (cell.LifeType)
         {
             case LifeForm.Bacteria:
@@ -232,37 +312,11 @@ public class LifeSimulator
                 break;
 
             case LifeForm.PlantLife:
-                // Plants enable animals
+                // Plants enable simple animals (then AnimalEvolutionSimulator takes over)
                 if (cell.Oxygen > 15)
                 {
                     cell.LifeType = LifeForm.SimpleAnimals;
                     cell.Biomass = 0.3f;
-                    cell.Evolution = 0;
-                }
-                break;
-
-            case LifeForm.SimpleAnimals:
-                if (cell.Oxygen > 18)
-                {
-                    cell.LifeType = LifeForm.ComplexAnimals;
-                    cell.Evolution = 0;
-                }
-                break;
-
-            case LifeForm.ComplexAnimals:
-                // Rare evolution to intelligence
-                if (cell.Oxygen > 20 && _random.NextDouble() < 0.05)
-                {
-                    cell.LifeType = LifeForm.Intelligence;
-                    cell.Evolution = 0;
-                }
-                break;
-
-            case LifeForm.Intelligence:
-                // Even rarer evolution to civilization
-                if (_random.NextDouble() < 0.02)
-                {
-                    cell.LifeType = LifeForm.Civilization;
                     cell.Evolution = 0;
                 }
                 break;
@@ -316,6 +370,32 @@ public class LifeSimulator
                        cell.Rainfall > 0.2f && cell.Oxygen > 10;
 
             case LifeForm.SimpleAnimals:
+                return cell.Temperature > -10 && cell.Temperature < 50 && cell.Oxygen > 15;
+
+            case LifeForm.Fish:
+                return cell.IsWater && cell.Temperature > 0 && cell.Temperature < 35 && cell.Oxygen > 12;
+
+            case LifeForm.Amphibians:
+                return cell.Temperature > 5 && cell.Temperature < 40 && cell.Oxygen > 15;
+
+            case LifeForm.Reptiles:
+                return cell.IsLand && cell.Temperature > 10 && cell.Temperature < 45 && cell.Oxygen > 16;
+
+            case LifeForm.Dinosaurs:
+                return cell.IsLand && cell.Temperature > 15 && cell.Temperature < 40 && cell.Oxygen > 18;
+
+            case LifeForm.MarineDinosaurs:
+                return cell.IsWater && cell.Temperature > 10 && cell.Temperature < 35 && cell.Oxygen > 17;
+
+            case LifeForm.Pterosaurs:
+                return cell.Temperature > 15 && cell.Temperature < 38 && cell.Oxygen > 19;
+
+            case LifeForm.Mammals:
+                return cell.Temperature > -20 && cell.Temperature < 45 && cell.Oxygen > 18;
+
+            case LifeForm.Birds:
+                return cell.Temperature > -10 && cell.Temperature < 45 && cell.Oxygen > 19;
+
             case LifeForm.ComplexAnimals:
                 return cell.Temperature > -10 && cell.Temperature < 50 && cell.Oxygen > 15;
 

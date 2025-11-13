@@ -17,6 +17,7 @@ public class SimPlanetGame : Game
     private ClimateSimulator _climateSimulator;
     private AtmosphereSimulator _atmosphereSimulator;
     private LifeSimulator _lifeSimulator;
+    private AnimalEvolutionSimulator _animalEvolutionSimulator;
     private GeologicalSimulator _geologicalSimulator;
     private HydrologySimulator _hydrologySimulator;
     private WeatherSystem _weatherSystem;
@@ -95,6 +96,7 @@ public class SimPlanetGame : Game
         _climateSimulator = new ClimateSimulator(_map);
         _atmosphereSimulator = new AtmosphereSimulator(_map);
         _lifeSimulator = new LifeSimulator(_map);
+        _animalEvolutionSimulator = new AnimalEvolutionSimulator(_map, _mapOptions.Seed);
         _geologicalSimulator = new GeologicalSimulator(_map, _mapOptions.Seed);
         _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
         _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
@@ -135,6 +137,7 @@ public class SimPlanetGame : Game
         // Create UI
         _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
         _ui.SetManagers(_civilizationManager, _weatherSystem);
+        _ui.SetAnimalEvolutionSimulator(_animalEvolutionSimulator);
         _mapOptionsUI = new MapOptionsUI(_spriteBatch, _font, GraphicsDevice);
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
@@ -190,6 +193,7 @@ public class SimPlanetGame : Game
             _weatherSystem.Update(deltaTime, _gameState.Year);
             _atmosphereSimulator.Update(deltaTime);
             _lifeSimulator.Update(deltaTime, _geologicalSimulator, _weatherSystem);
+            _animalEvolutionSimulator.Update(deltaTime, _gameState.Year);
             _geologicalSimulator.Update(deltaTime, _gameState.Year);
             _hydrologySimulator.Update(deltaTime);
             _civilizationManager.Update(deltaTime, _gameState.Year);
@@ -470,6 +474,7 @@ public class SimPlanetGame : Game
             _climateSimulator = new ClimateSimulator(_map);
             _atmosphereSimulator = new AtmosphereSimulator(_map);
             _lifeSimulator = new LifeSimulator(_map);
+            _animalEvolutionSimulator = new AnimalEvolutionSimulator(_map, saveData.MapOptions.Seed);
             _geologicalSimulator = new GeologicalSimulator(_map, saveData.MapOptions.Seed);
             _hydrologySimulator = new HydrologySimulator(_map, saveData.MapOptions.Seed);
             _weatherSystem = new WeatherSystem(_map, saveData.MapOptions.Seed);
@@ -524,6 +529,7 @@ public class SimPlanetGame : Game
         _climateSimulator = new ClimateSimulator(_map);
         _atmosphereSimulator = new AtmosphereSimulator(_map);
         _lifeSimulator = new LifeSimulator(_map);
+        _animalEvolutionSimulator = new AnimalEvolutionSimulator(_map, _mapOptions.Seed);
         _geologicalSimulator = new GeologicalSimulator(_map, _mapOptions.Seed);
         _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
         _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
