@@ -63,21 +63,179 @@ public class BiomeSimulator
         }
     }
 
-    private Biome DetermineBiome(TerrainCell cell)
+    private Biome BlendWithNeighbors(int x, int y, Biome targetBiome)
     {
+        // Check if we're at a biome boundary - create gradual transitions
+        var neighbors = _map.GetNeighbors(x, y);
+        var neighborBiomes = neighbors.Select(n => n.cell.GetBiomeData().CurrentBiome).ToList();
+
+        // If all neighbors are different, keep gradual transition
+        if (neighborBiomes.All(b => b == targetBiome))
+            return targetBiome;
+
+        // Allow gradual blending - don't change too rapidly
+        var cell = _map.Cells[x, y];
+        var currentBiome = cell.GetBiomeData().CurrentBiome;
+
+        // If surrounded by different biome, gradually transition
+        int sameAsTarget = neighborBiomes.Count(b => b == targetBiome);
+        if (sameAsTarget >= 4) // Majority rule
+            return targetBiome;
+
+        return currentBiome; // Keep current biome for smooth transition
+    }
+
+    private bool CanTransitionTo(Biome from, Biome to)
+    {
+        // Ecological succession rules - some transitions require intermediate steps
+        // Bare rock → grass → shrubs → forest
+        // Desert can become grassland with more rain
+        // Glacier → tundra → grassland → forest
+
+        // Direct transitions that are always allowed
+        if (from == to) return true;
+
+        // Glaciers can retreat to tundra
+        if (from == Biome.Glacier && to == Biome.Tundra) return true;
+        if (from == Biome.Glacier && to == Biome.AlpineTundra) return true;
+
+        // Tundra can become grassland or forest with warming
+        if (from == Biome.Tundra && (to == Biome.Grassland || to == Biome.BorealForest)) return true;
+
+        // Grassland can become forest or shrubland
+        if (from == Biome.Grassland && (to == Biome.TemperateForest || to == Biome.Shrubland || to == Biome.Savanna)) return true;
+
+        // Shrubland can become forest or grassland
+        if (from == Biome.Shrubland && (to == Biome.TemperateForest || to == Biome.Grassland)) return true;
+
+        // Desert expansion/retreat
+        if (from == Biome.Desert && to == Biome.Shrubland) return true;
+        if (from == Biome.Shrubland && to == Biome.Desert) return true;
+        if (from == Biome.Grassland && to == Biome.Desert) return true;
+
+        // Forest types can transition
+        if (IsForest(from) && IsForest(to)) return true;
+
+        // Mountains/high elevation
+        if (to == Biome.Mountain || to == Biome.AlpineTundra) return true;
+
+        // Default: allow if temperature/rainfall have changed dramatically
+        return false;
+    }
+
+    private bool IsForest(Biome biome)
+    {
+        return biome == Biome.TropicalRainforest ||
+               biome == Biome.TemperateForest ||
+               biome == Biome.BorealForest;
+    }
+
+    private void ApplySuccession(TerrainCell cell, int x, int y)
+    {
+        var biomeData = cell.GetBiomeData();
+        var geo = cell.GetGeology();
+
+        // New land from volcanic activity or tectonic uplift
+        if (geo.CrustAge < 10 && cell.Elevation > 0 && cell.Elevation < 0.1f)
+        {
+            // Pioneer succession: bare rock → lichen → grass → shrubs → forest
+            if (biomeData.YearsSinceBiomeChange < 20)
+            {
+                biomeData.CurrentBiome = Biome.Mountain; // Bare rock
+                cell.Biomass = 0.05f;
+            }
+            else if (biomeData.YearsSinceBiomeChange < 50)
+            {
+                // Early colonization
+                if (cell.Temperature > 0 && cell.Rainfall > 0.2f)
+                {
+                    biomeData.CurrentBiome = Biome.Shrubland;
+                    cell.Biomass = Math.Min(cell.Biomass + 0.002f, 0.2f);
+                }
+            }
+            else if (biomeData.YearsSinceBiomeChange < 100)
+            {
+                // Grassland stage
+                if (cell.Temperature > 5 && cell.Rainfall > 0.3f)
+                {
+                    biomeData.CurrentBiome = Biome.Grassland;
+                    cell.Biomass = Math.Min(cell.Biomass + 0.003f, 0.4f);
+                }
+            }
+        }
+
+        // Beach to grassland succession (coastal areas)
+        if (cell.Elevation >= 0 && cell.Elevation < 0.05f)
+        {
+            // Check if near water
+            bool nearWater = _map.GetNeighbors(x, y).Any(n => n.cell.IsWater);
+            if (nearWater && geo.SedimentaryRock > 0.5f)
+            {
+                // Sandy/beach area
+                if (cell.Temperature > 10 && cell.Rainfall > 0.3f)
+                {
+                    // Gradually develop into coastal vegetation
+                    if (biomeData.YearsSinceBiomeChange > 30)
+                    {
+                        biomeData.CurrentBiome = Biome.Shrubland;
+                    }
+                }
+            }
+        }
+    }
+
+    private Biome DetermineBiome(TerrainCell cell, int x, int y)
+    {
+        var geo = cell.GetGeology();
+
         // Ice biomes
         if (cell.Temperature < -10 || cell.IsIce)
             return Biome.Glacier;
 
-        // High elevation biomes
-        if (cell.Elevation > 0.7f)
+        // Coastal/beach zones (very low elevation near water)
+        bool nearWater = _map.GetNeighbors(x, y).Any(n => n.cell.IsWater);
+        if (nearWater && cell.Elevation >= 0 && cell.Elevation < 0.03f)
         {
-            if (cell.Temperature < 0)
-                return Biome.AlpineTundra;
-            return Biome.Mountain;
+            // Beach/coastal - will develop into shrubland/grassland with succession
+            if (geo.SedimentaryRock > 0.6f || geo.SedimentLayer > 0.3f)
+            {
+                return Biome.Shrubland; // Sandy coastal vegetation
+            }
         }
 
-        // Temperature-based biomes
+        // Elevation-based gradient (mountain → foothills → lowlands)
+        if (cell.Elevation > 0.8f)
+        {
+            // High peaks - always mountain/alpine
+            if (cell.Temperature < -5)
+                return Biome.AlpineTundra; // Snow-capped peaks
+            return Biome.Mountain;
+        }
+        else if (cell.Elevation > 0.6f)
+        {
+            // Upper slopes - temperature-dependent
+            if (cell.Temperature < 0)
+                return Biome.AlpineTundra;
+            if (cell.Temperature < 10 && cell.Rainfall > 0.4f)
+                return Biome.BorealForest; // Mountain forests
+            if (cell.Rainfall > 0.5f)
+                return Biome.TemperateForest;
+            return Biome.Mountain; // Rocky slopes
+        }
+        else if (cell.Elevation > 0.4f)
+        {
+            // Foothills - transition zone
+            if (cell.Temperature < 5)
+                return Biome.Tundra;
+            if (cell.Rainfall > 0.6f && cell.Biomass > 0.3f)
+                return Biome.TemperateForest;
+            if (cell.Rainfall > 0.4f)
+                return Biome.Grassland; // Meadows
+            return Biome.Shrubland;
+        }
+
+        // Lowlands (elevation < 0.4) - climate-based
+        // Cold regions
         if (cell.Temperature < 0)
             return Biome.Tundra;
 
@@ -103,9 +261,11 @@ public class BiomeSimulator
             return Biome.Shrubland;
         }
 
-        // Boreal biomes (cold but above freezing)
-        if (cell.Rainfall > 0.4f)
+        // Cool temperate (5-10°C)
+        if (cell.Rainfall > 0.5f && cell.Biomass > 0.2f)
             return Biome.BorealForest;
+        if (cell.Rainfall > 0.3f)
+            return Biome.Grassland;
 
         return Biome.Tundra;
     }
