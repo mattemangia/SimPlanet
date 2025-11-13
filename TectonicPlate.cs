@@ -38,6 +38,15 @@ public enum SedimentType
     Limestone
 }
 
+public enum EruptionType
+{
+    Effusive,        // Lava flows (Hawaiian style)
+    Strombolian,     // Mild explosive with lava fountains
+    Vulcanian,       // Moderate explosive with ash
+    Plinian,         // Massive explosive eruption (Vesuvius, Krakatoa)
+    Phreatomagmatic  // Explosive interaction with water
+}
+
 /// <summary>
 /// Extended terrain cell with geological properties
 /// </summary>
@@ -74,6 +83,8 @@ public class GeologicalData
     public float VolcanicActivity { get; set; }
     public float MagmaPressure { get; set; }
     public int LastEruptionYear { get; set; }
+    public EruptionType LastEruptionType { get; set; } = EruptionType.Effusive;
+    public int EruptionIntensity { get; set; } = 1; // VEI 0-8 scale
 
     // Erosion and Sedimentation
     public float SedimentLayer { get; set; }

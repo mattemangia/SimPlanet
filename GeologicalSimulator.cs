@@ -307,29 +307,270 @@ public class GeologicalSimulator
         var cell = _map.Cells[x, y];
         var geo = cell.GetGeology();
 
+        // Determine eruption type and intensity
+        EruptionType eruptionType = DetermineEruptionType(x, y, geo);
+        int vei = DetermineVEI(geo, eruptionType); // Volcanic Explosivity Index 0-8
+
+        geo.LastEruptionType = eruptionType;
+        geo.EruptionIntensity = vei;
+
         RecentEruptions.Add((x, y, year));
 
-        // Raise elevation with lava
-        cell.Elevation += 0.05f;
-        geo.VolcanicRock += 0.2f;
-
-        // Heat the area
-        cell.Temperature += 50;
-
-        // Emit CO2
-        cell.CO2 += 2.0f;
-
-        // Affect surroundings
-        foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+        // Apply eruption effects based on type
+        switch (eruptionType)
         {
-            neighbor.GetGeology().VolcanicRock += 0.05f;
-            neighbor.CO2 += 0.5f;
-            neighbor.Temperature += 10;
+            case EruptionType.Effusive:
+                EffusiveEruption(x, y, vei);
+                break;
+            case EruptionType.Strombolian:
+                StrombolianEruption(x, y, vei);
+                break;
+            case EruptionType.Vulcanian:
+                VulcanianEruption(x, y, vei);
+                break;
+            case EruptionType.Plinian:
+                PlinianEruption(x, y, vei);
+                break;
+            case EruptionType.Phreatomagmatic:
+                PhreatomagmaticEruption(x, y, vei);
+                break;
+        }
+    }
 
-            // Kill nearby life
-            if (_random.NextDouble() < 0.3)
+    private EruptionType DetermineEruptionType(int x, int y, GeologicalData geo)
+    {
+        // Water nearby = phreatomagmatic
+        bool hasWaterNeighbor = _map.GetNeighbors(x, y)
+            .Any(n => n.cell.IsWater);
+
+        if (hasWaterNeighbor && _random.NextDouble() < 0.3)
+            return EruptionType.Phreatomagmatic;
+
+        // High magma pressure = more explosive
+        if (geo.MagmaPressure > 2.0f && _random.NextDouble() < 0.2)
+            return EruptionType.Plinian;
+
+        if (geo.MagmaPressure > 1.5f && _random.NextDouble() < 0.4)
+            return EruptionType.Vulcanian;
+
+        if (_random.NextDouble() < 0.3)
+            return EruptionType.Strombolian;
+
+        return EruptionType.Effusive; // Default
+    }
+
+    private int DetermineVEI(GeologicalData geo, EruptionType type)
+    {
+        // VEI scale: 0 (non-explosive) to 8 (mega-colossal)
+        int baseVEI = type switch
+        {
+            EruptionType.Effusive => 0 + _random.Next(2),        // 0-1
+            EruptionType.Strombolian => 1 + _random.Next(2),     // 1-2
+            EruptionType.Vulcanian => 2 + _random.Next(2),       // 2-3
+            EruptionType.Plinian => 4 + _random.Next(3),         // 4-6
+            EruptionType.Phreatomagmatic => 2 + _random.Next(3), // 2-4
+            _ => 1
+        };
+
+        // Volcanic activity boosts intensity
+        if (geo.VolcanicActivity > 0.8f)
+            baseVEI++;
+
+        return Math.Min(baseVEI, 8);
+    }
+
+    private void EffusiveEruption(int x, int y, int vei)
+    {
+        // Gentle lava flows - builds shield volcano
+        var cell = _map.Cells[x, y];
+        var geo = cell.GetGeology();
+
+        cell.Elevation += 0.02f * (vei + 1);
+        geo.VolcanicRock += 0.3f;
+        cell.Temperature += 20 * (vei + 1);
+        cell.CO2 += 1.0f * (vei + 1);
+
+        // Lava flows to lower neighbors
+        var neighbors = _map.GetNeighbors(x, y).OrderBy(n => n.cell.Elevation).Take(3);
+        foreach (var (nx, ny, neighbor) in neighbors)
+        {
+            neighbor.GetGeology().VolcanicRock += 0.1f;
+            neighbor.Biomass *= 0.7f; // Lava destroys life
+        }
+    }
+
+    private void StrombolianEruption(int x, int y, int vei)
+    {
+        // Lava fountains and minor explosions
+        var cell = _map.Cells[x, y];
+        var geo = cell.GetGeology();
+
+        cell.Elevation += 0.04f * (vei + 1);
+        geo.VolcanicRock += 0.25f;
+        cell.Temperature += 35 * (vei + 1);
+        cell.CO2 += 1.5f * (vei + 1);
+
+        // Affects nearby cells with tephra
+        int radius = 1 + vei;
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
             {
-                neighbor.Biomass *= 0.5f;
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > radius) continue;
+
+                var neighbor = _map.Cells[nx, ny];
+                neighbor.GetGeology().VolcanicRock += 0.05f * (1.0f - distance / radius);
+                neighbor.Biomass *= (0.8f - distance / radius * 0.2f);
+            }
+        }
+    }
+
+    private void VulcanianEruption(int x, int y, int vei)
+    {
+        // Moderate explosive with ash clouds
+        var cell = _map.Cells[x, y];
+        var geo = cell.GetGeology();
+
+        cell.Elevation += 0.03f * (vei + 1);
+        geo.VolcanicRock += 0.2f;
+        cell.Temperature += 50 * (vei + 1);
+        cell.CO2 += 3.0f * (vei + 1);
+
+        // Large ash cloud affects wider area
+        int radius = 3 + vei;
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > radius) continue;
+
+                var neighbor = _map.Cells[nx, ny];
+                float effect = 1.0f - distance / radius;
+
+                neighbor.GetGeology().VolcanicRock += 0.08f * effect;
+                neighbor.Temperature += 15 * effect;
+                neighbor.Biomass *= (1.0f - 0.4f * effect); // Ash kills plants
+
+                // Volcanic ash sediment
+                neighbor.GetGeology().SedimentColumn.Add(SedimentType.Volcanic);
+            }
+        }
+    }
+
+    private void PlinianEruption(int x, int y, int vei)
+    {
+        // Massive explosive eruption - regional catastrophe
+        var cell = _map.Cells[x, y];
+        var geo = cell.GetGeology();
+
+        // Can create calderas (collapse)
+        if (vei >= 6)
+        {
+            cell.Elevation -= 0.1f; // Caldera formation
+        }
+        else
+        {
+            cell.Elevation += 0.06f * (vei + 1);
+        }
+
+        geo.VolcanicRock += 0.4f;
+        cell.Temperature += 80 * (vei + 1);
+        cell.CO2 += 10.0f * (vei + 1); // Massive CO2 release
+
+        // Enormous radius of devastation
+        int radius = 8 + vei * 2;
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > radius) continue;
+
+                var neighbor = _map.Cells[nx, ny];
+                float effect = 1.0f - distance / radius;
+
+                // Pyroclastic flows destroy everything nearby
+                if (distance < 5)
+                {
+                    neighbor.Biomass = 0;
+                    neighbor.Temperature += 200;
+                }
+                else
+                {
+                    neighbor.Biomass *= (1.0f - 0.8f * effect);
+                    neighbor.Temperature += 30 * effect;
+                }
+
+                neighbor.GetGeology().VolcanicRock += 0.15f * effect;
+                neighbor.CO2 += 2.0f * effect;
+
+                // Heavy volcanic ash layers
+                for (int i = 0; i < (int)(5 * effect); i++)
+                {
+                    neighbor.GetGeology().SedimentColumn.Add(SedimentType.Volcanic);
+                }
+            }
+        }
+
+        // Global climate effect for VEI 6+
+        if (vei >= 6)
+        {
+            _map.SolarEnergy -= 0.05f; // Volcanic winter
+        }
+    }
+
+    private void PhreatomagmaticEruption(int x, int y, int vei)
+    {
+        // Water-magma interaction - very explosive but less lava
+        var cell = _map.Cells[x, y];
+        var geo = cell.GetGeology();
+
+        // Creates explosion craters
+        cell.Elevation -= 0.05f * (vei + 1);
+        geo.VolcanicRock += 0.15f;
+        cell.Temperature += 60 * (vei + 1);
+        cell.CO2 += 2.5f * (vei + 1);
+
+        // Violent explosion with steam and ash
+        int radius = 4 + vei;
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > radius) continue;
+
+                var neighbor = _map.Cells[nx, ny];
+                float effect = 1.0f - distance / radius;
+
+                neighbor.GetGeology().VolcanicRock += 0.1f * effect;
+                neighbor.Temperature += 25 * effect;
+                neighbor.Biomass *= (1.0f - 0.6f * effect);
+                neighbor.Humidity += 0.2f * effect; // Steam adds moisture
+
+                // Fine ash and steam deposits
+                if (_random.NextDouble() < effect)
+                {
+                    neighbor.GetGeology().SedimentColumn.Add(SedimentType.Volcanic);
+                }
             }
         }
     }
