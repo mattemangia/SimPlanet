@@ -118,12 +118,32 @@ public class CivilizationManager
             {
                 civ.CivType = CivType.Spacefaring;
             }
+
+            // Unlock transportation based on tech level
+            if (civ.TechLevel >= 5 && !civ.HasLandTransport)
+            {
+                civ.HasLandTransport = true; // Horses/domestication
+            }
+            if (civ.TechLevel >= 15 && !civ.HasSeaTransport)
+            {
+                civ.HasSeaTransport = true; // Ships
+            }
+            if (civ.TechLevel >= 50 && !civ.HasAirTransport)
+            {
+                civ.HasAirTransport = true; // Airplanes
+            }
         }
 
-        // Territorial expansion
+        // Update military strength based on population and tech
+        civ.MilitaryStrength = (civ.Population / 1000) + (civ.TechLevel * 10);
+
+        // Territorial expansion (faster with transportation)
+        int expansionRate = civ.HasLandTransport ? 2 : 1;
+        if (civ.HasAirTransport) expansionRate = 5;
+
         if (civ.Population > civ.Territory.Count * 1000 && _random.NextDouble() < 0.05)
         {
-            ExpandTerritory(civ, 1);
+            ExpandTerritory(civ, expansionRate);
         }
 
         // Environmental impact
@@ -137,7 +157,7 @@ public class CivilizationManager
     {
         for (int i = 0; i < cells; i++)
         {
-            // Find edge cells
+            // Find edge cells - land expansion
             var edgeCells = civ.Territory
                 .SelectMany(pos => _map.GetNeighbors(pos.x, pos.y))
                 .Where(n => !civ.Territory.Contains((n.x, n.y)) &&
@@ -148,6 +168,36 @@ public class CivilizationManager
                 .Select(n => (n.x, n.y))
                 .Distinct()
                 .ToList();
+
+            // If has sea transport, can also expand to nearby islands
+            if (civ.HasSeaTransport)
+            {
+                var coastalCells = civ.Territory.Where(pos => _map.Cells[pos.x, pos.y].IsLand).ToList();
+                foreach (var (cx, cy) in coastalCells)
+                {
+                    // Check cells within 5 cells distance across water
+                    for (int dx = -5; dx <= 5; dx++)
+                    {
+                        for (int dy = -5; dy <= 5; dy++)
+                        {
+                            int nx = (cx + dx + _map.Width) % _map.Width;
+                            int ny = Math.Clamp(cy + dy, 0, _map.Height - 1);
+
+                            var targetCell = _map.Cells[nx, ny];
+                            if (targetCell.IsLand &&
+                                !civ.Territory.Contains((nx, ny)) &&
+                                !IsCellInCivilization(nx, ny) &&
+                                targetCell.Temperature > -10 &&
+                                targetCell.Temperature < 40)
+                            {
+                                edgeCells.Add((nx, ny));
+                            }
+                        }
+                    }
+                }
+
+                edgeCells = edgeCells.Distinct().ToList();
+            }
 
             if (edgeCells.Count == 0) break;
 
@@ -268,22 +318,59 @@ public class CivilizationManager
                     // War or cooperation based on aggression
                     if (civ1.Aggression > 0.7f || civ2.Aggression > 0.7f)
                     {
-                        // Conflict - stronger civ takes territory
-                        if (civ1.TechLevel > civ2.TechLevel + 10)
+                        // Declare war if not already at war
+                        if (!civ1.AtWar && _random.NextDouble() < 0.1)
+                        {
+                            civ1.AtWar = true;
+                            civ1.WarTargetId = civ2.Id;
+                        }
+                        if (!civ2.AtWar && _random.NextDouble() < 0.1)
+                        {
+                            civ2.AtWar = true;
+                            civ2.WarTargetId = civ1.Id;
+                        }
+
+                        // Conduct warfare - stronger civ takes territory
+                        if (civ1.MilitaryStrength > civ2.MilitaryStrength * 1.5f)
                         {
                             ConquerTerritory(civ1, civ2);
+                            // Population losses from war
+                            civ1.Population = (int)(civ1.Population * 0.95f);
+                            civ2.Population = (int)(civ2.Population * 0.85f);
                         }
-                        else if (civ2.TechLevel > civ1.TechLevel + 10)
+                        else if (civ2.MilitaryStrength > civ1.MilitaryStrength * 1.5f)
                         {
                             ConquerTerritory(civ2, civ1);
+                            civ2.Population = (int)(civ2.Population * 0.95f);
+                            civ1.Population = (int)(civ1.Population * 0.85f);
+                        }
+                        else
+                        {
+                            // Stalemate - both lose population
+                            civ1.Population = (int)(civ1.Population * 0.98f);
+                            civ2.Population = (int)(civ2.Population * 0.98f);
                         }
                     }
                     else if (civ1.EcoFriendliness > 0.6f && civ2.EcoFriendliness > 0.6f)
                     {
-                        // Peaceful cooperation - tech sharing
+                        // Peaceful cooperation - tech sharing and trade
                         int avgTech = (civ1.TechLevel + civ2.TechLevel) / 2;
                         civ1.TechLevel = (civ1.TechLevel + avgTech) / 2;
                         civ2.TechLevel = (civ2.TechLevel + avgTech) / 2;
+
+                        // Establish trade routes
+                        if (!civ1.TradeRoutes.Contains((civ2.CenterX, civ2.CenterY)))
+                        {
+                            civ1.TradeRoutes.Add((civ2.CenterX, civ2.CenterY));
+                        }
+                        if (!civ2.TradeRoutes.Contains((civ1.CenterX, civ1.CenterY)))
+                        {
+                            civ2.TradeRoutes.Add((civ1.CenterX, civ1.CenterY));
+                        }
+
+                        // Economic benefits
+                        civ1.Population += 100;
+                        civ2.Population += 100;
                     }
                 }
             }
@@ -354,4 +441,15 @@ public class Civilization
     public float Aggression { get; set; } // 0-1
     public float EcoFriendliness { get; set; } // 0-1
     public int Founded { get; set; }
+
+    // Transportation
+    public bool HasLandTransport { get; set; } = false; // Horses, cars
+    public bool HasSeaTransport { get; set; } = false; // Ships
+    public bool HasAirTransport { get; set; } = false; // Planes
+    public List<(int x, int y)> TradeRoutes { get; set; } = new();
+
+    // War status
+    public bool AtWar { get; set; } = false;
+    public int? WarTargetId { get; set; } = null;
+    public int MilitaryStrength { get; set; } = 0;
 }

@@ -64,7 +64,8 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **3D Minimap**: Rotating sphere view of your planet (SimEarth-style!)
 
 ### Visualization Modes
-1. **Terrain**: See the planet surface (oceans, land, forests, deserts, mountains)
+**Standard Views (1-0 keys):**
+1. **Terrain**: See the planet surface (oceans, land, forests, deserts, mountains) with day/night cycle and city lights
 2. **Temperature**: Heat map showing temperature distribution
 3. **Rainfall**: Precipitation patterns across the planet
 4. **Life**: Visualization of life forms and biomass
@@ -74,6 +75,12 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 8. **Geological**: Rock types (volcanic, sedimentary, crystalline), erosion, sedimentation
 9. **Tectonic Plates**: See all 8 plates with boundaries highlighted
 10. **Volcanoes**: Volcanic activity and lava flows
+
+**Meteorology Views (F1-F4 keys):**
+11. **Clouds (F1)**: Cloud cover visualization with storm clouds
+12. **Wind (F2)**: Wind speed and direction patterns (calm to extreme)
+13. **Pressure (F3)**: Air pressure systems (low pressure = blue, high pressure = red)
+14. **Storms (F4)**: Active storms with precipitation and wind intensity
 
 ### Geological Overlays (Toggle On/Off)
 - **Volcanoes**: Red triangles showing active volcanoes
@@ -133,7 +140,12 @@ dotnet run
 | **8** | Geological view (rock types, erosion) |
 | **9** | Tectonic Plates view |
 | **0** | Volcanoes view |
+| **F1** | Clouds view (meteorology) |
+| **F2** | Wind view (meteorology) |
+| **F3** | Air Pressure view (meteorology) |
+| **F4** | Storms view (meteorology) |
 | **+/-** | Increase/Decrease time speed |
+| **C** | Toggle day/night cycle (auto-enabled at <0.5x speed) |
 | **L** | Seed new life forms |
 | **M** | Open map generation options menu |
 | **P** | Toggle 3D rotating minimap |
@@ -145,6 +157,8 @@ dotnet run
 | **F5** | Quick save game |
 | **F9** | Quick load game |
 | **ESC** | Pause menu / Back to main menu |
+| **Mouse Wheel** | Zoom in/out (0.5x to 4.0x) |
+| **Middle Click + Drag** | Pan camera around the map |
 
 ### Map Options Menu (Press M)
 
@@ -320,14 +334,26 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-This complete overhaul includes:
+### Latest Update - Visual & Interaction Enhancements
+- ✅ **Day/Night Cycle** - Cities light up at night! Auto-enables when time speed drops below 0.5x
+- ✅ **4 New Meteorology Views** - Clouds (F1), Wind (F2), Air Pressure (F3), Storms (F4)
+- ✅ **Mouse Pan & Zoom** - Mouse wheel to zoom (0.5x-4x), middle-click drag to pan
+- ✅ **Civilization Warfare** - Aggressive civs declare war, conduct battles based on military strength
+- ✅ **Transportation Systems** - Civilizations unlock land transport (horses/cars), ships, and planes as they advance
+- ✅ **Enhanced Expansion** - Civs with ships can colonize islands, planes enable rapid global expansion
+- ✅ **Trade Routes** - Peaceful civilizations establish trade for economic benefits
+- ✅ **War Casualties** - Populations decrease during conflicts, stalemates cause attrition
+- ✅ **Transport-Based Growth** - Expansion rates increase with better transportation
+- ✅ **UI Enhancements** - Shows civilization war status, transportation tech, and population in thousands
+
+### Previous Update - Complete Simulation
 - ✅ **Full save/load system** with quick save (F5) and quick load (F9)
 - ✅ **Main menu and pause menu** for better game management
 - ✅ **Weather simulation** with storms, seasons, and meteorology
 - ✅ **Civilization mechanics** with technology advancement and environmental impact
 - ✅ **Life reactivity** - organisms now respond to all planetary events (volcanoes, earthquakes, storms, climate)
 - ✅ **Enhanced UI** showing civilization info and weather alerts
-- ✅ **Complete geological systems** (already had plate tectonics, now fully integrated with life)
+- ✅ **Complete geological systems** (plate tectonics fully integrated with life)
 - ✅ **Tectonic plate movement and interactions** with realistic boundary types
 
 Enjoy watching your planet evolve!

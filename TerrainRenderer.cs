@@ -17,6 +17,16 @@ public class TerrainRenderer
     public int CellSize { get; set; } = 4;
     public RenderMode Mode { get; set; } = RenderMode.Terrain;
 
+    // Camera controls
+    public float CameraX { get; set; } = 0;
+    public float CameraY { get; set; } = 0;
+    public float ZoomLevel { get; set; } = 1.0f;
+
+    // Day/night cycle
+    public float DayNightTime { get; set; } = 0; // 0-24 hours
+    public bool ShowDayNight { get; set; } = false;
+    public bool ShowCityLights { get; set; } = true;
+
     public TerrainRenderer(PlanetMap map, GraphicsDevice graphicsDevice)
     {
         _map = map;
@@ -42,7 +52,7 @@ public class TerrainRenderer
                 var cell = _map.Cells[x, y];
                 int index = y * _map.Width + x;
 
-                _terrainColors[index] = Mode switch
+                Color baseColor = Mode switch
                 {
                     RenderMode.Terrain => GetTerrainColor(cell),
                     RenderMode.Temperature => GetTemperatureColor(cell),
@@ -54,19 +64,73 @@ public class TerrainRenderer
                     RenderMode.Geological => GetGeologicalColor(cell),
                     RenderMode.TectonicPlates => GetTectonicPlateColor(cell),
                     RenderMode.Volcanoes => GetVolcanoColor(cell),
+                    RenderMode.Clouds => GetCloudsColor(cell),
+                    RenderMode.Wind => GetWindColor(cell),
+                    RenderMode.Pressure => GetPressureColor(cell),
+                    RenderMode.Storms => GetStormsColor(cell),
                     _ => Color.Black
                 };
+
+                // Apply day/night cycle if enabled
+                if (ShowDayNight && Mode == RenderMode.Terrain)
+                {
+                    baseColor = ApplyDayNightCycle(baseColor, cell, x);
+                }
+
+                _terrainColors[index] = baseColor;
             }
         }
 
         _terrainTexture.SetData(_terrainColors);
     }
 
+    private Color ApplyDayNightCycle(Color baseColor, TerrainCell cell, int x)
+    {
+        // Calculate longitude-based lighting (simulate planet rotation)
+        // DayNightTime goes from 0-24, representing hours
+        float longitude = (float)x / _map.Width; // 0 to 1
+        float sunPosition = (DayNightTime / 24.0f); // 0 to 1
+
+        // Calculate how far this cell is from the "noon" position
+        float distanceFromNoon = Math.Abs(longitude - sunPosition);
+        if (distanceFromNoon > 0.5f) distanceFromNoon = 1.0f - distanceFromNoon; // Wrap around
+
+        // Convert to lighting (0 = midnight, 0.25 = noon)
+        float lighting = 1.0f - (distanceFromNoon * 4.0f); // 0 to 1, where 1 is full daylight
+        lighting = Math.Clamp(lighting, 0.0f, 1.0f);
+
+        // Create dusk/dawn effect
+        Color nightColor = new Color(20, 20, 40); // Dark blue for night
+        Color dayColor = baseColor;
+
+        // Blend between night and day
+        Color litColor = Color.Lerp(nightColor, dayColor, lighting);
+
+        // Add city lights at night if civilization is present
+        if (ShowCityLights && cell.LifeType == LifeForm.Civilization && cell.Biomass > 0.5f && lighting < 0.3f)
+        {
+            // Brighter lights in darker areas
+            float cityLight = (0.3f - lighting) / 0.3f; // 0 to 1, brighter when darker
+            Color lightColor = new Color(255, 220, 100); // Warm city light
+            litColor = Color.Lerp(litColor, lightColor, cityLight * cell.Biomass * 0.6f);
+        }
+
+        return litColor;
+    }
+
     public void Draw(SpriteBatch spriteBatch, int offsetX, int offsetY)
     {
+        // Calculate zoomed size
+        int zoomedWidth = (int)(_map.Width * CellSize * ZoomLevel);
+        int zoomedHeight = (int)(_map.Height * CellSize * ZoomLevel);
+
+        // Apply camera offset
+        int camX = offsetX - (int)CameraX;
+        int camY = offsetY - (int)CameraY;
+
         spriteBatch.Draw(
             _terrainTexture,
-            new Rectangle(offsetX, offsetY, _map.Width * CellSize, _map.Height * CellSize),
+            new Rectangle(camX, camY, zoomedWidth, zoomedHeight),
             Color.White
         );
     }
@@ -264,6 +328,125 @@ public class TerrainRenderer
         return baseColor;
     }
 
+    private Color GetCloudsColor(TerrainCell cell)
+    {
+        var met = cell.GetMeteorology();
+
+        // Base sky color
+        Color skyColor = cell.IsWater ? new Color(100, 150, 220) : new Color(135, 206, 235);
+
+        // Cloud coverage
+        if (met.CloudCover > 0.1f)
+        {
+            Color cloudColor = new Color(255, 255, 255);
+            if (met.CloudCover > 0.7f)
+            {
+                cloudColor = new Color(180, 180, 190); // Storm clouds
+            }
+
+            return Color.Lerp(skyColor, cloudColor, met.CloudCover);
+        }
+
+        return skyColor;
+    }
+
+    private Color GetWindColor(TerrainCell cell)
+    {
+        var met = cell.GetMeteorology();
+
+        // Base terrain faded
+        Color baseColor = Color.Lerp(GetTerrainColor(cell), Color.Gray, 0.5f);
+
+        // Wind speed as color intensity
+        float windSpeed = MathF.Sqrt(met.WindX * met.WindX + met.WindY * met.WindY);
+
+        if (windSpeed < 0.1f)
+        {
+            return Color.Lerp(baseColor, new Color(200, 200, 255), 0.3f); // Calm - blue
+        }
+        else if (windSpeed < 0.3f)
+        {
+            return Color.Lerp(baseColor, Color.Green, 0.5f); // Gentle - green
+        }
+        else if (windSpeed < 0.6f)
+        {
+            return Color.Lerp(baseColor, Color.Yellow, 0.6f); // Moderate - yellow
+        }
+        else if (windSpeed < 1.0f)
+        {
+            return Color.Lerp(baseColor, Color.Orange, 0.7f); // Strong - orange
+        }
+        else
+        {
+            return Color.Lerp(baseColor, Color.Red, 0.8f); // Extreme - red
+        }
+    }
+
+    private Color GetPressureColor(TerrainCell cell)
+    {
+        var met = cell.GetMeteorology();
+
+        // Map pressure to color gradient
+        // Low pressure (< 0.4) = Blue (storms)
+        // Normal pressure (0.4 - 0.6) = Green
+        // High pressure (> 0.6) = Red (fair weather)
+
+        if (met.AirPressure < 0.3f)
+        {
+            return new Color(0, 0, 200); // Deep low pressure
+        }
+        else if (met.AirPressure < 0.4f)
+        {
+            return new Color(50, 50, 255); // Low pressure
+        }
+        else if (met.AirPressure < 0.5f)
+        {
+            return new Color(100, 200, 100); // Normal-low
+        }
+        else if (met.AirPressure < 0.6f)
+        {
+            return new Color(100, 255, 100); // Normal-high
+        }
+        else if (met.AirPressure < 0.7f)
+        {
+            return new Color(255, 200, 100); // High pressure
+        }
+        else
+        {
+            return new Color(255, 100, 100); // Very high pressure
+        }
+    }
+
+    private Color GetStormsColor(TerrainCell cell)
+    {
+        var met = cell.GetMeteorology();
+
+        // Base terrain
+        Color baseColor = GetTerrainColor(cell);
+
+        // Show precipitation intensity
+        if (met.Precipitation > 0.1f)
+        {
+            Color rainColor = new Color(100, 100, 200);
+            baseColor = Color.Lerp(baseColor, rainColor, met.Precipitation);
+        }
+
+        // Highlight areas with high wind (storms)
+        float windSpeed = MathF.Sqrt(met.WindX * met.WindX + met.WindY * met.WindY);
+        if (windSpeed > 0.8f)
+        {
+            baseColor = Color.Lerp(baseColor, Color.Red, (windSpeed - 0.8f) * 2.0f);
+        }
+
+        // Show cloud cover for storm systems
+        if (met.CloudCover > 0.7f)
+        {
+            baseColor = Color.Lerp(baseColor, new Color(80, 80, 80), (met.CloudCover - 0.7f));
+        }
+
+        return baseColor;
+    }
+
     public void Dispose()
     {
         _pixelTexture?.Dispose();
@@ -282,5 +465,9 @@ public enum RenderMode
     Elevation,
     Geological,
     TectonicPlates,
-    Volcanoes
+    Volcanoes,
+    Clouds,
+    Wind,
+    Pressure,
+    Storms
 }

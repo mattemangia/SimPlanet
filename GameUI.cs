@@ -95,8 +95,22 @@ public class GameUI
             for (int i = 0; i < civCount; i++)
             {
                 var civ = _civilizationManager.Civilizations[i];
-                DrawText($"{civ.Name} ({civ.CivType})", Color.Yellow);
-                DrawText($"  Pop: {civ.Population} Tech: {civ.TechnologyLevel}", Color.White);
+                Color nameColor = civ.AtWar ? Color.Red : Color.Yellow;
+                string warStatus = civ.AtWar ? " [WAR]" : "";
+                DrawText($"{civ.Name}{warStatus}", nameColor);
+                DrawText($"  {civ.CivType} - Pop: {civ.Population / 1000}K", Color.White);
+
+                // Transportation icons
+                string transport = "  Transport: ";
+                if (civ.HasAirTransport) transport += "[Planes] ";
+                else if (civ.HasSeaTransport) transport += "[Ships] ";
+                else if (civ.HasLandTransport) transport += "[Land] ";
+                else transport += "[None]";
+
+                if (civ.HasAirTransport || civ.HasSeaTransport || civ.HasLandTransport)
+                {
+                    DrawText(transport, Color.Cyan);
+                }
             }
             if (_civilizationManager.Civilizations.Count > 3)
             {
@@ -130,8 +144,8 @@ public class GameUI
     {
         int panelX = 340;
         int panelY = 10;
-        int panelWidth = 450;
-        int panelHeight = 400;
+        int panelWidth = 480;
+        int panelHeight = 480;
 
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 180));
 
@@ -150,7 +164,13 @@ public class GameUI
         DrawText("  1: Terrain  2: Temp  3: Rain", Color.Gray);
         DrawText("  4: Life  5: O2  6: CO2  7: Elev", Color.Gray);
         DrawText("  8: Geology  9: Plates  0: Volc", Color.Gray);
+        DrawText("F1-F4: Meteorology views", Color.White);
+        DrawText("  F1: Clouds  F2: Wind", Color.Gray);
+        DrawText("  F3: Pressure  F4: Storms", Color.Gray);
         DrawText("+/-: Time speed  L: Seed life", Color.White);
+        DrawText("C: Day/Night cycle (auto at <0.5x)", Color.Cyan);
+        DrawText("Mouse Wheel: Zoom", Color.Cyan);
+        DrawText("Middle Click+Drag: Pan camera", Color.Cyan);
         DrawText("P: 3D Minimap  M: Map options", Color.White);
         DrawText("V/B/N: Volc/Rivers/Plates", Color.White);
         DrawText("R: Regenerate  H: Help", Color.White);

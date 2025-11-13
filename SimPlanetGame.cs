@@ -40,6 +40,7 @@ public class SimPlanetGame : Game
 
     // Input
     private KeyboardState _previousKeyState;
+    private MouseState _previousMouseState;
 
     // Map generation settings
     private MapGenerationOptions _mapOptions;
@@ -103,6 +104,7 @@ public class SimPlanetGame : Game
         };
 
         _previousKeyState = Keyboard.GetState();
+        _previousMouseState = Mouse.GetState();
     }
 
     protected override void LoadContent()
@@ -179,6 +181,19 @@ public class SimPlanetGame : Game
             // Update UI systems
             _minimap3D.Update(deltaTime);
             _eventsUI.Update(_gameState.Year);
+
+            // Update day/night cycle (24 hours = 1 day)
+            _terrainRenderer.DayNightTime += deltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
+            if (_terrainRenderer.DayNightTime >= 24.0f)
+            {
+                _terrainRenderer.DayNightTime -= 24.0f;
+            }
+
+            // Auto-enable day/night when time is very slow
+            if (_gameState.TimeSpeed <= 0.5f)
+            {
+                _terrainRenderer.ShowDayNight = true;
+            }
         }
 
         base.Update(gameTime);
@@ -221,6 +236,47 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.D8)) _currentRenderMode = RenderMode.Geological;
         if (keyState.IsKeyDown(Keys.D9)) _currentRenderMode = RenderMode.TectonicPlates;
         if (keyState.IsKeyDown(Keys.D0)) _currentRenderMode = RenderMode.Volcanoes;
+
+        // Meteorology view modes (F1-F4)
+        if (keyState.IsKeyDown(Keys.F1) && _previousKeyState.IsKeyUp(Keys.F1))
+            _currentRenderMode = RenderMode.Clouds;
+        if (keyState.IsKeyDown(Keys.F2) && _previousKeyState.IsKeyUp(Keys.F2))
+            _currentRenderMode = RenderMode.Wind;
+        if (keyState.IsKeyDown(Keys.F3) && _previousKeyState.IsKeyUp(Keys.F3))
+            _currentRenderMode = RenderMode.Pressure;
+        if (keyState.IsKeyDown(Keys.F4) && _previousKeyState.IsKeyUp(Keys.F4))
+            _currentRenderMode = RenderMode.Storms;
+
+        // Toggle day/night cycle (C key)
+        if (keyState.IsKeyDown(Keys.C) && _previousKeyState.IsKeyUp(Keys.C))
+        {
+            _terrainRenderer.ShowDayNight = !_terrainRenderer.ShowDayNight;
+        }
+
+        // Mouse controls for pan and zoom
+        var mouseState = Mouse.GetState();
+
+        // Middle mouse button for panning
+        if (mouseState.MiddleButton == ButtonState.Pressed)
+        {
+            if (_previousMouseState.MiddleButton == ButtonState.Pressed)
+            {
+                float dx = mouseState.X - _previousMouseState.X;
+                float dy = mouseState.Y - _previousMouseState.Y;
+                _terrainRenderer.CameraX -= dx;
+                _terrainRenderer.CameraY -= dy;
+            }
+        }
+
+        // Mouse wheel for zoom
+        int scrollDelta = mouseState.ScrollWheelValue - _previousMouseState.ScrollWheelValue;
+        if (scrollDelta != 0)
+        {
+            float zoomChange = scrollDelta > 0 ? 1.1f : 0.9f;
+            _terrainRenderer.ZoomLevel = Math.Clamp(_terrainRenderer.ZoomLevel * zoomChange, 0.5f, 4.0f);
+        }
+
+        _previousMouseState = mouseState;
 
         // Seed life
         if (keyState.IsKeyDown(Keys.L) && _previousKeyState.IsKeyUp(Keys.L))
