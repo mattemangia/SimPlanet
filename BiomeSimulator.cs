@@ -39,16 +39,26 @@ public class BiomeSimulator
                 if (!cell.IsLand) continue;
 
                 Biome previousBiome = cell.GetBiomeData().CurrentBiome;
-                Biome newBiome = DetermineBiome(cell);
+                Biome targetBiome = DetermineBiome(cell, x, y);
 
-                // Biome transition
-                if (newBiome != previousBiome)
+                // Gradual transition: allow neighbors to influence if close to boundary
+                targetBiome = BlendWithNeighbors(x, y, targetBiome);
+
+                // Biome transition (gradual)
+                if (targetBiome != previousBiome)
                 {
-                    TransitionBiome(cell, previousBiome, newBiome, x, y);
+                    // Gradual succession - check if transition is allowed
+                    if (CanTransitionTo(previousBiome, targetBiome))
+                    {
+                        TransitionBiome(cell, previousBiome, targetBiome, x, y);
+                    }
                 }
 
                 // Biome-specific processes
-                ApplyBiomeEffects(cell, newBiome, x, y);
+                ApplyBiomeEffects(cell, cell.GetBiomeData().CurrentBiome, x, y);
+
+                // Ecological succession on new land
+                ApplySuccession(cell, x, y);
             }
         }
     }
