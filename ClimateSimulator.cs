@@ -31,14 +31,18 @@ public class ClimateSimulator
             {
                 var cell = _map.Cells[x, y];
 
-                // Base temperature from latitude
+                // Base temperature from latitude with stronger polar cooling
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
-                float solarHeating = (30 - latitude * 40) * _map.SolarEnergy;
 
-                // Elevation cooling
+                // Realistic temperature gradient: hot equator, freezing poles
+                // Equator (lat=0): ~30°C, Poles (lat=1): ~-40°C
+                float baseTemp = 30 - (latitude * latitude * 70); // Quadratic for stronger polar effect
+                float solarHeating = baseTemp * _map.SolarEnergy;
+
+                // Elevation cooling (6.5°C per km, roughly 0.65°C per 0.1 elevation)
                 if (cell.Elevation > 0)
                 {
-                    solarHeating -= cell.Elevation * 15;
+                    solarHeating -= cell.Elevation * 20; // Increased cooling
                 }
 
                 // Greenhouse effect
@@ -107,9 +111,34 @@ public class ClimateSimulator
                     orographicEffect = (cell.Elevation - 0.4f) * 0.5f;
                 }
 
-                // Equatorial regions get more rain
+                // Realistic atmospheric circulation patterns (Hadley, Ferrel, Polar cells)
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
-                float latitudeEffect = 1.0f - latitude * 0.6f;
+
+                float latitudeEffect;
+                if (latitude < 0.15f)
+                {
+                    // ITCZ (Intertropical Convergence Zone) - Heavy rainfall at equator
+                    latitudeEffect = 1.5f;
+                }
+                else if (latitude < 0.4f)
+                {
+                    // Subtropical high pressure - Deserts (Hadley cell descending air)
+                    // Peak aridity around 25-30 degrees (0.25-0.35 latitude)
+                    float desertPeak = 0.27f;
+                    float desertStrength = 1.0f - Math.Abs(latitude - desertPeak) / 0.15f;
+                    desertStrength = Math.Clamp(desertStrength, 0, 1);
+                    latitudeEffect = 0.2f + (0.4f * (1.0f - desertStrength)); // Very dry
+                }
+                else if (latitude < 0.7f)
+                {
+                    // Mid-latitudes (Ferrel cell) - Moderate rainfall
+                    latitudeEffect = 0.8f + (1.0f - ((latitude - 0.4f) / 0.3f)) * 0.4f;
+                }
+                else
+                {
+                    // Polar regions - Cold deserts (low moisture capacity)
+                    latitudeEffect = 0.3f;
+                }
 
                 float targetRainfall = (evaporation + orographicEffect) * latitudeEffect;
                 targetRainfall = Math.Clamp(targetRainfall, 0, 1);

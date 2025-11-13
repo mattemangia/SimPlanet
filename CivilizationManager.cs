@@ -134,6 +134,20 @@ public class CivilizationManager
             {
                 civ.HasAirTransport = true; // Airplanes
             }
+            if (civ.TechLevel >= 70 && !civ.HasNuclearWeapons)
+            {
+                civ.HasNuclearWeapons = true; // Nuclear weapons
+                civ.NuclearStockpile = 5; // Initial stockpile
+            }
+        }
+
+        // Build nuclear stockpile for advanced civilizations
+        if (civ.HasNuclearWeapons && civ.NuclearStockpile < 50)
+        {
+            if (_random.NextDouble() < 0.01 * deltaTime)
+            {
+                civ.NuclearStockpile++;
+            }
         }
 
         // Update military strength based on population and tech
@@ -211,25 +225,37 @@ public class CivilizationManager
 
     private void ApplyEnvironmentalImpact(Civilization civ, float deltaTime)
     {
+        // Calculate base pollution per territory cell based on civ type
+        float baseEmissions = civ.CivType switch
+        {
+            CivType.Tribal => 0.01f,
+            CivType.Agricultural => 0.05f,
+            CivType.Industrial => 2.5f,        // Massive emissions during industrial revolution
+            CivType.Scientific => 1.0f,        // Still polluting but more efficient
+            CivType.Spacefaring => 0.3f,       // Advanced tech, cleaner energy
+            _ => 0
+        };
+
+        // Scale by population (more people = more emissions)
+        float populationFactor = 1.0f + (civ.Population / 100000f);
+
+        // Eco-friendly civilizations pollute much less
+        float ecoMultiplier = 1.0f - (civ.EcoFriendliness * 0.7f);
+
+        // Climate agreements reduce emissions
+        float agreementMultiplier = 1.0f - civ.EmissionReduction;
+
+        float actualEmissions = baseEmissions * populationFactor * ecoMultiplier * agreementMultiplier;
+
+        // Global emissions spread across planet
+        float globalEmissionsPerCell = (actualEmissions * civ.Territory.Count) / (_map.Width * _map.Height);
+
         foreach (var (x, y) in civ.Territory)
         {
             var cell = _map.Cells[x, y];
 
-            // Pollution and CO2 emissions
-            float pollution = civ.CivType switch
-            {
-                CivType.Tribal => 0.01f,
-                CivType.Agricultural => 0.05f,
-                CivType.Industrial => 0.5f,
-                CivType.Scientific => 0.2f,
-                CivType.Spacefaring => 0.1f,
-                _ => 0
-            };
-
-            // Eco-friendly civilizations pollute less
-            pollution *= (1.0f - civ.EcoFriendliness * 0.5f);
-
-            cell.CO2 += pollution * deltaTime;
+            // Local pollution in civilization territory
+            cell.CO2 += actualEmissions * deltaTime;
 
             // Deforestation (except eco-friendly civs)
             if (cell.IsForest && civ.EcoFriendliness < 0.5f && _random.NextDouble() < 0.001)
@@ -249,13 +275,30 @@ public class CivilizationManager
                         cell.Biomass += 0.01f * deltaTime;
                     }
 
-                    // Carbon capture
+                    // Carbon capture technology
                     if (cell.CO2 > 1.0f)
                     {
-                        cell.CO2 -= 0.1f * deltaTime;
+                        cell.CO2 -= 0.2f * deltaTime;
                     }
                 }
             }
+        }
+
+        // Spread global emissions across entire planet (atmospheric mixing happens faster)
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                _map.Cells[x, y].CO2 += globalEmissionsPerCell * deltaTime * 0.1f;
+            }
+        }
+
+        // Industrial civilizations affect solar energy (global warming)
+        if (civ.CivType == CivType.Industrial || civ.CivType == CivType.Scientific)
+        {
+            // Increase greenhouse effect globally
+            _map.SolarEnergy += 0.0001f * actualEmissions * deltaTime;
+            _map.SolarEnergy = Math.Clamp(_map.SolarEnergy, 0.8f, 1.5f);
         }
     }
 
@@ -332,25 +375,60 @@ public class CivilizationManager
                             civ2.WarTargetId = civ1.Id;
                         }
 
-                        // Conduct warfare - stronger civ takes territory
-                        if (civ1.MilitaryStrength > civ2.MilitaryStrength * 1.5f)
+                        // Nuclear warfare - escalates if both have nukes and war is desperate
+                        bool nuclearWarfare = false;
+                        if (civ1.HasNuclearWeapons && civ2.HasNuclearWeapons &&
+                            (civ1.Population < 50000 || civ2.Population < 50000))
                         {
-                            ConquerTerritory(civ1, civ2);
-                            // Population losses from war
-                            civ1.Population = (int)(civ1.Population * 0.95f);
-                            civ2.Population = (int)(civ2.Population * 0.85f);
+                            // Desperate situation - risk of nuclear exchange
+                            if (_random.NextDouble() < 0.05)
+                            {
+                                nuclearWarfare = true;
+                                LaunchNuclearStrike(civ1, civ2, 0);
+                                // Retaliation
+                                if (civ2.NuclearStockpile > 0 && _random.NextDouble() < 0.8)
+                                {
+                                    LaunchNuclearStrike(civ2, civ1, 0);
+                                }
+                            }
                         }
-                        else if (civ2.MilitaryStrength > civ1.MilitaryStrength * 1.5f)
+
+                        if (!nuclearWarfare)
                         {
-                            ConquerTerritory(civ2, civ1);
-                            civ2.Population = (int)(civ2.Population * 0.95f);
-                            civ1.Population = (int)(civ1.Population * 0.85f);
-                        }
-                        else
-                        {
-                            // Stalemate - both lose population
-                            civ1.Population = (int)(civ1.Population * 0.98f);
-                            civ2.Population = (int)(civ2.Population * 0.98f);
+                            // Conventional warfare - stronger civ takes territory
+                            if (civ1.MilitaryStrength > civ2.MilitaryStrength * 1.5f)
+                            {
+                                ConquerTerritory(civ1, civ2);
+                                // Population losses from war
+                                civ1.Population = (int)(civ1.Population * 0.95f);
+                                civ2.Population = (int)(civ2.Population * 0.85f);
+
+                                // Nuclear strike as last resort
+                                if (civ2.HasNuclearWeapons && civ2.Population < 20000 &&
+                                    civ2.NuclearStockpile > 0 && _random.NextDouble() < 0.1)
+                                {
+                                    LaunchNuclearStrike(civ2, civ1, 0);
+                                }
+                            }
+                            else if (civ2.MilitaryStrength > civ1.MilitaryStrength * 1.5f)
+                            {
+                                ConquerTerritory(civ2, civ1);
+                                civ2.Population = (int)(civ2.Population * 0.95f);
+                                civ1.Population = (int)(civ1.Population * 0.85f);
+
+                                // Nuclear strike as last resort
+                                if (civ1.HasNuclearWeapons && civ1.Population < 20000 &&
+                                    civ1.NuclearStockpile > 0 && _random.NextDouble() < 0.1)
+                                {
+                                    LaunchNuclearStrike(civ1, civ2, 0);
+                                }
+                            }
+                            else
+                            {
+                                // Stalemate - both lose population
+                                civ1.Population = (int)(civ1.Population * 0.98f);
+                                civ2.Population = (int)(civ2.Population * 0.98f);
+                            }
                         }
                     }
                     else if (civ1.EcoFriendliness > 0.6f && civ2.EcoFriendliness > 0.6f)
@@ -373,6 +451,26 @@ public class CivilizationManager
                         // Economic benefits
                         civ1.Population += 100;
                         civ2.Population += 100;
+
+                        // Climate agreements for advanced civilizations
+                        if ((civ1.CivType == CivType.Scientific || civ1.CivType == CivType.Spacefaring) &&
+                            (civ2.CivType == CivType.Scientific || civ2.CivType == CivType.Spacefaring))
+                        {
+                            // Check if global CO2 is high enough to motivate action
+                            if (_map.GlobalCO2 > 3.0f && !civ1.InClimateAgreement && !civ2.InClimateAgreement)
+                            {
+                                // Form climate agreement
+                                civ1.InClimateAgreement = true;
+                                civ2.InClimateAgreement = true;
+                                civ1.ClimatePartners.Add(civ2.Id);
+                                civ2.ClimatePartners.Add(civ1.Id);
+
+                                // Emission reduction targets (30-60% reduction)
+                                float reductionTarget = 0.3f + (float)_random.NextDouble() * 0.3f;
+                                civ1.EmissionReduction = Math.Max(civ1.EmissionReduction, reductionTarget);
+                                civ2.EmissionReduction = Math.Max(civ2.EmissionReduction, reductionTarget);
+                            }
+                        }
                     }
                 }
             }
@@ -401,6 +499,70 @@ public class CivilizationManager
     private bool IsCellInCivilization(int x, int y)
     {
         return _civilizations.Any(civ => civ.Territory.Contains((x, y)));
+    }
+
+    private void LaunchNuclearStrike(Civilization attacker, Civilization defender, int currentYear)
+    {
+        if (attacker.NuclearStockpile <= 0) return;
+
+        // Select target in defender's territory
+        var target = defender.Territory.ElementAt(_random.Next(defender.Territory.Count));
+        attacker.NuclearStockpile--;
+        attacker.NuclearStrikes.Add((target.x, target.y, currentYear));
+
+        int strikeX = target.x;
+        int strikeY = target.y;
+
+        // Nuclear blast radius (affects 5x5 area)
+        for (int dx = -5; dx <= 5; dx++)
+        {
+            for (int dy = -5; dy <= 5; dy++)
+            {
+                int nx = (strikeX + dx + _map.Width) % _map.Width;
+                int ny = Math.Clamp(strikeY + dy, 0, _map.Height - 1);
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > 5) continue;
+
+                var cell = _map.Cells[nx, ny];
+                float impactStrength = 1.0f - (distance / 5.0f);
+
+                // Massive destruction
+                cell.Biomass *= 0.1f * (1.0f - impactStrength); // 90% of life destroyed at center
+                cell.Temperature += 200 * impactStrength; // Extreme heat
+                cell.CO2 += 10.0f * impactStrength; // Massive CO2 release
+
+                // Crater formation at ground zero
+                if (distance < 2)
+                {
+                    cell.Elevation -= 0.1f * impactStrength;
+                }
+
+                // Radiation contamination
+                var geo = cell.GetGeology();
+                geo.TectonicStress += 0.5f * impactStrength; // Seismic activity
+
+                // Remove from territories
+                foreach (var civ in _civilizations)
+                {
+                    civ.Territory.Remove((nx, ny));
+                }
+
+                // Convert to wasteland
+                if (distance < 3)
+                {
+                    cell.LifeType = LifeForm.None;
+                }
+            }
+        }
+
+        // Global climate impact
+        _map.SolarEnergy += 0.02f; // Nuclear winter temporary effect
+        _map.GlobalCO2 += 0.5f;
+
+        // Massive population loss
+        defender.Population = (int)(defender.Population * 0.3f); // 70% casualties
+        attacker.Population = (int)(attacker.Population * 0.95f); // Some losses from retaliation
     }
 
     public List<Civilization> GetAllCivilizations() => _civilizations;
@@ -454,4 +616,14 @@ public class Civilization
     public bool AtWar { get; set; } = false;
     public int? WarTargetId { get; set; } = null;
     public int MilitaryStrength { get; set; } = 0;
+
+    // Climate agreements
+    public bool InClimateAgreement { get; set; } = false;
+    public List<int> ClimatePartners { get; set; } = new();
+    public float EmissionReduction { get; set; } = 0.0f; // 0-1, how much emissions are reduced
+
+    // Nuclear weapons
+    public bool HasNuclearWeapons { get; set; } = false;
+    public int NuclearStockpile { get; set; } = 0;
+    public List<(int x, int y, int year)> NuclearStrikes { get; set; } = new();
 }

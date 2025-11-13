@@ -112,6 +112,19 @@ public class GameUI
                 {
                     DrawText(transport, Color.Cyan);
                 }
+
+                // Nuclear weapons
+                if (civ.HasNuclearWeapons)
+                {
+                    DrawText($"  Nukes: {civ.NuclearStockpile}", Color.Red);
+                }
+
+                // Climate agreements
+                if (civ.InClimateAgreement)
+                {
+                    int reduction = (int)(civ.EmissionReduction * 100);
+                    DrawText($"  Climate: -{reduction}% emissions", Color.LightGreen);
+                }
             }
             if (_civilizationManager.Civilizations.Count > 3)
             {
@@ -178,6 +191,14 @@ public class GameUI
         DrawText("R: Regenerate  H: Help", Color.White);
         DrawText("F5: Quick Save  F9: Quick Load", Color.Cyan);
         DrawText("ESC: Pause/Menu", Color.White);
+        textY += 5;
+
+        DrawText("=== INTERACTIVE CONTROLS ===", Color.Yellow);
+        DrawText("Use buttons at bottom of screen:", Color.White);
+        DrawText("  Terraform: Restore habitats", Color.Green);
+        DrawText("  Cool: Reduce global temp", Color.LightBlue);
+        DrawText("  Seed Life: Add bacteria", Color.LightGreen);
+        DrawText("  Clear Pollution: Reduce CO2", Color.Cyan);
         textY += 5;
 
         DrawText("=== GAME INFO ===", Color.Cyan);

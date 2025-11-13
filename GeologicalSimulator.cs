@@ -159,26 +159,40 @@ public class GeologicalSimulator
                             // Mountain building or subduction
                             if (plate1.IsOceanic && !plate2.IsOceanic)
                             {
-                                // Oceanic subducts under continental - volcanoes
-                                if (_random.NextDouble() < 0.001)
+                                // Oceanic subducts under continental - volcanic mountain chain
+                                // Creates Andes-like or Cascades-like volcanic arcs
+                                cell.Elevation += 0.003f * relVel; // Mountains build up
+
+                                if (_random.NextDouble() < 0.01) // Increased from 0.001
                                 {
                                     geo.IsVolcano = true;
-                                    geo.VolcanicActivity = 0.5f;
+                                    geo.VolcanicActivity = 0.6f;
+                                    geo.MagmaPressure = 0.3f;
                                 }
+                                geo.TectonicStress += 0.02f;
                             }
                             else if (!plate1.IsOceanic && !plate2.IsOceanic)
                             {
-                                // Continental collision - mountains
-                                cell.Elevation += 0.001f * relVel;
-                                geo.TectonicStress += 0.01f;
+                                // Continental collision - massive mountain ranges (Himalayas-like)
+                                cell.Elevation += 0.005f * relVel; // Increased from 0.001f
+                                geo.TectonicStress += 0.02f;
+
+                                // Occasional volcanism from crustal melting
+                                if (cell.Elevation > 0.6f && _random.NextDouble() < 0.002)
+                                {
+                                    geo.IsVolcano = true;
+                                    geo.VolcanicActivity = 0.3f;
+                                }
                             }
                             else if (plate1.IsOceanic && plate2.IsOceanic)
                             {
-                                // Oceanic-oceanic convergence - island arcs
-                                if (_random.NextDouble() < 0.0005)
+                                // Oceanic-oceanic convergence - island arcs (Japan, Philippines)
+                                if (_random.NextDouble() < 0.005) // Increased from 0.0005
                                 {
-                                    cell.Elevation += 0.02f;
+                                    cell.Elevation += 0.03f;
                                     geo.IsVolcano = true;
+                                    geo.VolcanicActivity = 0.7f;
+                                    geo.MagmaPressure = 0.4f;
                                 }
                             }
                         }
@@ -186,11 +200,21 @@ public class GeologicalSimulator
                         {
                             geo.BoundaryType = PlateBoundaryType.Divergent;
 
-                            // Mid-ocean ridge volcanism
-                            if (cell.IsWater && _random.NextDouble() < 0.0003)
+                            // Mid-ocean ridge volcanism (Iceland-like)
+                            if (cell.IsWater && _random.NextDouble() < 0.003) // Increased from 0.0003
                             {
-                                geo.VolcanicActivity += 0.1f;
-                                cell.Elevation += 0.005f;
+                                geo.IsVolcano = true;
+                                geo.VolcanicActivity = 0.4f;
+                                geo.MagmaPressure = 0.2f;
+                                cell.Elevation += 0.01f; // Underwater volcanoes
+                            }
+
+                            // Continental rifts (East African Rift)
+                            if (cell.IsLand && _random.NextDouble() < 0.002)
+                            {
+                                geo.IsVolcano = true;
+                                geo.VolcanicActivity = 0.5f;
+                                cell.Elevation -= 0.002f; // Rift valleys sink
                             }
                         }
                         else // Transform

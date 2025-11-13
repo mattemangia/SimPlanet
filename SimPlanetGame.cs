@@ -32,6 +32,7 @@ public class SimPlanetGame : Game
     private MapOptionsUI _mapOptionsUI;
     private PlanetMinimap3D _minimap3D;
     private GeologicalEventsUI _eventsUI;
+    private InteractiveControls _interactiveControls;
     private SimpleFont _font;
 
     // Game state
@@ -125,6 +126,7 @@ public class SimPlanetGame : Game
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
+        _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
 
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
@@ -181,6 +183,7 @@ public class SimPlanetGame : Game
             // Update UI systems
             _minimap3D.Update(deltaTime);
             _eventsUI.Update(_gameState.Year);
+            _interactiveControls.Update(deltaTime);
 
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += deltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
@@ -551,6 +554,9 @@ public class SimPlanetGame : Game
         // Update and draw 3D minimap
         _minimap3D.UpdateTexture(_terrainRenderer);
         _minimap3D.Draw(_spriteBatch);
+
+        // Draw interactive controls
+        _interactiveControls.Draw(_spriteBatch);
 
         // Draw pause menu overlay if paused
         if (_mainMenu.CurrentScreen == GameScreen.PauseMenu)
