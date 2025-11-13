@@ -23,7 +23,75 @@ public class GeologicalSimulator
 
         InitializePlates();
         AssignCellsToPlates();
+        InitializeCrustTypes();
         InitializeVolcanicHotspots();
+    }
+
+    private void InitializeCrustTypes()
+    {
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+                var plate = _plates[geo.PlateId];
+
+                // Determine crust type based on plate type and elevation
+                if (cell.IsWater && plate.IsOceanic)
+                {
+                    // Oceanic crust - basaltic
+                    geo.CrustType = CrustType.Oceanic;
+                    geo.CrustThickness = 7.0f + (float)_random.NextDouble() * 3.0f; // 7-10 km
+                    geo.PrimaryRock = RockType.Basalt;
+                    geo.Basalt = 0.7f + (float)_random.NextDouble() * 0.2f; // 70-90% basalt
+                    geo.Granite = 0.05f;
+                    geo.Gabbro = 0.2f; // Lower oceanic crust
+                    geo.Limestone = 0.0f;
+                    geo.CrustAge = _random.Next(0, 200); // Oceanic crust is young (<200 My)
+                    geo.VolcanicRock = geo.Basalt;
+                    geo.CrystallineRock = geo.Basalt + geo.Gabbro;
+                }
+                else if (cell.IsLand || (!plate.IsOceanic))
+                {
+                    // Continental crust - granitic
+                    geo.CrustType = CrustType.Continental;
+                    geo.CrustThickness = 30.0f + (float)_random.NextDouble() * 15.0f; // 30-45 km
+                    geo.PrimaryRock = RockType.Granite;
+                    geo.Granite = 0.5f + (float)_random.NextDouble() * 0.3f; // 50-80% granite
+                    geo.Basalt = 0.1f;
+                    geo.Limestone = 0.1f;
+                    geo.Sandstone = 0.15f;
+                    geo.Shale = 0.15f;
+                    geo.CrustAge = _random.Next(500, 4000); // Continental crust is old (500-4000 My)
+                    geo.CrystallineRock = geo.Granite;
+                    geo.SedimentaryRock = geo.Limestone + geo.Sandstone + geo.Shale;
+                }
+                else
+                {
+                    // Transitional (continental shelf, island arcs)
+                    geo.CrustType = CrustType.Transitional;
+                    geo.CrustThickness = 15.0f + (float)_random.NextDouble() * 10.0f; // 15-25 km
+                    geo.PrimaryRock = RockType.Basalt;
+                    geo.Basalt = 0.4f;
+                    geo.Granite = 0.3f;
+                    geo.Limestone = 0.15f;
+                    geo.Sandstone = 0.1f;
+                    geo.CrustAge = _random.Next(100, 1000);
+                }
+
+                // Initialize carbonate platforms in shallow tropical seas
+                if (cell.IsWater && cell.Elevation > -0.3f && cell.Elevation < 0) // Shallow sea
+                {
+                    float latitude = Math.Abs((float)y / _map.Height - 0.5f);
+                    if (latitude < 0.3f && cell.Temperature > 20) // Tropical
+                    {
+                        geo.IsCarbonatePlatform = true;
+                        geo.Limestone = Math.Min(geo.Limestone + 0.3f, 0.8f);
+                    }
+                }
+            }
+        }
     }
 
     private void InitializePlates()
@@ -109,12 +177,60 @@ public class GeologicalSimulator
             UpdatePlateTectonics(currentYear);
             UpdateVolcanicActivity(currentYear);
             UpdateErosionAndSedimentation(deltaTime);
+            UpdateCarbonatePlatforms(deltaTime);
 
             _geologicalTime = 0;
 
             // Clean up old events
             RecentEruptions.RemoveAll(e => currentYear - e.year > 10);
             if (Earthquakes.Count > 20) Earthquakes.Clear();
+        }
+    }
+
+    private void UpdateCarbonatePlatforms(float deltaTime)
+    {
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+
+                // Carbonate accumulation in warm shallow seas with life
+                if (geo.IsCarbonatePlatform && cell.IsWater)
+                {
+                    // Carbonate production from marine organisms
+                    float productionRate = 0.0f;
+
+                    if (cell.Biomass > 0.3f) // Coral reefs and shelly organisms
+                    {
+                        productionRate = 0.005f * cell.Biomass; // Higher with more life
+                    }
+
+                    // Temperature affects carbonate solubility
+                    if (cell.Temperature > 15 && cell.Temperature < 30)
+                    {
+                        productionRate *= 1.5f; // Optimal temperature
+                    }
+
+                    // Accumulate carbonate
+                    geo.CarbonateLayer += productionRate * deltaTime;
+                    geo.Limestone += productionRate * deltaTime * 0.1f;
+                    geo.SedimentaryRock += productionRate * deltaTime * 0.1f;
+
+                    // Carbonates can build up to shallow platforms
+                    if (geo.CarbonateLayer > 0.5f)
+                    {
+                        cell.Elevation += 0.001f * deltaTime; // Very slow uplift from accumulation
+                    }
+
+                    // Add limestone to sediment column
+                    if (_random.NextDouble() < productionRate)
+                    {
+                        geo.SedimentColumn.Add(SedimentType.Limestone);
+                    }
+                }
+            }
         }
     }
 

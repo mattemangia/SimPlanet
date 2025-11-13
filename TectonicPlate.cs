@@ -47,6 +47,24 @@ public enum EruptionType
     Phreatomagmatic  // Explosive interaction with water
 }
 
+public enum CrustType
+{
+    Oceanic,      // Basaltic, dense, thin (~7 km)
+    Continental,  // Granitic, light, thick (~35 km)
+    Transitional  // Mixed/intermediate
+}
+
+public enum RockType
+{
+    Basalt,        // Oceanic crust, volcanic
+    Granite,       // Continental crust, igneous
+    Gabbro,        // Deep oceanic crust
+    Limestone,     // Carbonate platform, sedimentary
+    Sandstone,     // Sedimentary
+    Shale,         // Fine sedimentary
+    Metamorphic    // Transformed rock
+}
+
 /// <summary>
 /// Extended terrain cell with geological properties
 /// </summary>
@@ -78,6 +96,11 @@ public class GeologicalData
     public float TectonicStress { get; set; }  // Builds up at boundaries
     public float SubductionRate { get; set; }  // Rate of subduction at convergent boundaries
 
+    // Crust properties
+    public CrustType CrustType { get; set; } = CrustType.Continental;
+    public float CrustThickness { get; set; } = 35.0f;  // km (35 continental, 7 oceanic)
+    public RockType PrimaryRock { get; set; } = RockType.Granite;
+
     // Volcanism
     public bool IsVolcano { get; set; }
     public float VolcanicActivity { get; set; }
@@ -92,6 +115,10 @@ public class GeologicalData
     public float RockHardness { get; set; } = 0.5f;
     public List<SedimentType> SedimentColumn { get; set; } = new();  // Sediment column from bottom to top
 
+    // Marine sedimentation
+    public bool IsCarbonatePlatform { get; set; } = false;  // Shallow sea with carbonate deposition
+    public float CarbonateLayer { get; set; } = 0.0f;       // Thickness of carbonate sediments
+
     // Hydrology
     public float WaterFlow { get; set; }
     public int RiverId { get; set; }
@@ -103,7 +130,14 @@ public class GeologicalData
 
     // Age and composition
     public int CrustAge { get; set; }  // Millions of years
-    public float CrystallineRock { get; set; } = 0.5f;
-    public float SedimentaryRock { get; set; } = 0.3f;
-    public float VolcanicRock { get; set; } = 0.2f;
+    public float CrystallineRock { get; set; } = 0.5f;  // Granite, gabbro
+    public float SedimentaryRock { get; set; } = 0.3f;  // Sandstone, limestone, shale
+    public float VolcanicRock { get; set; } = 0.2f;     // Basalt
+
+    // Detailed rock composition
+    public float Basalt { get; set; } = 0.2f;      // Oceanic crust
+    public float Granite { get; set; } = 0.5f;     // Continental crust
+    public float Limestone { get; set; } = 0.1f;   // Carbonate
+    public float Sandstone { get; set; } = 0.1f;   // Clastic sediment
+    public float Shale { get; set; } = 0.1f;       // Fine sediment
 }
