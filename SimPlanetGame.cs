@@ -75,8 +75,6 @@ public class SimPlanetGame : Game
 
     protected override void Initialize()
     {
-        base.Initialize();
-
         // Initialize map generation options with defaults
         _mapOptions = new MapGenerationOptions
         {
@@ -121,6 +119,9 @@ public class SimPlanetGame : Game
 
         _previousKeyState = Keyboard.GetState();
         _previousMouseState = Mouse.GetState();
+
+        // Call base.Initialize() LAST so LoadContent() can use the initialized data
+        base.Initialize();
     }
 
     protected override void LoadContent()

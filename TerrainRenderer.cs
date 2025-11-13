@@ -46,6 +46,11 @@ public class TerrainRenderer
 
     public TerrainRenderer(PlanetMap map, GraphicsDevice graphicsDevice)
     {
+        if (map == null)
+            throw new ArgumentNullException(nameof(map), "PlanetMap cannot be null");
+        if (graphicsDevice == null)
+            throw new ArgumentNullException(nameof(graphicsDevice), "GraphicsDevice cannot be null");
+
         _map = map;
         _graphicsDevice = graphicsDevice;
 

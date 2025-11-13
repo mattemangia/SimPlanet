@@ -102,6 +102,18 @@ public class CivilizationManager
         float growthRate = 1.0f + civ.EcoFriendliness * 0.5f;
         civ.Population += (int)(civ.Population * 0.01f * growthRate * deltaTime * foodModifier);
 
+        // Create cities as population grows
+        int expectedCities = Math.Max(1, civ.Population / 10000); // 1 city per 10,000 people
+        if (civ.Cities.Count < expectedCities && civ.TechLevel >= 3)
+        {
+            // Find a good location for a new city
+            if (civ.Territory.Count > 0)
+            {
+                var location = civ.Territory.ElementAt(_random.Next(civ.Territory.Count));
+                CreateCity(civ, location.x, location.y);
+            }
+        }
+
         // Technology advancement
         if (_random.NextDouble() < 0.01 * deltaTime)
         {
@@ -133,6 +145,11 @@ public class CivilizationManager
             if (civ.TechLevel >= 15 && !civ.HasSeaTransport)
             {
                 civ.HasSeaTransport = true; // Ships
+            }
+            if (civ.TechLevel >= 25 && !civ.HasRailTransport)
+            {
+                civ.HasRailTransport = true; // Trains/railroads
+                BuildRailroads(civ); // Build railroads connecting cities
             }
             if (civ.TechLevel >= 50 && !civ.HasAirTransport)
             {
@@ -680,6 +697,89 @@ public class CivilizationManager
 
     public List<Civilization> GetAllCivilizations() => _civilizations;
 
+    private void BuildRailroads(Civilization civ)
+    {
+        // Build railroads connecting major cities
+        if (civ.Cities.Count < 2) return;
+
+        // Connect nearest cities with railroads
+        for (int i = 0; i < civ.Cities.Count; i++)
+        {
+            var city1 = civ.Cities[i];
+            // Find nearest city
+            City? nearestCity = null;
+            float minDist = float.MaxValue;
+
+            for (int j = 0; j < civ.Cities.Count; j++)
+            {
+                if (i == j) continue;
+                var city2 = civ.Cities[j];
+                float dist = MathF.Sqrt((city1.X - city2.X) * (city1.X - city2.X) +
+                                       (city1.Y - city2.Y) * (city1.Y - city2.Y));
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                    nearestCity = city2;
+                }
+            }
+
+            if (nearestCity != null &&
+                !civ.Railroads.Any(r => (r.x1 == city1.X && r.y1 == city1.Y && r.x2 == nearestCity.X && r.y2 == nearestCity.Y) ||
+                                       (r.x2 == city1.X && r.y2 == city1.Y && r.x1 == nearestCity.X && r.y1 == nearestCity.Y)))
+            {
+                civ.Railroads.Add((city1.X, city1.Y, nearestCity.X, nearestCity.Y));
+            }
+        }
+    }
+
+    private void CreateCity(Civilization civ, int x, int y)
+    {
+        var city = new City
+        {
+            Id = civ.Cities.Count + 1,
+            Name = GenerateCityName(civ),
+            X = x,
+            Y = y,
+            Population = 1000 + _random.Next(5000),
+            CivilizationId = civ.Id,
+            Founded = 0 // Set by caller
+        };
+
+        civ.Cities.Add(city);
+    }
+
+    private static readonly string[] CityPrefixes = new[]
+    {
+        "New", "Old", "North", "South", "East", "West", "Upper", "Lower",
+        "Great", "Little", "Fort", "Port", "San", "Saint"
+    };
+
+    private static readonly string[] CitySuffixes = new[]
+    {
+        "ville", "town", "city", "burg", "port", "haven", "field", "ford",
+        "dale", "shire", "land", "stead", "ton", "ham", "chester"
+    };
+
+    private static readonly string[] CityNames = new[]
+    {
+        "Ashford", "Brightwater", "Clearspring", "Deepwood", "Eastmarch",
+        "Fairhaven", "Goldfield", "Highmont", "Ironforge", "Jadehaven",
+        "Kingsport", "Lakeview", "Meadowbrook", "Northwind", "Oakdale",
+        "Pinecrest", "Queenstown", "Riverdale", "Stonebridge", "Thornbury",
+        "Underhill", "Valleyview", "Westport", "Yewdale", "Zenith"
+    };
+
+    private string GenerateCityName(Civilization civ)
+    {
+        // Use a combination of civ name and random elements
+        if (_random.NextDouble() < 0.5 && civ.Cities.Count == 0)
+        {
+            return civ.Name + " Capital";
+        }
+
+        return CityNames[_random.Next(CityNames.Length)] + " " + (civ.Cities.Count + 1);
+    }
+
     public void LoadCivilizations(List<CivilizationData> civData)
     {
         _civilizations.Clear();
@@ -721,9 +821,15 @@ public class Civilization
 
     // Transportation
     public bool HasLandTransport { get; set; } = false; // Horses, cars
+    public bool HasRailTransport { get; set; } = false; // Trains, railroads
     public bool HasSeaTransport { get; set; } = false; // Ships
     public bool HasAirTransport { get; set; } = false; // Planes
     public List<(int x, int y)> TradeRoutes { get; set; } = new();
+    public List<(int x1, int y1, int x2, int y2)> Railroads { get; set; } = new(); // Railroad lines
+
+    // Commerce
+    public List<City> Cities { get; set; } = new();
+    public float TradeIncome { get; set; } = 0.0f; // Income from trade per year
 
     // War status
     public bool AtWar { get; set; } = false;
@@ -750,4 +856,37 @@ public class Civilization
     public float StoneProduction { get; set; } = 0.0f;   // Per year
     public float MetalProduction { get; set; } = 0.0f;   // Per year
     public float FoodConsumption { get; set; } = 0.0f;   // Per year (based on population)
+}
+
+/// <summary>
+/// Represents a city within a civilization
+/// </summary>
+public class City
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Population { get; set; }
+    public CityType Type { get; set; } = CityType.Village;
+    public int CivilizationId { get; set; }
+    public int Founded { get; set; }
+
+    // Production specialization
+    public float FoodProduction { get; set; }
+    public float IndustrialProduction { get; set; }
+    public float ScienceProduction { get; set; }
+    public float TradeProduction { get; set; }
+
+    // Commerce
+    public List<int> TradingWith { get; set; } = new(); // IDs of other cities
+    public float TradeVolume { get; set; } = 0.0f;
+}
+
+public enum CityType
+{
+    Village,     // < 1000 pop
+    Town,        // 1000-5000
+    City,        // 5000-50000
+    Metropolis   // > 50000
 }
