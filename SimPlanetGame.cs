@@ -17,11 +17,15 @@ public class SimPlanetGame : Game
     private ClimateSimulator _climateSimulator;
     private AtmosphereSimulator _atmosphereSimulator;
     private LifeSimulator _lifeSimulator;
+    private GeologicalSimulator _geologicalSimulator;
+    private HydrologySimulator _hydrologySimulator;
 
     // Rendering
     private TerrainRenderer _terrainRenderer;
     private GameUI _ui;
     private MapOptionsUI _mapOptionsUI;
+    private PlanetMinimap3D _minimap3D;
+    private GeologicalEventsUI _eventsUI;
     private SimpleFont _font;
 
     // Game state
@@ -72,6 +76,8 @@ public class SimPlanetGame : Game
         _climateSimulator = new ClimateSimulator(_map);
         _atmosphereSimulator = new AtmosphereSimulator(_map);
         _lifeSimulator = new LifeSimulator(_map);
+        _geologicalSimulator = new GeologicalSimulator(_map, _mapOptions.Seed);
+        _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -102,6 +108,9 @@ public class SimPlanetGame : Game
         // Create UI
         _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
         _mapOptionsUI = new MapOptionsUI(_spriteBatch, _font, GraphicsDevice);
+        _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+        _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
+        _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
     }
 
     protected override void Update(GameTime gameTime)
@@ -132,9 +141,15 @@ public class SimPlanetGame : Game
             _climateSimulator.Update(deltaTime);
             _atmosphereSimulator.Update(deltaTime);
             _lifeSimulator.Update(deltaTime);
+            _geologicalSimulator.Update(deltaTime, _gameState.Year);
+            _hydrologySimulator.Update(deltaTime);
 
             // Update global temperature average
             UpdateGlobalStats();
+
+            // Update UI systems
+            _minimap3D.Update(deltaTime);
+            _eventsUI.Update(_gameState.Year);
         }
 
         base.Update(gameTime);
@@ -174,6 +189,9 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.D5)) _currentRenderMode = RenderMode.Oxygen;
         if (keyState.IsKeyDown(Keys.D6)) _currentRenderMode = RenderMode.CO2;
         if (keyState.IsKeyDown(Keys.D7)) _currentRenderMode = RenderMode.Elevation;
+        if (keyState.IsKeyDown(Keys.D8)) _currentRenderMode = RenderMode.Geological;
+        if (keyState.IsKeyDown(Keys.D9)) _currentRenderMode = RenderMode.TectonicPlates;
+        if (keyState.IsKeyDown(Keys.D0)) _currentRenderMode = RenderMode.Volcanoes;
 
         // Seed life
         if (keyState.IsKeyDown(Keys.L) && _previousKeyState.IsKeyUp(Keys.L))
@@ -232,6 +250,26 @@ public class SimPlanetGame : Game
                 _mapOptions.WaterLevel = Math.Min(1.0f, _mapOptions.WaterLevel + 0.1f);
             }
         }
+
+        // Toggle minimap
+        if (keyState.IsKeyDown(Keys.P) && _previousKeyState.IsKeyUp(Keys.P))
+        {
+            _minimap3D.IsVisible = !_minimap3D.IsVisible;
+        }
+
+        // Toggle event overlays
+        if (keyState.IsKeyDown(Keys.V) && _previousKeyState.IsKeyUp(Keys.V))
+        {
+            _eventsUI.ShowVolcanoes = !_eventsUI.ShowVolcanoes;
+        }
+        if (keyState.IsKeyDown(Keys.B) && _previousKeyState.IsKeyUp(Keys.B))
+        {
+            _eventsUI.ShowRivers = !_eventsUI.ShowRivers;
+        }
+        if (keyState.IsKeyDown(Keys.N) && _previousKeyState.IsKeyUp(Keys.N))
+        {
+            _eventsUI.ShowPlates = !_eventsUI.ShowPlates;
+        }
     }
 
     private void RegeneratePlanet()
@@ -242,10 +280,15 @@ public class SimPlanetGame : Game
         // Recreate the map
         _map = new PlanetMap(_map.Width, _map.Height, _mapOptions);
 
+        // Clear geological data from old map
+        TerrainCellExtensions.ClearGeologicalData();
+
         // Recreate simulators
         _climateSimulator = new ClimateSimulator(_map);
         _atmosphereSimulator = new AtmosphereSimulator(_map);
         _lifeSimulator = new LifeSimulator(_map);
+        _geologicalSimulator = new GeologicalSimulator(_map, _mapOptions.Seed);
+        _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -257,6 +300,9 @@ public class SimPlanetGame : Game
 
         // Update UI
         _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
+        _minimap3D.Dispose();
+        _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+        _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
 
         // Reset game state
         _gameState.Year = 0;
@@ -298,11 +344,24 @@ public class SimPlanetGame : Game
 
         _terrainRenderer.Draw(_spriteBatch, offsetX, offsetY);
 
+        // Draw geological overlays (volcanoes, rivers, plates)
+        _eventsUI.DrawOverlay(_map, offsetX, offsetY, _terrainRenderer.CellSize);
+
         // Draw UI
         _ui.Draw(_gameState, _currentRenderMode);
 
         // Draw map options menu (if visible)
         _mapOptionsUI.Draw(_mapOptions);
+
+        // Draw geological events log
+        _eventsUI.DrawEventLog(GraphicsDevice.Viewport.Width);
+
+        // Draw legend
+        _eventsUI.DrawLegend(GraphicsDevice.Viewport.Height);
+
+        // Update and draw 3D minimap
+        _minimap3D.UpdateTexture(_terrainRenderer);
+        _minimap3D.Draw(_spriteBatch);
 
         _spriteBatch.End();
 
@@ -315,6 +374,7 @@ public class SimPlanetGame : Game
         {
             _terrainRenderer?.Dispose();
             _font?.Dispose();
+            _minimap3D?.Dispose();
         }
 
         base.Dispose(disposing);

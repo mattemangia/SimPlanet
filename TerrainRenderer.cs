@@ -51,6 +51,9 @@ public class TerrainRenderer
                     RenderMode.Oxygen => GetOxygenColor(cell),
                     RenderMode.CO2 => GetCO2Color(cell),
                     RenderMode.Elevation => GetElevationColor(cell),
+                    RenderMode.Geological => GetGeologicalColor(cell),
+                    RenderMode.TectonicPlates => GetTectonicPlateColor(cell),
+                    RenderMode.Volcanoes => GetVolcanoColor(cell),
                     _ => Color.Black
                 };
             }
@@ -173,6 +176,94 @@ public class TerrainRenderer
         return Color.Lerp(Color.Black, Color.White, normalized);
     }
 
+    private Color GetGeologicalColor(TerrainCell cell)
+    {
+        var geo = cell.GetGeology();
+
+        // Show rock types
+        Color rockColor;
+        if (geo.VolcanicRock > 0.5f)
+            rockColor = new Color(80, 40, 40); // Dark volcanic
+        else if (geo.SedimentaryRock > 0.5f)
+            rockColor = new Color(160, 140, 100); // Sandstone/limestone
+        else
+            rockColor = new Color(120, 120, 120); // Crystalline/granite
+
+        // Overlay erosion
+        if (geo.ErosionRate > 0.1f)
+        {
+            rockColor = Color.Lerp(rockColor, new Color(200, 180, 150), geo.ErosionRate);
+        }
+
+        // Show sediment accumulation
+        if (geo.SedimentLayer > 0.1f)
+        {
+            rockColor = Color.Lerp(rockColor, new Color(220, 200, 150), geo.SedimentLayer);
+        }
+
+        return rockColor;
+    }
+
+    private Color GetTectonicPlateColor(TerrainCell cell)
+    {
+        var geo = cell.GetGeology();
+
+        // Different color per plate
+        Color[] plateColors = new[]
+        {
+            new Color(255, 100, 100),
+            new Color(100, 255, 100),
+            new Color(100, 100, 255),
+            new Color(255, 255, 100),
+            new Color(255, 100, 255),
+            new Color(100, 255, 255),
+            new Color(255, 200, 100),
+            new Color(200, 100, 255)
+        };
+
+        Color baseColor = plateColors[geo.PlateId % plateColors.Length];
+
+        // Highlight boundaries
+        if (geo.BoundaryType == PlateBoundaryType.Convergent)
+        {
+            baseColor = Color.Lerp(baseColor, Color.Red, 0.5f);
+        }
+        else if (geo.BoundaryType == PlateBoundaryType.Divergent)
+        {
+            baseColor = Color.Lerp(baseColor, Color.Yellow, 0.5f);
+        }
+        else if (geo.BoundaryType == PlateBoundaryType.Transform)
+        {
+            baseColor = Color.Lerp(baseColor, Color.Orange, 0.5f);
+        }
+
+        return baseColor;
+    }
+
+    private Color GetVolcanoColor(TerrainCell cell)
+    {
+        var geo = cell.GetGeology();
+
+        // Base terrain
+        Color baseColor = GetTerrainColor(cell);
+
+        // Highlight volcanoes
+        if (geo.IsVolcano)
+        {
+            float activity = geo.VolcanicActivity + geo.MagmaPressure;
+            Color volcanoColor = Color.Lerp(new Color(150, 50, 0), Color.Red, activity);
+            baseColor = Color.Lerp(baseColor, volcanoColor, 0.7f);
+        }
+
+        // Show volcanic rock
+        if (geo.VolcanicRock > 0.3f)
+        {
+            baseColor = Color.Lerp(baseColor, new Color(60, 30, 30), geo.VolcanicRock * 0.5f);
+        }
+
+        return baseColor;
+    }
+
     public void Dispose()
     {
         _pixelTexture?.Dispose();
@@ -188,5 +279,8 @@ public enum RenderMode
     Life,
     Oxygen,
     CO2,
-    Elevation
+    Elevation,
+    Geological,
+    TectonicPlates,
+    Volcanoes
 }

@@ -102,16 +102,14 @@ public class GameUI
 
         DrawText("=== CONTROLS ===", Color.Yellow);
         DrawText("SPACE: Pause/Resume", Color.White);
-        DrawText("1-7: Change view mode", Color.White);
-        DrawText("  1: Terrain  2: Temperature", Color.Gray);
-        DrawText("  3: Rainfall  4: Life", Color.Gray);
-        DrawText("  5: Oxygen  6: CO2  7: Elevation", Color.Gray);
-        DrawText("+/-: Change time speed", Color.White);
-        DrawText("L: Seed initial life", Color.White);
-        DrawText("M: Map generation options", Color.White);
-        DrawText("R: Regenerate planet", Color.White);
-        DrawText("H: Toggle this help", Color.White);
-        DrawText("ESC: Quit", Color.White);
+        DrawText("1-0: View modes", Color.White);
+        DrawText("  1: Terrain  2: Temp  3: Rain", Color.Gray);
+        DrawText("  4: Life  5: O2  6: CO2  7: Elev", Color.Gray);
+        DrawText("  8: Geology  9: Plates  0: Volc", Color.Gray);
+        DrawText("+/-: Time speed  L: Seed life", Color.White);
+        DrawText("P: 3D Minimap  M: Map options", Color.White);
+        DrawText("V/B/N: Volc/Rivers/Plates", Color.White);
+        DrawText("R: Regenerate  H: Help  ESC: Quit", Color.White);
         textY += 5;
 
         DrawText("=== GAME INFO ===", Color.Cyan);
