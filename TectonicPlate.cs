@@ -27,6 +27,17 @@ public enum PlateBoundaryType
     Transform     // Plates sliding past (earthquakes)
 }
 
+public enum SedimentType
+{
+    Sand,
+    Silt,
+    Clay,
+    Gravel,
+    Organic,
+    Volcanic,
+    Limestone
+}
+
 /// <summary>
 /// Extended terrain cell with geological properties
 /// </summary>
@@ -56,6 +67,7 @@ public class GeologicalData
     public int PlateId { get; set; }
     public PlateBoundaryType BoundaryType { get; set; }
     public float TectonicStress { get; set; }  // Builds up at boundaries
+    public float SubductionRate { get; set; }  // Rate of subduction at convergent boundaries
 
     // Volcanism
     public bool IsVolcano { get; set; }
@@ -67,6 +79,7 @@ public class GeologicalData
     public float SedimentLayer { get; set; }
     public float ErosionRate { get; set; }
     public float RockHardness { get; set; } = 0.5f;
+    public List<SedimentType> SedimentColumn { get; set; } = new();  // Sediment column from bottom to top
 
     // Hydrology
     public float WaterFlow { get; set; }
@@ -74,6 +87,8 @@ public class GeologicalData
     public bool IsRiverSource { get; set; }
     public float SoilMoisture { get; set; }
     public (int x, int y) FlowDirection { get; set; }
+    public float FloodLevel { get; set; }  // Current flood water level
+    public float TideLevel { get; set; }  // Tidal variation
 
     // Age and composition
     public int CrustAge { get; set; }  // Millions of years

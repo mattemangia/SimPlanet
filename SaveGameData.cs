@@ -95,7 +95,10 @@ public class RiverData
     public int Id { get; set; }
     public int SourceX { get; set; }
     public int SourceY { get; set; }
+    public int MouthX { get; set; }
+    public int MouthY { get; set; }
     public List<(int x, int y)> Path { get; set; } = new();
+    public float WaterVolume { get; set; }
 }
 
 public enum CivType

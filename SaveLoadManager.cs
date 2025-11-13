@@ -115,7 +115,10 @@ public class SaveLoadManager
                 Id = r.Id,
                 SourceX = r.SourceX,
                 SourceY = r.SourceY,
-                Path = r.Path.ToList()
+                MouthX = r.MouthX,
+                MouthY = r.MouthY,
+                Path = r.Path.ToList(),
+                WaterVolume = r.WaterVolume
             }).ToList();
 
         // Serialize to JSON
@@ -215,7 +218,17 @@ public class SaveLoadManager
         // Restore weather
         weatherSystem.LoadStorms(saveData.ActiveStorms);
 
-        // Restore rivers
-        hydroSim.LoadRivers(saveData.Rivers);
+        // Restore rivers - convert RiverData to River
+        var rivers = saveData.Rivers.Select(rd => new River
+        {
+            Id = rd.Id,
+            SourceX = rd.SourceX,
+            SourceY = rd.SourceY,
+            MouthX = rd.MouthX,
+            MouthY = rd.MouthY,
+            Path = rd.Path,
+            WaterVolume = rd.WaterVolume
+        }).ToList();
+        hydroSim.LoadRivers(rivers);
     }
 }

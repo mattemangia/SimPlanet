@@ -161,7 +161,16 @@ public class GeologicalSimulator
                             {
                                 // Oceanic subducts under continental - volcanic mountain chain
                                 // Creates Andes-like or Cascades-like volcanic arcs
-                                cell.Elevation += 0.003f * relVel; // Mountains build up
+
+                                // Subduction: oceanic plate sinks
+                                if (cell.IsWater)
+                                {
+                                    cell.Elevation -= 0.001f * relVel; // Trench formation
+                                }
+                                else
+                                {
+                                    cell.Elevation += 0.003f * relVel; // Mountains build up on continental side
+                                }
 
                                 if (_random.NextDouble() < 0.01) // Increased from 0.001
                                 {
@@ -170,6 +179,25 @@ public class GeologicalSimulator
                                     geo.MagmaPressure = 0.3f;
                                 }
                                 geo.TectonicStress += 0.02f;
+                                geo.SubductionRate = relVel * 0.01f; // Track subduction rate
+                            }
+                            else if (!plate1.IsOceanic && plate2.IsOceanic)
+                            {
+                                // Continental over oceanic - subduction
+                                if (neighbor.IsWater)
+                                {
+                                    neighbor.Elevation -= 0.001f * relVel; // Trench in ocean
+                                }
+
+                                cell.Elevation += 0.003f * relVel; // Mountains on continental side
+                                geo.TectonicStress += 0.02f;
+
+                                if (_random.NextDouble() < 0.01)
+                                {
+                                    geo.IsVolcano = true;
+                                    geo.VolcanicActivity = 0.6f;
+                                    geo.MagmaPressure = 0.3f;
+                                }
                             }
                             else if (!plate1.IsOceanic && !plate2.IsOceanic)
                             {
@@ -338,22 +366,72 @@ public class GeologicalSimulator
                 cell.Elevation -= erosion;
                 geo.SedimentLayer += erosion;
 
-                // Transport sediment downhill
+                // Transport sediment downhill (by rivers and flooding)
                 var lowestNeighbor = GetLowestNeighbor(x, y);
                 if (lowestNeighbor.HasValue && geo.SedimentLayer > 0.01f)
                 {
                     var (lx, ly) = lowestNeighbor.Value;
                     var targetGeo = _map.Cells[lx, ly].GetGeology();
 
-                    float transport = geo.SedimentLayer * 0.1f * cell.Rainfall;
-                    geo.SedimentLayer -= transport;
-                    targetGeo.SedimentLayer += transport;
+                    // Transport rate depends on water flow (rainfall + flooding)
+                    float waterCurrent = cell.Rainfall + geo.FloodLevel + geo.WaterFlow;
+                    float transport = geo.SedimentLayer * 0.1f * waterCurrent;
 
-                    // Sediment builds up elevation in lowlands
-                    if (_map.Cells[lx, ly].IsWater)
+                    // Determine sediment type based on source material and current strength
+                    SedimentType sedimentType;
+                    if (waterCurrent > 0.8f)
                     {
-                        _map.Cells[lx, ly].Elevation += transport * 0.5f;
+                        sedimentType = SedimentType.Gravel; // High current carries coarse material
+                    }
+                    else if (waterCurrent > 0.5f)
+                    {
+                        sedimentType = SedimentType.Sand;
+                    }
+                    else if (waterCurrent > 0.3f)
+                    {
+                        sedimentType = SedimentType.Silt;
+                    }
+                    else
+                    {
+                        sedimentType = SedimentType.Clay; // Fine particles settle in calm water
+                    }
+
+                    // Volcanic sediments
+                    if (geo.VolcanicRock > 0.5f)
+                    {
+                        sedimentType = SedimentType.Volcanic;
+                    }
+
+                    // Organic sediments from biomass
+                    if (cell.Biomass > 0.5f && waterCurrent < 0.4f)
+                    {
+                        sedimentType = SedimentType.Organic;
+                    }
+
+                    geo.SedimentLayer -= transport;
+
+                    // Deposit sediment in target cell
+                    if (waterCurrent < 0.5f && transport > 0.01f) // Low current = deposition
+                    {
+                        targetGeo.SedimentLayer += transport;
+                        targetGeo.SedimentColumn.Add(sedimentType); // Add to sediment column
                         targetGeo.SedimentaryRock += transport * 0.1f;
+
+                        // Sediment builds up elevation in lowlands
+                        if (_map.Cells[lx, ly].IsWater || _map.Cells[lx, ly].Elevation < 0.1f)
+                        {
+                            _map.Cells[lx, ly].Elevation += transport * 0.5f;
+                        }
+                    }
+                    else // High current = sediment keeps moving
+                    {
+                        targetGeo.SedimentLayer += transport;
+                    }
+
+                    // Limit sediment column size (keep only recent layers)
+                    if (targetGeo.SedimentColumn.Count > 100)
+                    {
+                        targetGeo.SedimentColumn.RemoveAt(0);
                     }
                 }
             }

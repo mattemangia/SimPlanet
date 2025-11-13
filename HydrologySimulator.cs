@@ -9,6 +9,8 @@ public class HydrologySimulator
     private readonly Random _random;
     private List<River> _rivers;
     private int _nextRiverId = 1;
+    private float _tidalCycle = 0;  // 0 to 2π for tidal cycle
+    private const float TidalPeriod = 12.4f; // Hours for one tidal cycle
 
     public List<River> Rivers => _rivers;
 
@@ -25,6 +27,8 @@ public class HydrologySimulator
         UpdateWaterFlow();
         FormRivers();
         UpdateOceanCurrents();
+        UpdateTides(deltaTime);
+        UpdateFlooding(deltaTime);
     }
 
     private void UpdateSoilMoisture()
@@ -262,6 +266,128 @@ public class HydrologySimulator
                     float tempDiff = cell.Temperature - targetCell.Temperature;
                     cell.Temperature -= tempDiff * currentStrength * 0.1f;
                     targetCell.Temperature += tempDiff * currentStrength * 0.1f;
+                }
+            }
+        }
+    }
+
+    private void UpdateTides(float deltaTime)
+    {
+        // Update tidal cycle (completes every 12.4 hours)
+        _tidalCycle += deltaTime * (2 * MathF.PI / TidalPeriod);
+        if (_tidalCycle > 2 * MathF.PI)
+            _tidalCycle -= 2 * MathF.PI;
+
+        float tidalHeight = MathF.Sin(_tidalCycle) * 0.05f; // ±0.05 elevation units
+
+        // Apply tides to coastal and ocean cells
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+
+                if (cell.IsWater)
+                {
+                    // Ocean tides
+                    geo.TideLevel = tidalHeight;
+
+                    // Check adjacent land cells for tidal flooding
+                    foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                    {
+                        if (neighbor.IsLand && neighbor.Elevation < 0.1f) // Low-lying coastal areas
+                        {
+                            var nGeo = neighbor.GetGeology();
+                            nGeo.TideLevel = Math.Max(0, tidalHeight);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void UpdateFlooding(float deltaTime)
+    {
+        // Calculate flooding based on rainfall and elevation
+        var floodWater = new float[_map.Width, _map.Height];
+
+        // Add water from rainfall
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+
+                if (cell.IsLand)
+                {
+                    // Heavy rainfall causes flooding
+                    float waterInput = cell.Rainfall * 0.5f + geo.SoilMoisture * 0.2f;
+
+                    // River overflow
+                    if (geo.RiverId > 0)
+                    {
+                        var river = _rivers.FirstOrDefault(r => r.Id == geo.RiverId);
+                        if (river != null)
+                        {
+                            waterInput += river.WaterVolume * 0.1f;
+                        }
+                    }
+
+                    geo.FloodLevel += waterInput * deltaTime;
+                }
+            }
+        }
+
+        // Water flows downhill
+        for (int iteration = 0; iteration < 3; iteration++)
+        {
+            for (int x = 0; x < _map.Width; x++)
+            {
+                for (int y = 0; y < _map.Height; y++)
+                {
+                    var cell = _map.Cells[x, y];
+                    var geo = cell.GetGeology();
+
+                    if (geo.FloodLevel > 0.01f)
+                    {
+                        // Find lowest neighbor
+                        float lowestElevation = cell.Elevation + geo.FloodLevel;
+                        (int x, int y) lowestNeighbor = (x, y);
+
+                        foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                        {
+                            float neighborLevel = neighbor.Elevation;
+                            if (neighbor.IsLand)
+                            {
+                                neighborLevel += neighbor.GetGeology().FloodLevel;
+                            }
+
+                            if (neighborLevel < lowestElevation)
+                            {
+                                lowestElevation = neighborLevel;
+                                lowestNeighbor = (nx, ny);
+                            }
+                        }
+
+                        // Flow water to lower neighbor
+                        if (lowestNeighbor != (x, y))
+                        {
+                            float flowAmount = geo.FloodLevel * 0.3f * deltaTime;
+                            geo.FloodLevel -= flowAmount;
+
+                            var targetCell = _map.Cells[lowestNeighbor.x, lowestNeighbor.y];
+                            if (targetCell.IsLand)
+                            {
+                                targetCell.GetGeology().FloodLevel += flowAmount;
+                            }
+                        }
+                    }
+
+                    // Evaporation and infiltration
+                    geo.FloodLevel *= (1.0f - 0.1f * deltaTime);
+                    geo.FloodLevel = Math.Max(0, geo.FloodLevel);
                 }
             }
         }

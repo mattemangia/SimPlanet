@@ -33,6 +33,7 @@ public class SimPlanetGame : Game
     private PlanetMinimap3D _minimap3D;
     private GeologicalEventsUI _eventsUI;
     private InteractiveControls _interactiveControls;
+    private SedimentColumnViewer _sedimentViewer;
     private SimpleFont _font;
 
     // Game state
@@ -127,6 +128,7 @@ public class SimPlanetGame : Game
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
+        _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
 
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
@@ -184,6 +186,8 @@ public class SimPlanetGame : Game
             _minimap3D.Update(deltaTime);
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(deltaTime);
+            _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
+                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
 
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += deltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
@@ -557,6 +561,9 @@ public class SimPlanetGame : Game
 
         // Draw interactive controls
         _interactiveControls.Draw(_spriteBatch);
+
+        // Draw sediment column viewer
+        _sedimentViewer.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         // Draw pause menu overlay if paused
         if (_mainMenu.CurrentScreen == GameScreen.PauseMenu)
