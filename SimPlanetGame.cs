@@ -24,6 +24,7 @@ public class SimPlanetGame : Game
     private CivilizationManager _civilizationManager;
     private BiomeSimulator _biomeSimulator;
     private DisasterManager _disasterManager;
+    private ForestFireManager _forestFireManager;
 
     // Menu and save/load
     private MainMenu _mainMenu;
@@ -39,6 +40,7 @@ public class SimPlanetGame : Game
     private SedimentColumnViewer _sedimentViewer;
     private PlayerCivilizationControl _playerCivControl;
     private DisasterControlUI _disasterControlUI;
+    private ManualPlantingTool _plantingTool;
     private SimpleFont _font;
 
     // Game state
@@ -101,6 +103,7 @@ public class SimPlanetGame : Game
         _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
+        _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -147,6 +150,7 @@ public class SimPlanetGame : Game
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
+        _plantingTool = new ManualPlantingTool(GraphicsDevice, _font, _map);
 
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
@@ -200,6 +204,7 @@ public class SimPlanetGame : Game
             _civilizationManager.Update(deltaTime, _gameState.Year);
             _biomeSimulator.Update(deltaTime);
             _disasterManager.Update(deltaTime, _gameState.Year);
+            _forestFireManager.Update(deltaTime, _weatherSystem, _civilizationManager);
 
             // Performance optimization: Update global stats only once per second
             _globalStatsTimer += realDeltaTime;
@@ -226,6 +231,8 @@ public class SimPlanetGame : Game
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
             _playerCivControl.Update(Mouse.GetState());
             _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
+                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+            _plantingTool.Update(Mouse.GetState(), _civilizationManager, _gameState.Year, _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
 
             // Update day/night cycle (24 hours = 1 day)
@@ -418,6 +425,12 @@ public class SimPlanetGame : Game
             _disasterControlUI.IsVisible = !_disasterControlUI.IsVisible;
         }
 
+        // Toggle manual planting tool (T key)
+        if (keyState.IsKeyDown(Keys.T) && _previousKeyState.IsKeyUp(Keys.T))
+        {
+            _plantingTool.IsVisible = !_plantingTool.IsVisible;
+        }
+
         // Quick save (F5)
         if (keyState.IsKeyDown(Keys.F5) && _previousKeyState.IsKeyUp(Keys.F5))
         {
@@ -482,6 +495,7 @@ public class SimPlanetGame : Game
             _civilizationManager = new CivilizationManager(_map, saveData.MapOptions.Seed);
             _biomeSimulator = new BiomeSimulator(_map, saveData.MapOptions.Seed);
             _disasterManager = new DisasterManager(_map, _geologicalSimulator, saveData.MapOptions.Seed);
+            _forestFireManager = new ForestFireManager(_map, saveData.MapOptions.Seed);
 
             // Apply save data
             _saveLoadManager.ApplySaveData(saveData, _map, _gameState,
@@ -537,6 +551,7 @@ public class SimPlanetGame : Game
         _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
+        _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -632,6 +647,9 @@ public class SimPlanetGame : Game
 
         // Draw disaster control UI
         _disasterControlUI.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw manual planting tool
+        _plantingTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         // Draw pause menu overlay if paused
         if (_mainMenu.CurrentScreen == GameScreen.PauseMenu)

@@ -19,6 +19,7 @@ public class ClimateSimulator
         SimulateTemperature(deltaTime);
         SimulateRainfall(deltaTime);
         SimulateHumidity(deltaTime);
+        UpdateIceCycles(deltaTime);
     }
 
     private void SimulateTemperature(float deltaTime)
@@ -193,6 +194,125 @@ public class ClimateSimulator
             for (int y = 0; y < _map.Height; y++)
             {
                 _map.Cells[x, y].Humidity = newHumidity[x, y];
+            }
+        }
+    }
+
+    private void UpdateIceCycles(float deltaTime)
+    {
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+
+                // Calculate latitude (0 = equator, 1 = poles)
+                float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+                bool isPolarRegion = latitude > 0.8f; // High latitudes
+                bool isMountainPeak = cell.Elevation > 0.7f; // High elevation
+
+                // Ice accumulation threshold varies by location
+                float iceFormationTemp = isPolarRegion ? -5f : -10f; // Polar ice forms easier
+                float iceMeltingTemp = isPolarRegion ? 2f : 5f; // Polar ice melts slower
+
+                // Mountain snow line (permanent ice at high elevations)
+                if (isMountainPeak)
+                {
+                    float snowLine = 0f - (latitude * 15f); // Snow line lower at higher latitudes
+                    if (cell.Temperature < snowLine)
+                    {
+                        // Permanent mountain ice caps
+                        cell.Temperature = Math.Min(cell.Temperature, snowLine - 5); // Keep cold
+                    }
+                }
+
+                // Polar ice sheets
+                if (isPolarRegion)
+                {
+                    // Ice accumulation in polar regions
+                    if (cell.Temperature < iceFormationTemp)
+                    {
+                        // Sea ice forms on ocean
+                        if (cell.IsWater)
+                        {
+                            // Increase albedo effect by cooling further
+                            cell.Temperature -= deltaTime * 2.0f; // Ice-albedo feedback
+
+                            // Frozen ocean reduces evaporation
+                            cell.Humidity = Math.Max(cell.Humidity - deltaTime * 0.1f, 0.2f);
+                        }
+                        // Glaciers accumulate on land
+                        else if (cell.IsLand)
+                        {
+                            // Ice sheets slowly increase elevation (glacier growth)
+                            cell.Elevation += deltaTime * 0.0001f; // Very slow accumulation
+                            cell.Elevation = Math.Min(cell.Elevation, 1.0f);
+
+                            // Ice-albedo feedback (ice reflects sunlight, stays cold)
+                            cell.Temperature -= deltaTime * 1.5f;
+                        }
+                    }
+                    // Melting
+                    else if (cell.Temperature > iceMeltingTemp && cell.IsIce)
+                    {
+                        // Glacier retreat
+                        if (cell.IsLand && cell.Elevation > 0.2f)
+                        {
+                            cell.Elevation -= deltaTime * 0.0002f; // Faster melting than accumulation
+                        }
+
+                        // Melting ice increases humidity
+                        cell.Humidity = Math.Min(cell.Humidity + deltaTime * 0.15f, 1.0f);
+                    }
+                }
+
+                // Non-polar ice (seasonal and mountain ice)
+                else
+                {
+                    // Ice forms at very cold temperatures
+                    if (cell.Temperature < iceFormationTemp)
+                    {
+                        if (cell.IsLand)
+                        {
+                            // Seasonal snow accumulation
+                            cell.Humidity = Math.Min(cell.Humidity + deltaTime * 0.05f, 0.9f);
+
+                            // High altitude glaciers
+                            if (isMountainPeak)
+                            {
+                                cell.Elevation += deltaTime * 0.00005f; // Slower than polar
+                                cell.Temperature -= deltaTime * 0.5f; // Albedo effect
+                            }
+                        }
+                    }
+                    // Melting
+                    else if (cell.Temperature > iceMeltingTemp && cell.IsIce)
+                    {
+                        // Rapid melting in non-polar regions
+                        if (cell.IsLand && isMountainPeak)
+                        {
+                            cell.Elevation -= deltaTime * 0.0003f; // Fast glacier retreat
+                        }
+
+                        // Meltwater increases humidity and can create lakes
+                        cell.Humidity = Math.Min(cell.Humidity + deltaTime * 0.2f, 1.0f);
+                        cell.Rainfall = Math.Min(cell.Rainfall + deltaTime * 0.1f, 1.0f);
+                    }
+                }
+
+                // Global ice-albedo feedback
+                // Ice reflects more sunlight, reducing local heating
+                if (cell.IsIce)
+                {
+                    // High albedo keeps ice cold (positive feedback loop)
+                    cell.Temperature -= deltaTime * 0.5f;
+
+                    // Prevent runaway cooling
+                    if (isPolarRegion)
+                        cell.Temperature = Math.Max(cell.Temperature, -60f);
+                    else
+                        cell.Temperature = Math.Max(cell.Temperature, -40f);
+                }
             }
         }
     }

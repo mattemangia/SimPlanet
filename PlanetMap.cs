@@ -3,6 +3,8 @@ namespace SimPlanet;
 public class MapGenerationOptions
 {
     public int Seed { get; set; } = 12345;
+    public int MapWidth { get; set; } = 200;           // Map dimensions
+    public int MapHeight { get; set; } = 100;
     public float LandRatio { get; set; } = 0.3f;      // 30% land by default
     public float MountainLevel { get; set; } = 0.5f;   // Mountain frequency
     public float WaterLevel { get; set; } = 0.0f;      // Sea level adjustment
