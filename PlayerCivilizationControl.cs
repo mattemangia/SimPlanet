@@ -39,7 +39,7 @@ public class PlayerCivilizationControl
         int buttonWidth = 180;
         int buttonHeight = 35;
         int startX = 10;
-        int startY = 400;
+        int startY = 520; // Adjusted for new panel size
         int spacing = 5;
 
         _controlButtons = new List<Button>
@@ -242,9 +242,9 @@ public class PlayerCivilizationControl
     private void DrawControlPanel(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         int panelWidth = 200;
-        int panelHeight = 350;
+        int panelHeight = 420; // Increased to fit resources
         int panelX = 10;
-        int panelY = 390;
+        int panelY = 320; // Moved up to fit resources
 
         // Background
         spriteBatch.Draw(_pixelTexture,
@@ -276,7 +276,34 @@ public class PlayerCivilizationControl
 
         _font.DrawString(spriteBatch, $"Eco: {PlayerCivilization.EcoFriendliness:P0}",
             new Vector2(panelX + 10, textY), Color.LightGreen);
+        textY += lineHeight + 5;
+
+        // Resources
+        _font.DrawString(spriteBatch, "RESOURCES:",
+            new Vector2(panelX + 10, textY), Color.Orange);
         textY += lineHeight;
+
+        Color foodColor = PlayerCivilization.Food > 50 ? Color.LightGreen : Color.Red;
+        _font.DrawString(spriteBatch, $"Food: {PlayerCivilization.Food:F0} ({PlayerCivilization.FoodProduction - PlayerCivilization.FoodConsumption:+0.0;-0.0})",
+            new Vector2(panelX + 10, textY), foodColor);
+        textY += lineHeight;
+
+        _font.DrawString(spriteBatch, $"Wood: {PlayerCivilization.Wood:F0} (+{PlayerCivilization.WoodProduction:F1})",
+            new Vector2(panelX + 10, textY), new Color(139, 90, 43));
+        textY += lineHeight;
+
+        _font.DrawString(spriteBatch, $"Stone: {PlayerCivilization.Stone:F0} (+{PlayerCivilization.StoneProduction:F1})",
+            new Vector2(panelX + 10, textY), Color.Gray);
+        textY += lineHeight;
+
+        if (PlayerCivilization.CivType >= CivType.Industrial)
+        {
+            _font.DrawString(spriteBatch, $"Metal: {PlayerCivilization.Metal:F0} (+{PlayerCivilization.MetalProduction:F1})",
+                new Vector2(panelX + 10, textY), Color.Silver);
+            textY += lineHeight;
+        }
+
+        textY += 5;
 
         if (PlayerCivilization.AtWar)
         {

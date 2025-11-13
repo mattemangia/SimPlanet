@@ -94,9 +94,13 @@ public class CivilizationManager
 
     private void UpdateCivilization(Civilization civ, float deltaTime, int currentYear)
     {
-        // Population growth
+        // Resource production and consumption
+        UpdateResources(civ, deltaTime);
+
+        // Population growth (affected by food availability)
+        float foodModifier = civ.Food > 0 ? 1.0f : 0.5f; // Starving civilizations grow slower
         float growthRate = 1.0f + civ.EcoFriendliness * 0.5f;
-        civ.Population += (int)(civ.Population * 0.01f * growthRate * deltaTime);
+        civ.Population += (int)(civ.Population * 0.01f * growthRate * deltaTime * foodModifier);
 
         // Technology advancement
         if (_random.NextDouble() < 0.01 * deltaTime)
@@ -167,6 +171,115 @@ public class CivilizationManager
 
         // Check for collapse conditions
         CheckCivilizationCollapse(civ);
+    }
+
+    private void UpdateResources(Civilization civ, float deltaTime)
+    {
+        // Calculate resource production based on territory
+        civ.FoodProduction = 0;
+        civ.WoodProduction = 0;
+        civ.StoneProduction = 0;
+        civ.MetalProduction = 0;
+
+        foreach (var (x, y) in civ.Territory)
+        {
+            var cell = _map.Cells[x, y];
+            var biome = cell.GetBiomeData().CurrentBiome;
+
+            // Food production
+            // Hunting in forests and grasslands
+            if (biome == Biome.TemperateForest || biome == Biome.TropicalRainforest ||
+                biome == Biome.BorealForest)
+            {
+                civ.FoodProduction += 2.0f * cell.Biomass; // Hunting in forests
+            }
+            if (biome == Biome.Grassland || biome == Biome.Savanna)
+            {
+                civ.FoodProduction += 3.0f * cell.Biomass; // Hunting/grazing in grasslands
+            }
+
+            // Farming (requires Agricultural+)
+            if (civ.CivType >= CivType.Agricultural)
+            {
+                if (cell.Rainfall > 0.4f && cell.Temperature > 5 && cell.Temperature < 35)
+                {
+                    civ.FoodProduction += 5.0f; // Agriculture
+                }
+            }
+
+            // Fishing (coastal cells)
+            if (cell.IsLand)
+            {
+                bool hasWaterNeighbor = _map.GetNeighbors(x, y).Any(n => n.cell.IsWater);
+                if (hasWaterNeighbor)
+                {
+                    civ.FoodProduction += 1.5f; // Fishing
+                }
+            }
+
+            // Wood production from forests
+            if (biome == Biome.TemperateForest || biome == Biome.TropicalRainforest ||
+                biome == Biome.BorealForest)
+            {
+                civ.WoodProduction += 1.0f;
+                // Deforestation reduces biomass slightly
+                cell.Biomass = Math.Max(cell.Biomass - 0.001f, 0.1f);
+            }
+
+            // Stone production from mountains
+            if (biome == Biome.Mountain || cell.Elevation > 0.6f)
+            {
+                civ.StoneProduction += 0.5f;
+            }
+
+            // Metal production (requires Industrial+)
+            if (civ.CivType >= CivType.Industrial)
+            {
+                var geo = cell.GetGeology();
+                // Mining based on rock composition
+                float miningPotential = geo.CrystallineRock + geo.VolcanicRock;
+                civ.MetalProduction += miningPotential * 0.3f;
+            }
+        }
+
+        // Food consumption based on population
+        civ.FoodConsumption = civ.Population / 100.0f; // Each 100 people need 1 food per year
+
+        // Apply production and consumption
+        civ.Food += (civ.FoodProduction - civ.FoodConsumption) * deltaTime;
+        civ.Wood += civ.WoodProduction * deltaTime;
+        civ.Stone += civ.StoneProduction * deltaTime;
+        civ.Metal += civ.MetalProduction * deltaTime;
+
+        // Resource caps
+        civ.Food = Math.Max(civ.Food, 0); // Can't go negative (starvation)
+        civ.Wood = Math.Max(civ.Wood, 0);
+        civ.Stone = Math.Max(civ.Stone, 0);
+        civ.Metal = Math.Max(civ.Metal, 0);
+
+        // Cap storage based on civ type
+        float storageMultiplier = civ.CivType switch
+        {
+            CivType.Tribal => 1.0f,
+            CivType.Agricultural => 3.0f,
+            CivType.Industrial => 10.0f,
+            CivType.Scientific => 20.0f,
+            CivType.Spacefaring => 50.0f,
+            _ => 1.0f
+        };
+
+        civ.Food = Math.Min(civ.Food, 1000 * storageMultiplier);
+        civ.Wood = Math.Min(civ.Wood, 500 * storageMultiplier);
+        civ.Stone = Math.Min(civ.Stone, 500 * storageMultiplier);
+        civ.Metal = Math.Min(civ.Metal, 300 * storageMultiplier);
+
+        // Starvation effects
+        if (civ.Food <= 0)
+        {
+            // Population loss from starvation
+            int popLoss = (int)(civ.Population * 0.05f * deltaTime);
+            civ.Population = Math.Max(civ.Population - popLoss, 100);
+        }
     }
 
     private void ExpandTerritory(Civilization civ, int cells)
@@ -626,4 +739,15 @@ public class Civilization
     public bool HasNuclearWeapons { get; set; } = false;
     public int NuclearStockpile { get; set; } = 0;
     public List<(int x, int y, int year)> NuclearStrikes { get; set; } = new();
+
+    // Resources
+    public float Food { get; set; } = 100.0f;            // From hunting, farming, fishing
+    public float Wood { get; set; } = 50.0f;             // From forests
+    public float Stone { get; set; } = 50.0f;            // From quarries
+    public float Metal { get; set; } = 0.0f;             // From mines (requires tech)
+    public float FoodProduction { get; set; } = 0.0f;    // Per year
+    public float WoodProduction { get; set; } = 0.0f;    // Per year
+    public float StoneProduction { get; set; } = 0.0f;   // Per year
+    public float MetalProduction { get; set; } = 0.0f;   // Per year
+    public float FoodConsumption { get; set; } = 0.0f;   // Per year (based on population)
 }
