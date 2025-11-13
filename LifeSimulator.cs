@@ -14,8 +14,23 @@ public class LifeSimulator
         _random = new Random();
     }
 
-    public void Update(float deltaTime)
+    public void Update(float deltaTime, GeologicalSimulator? geoSim = null, WeatherSystem? weatherSys = null)
     {
+        // React to planetary events FIRST
+        if (geoSim != null)
+        {
+            ReactToVolcanicEruptions(geoSim);
+            ReactToEarthquakes(geoSim);
+        }
+
+        if (weatherSys != null)
+        {
+            ReactToStorms(weatherSys);
+        }
+
+        ReactToClimateChanges(deltaTime);
+
+        // Then normal life processes
         SimulateBiomassGrowth(deltaTime);
         SimulateEvolution(deltaTime);
         SimulateLifeSpread(deltaTime);
@@ -343,6 +358,205 @@ public class LifeSimulator
         }
 
         return lifeTypes.Count / 5.0f; // Normalize by max expected diversity
+    }
+
+    // === PLANETARY EVENT REACTIVITY ===
+
+    private void ReactToVolcanicEruptions(GeologicalSimulator geoSim)
+    {
+        // Life is killed or damaged by volcanic eruptions
+        foreach (var (x, y, year) in geoSim.RecentEruptions)
+        {
+            // Direct impact zone
+            var cell = _map.Cells[x, y];
+            cell.Biomass = 0; // Complete destruction
+            cell.LifeType = LifeForm.None;
+
+            // Surrounding area damage
+            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+            {
+                neighbor.Biomass *= 0.3f; // 70% killed
+                if (neighbor.Biomass < 0.1f)
+                {
+                    neighbor.LifeType = LifeForm.None;
+                    neighbor.Biomass = 0;
+                }
+            }
+        }
+    }
+
+    private void ReactToEarthquakes(GeologicalSimulator geoSim)
+    {
+        // Earthquakes damage life based on magnitude
+        foreach (var (x, y, magnitude) in geoSim.Earthquakes)
+        {
+            var cell = _map.Cells[x, y];
+
+            // Higher magnitude = more damage
+            float damageRadius = magnitude * 3;
+
+            for (int dx = -(int)damageRadius; dx <= damageRadius; dx++)
+            {
+                for (int dy = -(int)damageRadius; dy <= damageRadius; dy++)
+                {
+                    int nx = (x + dx + _map.Width) % _map.Width;
+                    int ny = y + dy;
+                    if (ny < 0 || ny >= _map.Height) continue;
+
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+                    if (dist > damageRadius) continue;
+
+                    var target = _map.Cells[nx, ny];
+                    float damage = (1 - dist / damageRadius) * magnitude * 0.2f;
+                    target.Biomass *= (1 - damage);
+
+                    if (target.Biomass < 0.1f)
+                    {
+                        target.LifeType = LifeForm.None;
+                        target.Biomass = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    private void ReactToStorms(WeatherSystem weatherSys)
+    {
+        // Storms damage life
+        foreach (var storm in weatherSys.ActiveStorms)
+        {
+            int radius = storm.Type == StormType.Hurricane ? 15 : 8;
+
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                for (int dy = -radius; dy <= radius; dy++)
+                {
+                    int x = (storm.CenterX + dx + _map.Width) % _map.Width;
+                    int y = storm.CenterY + dy;
+                    if (y < 0 || y >= _map.Height) continue;
+
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+                    if (dist > radius) continue;
+
+                    var cell = _map.Cells[x, y];
+                    float effectStrength = storm.Intensity * (1 - dist / radius);
+
+                    // Storm damage to biomass
+                    if (storm.Type == StormType.Hurricane && effectStrength > 0.5f)
+                    {
+                        cell.Biomass *= (1 - effectStrength * 0.3f);
+                    }
+                    else if (storm.Type == StormType.Tornado && effectStrength > 0.7f)
+                    {
+                        cell.Biomass *= 0.2f; // Severe damage
+                    }
+                    else if (storm.Type == StormType.Blizzard)
+                    {
+                        // Blizzards less damaging but affect temperature-sensitive life
+                        if (cell.LifeType == LifeForm.PlantLife && effectStrength > 0.6f)
+                        {
+                            cell.Biomass *= 0.7f;
+                        }
+                    }
+
+                    if (cell.Biomass < 0.1f)
+                    {
+                        cell.LifeType = LifeForm.None;
+                        cell.Biomass = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    private void ReactToClimateChanges(float deltaTime)
+    {
+        // Life responds to gradual climate changes
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+
+                if (cell.LifeType == LifeForm.None) continue;
+
+                float stressFactor = 0;
+
+                // Temperature stress
+                if (cell.Temperature > 50 || cell.Temperature < -30)
+                {
+                    stressFactor += 0.5f;
+                }
+                else if (cell.Temperature > 40 || cell.Temperature < -20)
+                {
+                    stressFactor += 0.2f;
+                }
+
+                // Oxygen stress (for aerobic life)
+                if (cell.LifeType != LifeForm.Bacteria)
+                {
+                    if (cell.Oxygen < 5)
+                    {
+                        stressFactor += 0.8f; // Severe
+                    }
+                    else if (cell.Oxygen < 10)
+                    {
+                        stressFactor += 0.3f;
+                    }
+                }
+
+                // CO2 toxicity
+                if (cell.CO2 > 15)
+                {
+                    stressFactor += 0.5f;
+                }
+                else if (cell.CO2 > 10)
+                {
+                    stressFactor += 0.2f;
+                }
+
+                // Drought stress (for land life)
+                if (cell.IsLand && cell.Rainfall < 0.1f)
+                {
+                    if (cell.LifeType == LifeForm.PlantLife)
+                    {
+                        stressFactor += 0.4f;
+                    }
+                    else if (cell.LifeType == LifeForm.SimpleAnimals ||
+                            cell.LifeType == LifeForm.ComplexAnimals)
+                    {
+                        stressFactor += 0.3f;
+                    }
+                }
+
+                // Flooding stress (rapid elevation changes)
+                var geo = cell.GetGeology();
+                if (geo.SedimentLayer > 0.5f && cell.IsLand)
+                {
+                    stressFactor += 0.2f; // Burial by sediment
+                }
+
+                // Apply stress damage
+                if (stressFactor > 0)
+                {
+                    cell.Biomass *= (1 - stressFactor * deltaTime * 0.1f);
+
+                    if (cell.Biomass < 0.05f)
+                    {
+                        cell.LifeType = LifeForm.None;
+                        cell.Biomass = 0;
+                        cell.Evolution = 0;
+                    }
+                }
+
+                // Adaptation over time
+                // Life that survives harsh conditions becomes more resilient
+                if (stressFactor > 0.2f && cell.Biomass > 0.3f)
+                {
+                    cell.Evolution += deltaTime * 0.005f; // Stress-driven evolution
+                }
+            }
+        }
     }
 
     private int x, y; // Helper fields for neighbor calculations

@@ -4,10 +4,14 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - Procedural planet generation with Perlin noise
 - **Full geological simulation** (plate tectonics, volcanoes, erosion, sedimentation)
 - **Hydrology system** (rivers, water flow, ocean currents)
+- **Weather systems** (storms, seasons, air pressure, wind patterns)
+- **Civilization development** (technology advancement, territorial expansion, environmental impact)
 - **Rotating 3D planet minimap** (just like SimEarth!)
+- **Save/load game system** with quick save/load (F5/F9)
+- **Main menu** with new game, load game, and pause functionality
 - Climate simulation (temperature, rainfall, humidity)
 - Atmospheric simulation (oxygen, CO2, greenhouse effects)
-- Life evolution from bacteria to civilization
+- Life evolution from bacteria to civilization with full environmental reactivity
 - 10 visualization modes with geological overlays
 - Real-time planetary evolution and geological events
 
@@ -30,10 +34,32 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Soil moisture dynamics
 - **Climate System**: Temperature gradients, rainfall patterns, humidity simulation
 - **Atmosphere**: Oxygen and CO2 cycles, greenhouse effect modeling
+- **Weather Systems**:
+  - Dynamic meteorology with seasons (4 seasons per year, hemisphere-aware)
+  - Wind patterns (trade winds, westerlies, polar easterlies)
+  - Air pressure systems affected by temperature and elevation
+  - Storm generation and tracking (thunderstorms, hurricanes, blizzards, tornadoes)
+  - Seasonal temperature variations based on latitude
+- **Civilization Development**:
+  - Technology progression: Tribal → Agricultural → Industrial → Scientific → Spacefaring
+  - Population growth and territorial expansion
+  - Environmental impact (pollution, deforestation, CO2 emissions)
+  - Advanced civilizations can terraform and restore ecosystems
+  - Inter-civilization interactions (war, cooperation, technology sharing)
 - **Life Evolution**:
   - Bacteria → Algae → Plants → Simple Animals → Complex Animals → Intelligence → Civilization
   - Life spreads and adapts based on environmental conditions
+  - **Full reactivity to planetary events**:
+    - Volcanic eruptions cause mass extinctions in affected areas
+    - Earthquakes damage life based on magnitude
+    - Storms (hurricanes, tornadoes, blizzards) affect biomass
+    - Climate stress drives evolution and adaptation
+    - Sedimentation and environmental changes impact survival
   - Biomass dynamics and ecosystem interactions
+- **Save/Load System**:
+  - Quick save with F5, quick load with F9
+  - Full menu system with save slots and timestamps
+  - Serializes entire game state (terrain, life, civilizations, weather, geology)
 - **Time Control**: Adjustable simulation speed (0.25x to 32x)
 - **3D Minimap**: Rotating sphere view of your planet (SimEarth-style!)
 
@@ -116,7 +142,9 @@ dotnet run
 | **N** | Toggle plate boundary overlay |
 | **R** | Regenerate planet with current settings |
 | **H** | Toggle help panel |
-| **ESC** | Quit game |
+| **F5** | Quick save game |
+| **F9** | Quick load game |
+| **ESC** | Pause menu / Back to main menu |
 
 ### Map Options Menu (Press M)
 
@@ -158,11 +186,40 @@ The simulation runs multiple interconnected systems:
    - CO2 consumed by plants, produced by animals and civilization
    - Greenhouse effect influences global temperature
 
-3. **Life System**:
+3. **Weather System**:
+   - Seasonal progression with hemisphere-aware temperature variations
+   - Wind patterns driven by temperature gradients and Coriolis effect
+   - Air pressure systems that influence weather formation
+   - Storm generation based on atmospheric conditions (temperature, humidity, pressure)
+   - Storm types: Thunderstorms, Hurricanes, Blizzards, Tornadoes
+   - Storms move and dissipate over time, affecting local environment
+
+4. **Geological System**:
+   - Tectonic plates move and interact at boundaries
+   - Volcanic eruptions release heat, CO2, and reshape terrain
+   - Erosion wears down mountains, transports sediment
+   - Rivers carve valleys and deposit sediment in lowlands
+   - Earthquakes occur from tectonic stress buildup
+
+5. **Life System**:
    - Life emerges in suitable conditions (temperature, humidity, oxygen)
    - Evolution occurs when biomass is high and conditions are favorable
    - Life spreads to neighboring cells
    - Death occurs in extreme conditions
+   - **Life reacts to all planetary events**:
+     - Volcanic eruptions destroy nearby life
+     - Earthquakes cause damage based on magnitude
+     - Storms reduce biomass and kill organisms
+     - Temperature extremes, oxygen levels, and CO2 toxicity affect survival
+     - Environmental stress triggers evolutionary adaptations
+
+6. **Civilization System**:
+   - Civilizations emerge from Intelligence-level life
+   - Technology advances through 5 stages (Tribal → Spacefaring)
+   - Population grows and territory expands
+   - Environmental impact: pollution, deforestation, CO2 emissions
+   - Advanced civilizations can terraform and restore ecosystems
+   - Civilizations can interact, cooperate, or compete
 
 ### Evolution Progression
 
@@ -186,24 +243,49 @@ Civilization (produces more CO2, can adapt to various climates)
 
 ## Game Architecture
 
-- **TerrainCell.cs**: Individual cell data structure
-- **PlanetMap.cs**: Planet grid and map generation
-- **PerlinNoise.cs**: Procedural noise generation
+### Core Data and Generation
+- **TerrainCell.cs**: Individual cell data structure with extensions for geology and meteorology
+- **PlanetMap.cs**: Planet grid and map generation (200x100 cells)
+- **PerlinNoise.cs**: Procedural noise generation for terrain
+
+### Simulation Systems
 - **ClimateSimulator.cs**: Temperature, rainfall, humidity simulation
-- **AtmosphereSimulator.cs**: Atmospheric gas cycles
-- **LifeSimulator.cs**: Life evolution and biomass dynamics
-- **TerrainRenderer.cs**: Rendering with procedural colors
-- **GameUI.cs**: User interface and information display
+- **AtmosphereSimulator.cs**: Atmospheric gas cycles (O2, CO2, greenhouse effect)
+- **LifeSimulator.cs**: Life evolution, biomass dynamics, and event reactivity
+- **GeologicalSimulator.cs**: Plate tectonics, volcanoes, erosion, sedimentation
+- **HydrologySimulator.cs**: Rivers, water flow, ocean currents, soil moisture
+- **WeatherSystem.cs**: Seasons, storms, wind patterns, air pressure
+- **CivilizationManager.cs**: Civilization emergence, technology, expansion, interactions
+
+### Rendering and UI
+- **TerrainRenderer.cs**: Rendering with 10 view modes and procedural colors
+- **GameUI.cs**: Information panels showing stats, civilizations, weather alerts
+- **MapOptionsUI.cs**: Map generation configuration interface
+- **PlanetMinimap3D.cs**: Rotating 3D sphere visualization
+- **GeologicalEventsUI.cs**: Event log and overlays (volcanoes, rivers, plate boundaries)
 - **SimpleFont.cs**: Procedural font rendering (no external assets needed)
+
+### Game Management
 - **SimPlanetGame.cs**: Main game loop and orchestration
+- **MainMenu.cs**: Menu system (main menu, load game, pause menu)
+- **SaveLoadManager.cs**: Save/load game state with JSON serialization
+- **SaveGameData.cs**: Serializable data structures for save files
 
 ## Tips for Playing
 
-1. **Start Slowly**: Begin at 1x speed to watch initial life emergence
-2. **Seed Life**: Press L to add bacteria in suitable areas
-3. **Monitor Oxygen**: Plants must establish before complex life can evolve
-4. **Watch for Runaway Effects**: High CO2 from civilization can cause warming
-5. **Experiment**: Press R to generate new planets with different characteristics
+1. **Start from Menu**: Launch the game to see the main menu, then select "New Game" to begin
+2. **Start Slowly**: Begin at 1x speed to watch initial life emergence
+3. **Seed Life**: Press L to add bacteria in suitable areas if life hasn't emerged naturally
+4. **Monitor Oxygen**: Plants must establish before complex life can evolve (15%+ for animals, 20%+ for intelligence)
+5. **Watch for Planetary Events**:
+   - Volcanic eruptions will devastate local ecosystems
+   - Major storms can damage life and reshape coastlines
+   - Civilizations will begin polluting and altering the environment
+6. **Save Often**: Use F5 to quick save your progress, especially before major experiments
+7. **Track Civilizations**: Watch the info panel for civilization emergence and development
+8. **Weather Alerts**: Pay attention to storm warnings in the UI - they can cause significant damage
+9. **Experiment**: Press R to generate new planets with different characteristics
+10. **Use View Modes**: Switch between different views (1-0 keys) to understand your planet better
 
 ## Technical Details
 
@@ -228,11 +310,24 @@ This is a fan project inspired by SimEarth. All code is original.
 ## Future Enhancements
 
 Potential additions (not yet implemented):
-- Terraforming tools (add/remove water, heat/cool areas)
-- Tectonic plate movement
-- Asteroid impacts
-- Ice age cycles
-- Save/load functionality
-- Configurable map generation UI
+- Interactive terraforming tools (add/remove water, heat/cool areas, seed specific life forms)
+- Asteroid and comet impacts with extinction events
+- Long-term ice age and warming cycles
+- Player-controllable disasters and events
+- More civilization interactions (diplomacy, trade, warfare)
+- Advanced civilization technologies (space stations, planetary shields)
+- Multiple planet simulations running simultaneously
+
+## What's New in This Version
+
+This complete overhaul includes:
+- ✅ **Full save/load system** with quick save (F5) and quick load (F9)
+- ✅ **Main menu and pause menu** for better game management
+- ✅ **Weather simulation** with storms, seasons, and meteorology
+- ✅ **Civilization mechanics** with technology advancement and environmental impact
+- ✅ **Life reactivity** - organisms now respond to all planetary events (volcanoes, earthquakes, storms, climate)
+- ✅ **Enhanced UI** showing civilization info and weather alerts
+- ✅ **Complete geological systems** (already had plate tectonics, now fully integrated with life)
+- ✅ **Tectonic plate movement and interactions** with realistic boundary types
 
 Enjoy watching your planet evolve!

@@ -19,6 +19,12 @@ public class SimPlanetGame : Game
     private LifeSimulator _lifeSimulator;
     private GeologicalSimulator _geologicalSimulator;
     private HydrologySimulator _hydrologySimulator;
+    private WeatherSystem _weatherSystem;
+    private CivilizationManager _civilizationManager;
+
+    // Menu and save/load
+    private MainMenu _mainMenu;
+    private SaveLoadManager _saveLoadManager;
 
     // Rendering
     private TerrainRenderer _terrainRenderer;
@@ -78,9 +84,14 @@ public class SimPlanetGame : Game
         _lifeSimulator = new LifeSimulator(_map);
         _geologicalSimulator = new GeologicalSimulator(_map, _mapOptions.Seed);
         _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
+        _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
+        _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
+
+        // Initialize save/load manager
+        _saveLoadManager = new SaveLoadManager();
 
         // Initialize game state
         _gameState = new GameState
@@ -107,23 +118,38 @@ public class SimPlanetGame : Game
 
         // Create UI
         _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
+        _ui.SetManagers(_civilizationManager, _weatherSystem);
         _mapOptionsUI = new MapOptionsUI(_spriteBatch, _font, GraphicsDevice);
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
+
+        // Create main menu
+        _mainMenu = new MainMenu(GraphicsDevice, _font);
     }
 
     protected override void Update(GameTime gameTime)
     {
         var keyState = Keyboard.GetState();
 
-        // Handle input
+        // Handle menu navigation
+        if (_mainMenu.CurrentScreen != GameScreen.InGame)
+        {
+            var menuAction = _mainMenu.HandleInput(keyState, _previousKeyState);
+            HandleMenuAction(menuAction);
+
+            _previousKeyState = keyState;
+            base.Update(gameTime);
+            return;
+        }
+
+        // Handle in-game input
         HandleInput(keyState);
 
         _previousKeyState = keyState;
 
         // Update simulation if not paused
-        if (!_gameState.IsPaused)
+        if (!_gameState.IsPaused && _mainMenu.CurrentScreen == GameScreen.InGame)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds * _gameState.TimeSpeed;
 
@@ -140,9 +166,12 @@ public class SimPlanetGame : Game
             // Update simulators
             _climateSimulator.Update(deltaTime);
             _atmosphereSimulator.Update(deltaTime);
-            _lifeSimulator.Update(deltaTime);
+            _weatherSystem.Update(deltaTime, _gameState.Year);
+            _atmosphereSimulator.Update(deltaTime);
+            _lifeSimulator.Update(deltaTime, _geologicalSimulator, _weatherSystem);
             _geologicalSimulator.Update(deltaTime, _gameState.Year);
             _hydrologySimulator.Update(deltaTime);
+            _civilizationManager.Update(deltaTime, _gameState.Year);
 
             // Update global temperature average
             UpdateGlobalStats();
@@ -270,6 +299,97 @@ public class SimPlanetGame : Game
         {
             _eventsUI.ShowPlates = !_eventsUI.ShowPlates;
         }
+
+        // Quick save (F5)
+        if (keyState.IsKeyDown(Keys.F5) && _previousKeyState.IsKeyUp(Keys.F5))
+        {
+            QuickSave();
+        }
+
+        // Quick load (F9)
+        if (keyState.IsKeyDown(Keys.F9) && _previousKeyState.IsKeyUp(Keys.F9))
+        {
+            QuickLoad();
+        }
+    }
+
+    private void HandleMenuAction(MenuAction action)
+    {
+        switch (action)
+        {
+            case MenuAction.NewGame:
+                StartNewGame();
+                break;
+            case MenuAction.LoadGame:
+                LoadGame(_mainMenu.GetSelectedSaveName());
+                break;
+            case MenuAction.SaveGame:
+                SaveGame("AutoSave_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
+                _mainMenu.CurrentScreen = GameScreen.InGame;
+                break;
+            case MenuAction.Quit:
+                Exit();
+                break;
+        }
+    }
+
+    private void StartNewGame()
+    {
+        RegeneratePlanet();
+        _mainMenu.CurrentScreen = GameScreen.InGame;
+    }
+
+    private void SaveGame(string saveName)
+    {
+        _saveLoadManager.SaveGame(_map, _gameState, _civilizationManager,
+                                  _weatherSystem, _hydrologySimulator, saveName);
+    }
+
+    private void LoadGame(string saveName)
+    {
+        var saveData = _saveLoadManager.LoadGame(saveName);
+        if (saveData != null)
+        {
+            // Recreate map with saved dimensions
+            _map = new PlanetMap(saveData.MapWidth, saveData.MapHeight, saveData.MapOptions);
+
+            // Recreate simulators
+            _climateSimulator = new ClimateSimulator(_map);
+            _atmosphereSimulator = new AtmosphereSimulator(_map);
+            _lifeSimulator = new LifeSimulator(_map);
+            _geologicalSimulator = new GeologicalSimulator(_map, saveData.MapOptions.Seed);
+            _hydrologySimulator = new HydrologySimulator(_map, saveData.MapOptions.Seed);
+            _weatherSystem = new WeatherSystem(_map, saveData.MapOptions.Seed);
+            _civilizationManager = new CivilizationManager(_map, saveData.MapOptions.Seed);
+
+            // Apply save data
+            _saveLoadManager.ApplySaveData(saveData, _map, _gameState,
+                                          _civilizationManager, _weatherSystem,
+                                          _hydrologySimulator);
+
+            // Update renderer
+            _terrainRenderer.Dispose();
+            _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);
+            _terrainRenderer.CellSize = 4;
+
+            // Update UI
+            _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
+            _minimap3D.Dispose();
+            _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+            _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
+
+            _mainMenu.CurrentScreen = GameScreen.InGame;
+        }
+    }
+
+    private void QuickSave()
+    {
+        SaveGame("QuickSave");
+    }
+
+    private void QuickLoad()
+    {
+        LoadGame("QuickSave");
     }
 
     private void RegeneratePlanet()
@@ -280,8 +400,9 @@ public class SimPlanetGame : Game
         // Recreate the map
         _map = new PlanetMap(_map.Width, _map.Height, _mapOptions);
 
-        // Clear geological data from old map
+        // Clear data from old map
         TerrainCellExtensions.ClearGeologicalData();
+        MeteorologicalExtensions.ClearMeteorologicalData();
 
         // Recreate simulators
         _climateSimulator = new ClimateSimulator(_map);
@@ -289,6 +410,8 @@ public class SimPlanetGame : Game
         _lifeSimulator = new LifeSimulator(_map);
         _geologicalSimulator = new GeologicalSimulator(_map, _mapOptions.Seed);
         _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
+        _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
+        _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -332,6 +455,16 @@ public class SimPlanetGame : Game
 
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
+        // Draw menu screens
+        if (_mainMenu.CurrentScreen != GameScreen.InGame)
+        {
+            _mainMenu.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            _spriteBatch.End();
+            base.Draw(gameTime);
+            return;
+        }
+
+        // In-game rendering
         // Update terrain texture if render mode changed
         _terrainRenderer.Mode = _currentRenderMode;
         _terrainRenderer.UpdateTerrainTexture();
@@ -362,6 +495,12 @@ public class SimPlanetGame : Game
         // Update and draw 3D minimap
         _minimap3D.UpdateTexture(_terrainRenderer);
         _minimap3D.Draw(_spriteBatch);
+
+        // Draw pause menu overlay if paused
+        if (_mainMenu.CurrentScreen == GameScreen.PauseMenu)
+        {
+            _mainMenu.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+        }
 
         _spriteBatch.End();
 

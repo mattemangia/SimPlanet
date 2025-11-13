@@ -13,6 +13,8 @@ public class GameUI
     private readonly SpriteBatch _spriteBatch;
     private readonly PlanetMap _map;
     private Texture2D _pixelTexture;
+    private CivilizationManager? _civilizationManager;
+    private WeatherSystem? _weatherSystem;
 
     public bool ShowHelp { get; set; } = true;
 
@@ -24,6 +26,12 @@ public class GameUI
 
         _pixelTexture = new Texture2D(graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
+    }
+
+    public void SetManagers(CivilizationManager civilizationManager, WeatherSystem weatherSystem)
+    {
+        _civilizationManager = civilizationManager;
+        _weatherSystem = weatherSystem;
     }
 
     public void Draw(GameState state, RenderMode renderMode)
@@ -40,8 +48,8 @@ public class GameUI
     {
         int panelX = 10;
         int panelY = 10;
-        int panelWidth = 300;
-        int panelHeight = 400;
+        int panelWidth = 320;
+        int panelHeight = 580;
 
         // Draw semi-transparent background
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 180));
@@ -79,15 +87,51 @@ public class GameUI
         DrawText($"Civilization: {lifeStats[LifeForm.Civilization]}", Color.Yellow);
         textY += 5;
 
+        // Civilization statistics
+        if (_civilizationManager != null && _civilizationManager.Civilizations.Count > 0)
+        {
+            DrawText("=== Civilizations ===", Color.Gold);
+            int civCount = Math.Min(3, _civilizationManager.Civilizations.Count);
+            for (int i = 0; i < civCount; i++)
+            {
+                var civ = _civilizationManager.Civilizations[i];
+                DrawText($"{civ.Name} ({civ.CivType})", Color.Yellow);
+                DrawText($"  Pop: {civ.Population} Tech: {civ.TechnologyLevel}", Color.White);
+            }
+            if (_civilizationManager.Civilizations.Count > 3)
+            {
+                DrawText($"...and {_civilizationManager.Civilizations.Count - 3} more", Color.Gray);
+            }
+            textY += 5;
+        }
+
+        // Weather statistics
+        if (_weatherSystem != null)
+        {
+            var activeStorms = _weatherSystem.GetActiveStorms();
+            if (activeStorms.Count > 0)
+            {
+                DrawText($"=== Weather Alerts ===", Color.Orange);
+                DrawText($"Active Storms: {activeStorms.Count}", Color.Red);
+                int stormCount = Math.Min(2, activeStorms.Count);
+                for (int i = 0; i < stormCount; i++)
+                {
+                    var storm = activeStorms[i];
+                    DrawText($"{storm.Type} - Intensity {storm.Intensity:F1}", Color.Orange);
+                }
+                textY += 5;
+            }
+        }
+
         DrawText($"View Mode: {renderMode}", Color.Magenta);
     }
 
     private void DrawHelpPanel()
     {
-        int panelX = 320;
+        int panelX = 340;
         int panelY = 10;
         int panelWidth = 450;
-        int panelHeight = 380;
+        int panelHeight = 400;
 
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 180));
 
@@ -109,15 +153,19 @@ public class GameUI
         DrawText("+/-: Time speed  L: Seed life", Color.White);
         DrawText("P: 3D Minimap  M: Map options", Color.White);
         DrawText("V/B/N: Volc/Rivers/Plates", Color.White);
-        DrawText("R: Regenerate  H: Help  ESC: Quit", Color.White);
+        DrawText("R: Regenerate  H: Help", Color.White);
+        DrawText("F5: Quick Save  F9: Quick Load", Color.Cyan);
+        DrawText("ESC: Pause/Menu", Color.White);
         textY += 5;
 
         DrawText("=== GAME INFO ===", Color.Cyan);
         DrawText("Watch your planet evolve!", Color.White);
-        DrawText("Life will emerge in suitable", Color.White);
-        DrawText("conditions and evolve over time.", Color.White);
-        DrawText("Monitor oxygen, CO2, and", Color.White);
-        DrawText("temperature for habitability.", Color.White);
+        DrawText("Life emerges and evolves through", Color.White);
+        DrawText("bacteria to civilizations.", Color.White);
+        DrawText("Weather systems, plate tectonics,", Color.White);
+        DrawText("and geological events shape the", Color.White);
+        DrawText("world. Civilizations develop tech", Color.White);
+        DrawText("and interact with the environment.", Color.White);
         textY += 5;
 
         DrawText("Press H to hide this panel", Color.Yellow);
