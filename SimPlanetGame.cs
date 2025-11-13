@@ -35,6 +35,7 @@ public class SimPlanetGame : Game
     private GeologicalEventsUI _eventsUI;
     private InteractiveControls _interactiveControls;
     private SedimentColumnViewer _sedimentViewer;
+    private PlayerCivilizationControl _playerCivControl;
     private SimpleFont _font;
 
     // Game state
@@ -137,6 +138,7 @@ public class SimPlanetGame : Game
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
+        _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
 
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
@@ -212,6 +214,7 @@ public class SimPlanetGame : Game
             _interactiveControls.Update(deltaTime);
             _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+            _playerCivControl.Update(Mouse.GetState());
 
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += deltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
@@ -389,6 +392,12 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.N) && _previousKeyState.IsKeyUp(Keys.N))
         {
             _eventsUI.ShowPlates = !_eventsUI.ShowPlates;
+        }
+
+        // Control civilization (G key)
+        if (keyState.IsKeyDown(Keys.G) && _previousKeyState.IsKeyUp(Keys.G))
+        {
+            _playerCivControl.OpenCivilizationSelector();
         }
 
         // Quick save (F5)
@@ -595,6 +604,9 @@ public class SimPlanetGame : Game
 
         // Draw sediment column viewer
         _sedimentViewer.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw player civilization control
+        _playerCivControl.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         // Draw pause menu overlay if paused
         if (_mainMenu.CurrentScreen == GameScreen.PauseMenu)
