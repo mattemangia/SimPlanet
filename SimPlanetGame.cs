@@ -21,6 +21,7 @@ public class SimPlanetGame : Game
     private HydrologySimulator _hydrologySimulator;
     private WeatherSystem _weatherSystem;
     private CivilizationManager _civilizationManager;
+    private BiomeSimulator _biomeSimulator;
 
     // Menu and save/load
     private MainMenu _mainMenu;
@@ -43,6 +44,12 @@ public class SimPlanetGame : Game
     // Input
     private KeyboardState _previousKeyState;
     private MouseState _previousMouseState;
+
+    // Performance optimization: throttle expensive operations
+    private float _globalStatsTimer = 0;
+    private float _visualUpdateTimer = 0;
+    private const float GlobalStatsInterval = 1.0f; // Update global stats every 1 second
+    private const float VisualUpdateInterval = 0.1f; // Update visuals 10 times per second
 
     // Map generation settings
     private MapGenerationOptions _mapOptions;
@@ -89,6 +96,7 @@ public class SimPlanetGame : Game
         _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
         _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
         _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
+        _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -157,7 +165,8 @@ public class SimPlanetGame : Game
         // Update simulation if not paused
         if (!_gameState.IsPaused && _mainMenu.CurrentScreen == GameScreen.InGame)
         {
-            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds * _gameState.TimeSpeed;
+            float realDeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            float deltaTime = realDeltaTime * _gameState.TimeSpeed;
 
             // Accumulate time for year tracking
             _gameState.TimeAccumulator += deltaTime;
@@ -178,9 +187,24 @@ public class SimPlanetGame : Game
             _geologicalSimulator.Update(deltaTime, _gameState.Year);
             _hydrologySimulator.Update(deltaTime);
             _civilizationManager.Update(deltaTime, _gameState.Year);
+            _biomeSimulator.Update(deltaTime);
 
-            // Update global temperature average
-            UpdateGlobalStats();
+            // Performance optimization: Update global stats only once per second
+            _globalStatsTimer += realDeltaTime;
+            if (_globalStatsTimer >= GlobalStatsInterval)
+            {
+                UpdateGlobalStats();
+                _globalStatsTimer = 0;
+            }
+
+            // Performance optimization: Mark terrain for visual update periodically
+            _visualUpdateTimer += realDeltaTime;
+            if (_visualUpdateTimer >= VisualUpdateInterval)
+            {
+                _terrainRenderer.MarkDirty();
+                _minimap3D.MarkDirty();
+                _visualUpdateTimer = 0;
+            }
 
             // Update UI systems
             _minimap3D.Update(deltaTime);
@@ -253,6 +277,10 @@ public class SimPlanetGame : Game
             _currentRenderMode = RenderMode.Pressure;
         if (keyState.IsKeyDown(Keys.F4) && _previousKeyState.IsKeyUp(Keys.F4))
             _currentRenderMode = RenderMode.Storms;
+
+        // Biome view mode (F10)
+        if (keyState.IsKeyDown(Keys.F10) && _previousKeyState.IsKeyUp(Keys.F10))
+            _currentRenderMode = RenderMode.Biomes;
 
         // Toggle day/night cycle (C key)
         if (keyState.IsKeyDown(Keys.C) && _previousKeyState.IsKeyUp(Keys.C))
@@ -424,6 +452,7 @@ public class SimPlanetGame : Game
             _hydrologySimulator = new HydrologySimulator(_map, saveData.MapOptions.Seed);
             _weatherSystem = new WeatherSystem(_map, saveData.MapOptions.Seed);
             _civilizationManager = new CivilizationManager(_map, saveData.MapOptions.Seed);
+            _biomeSimulator = new BiomeSimulator(_map, saveData.MapOptions.Seed);
 
             // Apply save data
             _saveLoadManager.ApplySaveData(saveData, _map, _gameState,
@@ -466,6 +495,7 @@ public class SimPlanetGame : Game
         // Clear data from old map
         TerrainCellExtensions.ClearGeologicalData();
         MeteorologicalExtensions.ClearMeteorologicalData();
+        BiomeExtensions.ClearBiomeData();
 
         // Recreate simulators
         _climateSimulator = new ClimateSimulator(_map);
@@ -475,6 +505,7 @@ public class SimPlanetGame : Game
         _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
         _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
         _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
+        _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();

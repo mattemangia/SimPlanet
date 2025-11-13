@@ -15,7 +15,24 @@ public class TerrainRenderer
     private Color[] _terrainColors;
 
     public int CellSize { get; set; } = 4;
-    public RenderMode Mode { get; set; } = RenderMode.Terrain;
+
+    private RenderMode _mode = RenderMode.Terrain;
+    public RenderMode Mode
+    {
+        get => _mode;
+        set
+        {
+            if (_mode != value)
+            {
+                _mode = value;
+                _isDirty = true; // Mark for redraw when mode changes
+            }
+        }
+    }
+
+    // Performance optimization: only update texture when needed
+    private bool _isDirty = true;
+    public void MarkDirty() => _isDirty = true;
 
     // Camera controls
     public float CameraX { get; set; } = 0;
@@ -45,6 +62,10 @@ public class TerrainRenderer
 
     public void UpdateTerrainTexture()
     {
+        // Performance optimization: only update when data has changed
+        if (!_isDirty && !ShowDayNight)
+            return;
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -68,6 +89,7 @@ public class TerrainRenderer
                     RenderMode.Wind => GetWindColor(cell),
                     RenderMode.Pressure => GetPressureColor(cell),
                     RenderMode.Storms => GetStormsColor(cell),
+                    RenderMode.Biomes => GetBiomeColor(cell),
                     _ => Color.Black
                 };
 
@@ -82,6 +104,7 @@ public class TerrainRenderer
         }
 
         _terrainTexture.SetData(_terrainColors);
+        _isDirty = false; // Clear dirty flag after update
     }
 
     private Color ApplyDayNightCycle(Color baseColor, TerrainCell cell, int x)
@@ -447,6 +470,55 @@ public class TerrainRenderer
         return baseColor;
     }
 
+    private Color GetBiomeColor(TerrainCell cell)
+    {
+        // Water cells
+        if (cell.IsWater)
+        {
+            if (cell.Elevation < -0.5f)
+                return new Color(0, 50, 120); // Deep ocean
+            return new Color(20, 100, 180); // Shallow water
+        }
+
+        // Get biome for land cells
+        var biomeData = cell.GetBiomeData();
+        Color color = biomeData.CurrentBiome switch
+        {
+            // Frozen biomes
+            Biome.Glacier => new Color(240, 250, 255),          // White/light blue
+            Biome.AlpineTundra => new Color(200, 210, 220),     // Gray-white
+            Biome.Tundra => new Color(180, 190, 160),           // Gray-green
+
+            // Forest biomes
+            Biome.TropicalRainforest => new Color(10, 100, 20), // Dark green
+            Biome.TemperateForest => new Color(34, 139, 34),    // Forest green
+            Biome.BorealForest => new Color(20, 80, 40),        // Dark green
+
+            // Grassland biomes
+            Biome.Savanna => new Color(200, 180, 100),          // Tan/yellow
+            Biome.Grassland => new Color(100, 160, 80),         // Light green
+            Biome.Shrubland => new Color(140, 140, 80),         // Olive
+
+            // Arid biomes
+            Biome.Desert => new Color(230, 200, 140),           // Sand color
+
+            // Other
+            Biome.Mountain => new Color(140, 130, 120),         // Gray
+            Biome.Wetland => new Color(60, 120, 90),            // Swamp green
+
+            _ => new Color(180, 160, 100)                        // Default
+        };
+
+        // Darken based on biomass for more detail
+        if (cell.Biomass > 0.5f && biomeData.CurrentBiome != Biome.Desert && biomeData.CurrentBiome != Biome.Glacier)
+        {
+            float darken = Math.Min(cell.Biomass - 0.5f, 0.3f);
+            color = Color.Lerp(color, new Color(0, 40, 0), darken);
+        }
+
+        return color;
+    }
+
     public void Dispose()
     {
         _pixelTexture?.Dispose();
@@ -469,5 +541,6 @@ public enum RenderMode
     Clouds,
     Wind,
     Pressure,
-    Storms
+    Storms,
+    Biomes
 }

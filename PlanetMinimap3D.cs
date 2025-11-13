@@ -24,6 +24,10 @@ public class PlanetMinimap3D
     public bool IsVisible { get; set; } = true;
     public bool AutoRotate { get; set; } = true;
 
+    // Performance optimization
+    private bool _isDirty = true;
+    public void MarkDirty() => _isDirty = true;
+
     public PlanetMinimap3D(GraphicsDevice graphicsDevice, PlanetMap map)
     {
         _graphicsDevice = graphicsDevice;
@@ -41,11 +45,16 @@ public class PlanetMinimap3D
             _rotation += deltaTime * 0.5f; // Rotate slowly
             if (_rotation > MathF.PI * 2)
                 _rotation -= MathF.PI * 2;
+            _isDirty = true; // Need to re-render when rotating
         }
     }
 
     public void UpdateTexture(TerrainRenderer terrainRenderer)
     {
+        // Performance optimization: only update when data has changed or rotating
+        if (!_isDirty)
+            return;
+
         // Get current terrain colors
         _terrainColors = new Color[_map.Width * _map.Height];
 
@@ -62,6 +71,7 @@ public class PlanetMinimap3D
 
         // Render 3D sphere
         Render3DSphere();
+        _isDirty = false; // Clear dirty flag after update
     }
 
     private Color GetCellColor(TerrainCell cell)
