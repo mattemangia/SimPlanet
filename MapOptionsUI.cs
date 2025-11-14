@@ -45,6 +45,10 @@ public class MapOptionsUI
     private string _seedInputText = "";
     private KeyboardState _previousKeyState;
 
+    // Performance: Throttle preview updates to prevent lag
+    private DateTime _lastPreviewUpdate = DateTime.MinValue;
+    private const double PreviewThrottleMs = 150; // Update preview max every 150ms
+
     public MapOptionsUI(SpriteBatch spriteBatch, FontRenderer font, GraphicsDevice graphicsDevice)
     {
         _spriteBatch = spriteBatch;
@@ -282,6 +286,13 @@ public class MapOptionsUI
     {
         if (!NeedsPreviewUpdate) return;
 
+        // Performance: Throttle preview updates to prevent lag during slider dragging
+        var timeSinceLastUpdate = (DateTime.Now - _lastPreviewUpdate).TotalMilliseconds;
+        if (timeSinceLastUpdate < PreviewThrottleMs)
+        {
+            return; // Skip this update, too soon since last one
+        }
+
         try
         {
             // Generate small preview map with Earth-like defaults first time
@@ -320,6 +331,7 @@ public class MapOptionsUI
 
             _previewTexture.SetData(colors);
             NeedsPreviewUpdate = false;
+            _lastPreviewUpdate = DateTime.Now;
         }
         catch
         {

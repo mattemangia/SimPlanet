@@ -12,6 +12,7 @@ public class GameUI
     private readonly FontRenderer _font;
     private readonly SpriteBatch _spriteBatch;
     private readonly PlanetMap _map;
+    private readonly GraphicsDevice _graphicsDevice;
     private Texture2D _pixelTexture;
     private CivilizationManager? _civilizationManager;
     private WeatherSystem? _weatherSystem;
@@ -25,6 +26,7 @@ public class GameUI
         _spriteBatch = spriteBatch;
         _font = font;
         _map = map;
+        _graphicsDevice = graphicsDevice;
 
         _pixelTexture = new Texture2D(graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
@@ -58,10 +60,11 @@ public class GameUI
 
     private void DrawInfoPanel(GameState state, RenderMode renderMode)
     {
-        int panelX = 10;
-        int panelY = 10;
-        int panelWidth = 350;
-        int panelHeight = 580;
+        // Use full left side of screen
+        int panelX = 0;
+        int panelY = 0;
+        int panelWidth = 400;
+        int panelHeight = _graphicsDevice.Viewport.Height;
 
         // Draw background with border
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(10, 15, 30, 230));
@@ -233,10 +236,12 @@ public class GameUI
 
     private void DrawHelpPanel()
     {
-        int panelX = 340;
-        int panelY = 10;
-        int panelWidth = 480;
-        int panelHeight = 480;
+        // Position help panel in the map area (right side)
+        int infoPanelWidth = 400;
+        int panelX = infoPanelWidth + 20;
+        int panelY = 20;
+        int panelWidth = 520;
+        int panelHeight = Math.Min(600, _graphicsDevice.Viewport.Height - 40);
 
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 180));
 

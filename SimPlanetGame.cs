@@ -74,10 +74,15 @@ public class SimPlanetGame : Game
         // (Mac M1/Intel, Linux, Windows)
         _graphics.GraphicsProfile = GraphicsProfile.Reach;
 
-        // Set resolution
-        _graphics.PreferredBackBufferWidth = 1280;
-        _graphics.PreferredBackBufferHeight = 720;
+        // Set default resolution (larger window)
+        _graphics.PreferredBackBufferWidth = 1600;
+        _graphics.PreferredBackBufferHeight = 900;
         _graphics.IsFullScreen = false;
+
+        // Enable window resizing
+        Window.AllowUserResizing = true;
+        Window.ClientSizeChanged += OnClientSizeChanged;
+
         _graphics.ApplyChanges();
 
         Window.Title = "SimPlanet - Planetary Evolution Simulator";
@@ -790,11 +795,17 @@ public class SimPlanetGame : Game
         _terrainRenderer.Mode = _currentRenderMode;
         _terrainRenderer.UpdateTerrainTexture();
 
-        // Draw terrain (centered)
+        // Split screen layout: Info panel on left (400px), map on right
+        int infoPanelWidth = 400;
+        int mapAreaX = infoPanelWidth;
+        int mapAreaWidth = GraphicsDevice.Viewport.Width - infoPanelWidth;
+        int mapAreaHeight = GraphicsDevice.Viewport.Height;
+
+        // Draw terrain (centered in right area)
         int mapPixelWidth = _map.Width * _terrainRenderer.CellSize;
         int mapPixelHeight = _map.Height * _terrainRenderer.CellSize;
-        int offsetX = (GraphicsDevice.Viewport.Width - mapPixelWidth) / 2;
-        int offsetY = (GraphicsDevice.Viewport.Height - mapPixelHeight) / 2;
+        int offsetX = mapAreaX + (mapAreaWidth - mapPixelWidth) / 2;
+        int offsetY = (mapAreaHeight - mapPixelHeight) / 2;
 
         _terrainRenderer.Draw(_spriteBatch, offsetX, offsetY);
 
@@ -844,6 +855,17 @@ public class SimPlanetGame : Game
         _spriteBatch.End();
 
         base.Draw(gameTime);
+    }
+
+    private void OnClientSizeChanged(object sender, EventArgs e)
+    {
+        // Update graphics when window is resized
+        if (_graphics != null && Window != null)
+        {
+            _graphics.PreferredBackBufferWidth = Window.ClientBounds.Width;
+            _graphics.PreferredBackBufferHeight = Window.ClientBounds.Height;
+            _graphics.ApplyChanges();
+        }
     }
 
     protected override void OnExiting(object sender, EventArgs args)
