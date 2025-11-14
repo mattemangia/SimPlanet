@@ -262,8 +262,8 @@ public class WeatherSystem
 
     private void UpdateStorms(float deltaTime, int currentYear)
     {
-        // Generate new storms
-        if (_random.NextDouble() < 0.01 * deltaTime)
+        // Generate new tropical cyclones (less frequently, more realistic)
+        if (_random.NextDouble() < 0.005 * deltaTime)
         {
             GenerateStorm();
         }
@@ -274,19 +274,44 @@ public class WeatherSystem
             var storm = _storms[i];
             storm.Lifetime += deltaTime;
 
-            // Move storm
-            storm.CenterX += (int)(storm.VelocityX * deltaTime * 10);
-            storm.CenterY += (int)(storm.VelocityY * deltaTime * 10);
+            // Get latitude for Coriolis effect
+            float latitude = (storm.CenterY - _map.Height / 2.0f) / (_map.Height / 2.0f);
+            float absLatitude = Math.Abs(latitude);
 
-            // Wrap around
+            // Apply Coriolis force to storm movement (curves trajectory)
+            // Storms curve right in NH, left in SH
+            float coriolisDeflection = latitude * 0.3f;  // Stronger at higher latitudes
+
+            // Base movement from steering winds
+            float steeringWindX = storm.VelocityX;
+            float steeringWindY = storm.VelocityY;
+
+            // Apply Coriolis deflection perpendicular to motion
+            storm.VelocityX = steeringWindX - steeringWindY * coriolisDeflection;
+            storm.VelocityY = steeringWindY + steeringWindX * coriolisDeflection;
+
+            // Move storm with realistic speed (tropical cyclones move ~10-30 km/h)
+            storm.CenterX += (int)(storm.VelocityX * deltaTime * 8);
+            storm.CenterY += (int)(storm.VelocityY * deltaTime * 8);
+
+            // Wrap around horizontally
             storm.CenterX = (storm.CenterX + _map.Width) % _map.Width;
             storm.CenterY = Math.Clamp(storm.CenterY, 0, _map.Height - 1);
 
-            // Decay
-            storm.Intensity *= 0.99f;
+            // Check if over land or water
+            var centerCell = _map.Cells[storm.CenterX, storm.CenterY];
+            storm.OverLand = centerCell.IsLand;
+            storm.SeaSurfaceTemp = centerCell.Temperature;
 
-            // Remove weak or old storms
-            if (storm.Intensity < 0.1f || storm.Lifetime > 50)
+            // Update storm intensity based on conditions
+            UpdateStormIntensity(storm, deltaTime);
+
+            // Update storm category based on wind speed
+            UpdateStormCategory(storm);
+
+            // Remove dissipated storms
+            if (storm.Intensity < 0.05f || storm.Lifetime > 100 ||
+                storm.MaxWindSpeed < 5f || Math.Abs(latitude) < 0.05f)  // Dissipate near equator
             {
                 _storms.RemoveAt(i);
                 continue;
@@ -297,6 +322,75 @@ public class WeatherSystem
         }
     }
 
+    private void UpdateStormIntensity(Storm storm, float deltaTime)
+    {
+        // Tropical cyclones intensify over warm water (>26°C), weaken over land or cool water
+        bool isTropical = storm.Type >= StormType.TropicalDepression &&
+                         storm.Type <= StormType.HurricaneCategory5;
+
+        if (isTropical)
+        {
+            if (storm.OverLand)
+            {
+                // Rapid weakening over land (friction, no moisture)
+                storm.Intensity *= 0.92f;  // Lose ~8% per timestep
+                storm.MaxWindSpeed *= 0.93f;
+                storm.CentralPressure += 2.0f * deltaTime;  // Pressure rises
+            }
+            else if (storm.SeaSurfaceTemp > 26)
+            {
+                // Intensification over warm water
+                float warmthBonus = (storm.SeaSurfaceTemp - 26) * 0.01f;
+                storm.Intensity = Math.Min(1.0f, storm.Intensity + warmthBonus * deltaTime);
+                storm.MaxWindSpeed += warmthBonus * 5.0f * deltaTime;
+                storm.CentralPressure = Math.Max(900, storm.CentralPressure - warmthBonus * 10f * deltaTime);
+            }
+            else
+            {
+                // Slow weakening over cool water
+                storm.Intensity *= 0.98f;
+                storm.MaxWindSpeed *= 0.985f;
+                storm.CentralPressure += 0.5f * deltaTime;
+            }
+        }
+        else
+        {
+            // Regular storms (thunderstorms, blizzards) decay normally
+            storm.Intensity *= 0.99f;
+        }
+
+        // Natural dissipation over time
+        storm.Intensity *= (1.0f - 0.002f * deltaTime);
+    }
+
+    private void UpdateStormCategory(Storm storm)
+    {
+        // Update tropical cyclone category based on wind speed (Saffir-Simpson scale)
+        // Wind speeds in m/s (multiply by ~2.237 to get mph)
+        if (storm.Type == StormType.Thunderstorm || storm.Type == StormType.Blizzard ||
+            storm.Type == StormType.Tornado)
+        {
+            return; // Don't categorize non-tropical storms
+        }
+
+        float windMph = storm.MaxWindSpeed * 2.237f;
+
+        if (windMph < 39)
+            storm.Type = StormType.TropicalDepression;
+        else if (windMph < 74)
+            storm.Type = StormType.TropicalStorm;
+        else if (windMph < 96)
+            storm.Type = StormType.HurricaneCategory1;
+        else if (windMph < 111)
+            storm.Type = StormType.HurricaneCategory2;
+        else if (windMph < 130)
+            storm.Type = StormType.HurricaneCategory3;
+        else if (windMph < 157)
+            storm.Type = StormType.HurricaneCategory4;
+        else
+            storm.Type = StormType.HurricaneCategory5;
+    }
+
     private void GenerateStorm()
     {
         int x = _random.Next(_map.Width);
@@ -305,41 +399,141 @@ public class WeatherSystem
         var cell = _map.Cells[x, y];
         var met = cell.GetMeteorology();
 
-        // Storms form in low pressure, high humidity areas
-        if (met.AirPressure < 1000 && cell.Humidity > 0.6f && cell.IsWater)
+        // Get latitude for storm type determination
+        float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
+        float absLatitude = Math.Abs(latitude);
+
+        // Calculate wind convergence (check if winds are converging)
+        float windConvergence = CalculateWindConvergence(x, y);
+
+        // Tropical cyclones require:
+        // 1. Warm ocean (>26°C)
+        // 2. High cloud cover and humidity
+        // 3. Low pressure
+        // 4. Away from equator (need Coriolis: 5-30° latitude)
+        // 5. Wind convergence
+        bool canFormTropical = cell.IsWater &&
+                              cell.Temperature > 26 &&
+                              met.CloudCover > 0.7f &&
+                              cell.Humidity > 0.7f &&
+                              met.AirPressure < 1005 &&
+                              absLatitude > 0.08f &&  // ~5° from equator
+                              absLatitude < 0.5f &&   // ~30° latitude
+                              windConvergence > 0.02f;
+
+        if (canFormTropical)
         {
-            StormType type = StormType.Thunderstorm;
-            float intensity = 0.5f + (float)_random.NextDouble() * 0.5f;
-
-            // Hurricanes in warm oceans
-            if (cell.Temperature > 26 && cell.IsWater)
-            {
-                type = StormType.Hurricane;
-                intensity = 0.8f + (float)_random.NextDouble() * 0.2f;
-            }
-            // Blizzards in cold areas
-            else if (cell.Temperature < 0)
-            {
-                type = StormType.Blizzard;
-            }
-
+            // Start as tropical depression
             var storm = new Storm
             {
                 CenterX = x,
                 CenterY = y,
-                Intensity = intensity,
-                Type = type,
-                VelocityX = met.WindSpeedX * 0.1f,
-                VelocityY = met.WindSpeedY * 0.1f
+                Intensity = 0.3f + (float)_random.NextDouble() * 0.2f,
+                Type = StormType.TropicalDepression,
+                VelocityX = met.WindSpeedX * 0.15f + (latitude > 0 ? 0.5f : -0.5f),  // Westward drift in tropics
+                VelocityY = met.WindSpeedY * 0.15f + (latitude > 0 ? 0.2f : -0.2f),  // Poleward drift
+                CentralPressure = 1005f - (float)_random.NextDouble() * 10f,
+                MaxWindSpeed = 10f + (float)_random.NextDouble() * 5f,  // Start weak
+                SeaSurfaceTemp = cell.Temperature,
+                OverLand = false,
+                RotationDirection = latitude > 0 ? 1f : -1f  // Counterclockwise NH, clockwise SH
+            };
+
+            _storms.Add(storm);
+        }
+        // Regular thunderstorms
+        else if (met.AirPressure < 1000 && cell.Humidity > 0.6f && met.CloudCover > 0.6f)
+        {
+            var storm = new Storm
+            {
+                CenterX = x,
+                CenterY = y,
+                Intensity = 0.4f + (float)_random.NextDouble() * 0.3f,
+                Type = StormType.Thunderstorm,
+                VelocityX = met.WindSpeedX * 0.12f,
+                VelocityY = met.WindSpeedY * 0.12f,
+                CentralPressure = 995f,
+                MaxWindSpeed = 15f,
+                SeaSurfaceTemp = cell.Temperature,
+                OverLand = cell.IsLand
+            };
+
+            _storms.Add(storm);
+        }
+        // Blizzards in cold areas
+        else if (cell.Temperature < 0 && cell.Humidity > 0.5f && met.CloudCover > 0.7f)
+        {
+            var storm = new Storm
+            {
+                CenterX = x,
+                CenterY = y,
+                Intensity = 0.5f + (float)_random.NextDouble() * 0.3f,
+                Type = StormType.Blizzard,
+                VelocityX = met.WindSpeedX * 0.15f,
+                VelocityY = met.WindSpeedY * 0.15f,
+                CentralPressure = 980f,
+                MaxWindSpeed = 20f,
+                SeaSurfaceTemp = cell.Temperature,
+                OverLand = cell.IsLand
             };
 
             _storms.Add(storm);
         }
     }
 
+    private float CalculateWindConvergence(int x, int y)
+    {
+        // Check if winds are converging toward this location
+        // Positive convergence = winds flowing inward (favorable for storm formation)
+        var met = _map.Cells[x, y].GetMeteorology();
+        float centerWindX = met.WindSpeedX;
+        float centerWindY = met.WindSpeedY;
+
+        float convergence = 0;
+        int count = 0;
+
+        // Check neighboring cells
+        foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+        {
+            var neighborMet = neighbor.GetMeteorology();
+
+            // Calculate if wind is blowing toward center
+            float dx = x - nx;
+            float dy = y - ny;
+            float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+            if (dist > 0)
+            {
+                // Normalize direction vector
+                dx /= dist;
+                dy /= dist;
+
+                // Dot product of wind with direction toward center
+                float windTowardCenter = (neighborMet.WindSpeedX * dx + neighborMet.WindSpeedY * dy);
+
+                convergence += windTowardCenter;
+                count++;
+            }
+        }
+
+        return count > 0 ? convergence / count : 0;
+    }
+
     private void ApplyStormEffects(Storm storm)
     {
-        int radius = storm.Type == StormType.Hurricane ? 15 : 8;
+        // Determine radius based on storm type
+        int radius = storm.Type switch
+        {
+            StormType.TropicalDepression => 10,
+            StormType.TropicalStorm => 12,
+            StormType.HurricaneCategory1 => 15,
+            StormType.HurricaneCategory2 => 18,
+            StormType.HurricaneCategory3 => 20,
+            StormType.HurricaneCategory4 => 22,
+            StormType.HurricaneCategory5 => 25,
+            StormType.Blizzard => 12,
+            _ => 8  // Thunderstorm
+        };
 
         for (int dx = -radius; dx <= radius; dx++)
         {
@@ -359,27 +553,65 @@ public class WeatherSystem
                 met.InStorm = true;
                 float effectStrength = storm.Intensity * (1 - dist / radius);
 
-                // Heavy precipitation
-                met.Precipitation = effectStrength;
-                cell.Rainfall += effectStrength * 0.1f;
-
-                // Strong winds
-                met.WindSpeedX += (x - storm.CenterX) * effectStrength * 0.5f;
-                met.WindSpeedY += (y - storm.CenterY) * effectStrength * 0.5f;
-
-                // Lower pressure at center
-                met.AirPressure -= effectStrength * 50;
-
-                // Damage to life
-                if (storm.Type == StormType.Hurricane && effectStrength > 0.5f)
+                // Apply CYCLONIC ROTATION (spiral winds around the eye)
+                // Winds rotate counterclockwise in NH, clockwise in SH
+                if (dist > 2)  // Eye wall at center (calm eye)
                 {
-                    cell.Biomass *= 0.95f; // Storm damage
+                    float angle = MathF.Atan2(dy, dx);
+                    float tangentialSpeed = storm.MaxWindSpeed * effectStrength;
+
+                    // Rotate 90 degrees for tangential flow, direction based on hemisphere
+                    float rotatedAngle = angle + (storm.RotationDirection * MathF.PI / 2f);
+
+                    // Add cyclonic circulation to existing winds
+                    met.WindSpeedX += MathF.Cos(rotatedAngle) * tangentialSpeed * 0.3f;
+                    met.WindSpeedY += MathF.Sin(rotatedAngle) * tangentialSpeed * 0.3f;
+
+                    // Add inward spiraling component (convergence toward center)
+                    met.WindSpeedX += -dx / dist * effectStrength * storm.MaxWindSpeed * 0.1f;
+                    met.WindSpeedY += -dy / dist * effectStrength * storm.MaxWindSpeed * 0.1f;
                 }
 
-                // Tornadoes can form in thunderstorms
-                if (storm.Type == StormType.Thunderstorm && _random.NextDouble() < 0.001)
+                // Heavy precipitation (strongest in eye wall)
+                float rainIntensity = dist < radius * 0.3f ? effectStrength * 1.5f : effectStrength;
+                met.Precipitation = Math.Max(met.Precipitation, rainIntensity);
+                cell.Rainfall += rainIntensity * 0.08f;
+
+                // Lower pressure (lowest at center)
+                float pressureDrop = effectStrength * (1013.25f - storm.CentralPressure);
+                met.AirPressure = Math.Min(met.AirPressure, storm.CentralPressure + pressureDrop);
+
+                // Increase cloud cover
+                met.CloudCover = Math.Max(met.CloudCover, effectStrength * 0.9f);
+
+                // Damage to life from high winds
+                bool isMajorHurricane = storm.Type >= StormType.HurricaneCategory3;
+                if (isMajorHurricane && effectStrength > 0.5f)
                 {
-                    cell.Biomass *= 0.5f; // Severe localized damage
+                    cell.Biomass *= 0.93f; // Severe storm damage
+                }
+                else if ((storm.Type >= StormType.TropicalStorm) && effectStrength > 0.6f)
+                {
+                    cell.Biomass *= 0.97f; // Moderate storm damage
+                }
+
+                // Storm surge damage on coastlines (hurricanes only)
+                if (storm.Type >= StormType.HurricaneCategory1 && cell.IsLand && effectStrength > 0.7f)
+                {
+                    var neighbors = _map.GetNeighbors(x, y);
+                    bool nearWater = neighbors.Any(n => n.cell.IsWater);
+
+                    if (nearWater)
+                    {
+                        cell.Biomass *= 0.85f; // Coastal flooding damage
+                    }
+                }
+
+                // Tornadoes can spawn in strong thunderstorms
+                if (storm.Type == StormType.Thunderstorm && effectStrength > 0.6f &&
+                    _random.NextDouble() < 0.0005)
+                {
+                    cell.Biomass *= 0.4f; // Severe localized tornado damage
                 }
             }
         }
@@ -471,9 +703,14 @@ public class Storm
 {
     public int CenterX { get; set; }
     public int CenterY { get; set; }
-    public float Intensity { get; set; }
+    public float Intensity { get; set; }  // 0-1 scale
     public float VelocityX { get; set; }
     public float VelocityY { get; set; }
     public StormType Type { get; set; }
     public float Lifetime { get; set; }
+    public float CentralPressure { get; set; } = 1013.25f;  // Millibars (lower = stronger)
+    public float MaxWindSpeed { get; set; } = 0f;  // m/s
+    public float SeaSurfaceTemp { get; set; } = 0f;  // Track temp for growth/decay
+    public bool OverLand { get; set; } = false;  // Weakens over land
+    public float RotationDirection { get; set; } = 0f;  // 1 for counterclockwise (NH), -1 for clockwise (SH)
 }

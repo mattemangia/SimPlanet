@@ -113,7 +113,13 @@ public enum CivType
 public enum StormType
 {
     Thunderstorm,
-    Hurricane,
+    TropicalDepression,   // Organized convection, winds < 39 mph
+    TropicalStorm,        // Winds 39-73 mph
+    HurricaneCategory1,   // Winds 74-95 mph
+    HurricaneCategory2,   // Winds 96-110 mph
+    HurricaneCategory3,   // Winds 111-129 mph (major hurricane)
+    HurricaneCategory4,   // Winds 130-156 mph (major hurricane)
+    HurricaneCategory5,   // Winds 157+ mph (major hurricane)
     Blizzard,
     Tornado
 }

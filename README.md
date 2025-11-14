@@ -87,7 +87,15 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Dynamic meteorology with seasons (4 seasons per year, hemisphere-aware)
   - Wind patterns (trade winds, westerlies, polar easterlies)
   - Air pressure systems affected by temperature and elevation
-  - Storm generation and tracking (thunderstorms, hurricanes, blizzards, tornadoes)
+  - **Realistic Tropical Cyclones**:
+    - Form from cloud-wind interaction over warm oceans (>26°C)
+    - Progress from Tropical Depression → Tropical Storm → Hurricane (Categories 1-5)
+    - Follow curved trajectories from Coriolis force (right in NH, left in SH)
+    - Intensify over warm water, weaken over land or cool water
+    - Cyclonic wind patterns with spiral rotation and eye walls
+    - Track central pressure, max wind speed, and storm category
+    - Storm surge damage on coastlines
+  - Thunderstorms, blizzards, and tornadoes
   - Seasonal temperature variations based on latitude
 - **Forest Fire System**:
   - Natural fire ignition from lightning and extreme heat (>35°C)
@@ -572,7 +580,57 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Albedo & Radiation Visualization + Major Performance Boost
+### Latest Update - Realistic Tropical Cyclones with Coriolis-Based Trajectories
+
+**NEW - Advanced Cyclone System:**
+- ✅ **Tropical Cyclone Formation** - Realistic conditions required:
+  - Warm ocean temperature (>26°C sea surface temperature)
+  - High cloud cover and humidity (>70%)
+  - Low atmospheric pressure (<1005 mb)
+  - Wind convergence (winds flowing together)
+  - Distance from equator (5-30° latitude for Coriolis effect)
+- ✅ **Storm Categories** - Saffir-Simpson scale progression:
+  - Tropical Depression: Winds <39 mph (organized convection)
+  - Tropical Storm: Winds 39-73 mph
+  - Hurricane Category 1: Winds 74-95 mph
+  - Hurricane Category 2: Winds 96-110 mph
+  - Hurricane Category 3: Winds 111-129 mph (Major Hurricane)
+  - Hurricane Category 4: Winds 130-156 mph (Major Hurricane)
+  - Hurricane Category 5: Winds 157+ mph (Catastrophic)
+- ✅ **Realistic Storm Behavior**:
+  - Intensify over warm water (heat engine powered by ocean)
+  - Weaken rapidly over land (friction + no moisture source)
+  - Weaken slowly over cool water (<26°C)
+  - Track central pressure (lower = stronger storm)
+  - Monitor max wind speeds in m/s
+- ✅ **Coriolis-Based Movement**:
+  - Storms curve right in Northern Hemisphere
+  - Storms curve left in Southern Hemisphere
+  - Poleward and westward drift in tropics
+  - Realistic cyclone trajectories matching real weather patterns
+- ✅ **Cyclonic Wind Patterns**:
+  - Spiral winds rotating around center (counterclockwise NH, clockwise SH)
+  - Eye wall with strongest winds
+  - Calm eye at storm center
+  - Inward spiraling airflow
+  - Visible on wind view mode (F2)
+- ✅ **Storm Impacts**:
+  - Heavy rainfall and flooding (strongest in eye wall)
+  - Storm surge damage on coastlines
+  - Biomass destruction from high winds
+  - Lower atmospheric pressure at center
+  - Increased cloud cover
+  - Coastal flooding from major hurricanes (Cat 3-5)
+
+**Technical Implementation**:
+- Wind convergence calculation for formation
+- Hemisphere-aware rotation direction
+- Dynamic category updates based on wind speed
+- Pressure-wind relationship (lower pressure = higher winds)
+- Realistic storm radii (10-25 cells based on category)
+- Ocean temperature feedback for intensification
+
+### Previous Update - Albedo & Radiation Visualization + Major Performance Boost
 
 **NEW - Advanced Thematic Views:**
 - ✅ **Albedo Visualization (F11)** - See surface reflectivity that drives ice-albedo feedback
