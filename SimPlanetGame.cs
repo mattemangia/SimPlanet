@@ -163,7 +163,7 @@ public class SimPlanetGame : Game
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
-        _diseaseControlUI = new DiseaseControlUI(_font, _terrainRenderer.PixelTexture, _diseaseManager, _map, _civilizationManager);
+        _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
 
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);

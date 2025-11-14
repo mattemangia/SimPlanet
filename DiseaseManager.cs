@@ -62,9 +62,6 @@ public class Disease
     public float Severity { get; set; } = 0.3f;         // How sick people get
     public float Lethality { get; set; } = 0.2f;        // Death rate
 
-    // Evolution points for upgrading disease
-    public int DNAPoints { get; set; } = 0;
-
     // Transmission
     public TransmissionMethod TransmissionMethods { get; set; } = TransmissionMethod.Air;
 
@@ -238,13 +235,6 @@ public class DiseaseManager
 
             // Update statistics
             UpdateDiseaseStats(disease);
-
-            // Generate DNA points based on infections
-            if (disease.DaysSinceOutbreak % 30 == 0) // Every 30 days
-            {
-                int newInfections = _infections.Values.Count(i => i.DiseaseId == disease.Id && i.DaysSinceInfection < 30);
-                disease.DNAPoints += newInfections / 100; // 1 point per 100 new infections
-            }
 
             // Check if disease is eradicated
             if (disease.TotalInfected == 0 && disease.DaysSinceOutbreak > 100)
@@ -500,14 +490,10 @@ public class DiseaseManager
     }
 
     /// <summary>
-    /// Evolve disease trait (costs DNA points)
+    /// Evolve disease trait (player control for simulation)
     /// </summary>
-    public bool EvolveTrait(Disease disease, string traitName, int cost)
+    public bool EvolveTrait(Disease disease, string traitName)
     {
-        if (disease.DNAPoints < cost) return false;
-
-        disease.DNAPoints -= cost;
-
         switch (traitName.ToLower())
         {
             // Transmission

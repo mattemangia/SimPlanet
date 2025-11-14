@@ -9,8 +9,9 @@ namespace SimPlanet;
 /// </summary>
 public class DiseaseControlUI
 {
+    private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
-    private readonly Texture2D _pixelTexture;
+    private Texture2D _pixelTexture;
     private readonly DiseaseManager _diseaseManager;
     private readonly PlanetMap _map;
     private readonly CivilizationManager _civManager;
@@ -45,13 +46,17 @@ public class DiseaseControlUI
         set => _isVisible = value;
     }
 
-    public DiseaseControlUI(FontRenderer font, Texture2D pixelTexture, DiseaseManager diseaseManager, PlanetMap map, CivilizationManager civManager)
+    public DiseaseControlUI(GraphicsDevice graphicsDevice, FontRenderer font, DiseaseManager diseaseManager, PlanetMap map, CivilizationManager civManager)
     {
+        _graphicsDevice = graphicsDevice;
         _font = font;
-        _pixelTexture = pixelTexture;
         _diseaseManager = diseaseManager;
         _map = map;
         _civManager = civManager;
+
+        // Create pixel texture
+        _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
+        _pixelTexture.SetData(new[] { Color.White });
     }
 
     public void Update(MouseState mouseState, MouseState previousMouseState, KeyboardState keyState)
@@ -91,10 +96,10 @@ public class DiseaseControlUI
         {
             foreach (var btn in _evolutionButtons)
             {
-                if (clicked && btn.Bounds.Contains(mouseState.Position))
+                if (clicked && btn.Bounds.Contains(mouseState.Position) && btn.IsEnabled)
                 {
-                    // Try to evolve trait
-                    _diseaseManager.EvolveTrait(_selectedDisease, btn.Tag ?? "", btn.Cost);
+                    // Evolve trait
+                    _diseaseManager.EvolveTrait(_selectedDisease, btn.Tag ?? "");
                 }
             }
         }
@@ -225,7 +230,7 @@ public class DiseaseControlUI
             var msgSize = _font.MeasureString(msg, 16);
             _font.DrawString(spriteBatch, msg,
                 new Vector2(_statsPanel.X + (_statsPanel.Width - msgSize.X) / 2, _statsPanel.Y + 100),
-                new Color(200, 200, 200), 16);
+                new Color(200, 200, 200, 255), 16);
         }
     }
 
@@ -306,10 +311,6 @@ public class DiseaseControlUI
         _font.DrawString(spriteBatch, $"Healthy: {_selectedDisease.HealthyRemaining:N0}", new Vector2(_statsPanel.X + 10, y), new Color(100, 255, 100), 14);
         y += 25;
 
-        // DNA Points
-        _font.DrawString(spriteBatch, $"DNA Points: {_selectedDisease.DNAPoints}", new Vector2(_statsPanel.X + 10, y), new Color(100, 200, 255), 16);
-        y += 25;
-
         // Disease traits
         _font.DrawString(spriteBatch, $"Infectivity: {(_selectedDisease.Infectivity * 100):F0}%", new Vector2(_statsPanel.X + 10, y), Color.White, 12);
         DrawBar(spriteBatch, new Rectangle(_statsPanel.X + 150, y + 2, 200, 12), _selectedDisease.Infectivity, new Color(255, 200, 100));
@@ -356,34 +357,34 @@ public class DiseaseControlUI
         // Transmission traits
         AddEvolutionCategory(spriteBatch, "TRANSMISSION", ref y);
 
-        AddEvolutionButton("Air", "Airborne transmission", 3, !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Air), ref x, ref y);
-        AddEvolutionButton("Water", "Waterborne transmission", 4, !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Water), ref x, ref y);
-        AddEvolutionButton("Blood", "Blood transmission", 5, !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Blood), ref x, ref y);
-        AddEvolutionButton("Livestock", "Animal transmission", 4, !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Livestock), ref x, ref y);
-        AddEvolutionButton("Insects", "Insect vectors", 6, !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Insects), ref x, ref y);
+        AddEvolutionButton("Air", "Airborne transmission", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Air), ref x, ref y);
+        AddEvolutionButton("Water", "Waterborne transmission", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Water), ref x, ref y);
+        AddEvolutionButton("Blood", "Blood transmission", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Blood), ref x, ref y);
+        AddEvolutionButton("Livestock", "Animal transmission", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Livestock), ref x, ref y);
+        AddEvolutionButton("Insects", "Insect vectors", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Insects), ref x, ref y);
 
         y += 10;
         AddEvolutionCategory(spriteBatch, "SYMPTOMS", ref y);
 
-        AddEvolutionButton("Coughing", "Mild symptoms, increases spread", 2, !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Coughing), ref x, ref y);
-        AddEvolutionButton("Fever", "Noticeable symptoms", 3, !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Fever), ref x, ref y);
-        AddEvolutionButton("Pneumonia", "Severe respiratory issues", 5, !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Pneumonia), ref x, ref y);
-        AddEvolutionButton("Organ_Failure", "Critical organ damage", 8, !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.OrganFailure), ref x, ref y);
-        AddEvolutionButton("Total_Organ_Failure", "Complete system shutdown", 12, !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.TotalOrganFailure), ref x, ref y);
+        AddEvolutionButton("Coughing", "Mild symptoms, increases spread", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Coughing), ref x, ref y);
+        AddEvolutionButton("Fever", "Noticeable symptoms", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Fever), ref x, ref y);
+        AddEvolutionButton("Pneumonia", "Severe respiratory issues", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Pneumonia), ref x, ref y);
+        AddEvolutionButton("Organ_Failure", "Critical organ damage", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.OrganFailure), ref x, ref y);
+        AddEvolutionButton("Total_Organ_Failure", "Complete system shutdown", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.TotalOrganFailure), ref x, ref y);
 
         y += 10;
         AddEvolutionCategory(spriteBatch, "RESISTANCES", ref y);
 
-        AddEvolutionButton("Cold_Resistance", "Survive in cold climates", 4, _selectedDisease.ColdResistance < 0.99f, ref x, ref y);
-        AddEvolutionButton("Heat_Resistance", "Survive in hot climates", 4, _selectedDisease.HeatResistance < 0.99f, ref x, ref y);
-        AddEvolutionButton("Drug_Resistance", "Resist medical treatment", 7, _selectedDisease.DrugResistance < 0.99f, ref x, ref y);
+        AddEvolutionButton("Cold_Resistance", "Survive in cold climates", _selectedDisease.ColdResistance < 0.99f, ref x, ref y);
+        AddEvolutionButton("Heat_Resistance", "Survive in hot climates", _selectedDisease.HeatResistance < 0.99f, ref x, ref y);
+        AddEvolutionButton("Drug_Resistance", "Resist medical treatment", _selectedDisease.DrugResistance < 0.99f, ref x, ref y);
 
         y += 10;
         AddEvolutionCategory(spriteBatch, "ABILITIES", ref y);
 
-        AddEvolutionButton("Hardened_Resurgence", "Can re-infect cured people", 10, !_selectedDisease.HardenedResurgence, ref x, ref y);
-        AddEvolutionButton("Genetic_Reshuffle", "Delays cure research", 12, !_selectedDisease.GeneticReShuffle, ref x, ref y);
-        AddEvolutionButton("Total_Organ_Shutdown", "Massively increases lethality", 15, !_selectedDisease.TotalOrganShutdown, ref x, ref y);
+        AddEvolutionButton("Hardened_Resurgence", "Can re-infect cured people", !_selectedDisease.HardenedResurgence, ref x, ref y);
+        AddEvolutionButton("Genetic_Reshuffle", "Delays cure research", !_selectedDisease.GeneticReShuffle, ref x, ref y);
+        AddEvolutionButton("Total_Organ_Shutdown", "Massively increases lethality", !_selectedDisease.TotalOrganShutdown, ref x, ref y);
 
         // Draw all evolution buttons
         foreach (var btn in _evolutionButtons)
@@ -404,15 +405,14 @@ public class DiseaseControlUI
         y += 25;
     }
 
-    private void AddEvolutionButton(string name, string description, int cost, bool available, ref int x, ref int y)
+    private void AddEvolutionButton(string name, string description, bool available, ref int x, ref int y)
     {
         var btn = new UIButton
         {
             Bounds = new Rectangle(x, y, 180, 30),
             Label = name.Replace("_", " "),
             Tag = name,
-            Cost = cost,
-            IsEnabled = available && _selectedDisease != null && _selectedDisease.DNAPoints >= cost
+            IsEnabled = available
         };
         _evolutionButtons.Add(btn);
         y += 35;
@@ -427,8 +427,7 @@ public class DiseaseControlUI
         spriteBatch.Draw(_pixelTexture, btn.Bounds, bgColor);
         DrawBorder(spriteBatch, btn.Bounds.X, btn.Bounds.Y, btn.Bounds.Width, btn.Bounds.Height, borderColor, 1);
 
-        _font.DrawString(spriteBatch, btn.Label, new Vector2(btn.Bounds.X + 5, btn.Bounds.Y + 3), textColor, 12);
-        _font.DrawString(spriteBatch, $"{btn.Cost} DNA", new Vector2(btn.Bounds.X + 5, btn.Bounds.Y + 16), new Color(100, 200, 255), 10);
+        _font.DrawString(spriteBatch, btn.Label, new Vector2(btn.Bounds.X + 5, btn.Bounds.Y + 8), textColor, 14);
     }
 
     private void DrawCreateDiseaseModal(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
@@ -531,7 +530,6 @@ public class DiseaseControlUI
         public Rectangle Bounds { get; set; }
         public string Label { get; set; } = "";
         public string? Tag { get; set; }
-        public int Cost { get; set; }
         public bool IsEnabled { get; set; } = true;
     }
 }
