@@ -68,6 +68,10 @@ public class SimPlanetGame : Game
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
 
+        // Use Reach profile for maximum cross-platform compatibility
+        // (Mac M1/Intel, Linux, Windows)
+        _graphics.GraphicsProfile = GraphicsProfile.Reach;
+
         // Set resolution
         _graphics.PreferredBackBufferWidth = 1280;
         _graphics.PreferredBackBufferHeight = 720;
