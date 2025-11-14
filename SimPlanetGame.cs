@@ -519,6 +519,9 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.F11) && _previousKeyState.IsKeyUp(Keys.F11))
             _currentRenderMode = RenderMode.Resources;
 
+        // Apply render mode to terrain renderer (triggers texture update when mode changes)
+        _terrainRenderer.Mode = _currentRenderMode;
+
         // Toggle day/night cycle (C key)
         if (keyState.IsKeyDown(Keys.C) && _previousKeyState.IsKeyUp(Keys.C))
         {
@@ -989,7 +992,8 @@ public class SimPlanetGame : Game
         _terrainRenderer.Draw(_spriteBatch, offsetX, offsetY);
 
         // Draw geological overlays (volcanoes, rivers, plates)
-        // Apply camera offset to overlays so they move with the terrain
+        // TerrainRenderer applies camera offset internally (camX = offsetX - CameraX)
+        // DrawOverlay uses offset directly, so we need to apply camera offset before passing
         int overlayOffsetX = offsetX - (int)_terrainRenderer.CameraX;
         int overlayOffsetY = offsetY - (int)_terrainRenderer.CameraY;
         _eventsUI.DrawOverlay(_map, overlayOffsetX, overlayOffsetY, _terrainRenderer.CellSize, _terrainRenderer.ZoomLevel);
