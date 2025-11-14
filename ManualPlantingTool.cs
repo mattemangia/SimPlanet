@@ -31,7 +31,7 @@ public class ManualPlantingTool
     }
 
     public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel,
-                      CivilizationManager civManager, int currentYear)
+                      CivilizationManager civManager, int currentYear, int mapRenderOffsetX, int mapRenderOffsetY)
     {
         if (!IsActive)
         {
@@ -52,8 +52,10 @@ public class ManualPlantingTool
         if (clicked)
         {
             // Convert screen coordinates to map coordinates
-            int tileX = (int)((mouseState.X / zoomLevel + cameraX) / cellSize);
-            int tileY = (int)((mouseState.Y / zoomLevel + cameraY) / cellSize);
+            float mapRelativeX = (mouseState.X - mapRenderOffsetX) + cameraX;
+            float mapRelativeY = (mouseState.Y - mapRenderOffsetY) + cameraY;
+            int tileX = (int)(mapRelativeX / (cellSize * zoomLevel));
+            int tileY = (int)(mapRelativeY / (cellSize * zoomLevel));
 
             if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
             {

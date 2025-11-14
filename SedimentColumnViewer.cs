@@ -31,7 +31,7 @@ public class SedimentColumnViewer
         _pixelTexture.SetData(new[] { Color.White });
     }
 
-    public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel)
+    public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel, int mapRenderOffsetX, int mapRenderOffsetY)
     {
         int screenWidth = _graphicsDevice.Viewport.Width;
         int panelWidth = 400;
@@ -81,8 +81,13 @@ public class SedimentColumnViewer
                 else
                 {
                     // Convert mouse position to tile coordinates
-                    int tileX = (int)((mouseState.X / zoomLevel + cameraX) / cellSize);
-                    int tileY = (int)((mouseState.Y / zoomLevel + cameraY) / cellSize);
+                    // 1. Subtract map render offset to get map-relative coordinates
+                    // 2. Add camera offset to account for panning
+                    // 3. Divide by (cellSize * zoomLevel) to get tile index
+                    float mapRelativeX = (mouseState.X - mapRenderOffsetX) + cameraX;
+                    float mapRelativeY = (mouseState.Y - mapRenderOffsetY) + cameraY;
+                    int tileX = (int)(mapRelativeX / (cellSize * zoomLevel));
+                    int tileY = (int)(mapRelativeY / (cellSize * zoomLevel));
 
                     // Check if tile is within bounds
                     if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)

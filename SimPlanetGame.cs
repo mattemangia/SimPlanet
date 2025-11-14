@@ -53,6 +53,10 @@ public class SimPlanetGame : Game
     private GameState _gameState;
     private RenderMode _currentRenderMode = RenderMode.Terrain;
 
+    // Map rendering offsets (for coordinate conversion)
+    private int _mapRenderOffsetX = 0;
+    private int _mapRenderOffsetY = 0;
+
     // Input
     private KeyboardState _previousKeyState;
     private MouseState _previousMouseState;
@@ -387,14 +391,16 @@ public class SimPlanetGame : Game
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(realDeltaTime);
             _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
-                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
+                _mapRenderOffsetX, _mapRenderOffsetY);
             _playerCivControl.Update(Mouse.GetState());
             _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
-                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
+                _mapRenderOffsetX, _mapRenderOffsetY);
             _diseaseControlUI.Update(Mouse.GetState(), _previousMouseState, keyState);
             _plantingTool.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
-                _civilizationManager, _gameState.Year);
+                _civilizationManager, _gameState.Year, _mapRenderOffsetX, _mapRenderOffsetY);
 
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
@@ -968,6 +974,10 @@ public class SimPlanetGame : Game
         int mapPixelHeight = _map.Height * _terrainRenderer.CellSize;
         int offsetX = mapAreaX + (mapAreaWidth - mapPixelWidth) / 2;
         int offsetY = (mapAreaHeight - mapPixelHeight) / 2;
+
+        // Store offsets for coordinate conversion in Update
+        _mapRenderOffsetX = offsetX;
+        _mapRenderOffsetY = offsetY;
 
         _terrainRenderer.Draw(_spriteBatch, offsetX, offsetY);
 

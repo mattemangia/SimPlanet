@@ -155,7 +155,7 @@ public class DisasterControlUI
         _selectedDisasterType = type;
     }
 
-    public void Update(MouseState mouseState, int currentYear, int cellSize, float cameraX, float cameraY, float zoomLevel)
+    public void Update(MouseState mouseState, int currentYear, int cellSize, float cameraX, float cameraY, float zoomLevel, int mapRenderOffsetX, int mapRenderOffsetY)
     {
         if (!IsVisible)
         {
@@ -196,8 +196,10 @@ public class DisasterControlUI
         if (IsSelectingTarget && clicked)
         {
             // Convert screen coordinates to map coordinates
-            int tileX = (int)((mouseState.X / zoomLevel + cameraX) / cellSize);
-            int tileY = (int)((mouseState.Y / zoomLevel + cameraY) / cellSize);
+            float mapRelativeX = (mouseState.X - mapRenderOffsetX) + cameraX;
+            float mapRelativeY = (mouseState.Y - mapRenderOffsetY) + cameraY;
+            int tileX = (int)(mapRelativeX / (cellSize * zoomLevel));
+            int tileY = (int)(mapRelativeY / (cellSize * zoomLevel));
 
             if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
             {
