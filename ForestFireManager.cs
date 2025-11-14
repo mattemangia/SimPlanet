@@ -100,7 +100,7 @@ public class ForestFireManager
     {
         // Check for rain - extinguishes fire
         var cell = _map.Cells[fire.OriginX, fire.OriginY];
-        var meteor = cell.GetMeteorologicalData();
+        var meteor = cell.GetMeteorology();
 
         if (meteor.CurrentRainfall > 0.5f) // Heavy rain
         {
@@ -162,7 +162,7 @@ public class ForestFireManager
                 fireCell.Temperature += burnRate * 10.0f; // Fire is hot
 
                 // Add smoke to clouds
-                var meteorData = fireCell.GetMeteorologicalData();
+                var meteorData = fireCell.GetMeteorology();
                 meteorData.CloudCover = Math.Min(meteorData.CloudCover + burnRate * 0.5f, 1.0f);
 
                 if (fireCell.Biomass <= 0)

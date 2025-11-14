@@ -38,7 +38,12 @@ public class ClimateSimulator
                 // Realistic temperature gradient: hot equator, freezing poles
                 // Equator (lat=0): ~30°C, Poles (lat=1): ~-40°C
                 float baseTemp = 30 - (latitude * latitude * 70); // Quadratic for stronger polar effect
-                float solarHeating = baseTemp * _map.SolarEnergy;
+
+                // Calculate surface albedo (reflection coefficient)
+                float albedo = CalculateAlbedo(cell);
+
+                // Albedo reduces absorbed solar energy (higher albedo = more reflection = less heating)
+                float solarHeating = baseTemp * _map.SolarEnergy * (1.0f - albedo);
 
                 // Elevation cooling (6.5°C per km, roughly 0.65°C per 0.1 elevation)
                 if (cell.Elevation > 0)
@@ -315,5 +320,69 @@ public class ClimateSimulator
                 }
             }
         }
+    }
+
+    private float CalculateAlbedo(TerrainCell cell)
+    {
+        // Albedo = fraction of sunlight reflected by surface (0 = all absorbed, 1 = all reflected)
+        float albedo = 0.0f;
+
+        // Ice and snow (highest albedo)
+        if (cell.IsIce)
+        {
+            // Fresh snow/ice: 0.8-0.9
+            albedo = 0.85f;
+        }
+        // Water (low albedo)
+        else if (cell.IsWater)
+        {
+            // Ocean water: 0.06-0.10 (dark, absorbs most sunlight)
+            if (cell.Elevation < -0.3f)
+                albedo = 0.06f; // Deep ocean (very dark)
+            else
+                albedo = 0.08f; // Shallow water
+        }
+        // Desert (medium-high albedo)
+        else if (cell.IsDesert)
+        {
+            // Sand: 0.30-0.40 (bright, reflects well)
+            albedo = 0.35f;
+        }
+        // Forest (low-medium albedo)
+        else if (cell.IsForest)
+        {
+            // Dense forest: 0.15-0.20 (dark green, absorbs well)
+            albedo = 0.17f;
+        }
+        // Grassland (medium albedo)
+        else if (cell.Rainfall > 0.3f && cell.IsLand)
+        {
+            // Grass: 0.20-0.25
+            albedo = 0.23f;
+        }
+        // Bare rock/mountains (low-medium albedo)
+        else if (cell.Elevation > 0.5f)
+        {
+            // Rock: 0.10-0.20 (depends on color)
+            albedo = 0.15f;
+        }
+        // Tundra/barren land
+        else
+        {
+            // Mixed vegetation/rock: 0.15-0.25
+            albedo = 0.20f;
+        }
+
+        // Urban areas (civilizations) have different albedo
+        if (cell.LifeType == LifeForm.Civilization)
+        {
+            // Cities: 0.15-0.25 (concrete, asphalt)
+            albedo = 0.20f;
+        }
+
+        // Clouds increase effective albedo (in future enhancement)
+        // For now, clouds are handled separately in weather system
+
+        return Math.Clamp(albedo, 0.0f, 1.0f);
     }
 }

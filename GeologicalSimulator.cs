@@ -46,11 +46,10 @@ public class GeologicalSimulator
                     geo.PrimaryRock = RockType.Basalt;
                     geo.Basalt = 0.7f + (float)_random.NextDouble() * 0.2f; // 70-90% basalt
                     geo.Granite = 0.05f;
-                    geo.Gabbro = 0.2f; // Lower oceanic crust
                     geo.Limestone = 0.0f;
                     geo.CrustAge = _random.Next(0, 200); // Oceanic crust is young (<200 My)
                     geo.VolcanicRock = geo.Basalt;
-                    geo.CrystallineRock = geo.Basalt + geo.Gabbro;
+                    geo.CrystallineRock = 0.2f; // Lower oceanic crust (gabbro)
                 }
                 else if (cell.IsLand || (!plate.IsOceanic))
                 {

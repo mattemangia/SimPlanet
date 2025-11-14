@@ -189,7 +189,7 @@ public class DisasterManager
                 float effect = (1.0f - distance / radius) * magnitude;
 
                 // Ground deformation
-                target.Elevation += (_random.NextDouble() - 0.5) * 0.05f * effect;
+                target.Elevation += (float)(_random.NextDouble() - 0.5) * 0.05f * effect;
 
                 // Building damage (affects civilizations)
                 target.Biomass *= (1.0f - 0.3f * effect);

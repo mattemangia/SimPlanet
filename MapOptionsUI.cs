@@ -126,6 +126,11 @@ public class MapOptionsUI
             textY += previewHeight + 15;
         }
 
+        // Draw preset buttons
+        DrawText("PRESETS:", Color.Gold);
+        DrawText($"  F6: Earth  |  F7: Mars  |  F8: Water World  |  F9: Desert", Color.Gray, 20);
+        textY += 8;
+
         DrawText($"Seed: {options.Seed}", Color.White);
         DrawText($"  R: Randomize", Color.Gray, 20);
         textY += 3;
@@ -166,6 +171,50 @@ public class MapOptionsUI
     private void DrawRectangle(int x, int y, int width, int height, Color color)
     {
         _spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, height), color);
+    }
+
+    public static void ApplyEarthPreset(MapGenerationOptions options)
+    {
+        // Earth-like planet: 29% land, 71% water
+        options.LandRatio = 0.29f;
+        options.MountainLevel = 0.5f; // Moderate mountains
+        options.WaterLevel = 0.0f; // Sea level at zero
+        options.Persistence = 0.55f; // Realistic terrain variation
+        options.Lacunarity = 2.1f; // Good detail level
+        options.Octaves = 6;
+    }
+
+    public static void ApplyMarsPreset(MapGenerationOptions options)
+    {
+        // Mars: Dry, barren, higher mountains (Olympus Mons)
+        options.LandRatio = 1.0f; // All land (dry)
+        options.MountainLevel = 0.7f; // High mountains
+        options.WaterLevel = -0.5f; // Very low valleys
+        options.Persistence = 0.6f; // Varied terrain
+        options.Lacunarity = 2.0f;
+        options.Octaves = 7;
+    }
+
+    public static void ApplyWaterWorldPreset(MapGenerationOptions options)
+    {
+        // Ocean planet: 90% water, small islands
+        options.LandRatio = 0.1f;
+        options.MountainLevel = 0.3f; // Low islands
+        options.WaterLevel = 0.3f; // High sea level
+        options.Persistence = 0.45f; // Smooth terrain
+        options.Lacunarity = 1.8f;
+        options.Octaves = 5;
+    }
+
+    public static void ApplyDesertWorldPreset(MapGenerationOptions options)
+    {
+        // Desert planet (like Dune): Lots of land, low water
+        options.LandRatio = 0.85f;
+        options.MountainLevel = 0.4f; // Moderate dunes/mountains
+        options.WaterLevel = -0.3f; // Low sea level
+        options.Persistence = 0.5f;
+        options.Lacunarity = 2.5f; // Fine sand detail
+        options.Octaves = 8;
     }
 
     private void DrawBar(int x, int y, int width, float value, Color color)
