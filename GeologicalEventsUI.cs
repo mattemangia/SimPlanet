@@ -86,10 +86,11 @@ public class GeologicalEventsUI
     {
         if (_geologicalSim == null) return;
 
-        // Apply zoom to cell size for proper scaling
-        int zoomedCellSize = (int)(cellSize * zoomLevel);
+        // cellSize is base size (4 pixels) - DON'T multiply by zoomLevel
+        // The terrain renderer already handles zoom scaling
+        // We only scale visual elements (line widths, symbol sizes) for level-of-detail
 
-        // Draw volcanoes
+        // Draw volcanoes with level-of-detail enhancement
         if (ShowVolcanoes)
         {
             for (int x = 0; x < map.Width; x++)
@@ -99,28 +100,31 @@ public class GeologicalEventsUI
                     var geo = map.Cells[x, y].GetGeology();
                     if (geo.IsVolcano)
                     {
-                        int screenX = offsetX + x * zoomedCellSize;
-                        int screenY = offsetY + y * zoomedCellSize;
+                        int screenX = offsetX + x * cellSize;
+                        int screenY = offsetY + y * cellSize;
 
-                        // Draw volcano symbol (scale with zoom)
+                        // Draw volcano symbol - size increases with zoom for better detail
                         Color volcanoColor = geo.VolcanicActivity > 0.5f
                             ? Color.Red : new Color(180, 60, 0);
 
-                        DrawTriangle(_spriteBatch, screenX + zoomedCellSize / 2,
-                                   screenY + zoomedCellSize / 2, zoomedCellSize / 2, volcanoColor);
+                        // Scale volcano triangle size with zoom level (subtle increase)
+                        int volcanoSize = Math.Max(cellSize / 2, (int)(cellSize / 2 * (1 + (zoomLevel - 1) * 0.5f)));
+                        DrawTriangle(_spriteBatch, screenX + cellSize / 2,
+                                   screenY + cellSize / 2, volcanoSize, volcanoColor);
 
-                        // Active eruption
+                        // Active eruption - enhanced detail when zoomed
                         if (geo.MagmaPressure > 0.8f)
                         {
-                            DrawStar(_spriteBatch, screenX + zoomedCellSize / 2,
-                                   screenY, zoomedCellSize / 3, Color.Yellow);
+                            int starSize = Math.Max(cellSize / 3, (int)(cellSize / 3 * (1 + (zoomLevel - 1) * 0.5f)));
+                            DrawStar(_spriteBatch, screenX + cellSize / 2,
+                                   screenY, starSize, Color.Yellow);
                         }
                     }
                 }
             }
         }
 
-        // Draw rivers
+        // Draw rivers with enhanced detail when zoomed
         if (ShowRivers && _hydrologySim != null)
         {
             foreach (var river in _hydrologySim.Rivers)
@@ -130,20 +134,27 @@ public class GeologicalEventsUI
                     var (x1, y1) = river.Path[i];
                     var (x2, y2) = river.Path[i + 1];
 
-                    int screenX1 = offsetX + x1 * zoomedCellSize + zoomedCellSize / 2;
-                    int screenY1 = offsetY + y1 * zoomedCellSize + zoomedCellSize / 2;
-                    int screenX2 = offsetX + x2 * zoomedCellSize + zoomedCellSize / 2;
-                    int screenY2 = offsetY + y2 * zoomedCellSize + zoomedCellSize / 2;
+                    int screenX1 = offsetX + x1 * cellSize + cellSize / 2;
+                    int screenY1 = offsetY + y1 * cellSize + cellSize / 2;
+                    int screenX2 = offsetX + x2 * cellSize + cellSize / 2;
+                    int screenY2 = offsetY + y2 * cellSize + cellSize / 2;
 
-                    // Scale river line width with zoom
-                    int lineWidth = Math.Max(1, (int)(2 * zoomLevel));
+                    // River width increases moderately with zoom for better visibility
+                    // Base width is 2, scales up to 6 at max zoom (4x)
+                    int lineWidth = (int)Math.Clamp(2 + (zoomLevel - 1) * 1.3f, 2, 6);
+
+                    // Enhanced color at higher zoom levels (more vibrant blue)
+                    Color riverColor = zoomLevel > 2.5f
+                        ? new Color(80, 140, 255)  // Brighter blue when zoomed
+                        : new Color(100, 150, 255); // Standard blue
+
                     DrawLine(_spriteBatch, screenX1, screenY1, screenX2, screenY2,
-                           new Color(100, 150, 255), lineWidth);
+                           riverColor, lineWidth);
                 }
             }
         }
 
-        // Draw plate boundaries
+        // Draw plate boundaries with level-of-detail
         if (ShowPlates)
         {
             for (int x = 0; x < map.Width; x++)
@@ -153,8 +164,8 @@ public class GeologicalEventsUI
                     var geo = map.Cells[x, y].GetGeology();
                     if (geo.BoundaryType != PlateBoundaryType.None)
                     {
-                        int screenX = offsetX + x * zoomedCellSize;
-                        int screenY = offsetY + y * zoomedCellSize;
+                        int screenX = offsetX + x * cellSize;
+                        int screenY = offsetY + y * cellSize;
 
                         Color boundaryColor = geo.BoundaryType switch
                         {
@@ -164,9 +175,12 @@ public class GeologicalEventsUI
                             _ => Color.White
                         };
 
+                        // Increase opacity moderately when zoomed for better visibility
+                        float alpha = Math.Clamp(0.5f + (zoomLevel - 1) * 0.1f, 0.5f, 0.8f);
+
                         _spriteBatch.Draw(_pixelTexture,
-                            new Rectangle(screenX, screenY, zoomedCellSize, zoomedCellSize),
-                            boundaryColor * 0.5f);
+                            new Rectangle(screenX, screenY, cellSize, cellSize),
+                            boundaryColor * alpha);
                     }
                 }
             }

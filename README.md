@@ -599,6 +599,21 @@ Potential additions (not yet implemented):
 - ✅ **No More Freezing** - Game window never freezes during generation
 - ✅ **Works Everywhere** - Displays during new game creation and planet regeneration (R key)
 
+**Seamless Map Wrapping - NEW!**
+- ✅ **Perfect Spherical Wrapping** - Left and right edges connect seamlessly like a real planet
+- ✅ **3D Cylindrical Noise** - Uses cylindrical coordinates for terrain generation
+- ✅ **No Stitching Artifacts** - Completely eliminates visible seams on minimap and main map
+- ✅ **True Planetary Topology** - Map wraps horizontally just like a sphere
+- ✅ **Consistent Mountains** - Mountain ranges flow naturally across the wrap boundary
+
+**Overlay Zoom Synchronization & Level-of-Detail - NEW!**
+- ✅ **Perfect Overlay Sync** - Rivers, volcanoes, and plate boundaries now stay aligned with terrain during zoom
+- ✅ **Enhanced River Detail** - River line width scales from 2px to 6px when zooming in
+- ✅ **Brighter Rivers at Zoom** - Rivers become more vibrant blue when zoomed > 2.5x for better visibility
+- ✅ **Volcano Symbol Scaling** - Volcano triangles increase 50% in size when fully zoomed for clearer detail
+- ✅ **Plate Boundary Enhancement** - Boundary opacity increases from 50% to 80% when zoomed for better visibility
+- ✅ **Smooth Scaling** - All overlays scale smoothly and proportionally with zoom level
+
 ### Previous Update - Climate System Realism & 3D Minimap Fixes
 
 **Climate & Geography Improvements:**
