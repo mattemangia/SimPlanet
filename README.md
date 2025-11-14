@@ -614,6 +614,29 @@ Potential additions (not yet implemented):
 - ✅ **Plate Boundary Enhancement** - Boundary opacity increases from 50% to 80% when zoomed for better visibility
 - ✅ **Smooth Scaling** - All overlays scale smoothly and proportionally with zoom level
 
+**Enhanced Sprite Details at High Zoom - NEW!**
+- ✅ **Volcano Enhancements** (zoom > 2x):
+  - **Outer glow effects** for active volcanoes based on activity level
+  - **Heat shimmer rings** at very high zoom (> 3x) for active volcanoes
+  - **Crater details** showing magma glow when pressure is high
+  - **Shadow/depth effects** create 3D appearance at high zoom
+  - **Lava particle spray** at maximum zoom (> 3.5x) during eruptions
+  - **Pulsing glow animation** around erupting volcanoes for visual impact
+- ✅ **River Enhancements** (zoom > 2.5x):
+  - **Shimmer/reflection effects** - lighter reflection line on top of river
+  - **Animated flow indicators** - moving dots show water direction at very high zoom (> 3.5x)
+  - **River source markers** - cyan highlighted circles at river origins (zoom > 3x)
+  - **Enhanced colors** - brighter, more vibrant blue at high zoom levels
+  - **Gradient effects** - multi-layer rendering creates depth perception
+- ✅ **Plate Boundary Enhancements** (zoom > 2.5x):
+  - **Movement arrows** show plate motion direction:
+    - Divergent boundaries: Arrows pointing apart (<<  >>)
+    - Convergent boundaries: Arrows pointing together (>>  <<)
+    - Transform boundaries: Arrows sliding past each other vertically
+  - **Stress visualization** - pulsing rings show tectonic stress at very high zoom (> 3.5x)
+  - **Dynamic animations** - stress indicators pulse based on stress levels
+  - **Color-coded indicators** - Yellow for divergent, Red for convergent, Orange for transform
+
 ### Previous Update - Climate System Realism & 3D Minimap Fixes
 
 **Climate & Geography Improvements:**
