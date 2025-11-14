@@ -746,6 +746,13 @@ public class SimPlanetGame : Game
         if (_mainMenu.CurrentScreen != GameScreen.InGame)
         {
             _mainMenu.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+            // Draw map options UI if on NewGame screen
+            if (_mainMenu.CurrentScreen == GameScreen.NewGame)
+            {
+                _mapOptionsUI.Draw(_mapOptions);
+            }
+
             _spriteBatch.End();
             base.Draw(gameTime);
             return;
