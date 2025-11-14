@@ -84,10 +84,7 @@ public class SedimentColumnViewer
                 else if (IsVisible)
                 {
                     // Check if clicking inside the viewer panel
-                    int screenWidth = _graphicsDevice.Viewport.Width;
-                    int panelWidth = 400;
-                    int panelX = screenWidth - panelWidth - 10;
-                    int panelY = 10;
+                    // Use existing panelWidth, panelX, panelY variables from outer scope
                     int panelHeight = _graphicsDevice.Viewport.Height - 20; // Use almost full height
                     Rectangle panelBounds = new Rectangle(panelX, panelY, panelWidth, panelHeight);
 
@@ -383,8 +380,6 @@ public class SedimentColumnViewer
             var uniqueTypes = recentLayers.Distinct().ToList();
             foreach (var sedType in uniqueTypes)
             {
-                if (textY > columnStartY + maxColumnHeight - 20) break;
-
                 Color layerColor = GetSedimentColor(sedType);
 
                 // Draw small color box
