@@ -58,8 +58,10 @@ public class SimPlanetGame : Game
     // Performance optimization: throttle expensive operations
     private float _globalStatsTimer = 0;
     private float _visualUpdateTimer = 0;
+    private float _simulationUpdateTimer = 0;
     private const float GlobalStatsInterval = 1.0f; // Update global stats every 1 second
     private const float VisualUpdateInterval = 0.1f; // Update visuals 10 times per second
+    private const float SimulationUpdateInterval = 0.033f; // Update simulation ~30 times per second
 
     // Map generation settings
     private MapGenerationOptions _mapOptions;
@@ -239,22 +241,31 @@ public class SimPlanetGame : Game
                 _gameState.TimeAccumulator -= 10.0f;
             }
 
-            // Update simulators
-            _climateSimulator.Update(deltaTime);
-            _atmosphereSimulator.Update(deltaTime);
-            _weatherSystem.Update(deltaTime, _gameState.Year);
-            _atmosphereSimulator.Update(deltaTime);
-            _lifeSimulator.Update(deltaTime, _geologicalSimulator, _weatherSystem);
-            _animalEvolutionSimulator.Update(deltaTime, _gameState.Year);
-            _geologicalSimulator.Update(deltaTime, _gameState.Year);
-            _hydrologySimulator.Update(deltaTime);
-            _civilizationManager.Update(deltaTime, _gameState.Year);
-            _diseaseManager.Update(deltaTime, _gameState.Year);
-            _biomeSimulator.Update(deltaTime);
-            _disasterManager.Update(deltaTime, _gameState.Year);
-            _forestFireManager.Update(deltaTime, _weatherSystem, _civilizationManager);
-            _magnetosphereSimulator.Update(deltaTime, _gameState.Year);
-            _planetStabilizer.Update(deltaTime);
+            // Performance: Throttle simulation updates to ~30 FPS instead of 60 FPS
+            _simulationUpdateTimer += realDeltaTime;
+            if (_simulationUpdateTimer >= SimulationUpdateInterval)
+            {
+                // Accumulate time since last update for more accurate simulation
+                float simDeltaTime = deltaTime * (_simulationUpdateTimer / realDeltaTime);
+
+                // Update simulators
+                _climateSimulator.Update(simDeltaTime);
+                _atmosphereSimulator.Update(simDeltaTime);
+                _weatherSystem.Update(simDeltaTime, _gameState.Year);
+                _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem);
+                _animalEvolutionSimulator.Update(simDeltaTime, _gameState.Year);
+                _geologicalSimulator.Update(simDeltaTime, _gameState.Year);
+                _hydrologySimulator.Update(simDeltaTime);
+                _civilizationManager.Update(simDeltaTime, _gameState.Year);
+                _diseaseManager.Update(simDeltaTime, _gameState.Year);
+                _biomeSimulator.Update(simDeltaTime);
+                _disasterManager.Update(simDeltaTime, _gameState.Year);
+                _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager);
+                _magnetosphereSimulator.Update(simDeltaTime, _gameState.Year);
+                _planetStabilizer.Update(simDeltaTime);
+
+                _simulationUpdateTimer = 0;
+            }
 
             // Performance optimization: Update global stats only once per second
             _globalStatsTimer += realDeltaTime;
@@ -791,8 +802,10 @@ public class SimPlanetGame : Game
         }
 
         // In-game rendering
-        // Update terrain texture if render mode changed
+        // Set render mode (texture will auto-update when mode changes via dirty flag)
         _terrainRenderer.Mode = _currentRenderMode;
+
+        // Update terrain texture only when dirty (performance optimization)
         _terrainRenderer.UpdateTerrainTexture();
 
         // Split screen layout: Info panel on left (400px), map on right

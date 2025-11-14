@@ -25,6 +25,7 @@ public class HydrologySimulator
     {
         UpdateSoilMoisture();
         UpdateWaterFlow();
+        UpdateRiverFreezing(); // Check for frozen rivers
         FormRivers();
         UpdateOceanCurrents();
         UpdateTides(deltaTime);
@@ -97,8 +98,63 @@ public class HydrologySimulator
                 geo.FlowDirection = flowDir;
 
                 // Calculate water flow based on rainfall and soil moisture
-                geo.WaterFlow = (cell.Rainfall + geo.SoilMoisture) * steepestGradient;
+                // Frozen cells have no water flow
+                if (cell.IsIce || cell.Temperature < 0)
+                {
+                    geo.WaterFlow = 0;
+                }
+                else
+                {
+                    geo.WaterFlow = (cell.Rainfall + geo.SoilMoisture) * steepestGradient;
+                }
             }
+        }
+    }
+
+    private void UpdateRiverFreezing()
+    {
+        // Check existing rivers for freezing conditions
+        var frozenRivers = new List<River>();
+
+        foreach (var river in _rivers)
+        {
+            bool isFrozen = false;
+            int frozenSegments = 0;
+
+            // Check if significant portion of river is frozen
+            foreach (var (x, y) in river.Path)
+            {
+                var cell = _map.Cells[x, y];
+                if (cell.IsIce || cell.Temperature < 0)
+                {
+                    frozenSegments++;
+                }
+            }
+
+            // If more than 50% of river is frozen, consider it frozen
+            if (river.Path.Count > 0 && frozenSegments > river.Path.Count / 2)
+            {
+                isFrozen = true;
+            }
+
+            if (isFrozen)
+            {
+                // Clear river data from cells
+                foreach (var (x, y) in river.Path)
+                {
+                    var cell = _map.Cells[x, y];
+                    var geo = cell.GetGeology();
+                    geo.RiverId = 0;
+                    geo.IsRiverSource = false;
+                }
+                frozenRivers.Add(river);
+            }
+        }
+
+        // Remove frozen rivers
+        foreach (var frozenRiver in frozenRivers)
+        {
+            _rivers.Remove(frozenRiver);
         }
     }
 
@@ -113,6 +169,9 @@ public class HydrologySimulator
                 var geo = cell.GetGeology();
 
                 if (!cell.IsLand || geo.RiverId > 0) continue;
+
+                // Don't form rivers in frozen areas
+                if (cell.IsIce || cell.Temperature < 0) continue;
 
                 // Check if this could be a river source
                 if (cell.Elevation > 0.3f && cell.Rainfall > 0.5f && geo.WaterFlow > 0.1f)
@@ -193,6 +252,12 @@ public class HydrologySimulator
 
             var currentCell = _map.Cells[x, y];
             var currentGeo = currentCell.GetGeology();
+
+            // Stop if river encounters ice
+            if (currentCell.IsIce || currentCell.Temperature < 0)
+            {
+                break;
+            }
 
             river.Path.Add((x, y));
             currentGeo.RiverId = river.Id;
