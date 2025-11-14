@@ -79,17 +79,25 @@ public class PlanetMap
                 // Map to -1 to 1 range
                 elevation = elevation * 2 - 1;
 
-                // Add mountain features BEFORE water level adjustment for better effect
-                // Apply mountains to higher elevation areas
-                if (elevation > -0.2f)
+                // Shift elevation based on desired land ratio
+                // LandRatio of 0.3 means we want 30% land, so shift down
+                // We want the median to be at the right position
+                float landShift = (0.5f - Options.LandRatio) * 2.0f;
+                elevation -= landShift;
+
+                // Add mountain features to higher areas
+                // MountainLevel controls how much mountainous terrain we add
+                if (elevation > 0.1f)
                 {
                     float mountainNoise = noise.OctaveNoise(nx * 3, ny * 3, 3, 0.5f, 2.0f);
-                    // Increased multiplier from 0.3 to 0.6 for more visible mountains
-                    elevation += mountainNoise * Options.MountainLevel * 0.6f;
+                    // Mountain effect scales with base elevation and MountainLevel slider
+                    float mountainEffect = mountainNoise * Options.MountainLevel * elevation * 0.8f;
+                    elevation += mountainEffect;
                 }
 
-                // Adjust based on land ratio and water level
-                elevation -= (1.0f - Options.LandRatio * 2.0f) + Options.WaterLevel;
+                // Apply water level (shifts the sea level up or down)
+                // Negative WaterLevel = less water, Positive WaterLevel = more water
+                elevation -= Options.WaterLevel;
 
                 Cells[x, y].Elevation = Math.Clamp(elevation, -1.0f, 1.0f);
             }
