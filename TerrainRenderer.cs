@@ -165,46 +165,49 @@ public class TerrainRenderer
 
     private Color GetTerrainColor(TerrainCell cell)
     {
+        // More vibrant and realistic terrain colors
         Color baseColor = cell.GetTerrainType() switch
         {
-            TerrainType.DeepOcean => new Color(0, 50, 120),
-            TerrainType.ShallowWater => new Color(20, 100, 180),
-            TerrainType.Beach => new Color(220, 200, 150),
-            TerrainType.Plains => new Color(180, 160, 100),
-            TerrainType.Grassland => new Color(100, 160, 80),
-            TerrainType.Forest => new Color(34, 139, 34),
-            TerrainType.Desert => new Color(230, 200, 140),
-            TerrainType.Mountain => new Color(140, 130, 120),
-            TerrainType.Ice => new Color(240, 250, 255),
-            TerrainType.Tundra => new Color(180, 200, 190),
+            TerrainType.DeepOcean => new Color(10, 40, 100),        // Deeper, richer blue
+            TerrainType.ShallowWater => new Color(30, 120, 200),    // Bright ocean blue
+            TerrainType.Beach => new Color(238, 214, 175),          // Sandy beige
+            TerrainType.Plains => new Color(200, 180, 120),         // Golden plains
+            TerrainType.Grassland => new Color(85, 170, 85),        // Vibrant green
+            TerrainType.Forest => new Color(34, 139, 34),           // Deep forest green
+            TerrainType.Desert => new Color(237, 201, 175),         // Sandy desert
+            TerrainType.Mountain => new Color(120, 110, 100),       // Rocky gray-brown
+            TerrainType.Ice => new Color(245, 255, 255),            // Bright white ice
+            TerrainType.Tundra => new Color(195, 215, 205),         // Pale blue-green
             _ => Color.Gray
         };
 
-        // Add life overlay
+        // Add life overlay with improved colors
         if (cell.LifeType != LifeForm.None && cell.Biomass > 0.1f)
         {
             Color lifeColor = cell.LifeType switch
             {
-                LifeForm.Bacteria => new Color(100, 100, 50),
-                LifeForm.Algae => new Color(50, 150, 100),
-                LifeForm.PlantLife => new Color(60, 180, 60),
-                LifeForm.SimpleAnimals => new Color(150, 100, 50),
-                LifeForm.Fish => new Color(100, 120, 200),
-                LifeForm.Amphibians => new Color(120, 160, 80),
-                LifeForm.Reptiles => new Color(140, 140, 60),
-                LifeForm.Dinosaurs => new Color(180, 80, 40),       // Red-brown for dinosaurs
-                LifeForm.MarineDinosaurs => new Color(100, 100, 180),
-                LifeForm.Pterosaurs => new Color(160, 140, 100),
-                LifeForm.Mammals => new Color(160, 120, 90),
-                LifeForm.Birds => new Color(150, 180, 150),
-                LifeForm.ComplexAnimals => new Color(180, 120, 60),
-                LifeForm.Intelligence => new Color(200, 150, 100),
-                LifeForm.Civilization => new Color(255, 200, 100),
+                LifeForm.Bacteria => new Color(120, 120, 60),           // Yellowish microbes
+                LifeForm.Algae => new Color(60, 170, 120),              // Teal-green algae
+                LifeForm.PlantLife => new Color(70, 200, 70),           // Bright green plants
+                LifeForm.SimpleAnimals => new Color(160, 110, 60),      // Brown creatures
+                LifeForm.Fish => new Color(120, 140, 220),              // Blue-ish aquatic
+                LifeForm.Amphibians => new Color(130, 180, 90),         // Green amphibians
+                LifeForm.Reptiles => new Color(150, 150, 70),           // Olive reptiles
+                LifeForm.Dinosaurs => new Color(200, 90, 50),           // Orange-red dinosaurs
+                LifeForm.MarineDinosaurs => new Color(110, 110, 200),   // Deep blue marine
+                LifeForm.Pterosaurs => new Color(180, 160, 120),        // Tan flying reptiles
+                LifeForm.Mammals => new Color(170, 130, 100),           // Brown mammals
+                LifeForm.Birds => new Color(160, 200, 160),             // Light green birds
+                LifeForm.ComplexAnimals => new Color(190, 130, 70),     // Golden-brown
+                LifeForm.Intelligence => new Color(220, 170, 120),      // Warm intelligent life
+                LifeForm.Civilization => new Color(255, 220, 120),      // Golden civilization
                 _ => Color.Transparent
             };
 
-            // Blend life color with terrain
-            float blend = cell.Biomass * 0.5f;
+            // Blend life color with terrain - more prominent for civilizations
+            float blend = cell.LifeType == LifeForm.Civilization ?
+                Math.Min(cell.Biomass * 0.7f, 0.6f) :
+                cell.Biomass * 0.5f;
             baseColor = Color.Lerp(baseColor, lifeColor, blend);
         }
 

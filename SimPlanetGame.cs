@@ -83,13 +83,13 @@ public class SimPlanetGame : Game
 
     protected override void Initialize()
     {
-        // Initialize map generation options with defaults
+        // Initialize map generation options with Earth-like defaults
         _mapOptions = new MapGenerationOptions
         {
             Seed = 12345,
-            LandRatio = 0.3f,
+            LandRatio = 0.29f,  // Earth-like 29% land
             MountainLevel = 0.5f,
-            WaterLevel = 0.0f,
+            WaterLevel = -0.1f,  // Slightly lower to ensure land appears
             Octaves = 6,
             Persistence = 0.5f,
             Lacunarity = 2.0f
