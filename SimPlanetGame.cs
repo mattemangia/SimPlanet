@@ -287,9 +287,12 @@ public class SimPlanetGame : Game
 
     private void HandleInput(KeyboardState keyState)
     {
-        // Quit
-        if (keyState.IsKeyDown(Keys.Escape))
-            Exit();
+        // ESC opens pause menu (not quit)
+        if (keyState.IsKeyDown(Keys.Escape) && _previousKeyState.IsKeyUp(Keys.Escape))
+        {
+            _mainMenu.CurrentScreen = GameScreen.PauseMenu;
+            return;
+        }
 
         // Only process key presses (not holds)
         if (keyState == _previousKeyState)
@@ -806,15 +809,40 @@ public class SimPlanetGame : Game
         base.Draw(gameTime);
     }
 
+    protected override void OnExiting(object sender, EventArgs args)
+    {
+        // Force cleanup before exiting
+        CleanupResources();
+        base.OnExiting(sender, args);
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            _terrainRenderer?.Dispose();
-            _font?.Dispose();
-            _minimap3D?.Dispose();
+            CleanupResources();
         }
 
         base.Dispose(disposing);
+    }
+
+    private void CleanupResources()
+    {
+        // Dispose all IDisposable resources
+        _terrainRenderer?.Dispose();
+        _font?.Dispose();
+        _minimap3D?.Dispose();
+        _spriteBatch?.Dispose();
+        _graphics?.Dispose();
+    }
+
+    public new void Exit()
+    {
+        // Ensure proper cleanup and force exit
+        CleanupResources();
+        base.Exit();
+
+        // Force process exit if base.Exit() doesn't work
+        Environment.Exit(0);
     }
 }
