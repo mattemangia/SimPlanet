@@ -295,8 +295,7 @@ public class MapOptionsUI
 
         try
         {
-            // Generate preview map with same dimensions as actual map for accurate preview
-            // Use smaller size for performance (1/2 scale) but sample at full-map coordinates
+            // Generate preview map at half resolution but sampling at full resolution for accuracy
             int previewWidth = options.MapWidth / 2;
             int previewHeight = options.MapHeight / 2;
 
@@ -310,12 +309,14 @@ public class MapOptionsUI
                 WaterLevel = options.WaterLevel,
                 Persistence = options.Persistence,
                 Lacunarity = options.Lacunarity,
-                Octaves = options.Octaves
+                Octaves = options.Octaves,
+                // CRITICAL: Set reference dimensions to match actual map so noise sampling is identical
+                ReferenceWidth = options.MapWidth,
+                ReferenceHeight = options.MapHeight
             };
 
-            // Pass full map dimensions as reference so preview samples noise correctly
-            _previewMap = new PlanetMap(previewWidth, previewHeight, previewOptions,
-                options.MapWidth, options.MapHeight);
+            // Create preview map - reference dimensions are already set in previewOptions
+            _previewMap = new PlanetMap(previewWidth, previewHeight, previewOptions);
 
             // Create preview texture
             if (_previewTexture == null || _previewTexture.Width != previewWidth || _previewTexture.Height != previewHeight)
