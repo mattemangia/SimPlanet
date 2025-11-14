@@ -95,37 +95,29 @@ public class ResourceDeposit
 }
 
 /// <summary>
-/// Extension methods for resource data on terrain cells
+/// Extension methods for resource data on terrain cells (now uses embedded data for performance)
 /// </summary>
 public static class ResourceExtensions
 {
-    private static Dictionary<TerrainCell, List<ResourceDeposit>> _resourceData = new();
-
+    // Extension methods now simply access embedded property (maintains backward compatibility)
     public static List<ResourceDeposit> GetResources(this TerrainCell cell)
     {
-        if (!_resourceData.ContainsKey(cell))
-        {
-            _resourceData[cell] = new List<ResourceDeposit>();
-        }
-        return _resourceData[cell];
+        return cell.Resources;
     }
 
     public static void AddResource(this TerrainCell cell, ResourceDeposit deposit)
     {
-        var resources = cell.GetResources();
-        resources.Add(deposit);
+        cell.Resources.Add(deposit);
     }
 
     public static bool HasResource(this TerrainCell cell, ResourceType type)
     {
-        var resources = cell.GetResources();
-        return resources.Exists(r => r.Type == type && r.Amount > 0.01f);
+        return cell.Resources.Exists(r => r.Type == type && r.Amount > 0.01f);
     }
 
     public static ResourceDeposit? GetResourceDeposit(this TerrainCell cell, ResourceType type)
     {
-        var resources = cell.GetResources();
-        return resources.Find(r => r.Type == type);
+        return cell.Resources.Find(r => r.Type == type);
     }
 
     public static float ExtractResource(this TerrainCell cell, ResourceType type, float amount)
@@ -139,9 +131,10 @@ public static class ResourceExtensions
         return extracted * deposit.Concentration; // Quality affects yield
     }
 
+    // No longer needed as data is embedded in TerrainCell, but kept for API compatibility
     public static void ClearResourceData()
     {
-        _resourceData.Clear();
+        // No-op: data is now managed per-cell, cleared when cells are recreated
     }
 
     public static Color GetResourceColor(ResourceType type)

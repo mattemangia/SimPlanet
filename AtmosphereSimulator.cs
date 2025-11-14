@@ -17,7 +17,7 @@ public class AtmosphereSimulator
         SimulateOxygenCycle(deltaTime);
         SimulateCarbonCycle(deltaTime);
         UpdateGreenhouseEffect();
-        UpdateGlobalAtmosphere();
+        // Global atmosphere stats now calculated in SimPlanetGame.UpdateGlobalStats() for performance
     }
 
     private void SimulateOxygenCycle(float deltaTime)
@@ -154,25 +154,9 @@ public class AtmosphereSimulator
         }
     }
 
-    private void UpdateGlobalAtmosphere()
-    {
-        float totalO2 = 0;
-        float totalCO2 = 0;
-        int count = 0;
-
-        for (int x = 0; x < _map.Width; x++)
-        {
-            for (int y = 0; y < _map.Height; y++)
-            {
-                totalO2 += _map.Cells[x, y].Oxygen;
-                totalCO2 += _map.Cells[x, y].CO2;
-                count++;
-            }
-        }
-
-        _map.GlobalOxygen = totalO2 / count;
-        _map.GlobalCO2 = totalCO2 / count;
-    }
+    // REMOVED: UpdateGlobalAtmosphere() - now handled by SimPlanetGame.UpdateGlobalStats()
+    // This eliminates a redundant 28,800-cell scan every frame (240x120 map)
+    // Global stats are now calculated once per second in a single combined pass
 
     private void MixAtmosphere(Func<TerrainCell, float> getValue, Action<TerrainCell, float> setValue, float deltaTime)
     {

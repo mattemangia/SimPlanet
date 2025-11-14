@@ -1,24 +1,20 @@
 namespace SimPlanet;
 
 /// <summary>
-/// Meteorological data extension for terrain cells
+/// Meteorological data extension for terrain cells (now uses embedded data for performance)
 /// </summary>
 public static class MeteorologicalExtensions
 {
-    private static Dictionary<TerrainCell, MeteorologicalData> _metData = new();
-
+    // Extension methods now simply access embedded property (maintains backward compatibility)
     public static MeteorologicalData GetMeteorology(this TerrainCell cell)
     {
-        if (!_metData.ContainsKey(cell))
-        {
-            _metData[cell] = new MeteorologicalData();
-        }
-        return _metData[cell];
+        return cell.Meteorology;
     }
 
+    // No longer needed as data is embedded in TerrainCell, but kept for API compatibility
     public static void ClearMeteorologicalData()
     {
-        _metData.Clear();
+        // No-op: data is now managed per-cell, cleared when cells are recreated
     }
 }
 

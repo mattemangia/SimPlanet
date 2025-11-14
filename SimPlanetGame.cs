@@ -205,7 +205,7 @@ public class SimPlanetGame : Game
         };
 
         // Create planet map (200x100 for performance)
-        _map = new PlanetMap(200, 100, _mapOptions);
+        _map = new PlanetMap(240, 120, _mapOptions);
 
         // Initialize simulators
         _climateSimulator = new ClimateSimulator(_map);
@@ -933,21 +933,30 @@ public class SimPlanetGame : Game
         _mainMenu.CurrentScreen = GameScreen.InGame;
     }
 
+    // OPTIMIZED: Calculate all global stats in one pass instead of multiple full-map scans
+    // Reduces 3 separate 20,000+ cell scans to just 1 scan
     private void UpdateGlobalStats()
     {
         float totalTemp = 0;
+        float totalO2 = 0;
+        float totalCO2 = 0;
         int count = 0;
 
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                totalTemp += _map.Cells[x, y].Temperature;
+                var cell = _map.Cells[x, y];
+                totalTemp += cell.Temperature;
+                totalO2 += cell.Oxygen;
+                totalCO2 += cell.CO2;
                 count++;
             }
         }
 
         _map.GlobalTemperature = totalTemp / count;
+        _map.GlobalOxygen = totalO2 / count;
+        _map.GlobalCO2 = totalCO2 / count;
     }
 
     protected override void Draw(GameTime gameTime)

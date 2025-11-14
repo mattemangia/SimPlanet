@@ -66,25 +66,20 @@ public enum RockType
 }
 
 /// <summary>
-/// Extended terrain cell with geological properties
+/// Extended terrain cell with geological properties (now uses embedded data for performance)
 /// </summary>
 public static class TerrainCellExtensions
 {
-    // Additional properties stored in dictionaries for existing cells
-    private static Dictionary<TerrainCell, GeologicalData> _geologicalData = new();
-
+    // Extension methods now simply access embedded property (maintains backward compatibility)
     public static GeologicalData GetGeology(this TerrainCell cell)
     {
-        if (!_geologicalData.ContainsKey(cell))
-        {
-            _geologicalData[cell] = new GeologicalData();
-        }
-        return _geologicalData[cell];
+        return cell.Geology;
     }
 
+    // No longer needed as data is embedded in TerrainCell, but kept for API compatibility
     public static void ClearGeologicalData()
     {
-        _geologicalData.Clear();
+        // No-op: data is now managed per-cell, cleared when cells are recreated
     }
 }
 

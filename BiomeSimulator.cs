@@ -443,24 +443,20 @@ public enum Biome
 }
 
 /// <summary>
-/// Extension methods for biome data storage
+/// Extension methods for biome data storage (now uses embedded data for performance)
 /// </summary>
 public static class BiomeExtensions
 {
-    private static Dictionary<TerrainCell, BiomeData> _biomeData = new();
-
+    // Extension methods now simply access embedded property (maintains backward compatibility)
     public static BiomeData GetBiomeData(this TerrainCell cell)
     {
-        if (!_biomeData.ContainsKey(cell))
-        {
-            _biomeData[cell] = new BiomeData();
-        }
-        return _biomeData[cell];
+        return cell.BiomeInfo;
     }
 
+    // No longer needed as data is embedded in TerrainCell, but kept for API compatibility
     public static void ClearBiomeData()
     {
-        _biomeData.Clear();
+        // No-op: data is now managed per-cell, cleared when cells are recreated
     }
 }
 

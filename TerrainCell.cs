@@ -24,6 +24,13 @@ public class TerrainCell
     // Ice state (controlled by seasonal dynamics)
     public bool IsIce { get; set; }
 
+    // Embedded extension data (eliminates static dictionaries for better performance and no memory leaks)
+    public GeologicalData Geology { get; set; } = new();
+    public MeteorologicalData Meteorology { get; set; } = new();
+    public BiomeData BiomeInfo { get; set; } = new();
+    public List<ResourceDeposit> Resources { get; set; } = new();
+    public MagneticData Magnetic { get; set; } = new();
+
     // Derived properties
     public bool IsWater => Elevation < 0;
     public bool IsLand => Elevation >= 0;

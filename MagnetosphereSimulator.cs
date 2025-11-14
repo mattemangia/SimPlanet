@@ -207,24 +207,20 @@ public class MagnetosphereSimulator
 }
 
 /// <summary>
-/// Extension methods for magnetic/radiation data
+/// Extension methods for magnetic/radiation data (now uses embedded data for performance)
 /// </summary>
 public static class MagneticExtensions
 {
-    private static Dictionary<TerrainCell, MagneticData> _magneticData = new();
-
+    // Extension methods now simply access embedded property (maintains backward compatibility)
     public static MagneticData GetMagneticData(this TerrainCell cell)
     {
-        if (!_magneticData.ContainsKey(cell))
-        {
-            _magneticData[cell] = new MagneticData();
-        }
-        return _magneticData[cell];
+        return cell.Magnetic;
     }
 
+    // No longer needed as data is embedded in TerrainCell, but kept for API compatibility
     public static void ClearMagneticData()
     {
-        _magneticData.Clear();
+        // No-op: data is now managed per-cell, cleared when cells are recreated
     }
 }
 

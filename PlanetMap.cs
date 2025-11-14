@@ -3,8 +3,8 @@ namespace SimPlanet;
 public class MapGenerationOptions
 {
     public int Seed { get; set; } = 12345;
-    public int MapWidth { get; set; } = 200;           // Map dimensions
-    public int MapHeight { get; set; } = 100;
+    public int MapWidth { get; set; } = 240;           // Map dimensions (increased for better detail)
+    public int MapHeight { get; set; } = 120;
     public float LandRatio { get; set; } = 0.3f;      // 30% land by default
     public float MountainLevel { get; set; } = 0.5f;   // Mountain frequency
     public float WaterLevel { get; set; } = 0.0f;      // Sea level adjustment
@@ -13,8 +13,8 @@ public class MapGenerationOptions
     public float Lacunarity { get; set; } = 2.0f;
 
     // For preview generation: allows sampling noise at full-map scale while generating fewer cells
-    public int ReferenceWidth { get; set; } = 200;
-    public int ReferenceHeight { get; set; } = 100;
+    public int ReferenceWidth { get; set; } = 240;
+    public int ReferenceHeight { get; set; } = 120;
 }
 
 /// <summary>
@@ -426,15 +426,16 @@ public class PlanetMap
         return Cells[x, y];
     }
 
+    // Cached neighbor offset arrays (avoid allocation on every call - PERFORMANCE OPTIMIZATION)
+    private static readonly int[] NeighborDx = { -1, 0, 1, -1, 1, -1, 0, 1 };
+    private static readonly int[] NeighborDy = { -1, -1, -1, 0, 0, 1, 1, 1 };
+
     public IEnumerable<(int x, int y, TerrainCell cell)> GetNeighbors(int x, int y)
     {
-        int[] dx = { -1, 0, 1, -1, 1, -1, 0, 1 };
-        int[] dy = { -1, -1, -1, 0, 0, 1, 1, 1 };
-
         for (int i = 0; i < 8; i++)
         {
-            int nx = x + dx[i];
-            int ny = y + dy[i];
+            int nx = x + NeighborDx[i];
+            int ny = y + NeighborDy[i];
 
             if (ny >= 0 && ny < Height)
             {
