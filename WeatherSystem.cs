@@ -89,25 +89,49 @@ public class WeatherSystem
                 met.Season = (int)localSeason;
 
                 // Apply seasonal temperature variations
-                float seasonalModifier = 0;
+                float tempModifier = 0;
+                float rainfallModifier = 1.0f;
+
                 switch (met.Season)
                 {
                     case 0: // Spring
-                        seasonalModifier = 0;
+                        tempModifier = 0;
+                        rainfallModifier = 1.2f; // Spring rains
                         break;
                     case 1: // Summer
-                        seasonalModifier = Math.Abs(latitude) * 15; // Hotter
+                        tempModifier = Math.Abs(latitude) * 15; // Hotter
+                        // Monsoons in tropics (latitude < 0.3), dry in mid-latitudes
+                        rainfallModifier = Math.Abs(latitude) < 0.3f ? 1.5f : 0.8f;
                         break;
                     case 2: // Fall
-                        seasonalModifier = 0;
+                        tempModifier = 0;
+                        rainfallModifier = 1.1f; // Moderate rains
                         break;
                     case 3: // Winter
-                        seasonalModifier = -Math.Abs(latitude) * 15; // Colder
+                        tempModifier = -Math.Abs(latitude) * 15; // Colder
+                        // Dry season in tropics, wet in mid-latitudes (winter storms)
+                        rainfallModifier = Math.Abs(latitude) < 0.3f ? 0.7f : 1.3f;
                         break;
                 }
 
-                // Apply seasonal effect gradually
-                cell.Temperature += (seasonalModifier - cell.Temperature * 0.1f) * deltaTime * 0.01f;
+                // Apply temperature effect gradually
+                cell.Temperature += (tempModifier - cell.Temperature * 0.1f) * deltaTime * 0.01f;
+
+                // Apply seasonal rainfall variations
+                float baseRainfall = cell.Rainfall; // Preserve base climate rainfall
+                cell.Humidity = Math.Clamp(cell.Humidity * rainfallModifier, 0, 1);
+
+                // Seasonal ice formation/melting
+                if (cell.Temperature < -5 && cell.IsWater)
+                {
+                    // Winter ice formation
+                    cell.IsIce = true;
+                }
+                else if (cell.Temperature > 5 && cell.IsIce)
+                {
+                    // Spring/summer ice melting
+                    cell.IsIce = false;
+                }
             }
         }
     }
