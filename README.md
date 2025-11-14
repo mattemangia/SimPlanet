@@ -606,6 +606,19 @@ Potential additions (not yet implemented):
 - ✅ **True Planetary Topology** - Map wraps horizontally just like a sphere
 - ✅ **Consistent Mountains** - Mountain ranges flow naturally across the wrap boundary
 
+**Enhanced Tile Information Panel - NEW!**
+- ✅ **Click Any Tile** - Click on any tile to see comprehensive information about that location
+- ✅ **Biome Classification** - 15 detailed biome types: Ocean, Coastal, Polar Ice, Tundra, Polar Desert, Desert, Arid, Rainforest, Tropical Forest, Temperate Forest, Grassland, Savanna, Mountain, Plains
+- ✅ **Color-Coded Display** - Biomes, temperature, rainfall, and other values use intuitive color coding
+- ✅ **Terrain Details** - Elevation, temperature (°C), rainfall levels
+- ✅ **Life Information** - Life type and biomass levels (when present)
+- ✅ **Volcano Data** - Activity level, magma pressure, eruption state (dormant/building/critical/erupting)
+- ✅ **Atmospheric Info** - Oxygen %, CO2 %, humidity levels
+- ✅ **Geological Details** - Plate boundary type, tectonic stress, sediment layer thickness
+- ✅ **Tile-Specific Stratigraphy** - Detailed sediment column diagram showing that exact tile's geological history
+- ✅ **Rock Composition** - Crystalline, sedimentary, and volcanic rock percentages
+- ✅ **Professional Legend** - Color legend for sediment types with geological patterns
+
 **Improved Help Dialog - NEW!**
 - ✅ **2-Column Layout** - Help panel now uses efficient 2-column design that fits on screen
 - ✅ **Better Organization** - Controls grouped by category: Keyboard, Mouse, View Modes, Weather, Overlays, Advanced Tools
