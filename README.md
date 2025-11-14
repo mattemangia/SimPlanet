@@ -181,6 +181,7 @@ SimPlanet uses **true multithreading** for maximum performance and responsivenes
 
 ### Multithreaded Architecture
 - **Dedicated Simulation Thread**: All simulation logic runs on a separate background thread
+- **World Generation Thread**: Planet creation happens on background thread with progress bar
 - **UI Thread Independence**: Main thread handles ONLY input and rendering - always responsive
 - **Thread-Safe Synchronization**: Lock-based data access prevents race conditions
 - **Clean Separation**: Simulation never blocks UI, UI never blocks simulation
@@ -188,6 +189,7 @@ SimPlanet uses **true multithreading** for maximum performance and responsivenes
 ### Additional Optimizations
 - **Cached Statistics**: UI data cached at 100ms intervals (prevents scanning 20,000 cells every frame)
 - **Throttled Terrain Preview**: Map generator preview updates at 150ms intervals (prevents lag during slider adjustments)
+- **Background World Generation**: Planet generation with real-time progress bar on separate thread
 - **Optimized Rendering**: Texture updates only when data changes (dirty flag system)
 - **Split-Screen Layout**: Info panel (400px) on left, resizable map on right - no more overlap!
 
@@ -588,6 +590,14 @@ Potential additions (not yet implemented):
 - ✅ **Island Formation Fixed** - Oceanic-oceanic convergence elevation boost reduced from 0.08 → 0.01
 - ✅ **Gradual Island Building** - Volcanic islands now build realistically over time, not instantly
 - ✅ **Fewer Rogue Islands** - Eliminated excessive island chain spam that was covering oceans
+
+**World Generation Progress Bar - NEW!**
+- ✅ **Visual Loading Screen** - Beautiful progress bar displays during world generation
+- ✅ **Real-Time Progress** - Shows current generation stage and percentage complete
+- ✅ **Background Threading** - World generates on separate thread, UI remains responsive
+- ✅ **Detailed Tasks** - Displays specific steps: terrain, climate, resources
+- ✅ **No More Freezing** - Game window never freezes during generation
+- ✅ **Works Everywhere** - Displays during new game creation and planet regeneration (R key)
 
 ### Previous Update - Climate System Realism & 3D Minimap Fixes
 

@@ -47,6 +47,7 @@ public class SimPlanetGame : Game
     private ManualPlantingTool _plantingTool;
     private DiseaseControlUI _diseaseControlUI;
     private FontRenderer _font;
+    private LoadingScreen _loadingScreen;
 
     // Game state
     private GameState _gameState;
@@ -71,6 +72,11 @@ public class SimPlanetGame : Game
 
     // Map generation settings
     private MapGenerationOptions _mapOptions;
+
+    // World generation thread
+    private Thread _generationThread;
+    private bool _isGenerating = false;
+    private PlanetMap _newMap;
 
     public SimPlanetGame()
     {
@@ -271,12 +277,38 @@ public class SimPlanetGame : Game
 
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
+
+        // Create loading screen
+        _loadingScreen = new LoadingScreen(_spriteBatch, _font, GraphicsDevice);
     }
 
     protected override void Update(GameTime gameTime)
     {
         var keyState = Keyboard.GetState();
         var mouseState = Mouse.GetState();
+
+        // Check if world generation is in progress
+        if (_isGenerating)
+        {
+            // Update loading screen with generation progress
+            _loadingScreen.IsVisible = true;
+            _loadingScreen.Progress = PlanetMap.GenerationProgress;
+            _loadingScreen.CurrentTask = PlanetMap.GenerationTask;
+
+            // Check if generation is complete
+            if (_generationThread != null && !_generationThread.IsAlive && _newMap != null)
+            {
+                // Generation finished - finalize the new world
+                FinalizeNewWorld(_newMap);
+                _isGenerating = false;
+                _loadingScreen.IsVisible = false;
+                _generationThread = null;
+                _newMap = null;
+            }
+
+            base.Update(gameTime);
+            return;
+        }
 
         // Handle menu navigation
         if (_mainMenu.CurrentScreen != GameScreen.InGame)
@@ -722,9 +754,9 @@ public class SimPlanetGame : Game
 
     private void StartNewGame()
     {
-        RegeneratePlanet();
         _mapOptionsUI.IsVisible = false;
-        _mainMenu.CurrentScreen = GameScreen.InGame;
+        RegeneratePlanet();
+        // Screen will switch to InGame after generation completes in FinalizeNewWorld
     }
 
     private void SaveGame(string saveName)
@@ -793,14 +825,43 @@ public class SimPlanetGame : Game
         // Use a new random seed
         _mapOptions.Seed = new Random().Next();
 
-        // Recreate the map
-        _map = new PlanetMap(_map.Width, _map.Height, _mapOptions);
+        // Start background generation
+        StartWorldGeneration();
+    }
+
+    private void StartWorldGeneration()
+    {
+        _isGenerating = true;
+        _loadingScreen.IsVisible = true;
 
         // Clear data from old map
         TerrainCellExtensions.ClearGeologicalData();
         MeteorologicalExtensions.ClearMeteorologicalData();
         BiomeExtensions.ClearBiomeData();
         ResourceExtensions.ClearResourceData();
+
+        // Create the map on a background thread
+        _generationThread = new Thread(() =>
+        {
+            try
+            {
+                _newMap = new PlanetMap(_map.Width, _map.Height, _mapOptions);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"World generation error: {ex.Message}");
+                _isGenerating = false;
+            }
+        });
+        _generationThread.IsBackground = true;
+        _generationThread.Name = "World Generation";
+        _generationThread.Start();
+    }
+
+    private void FinalizeNewWorld(PlanetMap newMap)
+    {
+        // Replace the old map
+        _map = newMap;
 
         // Recreate simulators
         _climateSimulator = new ClimateSimulator(_map);
@@ -837,6 +898,9 @@ public class SimPlanetGame : Game
         // Reset game state
         _gameState.Year = 0;
         _gameState.TimeAccumulator = 0;
+
+        // Switch to in-game screen
+        _mainMenu.CurrentScreen = GameScreen.InGame;
     }
 
     private void UpdateGlobalStats()
@@ -942,6 +1006,12 @@ public class SimPlanetGame : Game
             _mainMenu.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
         }
 
+        // Draw loading screen overlay if generating world
+        if (_loadingScreen.IsVisible)
+        {
+            _loadingScreen.Draw();
+        }
+
         _spriteBatch.End();
 
         base.Draw(gameTime);
@@ -995,6 +1065,7 @@ public class SimPlanetGame : Game
         _terrainRenderer?.Dispose();
         _font?.Dispose();
         _minimap3D?.Dispose();
+        _loadingScreen?.Dispose();
         _spriteBatch?.Dispose();
         _graphics?.Dispose();
     }

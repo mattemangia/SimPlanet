@@ -30,12 +30,19 @@ public class PlanetMap
     public float SolarEnergy { get; set; } = 1.0f;
     public float AxisTilt { get; set; } = 23.5f; // Earth's tilt
 
+    // Progress reporting
+    public static float GenerationProgress { get; set; } = 0f;
+    public static string GenerationTask { get; set; } = "";
+
     public PlanetMap(int width, int height, MapGenerationOptions options)
     {
         Width = width;
         Height = height;
         Options = options;
         Cells = new TerrainCell[width, height];
+
+        GenerationProgress = 0f;
+        GenerationTask = "Initializing terrain cells...";
 
         // Initialize cells
         for (int x = 0; x < width; x++)
@@ -51,12 +58,22 @@ public class PlanetMap
             }
         }
 
+        GenerationProgress = 0.1f;
+        GenerationTask = "Generating terrain elevation...";
         GenerateTerrain();
+
+        GenerationProgress = 0.6f;
+        GenerationTask = "Initializing climate systems...";
         InitializeClimate();
 
+        GenerationProgress = 0.8f;
+        GenerationTask = "Generating natural resources...";
         // Generate natural resources after terrain and climate are set
         var resourceGenerator = new ResourceGenerator(this, options.Seed);
         resourceGenerator.GenerateResources();
+
+        GenerationProgress = 1.0f;
+        GenerationTask = "Complete!";
     }
 
     private void GenerateTerrain()
