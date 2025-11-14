@@ -306,12 +306,12 @@ public class GeologicalEventsUI
                         }
 
                         // VERY HIGH ZOOM: Add stress visualization
-                        if (zoomLevel > 3.5f && geo.StressLevel > 0.5f)
+                        if (zoomLevel > 3.5f && geo.TectonicStress > 0.5f)
                         {
                             // Pulsing stress indicator
                             float pulseIntensity = (MathF.Sin((float)DateTime.Now.TimeOfDay.TotalSeconds * 4) + 1) * 0.5f;
                             int stressRadius = (int)(cellSize * 0.8f);
-                            Color stressColor = Color.White * (0.3f * geo.StressLevel * pulseIntensity);
+                            Color stressColor = Color.White * (0.3f * geo.TectonicStress * pulseIntensity);
                             DrawCircleOutline(_spriteBatch, centerX, centerY, stressRadius, stressColor, 1);
                         }
                     }
