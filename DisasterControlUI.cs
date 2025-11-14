@@ -18,7 +18,7 @@ public class DisasterControlUI
     private Texture2D _pixelTexture;
     private MouseState _previousMouseState;
     private Point? _mouseDownPosition = null;
-    private const int DragThreshold = 5; // pixels
+    private const int DragThreshold = 25; // pixels (increased for trackpad users - more forgiving)
 
     public bool IsVisible { get; set; } = false;
     public bool IsSelectingTarget { get; private set; } = false;

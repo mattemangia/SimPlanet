@@ -16,7 +16,8 @@ public class SedimentColumnViewer
     private (int x, int y)? _selectedTile = null;
     private MouseState _previousMouseState;
     private Point? _mouseDownPosition = null;
-    private const int DragThreshold = 5; // pixels
+    private const int DragThreshold = 25; // pixels (increased for trackpad users - more forgiving)
+    private const int InfoPanelWidth = 400; // Don't open viewer when clicking in info panel
 
     public bool IsVisible { get; private set; } = false;
 
@@ -72,15 +73,23 @@ public class SedimentColumnViewer
             // Only open viewer if this was a click, not a drag
             if (dragDistance <= DragThreshold)
             {
-                // Convert mouse position to tile coordinates
-                int tileX = (int)((mouseState.X / zoomLevel + cameraX) / cellSize);
-                int tileY = (int)((mouseState.Y / zoomLevel + cameraY) / cellSize);
-
-                // Check if tile is within bounds
-                if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
+                // Don't open if clicking in the info panel area
+                if (mouseState.X < InfoPanelWidth)
                 {
-                    _selectedTile = (tileX, tileY);
-                    IsVisible = true;
+                    _mouseDownPosition = null;
+                }
+                else
+                {
+                    // Convert mouse position to tile coordinates
+                    int tileX = (int)((mouseState.X / zoomLevel + cameraX) / cellSize);
+                    int tileY = (int)((mouseState.Y / zoomLevel + cameraY) / cellSize);
+
+                    // Check if tile is within bounds
+                    if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
+                    {
+                        _selectedTile = (tileX, tileY);
+                        IsVisible = true;
+                    }
                 }
             }
             _mouseDownPosition = null;
