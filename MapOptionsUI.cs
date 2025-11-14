@@ -309,14 +309,11 @@ public class MapOptionsUI
                 WaterLevel = options.WaterLevel,
                 Persistence = options.Persistence,
                 Lacunarity = options.Lacunarity,
-                Octaves = options.Octaves,
-                // CRITICAL: Set reference dimensions to match actual map so noise sampling is identical
-                ReferenceWidth = options.MapWidth,
-                ReferenceHeight = options.MapHeight
+                Octaves = options.Octaves
             };
 
-            // Create preview map - reference dimensions are already set in previewOptions
-            _previewMap = new PlanetMap(previewWidth, previewHeight, previewOptions);
+            // CRITICAL: Pass reference dimensions as constructor params so noise sampling matches the actual map
+            _previewMap = new PlanetMap(previewWidth, previewHeight, previewOptions, options.MapWidth, options.MapHeight);
 
             // Create preview texture
             if (_previewTexture == null || _previewTexture.Width != previewWidth || _previewTexture.Height != previewHeight)
