@@ -132,9 +132,9 @@ public class SedimentColumnViewer
         textY += lineHeight * 2;
 
         // Sediment column header
-        _font.DrawString(spriteBatch, "SEDIMENT LAYERS (Top to Bottom):",
+        _font.DrawString(spriteBatch, "SEDIMENT COLUMN DIAGRAM:",
             new Vector2(panelX + 10, textY), Color.Orange);
-        textY += lineHeight;
+        textY += lineHeight + 5;
 
         if (geo.SedimentColumn.Count == 0)
         {
@@ -143,35 +143,99 @@ public class SedimentColumnViewer
         }
         else
         {
+            // Draw geological column diagram (like a real stratigraphic column)
+            int columnWidth = 120;
+            int columnX = panelX + 20;
+            int columnStartY = textY;
+            int maxColumnHeight = 280;
+
             // Display most recent layers (top of column)
-            int layersToShow = Math.Min(20, geo.SedimentColumn.Count);
+            int layersToShow = Math.Min(18, geo.SedimentColumn.Count);
             var recentLayers = geo.SedimentColumn.Skip(geo.SedimentColumn.Count - layersToShow).Reverse().ToList();
 
-            for (int i = 0; i < layersToShow && textY < panelY + panelHeight - 40; i++)
+            int layerHeight = Math.Min(20, maxColumnHeight / layersToShow);
+
+            // Draw column border
+            DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, (layerHeight * layersToShow) + 4, Color.White, 2);
+
+            // Draw "Surface" label at top
+            _font.DrawString(spriteBatch, "← SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
+
+            for (int i = 0; i < layersToShow; i++)
             {
                 var sedimentType = recentLayers[i];
                 Color layerColor = GetSedimentColor(sedimentType);
+                int layerY = columnStartY + (i * layerHeight);
 
-                // Draw sediment layer bar
-                int barWidth = 30;
-                int barHeight = 15;
+                // Draw sediment layer with pattern
                 spriteBatch.Draw(_pixelTexture,
-                    new Rectangle(panelX + 10, textY, barWidth, barHeight),
+                    new Rectangle(columnX, layerY, columnWidth, layerHeight),
                     layerColor);
 
-                // Draw sediment type name
-                _font.DrawString(spriteBatch, $"{i + 1}. {sedimentType}",
-                    new Vector2(panelX + 50, textY), Color.White);
+                // Draw horizontal lines for stratification
+                spriteBatch.Draw(_pixelTexture,
+                    new Rectangle(columnX, layerY, columnWidth, 1),
+                    new Color(0, 0, 0, 150));
 
-                textY += lineHeight;
+                // Draw pattern for different sediment types
+                DrawSedimentPattern(spriteBatch, columnX, layerY, columnWidth, layerHeight, sedimentType);
+
+                // Draw layer border
+                spriteBatch.Draw(_pixelTexture,
+                    new Rectangle(columnX, layerY + layerHeight - 1, columnWidth, 1),
+                    new Color(80, 80, 80));
+
+                // Label for key layers (every 3rd layer)
+                if (i % 3 == 0 || layersToShow < 10)
+                {
+                    string layerLabel = GetShortSedimentName(sedimentType);
+                    _font.DrawString(spriteBatch, layerLabel,
+                        new Vector2(columnX + 4, layerY + 2), Color.White, 10);
+                }
+            }
+
+            // Draw "Bedrock" label at bottom
+            int bottomY = columnStartY + (layerHeight * layersToShow);
+            _font.DrawString(spriteBatch, "← BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
+
+            // Update textY for legend
+            textY = columnStartY;
+            int legendX = columnX + columnWidth + 90;
+
+            // Draw legend on the right side
+            _font.DrawString(spriteBatch, "LEGEND:", new Vector2(legendX, textY), Color.Orange, 14);
+            textY += 25;
+
+            var uniqueTypes = recentLayers.Distinct().ToList();
+            foreach (var sedType in uniqueTypes)
+            {
+                if (textY > columnStartY + maxColumnHeight - 20) break;
+
+                Color layerColor = GetSedimentColor(sedType);
+
+                // Draw small color box
+                int boxSize = 12;
+                spriteBatch.Draw(_pixelTexture,
+                    new Rectangle(legendX, textY + 2, boxSize, boxSize),
+                    layerColor);
+                DrawBorder(spriteBatch, legendX, textY + 2, boxSize, boxSize, Color.Gray, 1);
+
+                // Draw type name
+                _font.DrawString(spriteBatch, sedType.ToString(),
+                    new Vector2(legendX + boxSize + 6, textY), Color.White, 11);
+
+                textY += 18;
             }
 
             if (geo.SedimentColumn.Count > layersToShow)
             {
-                textY += lineHeight;
-                _font.DrawString(spriteBatch, $"... {geo.SedimentColumn.Count - layersToShow} more layers below",
-                    new Vector2(panelX + 10, textY), Color.Gray);
+                textY = bottomY + 10;
+                _font.DrawString(spriteBatch, $"+ {geo.SedimentColumn.Count - layersToShow} deeper layers",
+                    new Vector2(columnX, textY), Color.Gray, 11);
             }
+
+            // Update textY for rock composition section
+            textY = Math.Max(textY, bottomY + 30);
         }
 
         // Rock composition
@@ -195,6 +259,102 @@ public class SedimentColumnViewer
         textY = panelY + panelHeight - 30;
         _font.DrawString(spriteBatch, "Right-click or ESC to close",
             new Vector2(panelX + 10, textY), Color.Gray);
+    }
+
+    private void DrawSedimentPattern(SpriteBatch spriteBatch, int x, int y, int width, int height, SedimentType type)
+    {
+        // Draw patterns to distinguish sediment types (like geological diagrams)
+        Random patternRandom = new Random(type.GetHashCode());
+
+        switch (type)
+        {
+            case SedimentType.Sand:
+                // Dotted pattern for sand
+                for (int i = 0; i < width / 8; i++)
+                {
+                    for (int j = 0; j < height / 4; j++)
+                    {
+                        int dotX = x + i * 8 + patternRandom.Next(4);
+                        int dotY = y + j * 4 + patternRandom.Next(3);
+                        if (dotY < y + height)
+                            spriteBatch.Draw(_pixelTexture, new Rectangle(dotX, dotY, 1, 1), new Color(0, 0, 0, 100));
+                    }
+                }
+                break;
+
+            case SedimentType.Gravel:
+                // Small circles for gravel
+                for (int i = 0; i < width / 12; i++)
+                {
+                    for (int j = 0; j < height / 10; j++)
+                    {
+                        int circleX = x + i * 12 + patternRandom.Next(6);
+                        int circleY = y + j * 10 + patternRandom.Next(5);
+                        if (circleY < y + height)
+                        {
+                            spriteBatch.Draw(_pixelTexture, new Rectangle(circleX, circleY, 3, 3), new Color(60, 60, 60, 120));
+                            spriteBatch.Draw(_pixelTexture, new Rectangle(circleX + 1, circleY + 1, 1, 1), new Color(120, 120, 120, 150));
+                        }
+                    }
+                }
+                break;
+
+            case SedimentType.Clay:
+                // Horizontal lines for clay
+                for (int i = 0; i < height; i += 2)
+                {
+                    spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + i, width, 1), new Color(0, 0, 0, 60));
+                }
+                break;
+
+            case SedimentType.Limestone:
+                // Cross-hatch pattern for limestone
+                for (int i = 0; i < width; i += 8)
+                {
+                    spriteBatch.Draw(_pixelTexture, new Rectangle(x + i, y, 1, height), new Color(200, 200, 180, 40));
+                }
+                break;
+
+            case SedimentType.Volcanic:
+                // Irregular blocky pattern for volcanic
+                for (int i = 0; i < width / 10; i++)
+                {
+                    for (int j = 0; j < height / 8; j++)
+                    {
+                        int blockX = x + i * 10 + patternRandom.Next(4);
+                        int blockY = y + j * 8 + patternRandom.Next(4);
+                        if (blockY < y + height)
+                            spriteBatch.Draw(_pixelTexture, new Rectangle(blockX, blockY, 3, 3), new Color(255, 255, 255, 80));
+                    }
+                }
+                break;
+
+            case SedimentType.Organic:
+                // Wavy lines for organic
+                for (int i = 0; i < height; i += 3)
+                {
+                    for (int j = 0; j < width; j += 4)
+                    {
+                        spriteBatch.Draw(_pixelTexture, new Rectangle(x + j, y + i, 2, 1), new Color(0, 0, 0, 80));
+                    }
+                }
+                break;
+        }
+    }
+
+    private string GetShortSedimentName(SedimentType type)
+    {
+        return type switch
+        {
+            SedimentType.Sand => "Sand",
+            SedimentType.Silt => "Silt",
+            SedimentType.Clay => "Clay",
+            SedimentType.Gravel => "Grvl",
+            SedimentType.Organic => "Org",
+            SedimentType.Volcanic => "Volc",
+            SedimentType.Limestone => "Lmst",
+            _ => "???"
+        };
     }
 
     private Color GetSedimentColor(SedimentType type)
