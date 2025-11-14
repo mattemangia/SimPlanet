@@ -114,7 +114,7 @@ public class WeatherSystem
 
     private void UpdateWindPatterns()
     {
-        // Global wind patterns (trade winds, westerlies, polar easterlies)
+        // Global wind patterns with Coriolis effect
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -122,45 +122,76 @@ public class WeatherSystem
                 var cell = _map.Cells[x, y];
                 var met = cell.GetMeteorology();
 
-                float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+                // Latitude: -1 (south pole) to +1 (north pole), 0 at equator
+                float signedLatitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
+                float absLatitude = Math.Abs(signedLatitude);
 
-                // Trade winds (0-30° latitude)
-                if (latitude < 0.3f)
+                // Base wind patterns by latitude zone
+                float baseWindX = 0;
+                float baseWindY = 0;
+
+                // Trade winds (0-30° latitude) - easterlies
+                if (absLatitude < 0.3f)
                 {
-                    met.WindSpeedX = 5.0f; // Eastward
-                    met.WindSpeedY = 0;
+                    baseWindX = 5.0f; // Eastward
+                    // Converge toward equator (ITCZ - Intertropical Convergence Zone)
+                    baseWindY = -Math.Sign(signedLatitude) * 2.0f;
                 }
                 // Westerlies (30-60° latitude)
-                else if (latitude < 0.6f)
+                else if (absLatitude < 0.6f)
                 {
-                    met.WindSpeedX = -7.0f; // Westward
-                    met.WindSpeedY = 0;
+                    baseWindX = -7.0f; // Westward
+                    // Diverge from mid-latitudes
+                    baseWindY = Math.Sign(signedLatitude) * 1.5f;
                 }
                 // Polar easterlies (60-90° latitude)
                 else
                 {
-                    met.WindSpeedX = 3.0f; // Eastward
-                    met.WindSpeedY = 0;
+                    baseWindX = 3.0f; // Eastward
+                    // Converge at poles
+                    baseWindY = -Math.Sign(signedLatitude) * 1.0f;
                 }
 
-                // Local wind from pressure differences
+                // Apply Coriolis effect (deflects winds based on latitude and hemisphere)
+                // Coriolis parameter: f = 2 * Ω * sin(latitude)
+                // Simplified: deflection proportional to latitude and wind speed
+                float coriolisStrength = signedLatitude * 0.3f; // Stronger at poles, zero at equator
+
+                // Coriolis deflection: perpendicular to wind direction
+                // Northern hemisphere: deflect right, Southern: deflect left
+                float coriolisDeflectionX = -baseWindY * coriolisStrength;
+                float coriolisDeflectionY = baseWindX * coriolisStrength;
+
+                // Apply base wind + Coriolis deflection
+                float windX = baseWindX + coriolisDeflectionX;
+                float windY = baseWindY + coriolisDeflectionY;
+
+                // Local wind from pressure differences (geostrophic wind)
                 var neighbors = _map.GetNeighbors(x, y).ToList();
                 if (neighbors.Count > 0)
                 {
                     float avgPressure = neighbors.Average(n => n.cell.GetMeteorology().AirPressure);
                     float pressureDiff = avgPressure - met.AirPressure;
 
-                    // Wind flows from high to low pressure
-                    met.WindSpeedX += pressureDiff * 0.1f;
-                    met.WindSpeedY += pressureDiff * 0.05f;
+                    // Wind flows from high to low pressure, also affected by Coriolis
+                    float pressureWindX = pressureDiff * 0.1f;
+                    float pressureWindY = pressureDiff * 0.05f;
+
+                    // Apply Coriolis to pressure gradient wind
+                    windX += pressureWindX - pressureWindY * coriolisStrength;
+                    windY += pressureWindY + pressureWindX * coriolisStrength;
                 }
 
-                // Terrain affects wind
-                if (cell.Elevation > 0.5f) // Mountains slow wind
+                // Terrain affects wind (mountains slow and redirect wind)
+                if (cell.Elevation > 0.5f)
                 {
-                    met.WindSpeedX *= 0.5f;
-                    met.WindSpeedY *= 0.5f;
+                    windX *= 0.5f;
+                    windY *= 0.5f;
                 }
+
+                // Set final wind speeds
+                met.WindSpeedX = windX;
+                met.WindSpeedY = windY;
             }
         }
     }

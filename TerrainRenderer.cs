@@ -76,7 +76,19 @@ public class TerrainRenderer
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
+                if (cell == null)
+                {
+                    Console.WriteLine($"ERROR: Null cell at ({x}, {y})!");
+                    continue;
+                }
+
                 int index = y * _map.Width + x;
+                if (index < 0 || index >= _terrainColors.Length)
+                {
+                    Console.WriteLine($"ERROR: Index {index} out of bounds at ({x}, {y})!");
+                    continue;
+                }
+
 
                 Color baseColor = Mode switch
                 {
