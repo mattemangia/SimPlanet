@@ -15,6 +15,12 @@ public class GeologicalEventsUI
     private GeologicalSimulator _geologicalSim;
     private HydrologySimulator _hydrologySim;
 
+    // Overlay textures for perfect synchronization with terrain
+    private Texture2D _overlayTexture;
+    private Color[] _overlayColors;
+    private bool _overlayDirty = true;
+    private PlanetMap _map;
+
     private Queue<string> _eventLog = new();
     private const int MaxLogEntries = 5;
 
@@ -22,6 +28,8 @@ public class GeologicalEventsUI
     public bool ShowRivers { get; set; } = true;
     public bool ShowPlates { get; set; } = false;
     public bool ShowVolcanoes { get; set; } = true;
+
+    public void MarkOverlayDirty() => _overlayDirty = true;
 
     public GeologicalEventsUI(SpriteBatch spriteBatch, FontRenderer font,
                               GraphicsDevice graphicsDevice)
@@ -38,6 +46,15 @@ public class GeologicalEventsUI
     {
         _geologicalSim = geoSim;
         _hydrologySim = hydroSim;
+        _overlayDirty = true;
+    }
+
+    public void InitializeOverlayTexture(PlanetMap map)
+    {
+        _map = map;
+        _overlayTexture = new Texture2D(_graphicsDevice, map.Width, map.Height);
+        _overlayColors = new Color[map.Width * map.Height];
+        _overlayDirty = true;
     }
 
     public void Update(int currentYear)
@@ -82,198 +99,61 @@ public class GeologicalEventsUI
         }
     }
 
-    public void DrawOverlay(PlanetMap map, int offsetX, int offsetY, int cellSize, float zoomLevel = 1.0f)
+    private void UpdateOverlayTexture()
     {
-        if (_geologicalSim == null) return;
+        if (!_overlayDirty || _map == null || _geologicalSim == null)
+            return;
 
-        // Use the SAME transformation as TerrainRenderer for perfect synchronization
-        // TerrainRenderer scales the entire texture, so we need to match that scaling exactly
-        float pixelScale = cellSize * zoomLevel;
+        // Clear overlay
+        for (int i = 0; i < _overlayColors.Length; i++)
+            _overlayColors[i] = Color.Transparent;
 
-        // Draw volcanoes with level-of-detail enhancement
+        // Render volcanoes to texture at 1:1 scale
         if (ShowVolcanoes)
         {
-            for (int x = 0; x < map.Width; x++)
+            for (int x = 0; x < _map.Width; x++)
             {
-                for (int y = 0; y < map.Height; y++)
+                for (int y = 0; y < _map.Height; y++)
                 {
-                    var geo = map.Cells[x, y].GetGeology();
+                    var geo = _map.Cells[x, y].GetGeology();
                     if (geo.IsVolcano)
                     {
-                        // Convert cell coordinates to screen coordinates using floating point for precision
-                        float screenX = offsetX + x * pixelScale;
-                        float screenY = offsetY + y * pixelScale;
-                        int centerX = (int)(screenX + pixelScale * 0.5f);
-                        int centerY = (int)(screenY + pixelScale * 0.5f);
-
-                        // Scale volcano triangle size with zoom level
-                        int volcanoSize = Math.Max(cellSize / 2, (int)(cellSize / 2 * (1 + (zoomLevel - 1) * 0.5f)));
-
-                        // HIGH ZOOM: Enhanced visual details (> 2x zoom)
-                        if (zoomLevel > 2.0f)
-                        {
-                            // Draw outer glow for active volcanoes
-                            if (geo.VolcanicActivity > 0.3f)
-                            {
-                                int glowRadius = (int)(volcanoSize * 2.0f);
-                                Color glowColor = Color.OrangeRed * (0.25f * geo.VolcanicActivity);
-                                DrawCircleFilled(_spriteBatch, centerX, centerY, glowRadius, glowColor);
-                            }
-
-                            // Draw heat shimmer ring at very high zoom
-                            if (zoomLevel > 3.0f && geo.VolcanicActivity > 0.4f)
-                            {
-                                int shimmerRadius = (int)(volcanoSize * 1.6f);
-                                Color shimmerColor = Color.Yellow * (0.4f * geo.VolcanicActivity);
-                                DrawCircleOutline(_spriteBatch, centerX, centerY, shimmerRadius, shimmerColor, 2);
-                            }
-                        }
-
-                        // Draw main volcano body with gradient-like effect
+                        int index = y * _map.Width + x;
+                        // Simple marker - LOD effects will be drawn on top
                         Color volcanoColor = geo.VolcanicActivity > 0.5f
                             ? Color.Red : new Color(180, 60, 0);
-
-                        // Add darker base for depth at high zoom
-                        if (zoomLevel > 2.5f)
-                        {
-                            DrawTriangle(_spriteBatch, centerX, centerY + 1, volcanoSize + 1, Color.Black * 0.4f);
-                        }
-
-                        DrawTriangle(_spriteBatch, centerX, centerY, volcanoSize, volcanoColor);
-
-                        // Draw crater detail at high zoom
-                        if (zoomLevel > 2.5f)
-                        {
-                            int craterSize = Math.Max(2, volcanoSize / 3);
-                            Color craterColor = geo.MagmaPressure > 0.6f
-                                ? Color.Orange
-                                : new Color(60, 30, 10);
-                            DrawCircleFilled(_spriteBatch, centerX, centerY - volcanoSize / 2, craterSize, craterColor);
-                        }
-
-                        // Active eruption effects
-                        if (geo.MagmaPressure > 0.8f)
-                        {
-                            // Eruption burst at top
-                            int starSize = Math.Max(cellSize / 3, (int)(cellSize / 3 * (1 + (zoomLevel - 1) * 0.5f)));
-                            DrawStar(_spriteBatch, centerX, centerY - volcanoSize, starSize, Color.Yellow);
-
-                            // Lava particles at very high zoom
-                            if (zoomLevel > 3.5f)
-                            {
-                                // Draw lava spray particles
-                                for (int i = 0; i < 6; i++)
-                                {
-                                    float angle = (i / 6.0f) * MathF.PI * 2;
-                                    int particleX = centerX + (int)(MathF.Cos(angle) * volcanoSize * 1.2f);
-                                    int particleY = centerY - volcanoSize + (int)(MathF.Sin(angle) * volcanoSize * 0.8f);
-                                    int particleSize = Math.Max(1, volcanoSize / 6);
-                                    DrawCircleFilled(_spriteBatch, particleX, particleY, particleSize, Color.Orange);
-                                }
-                            }
-
-                            // Pulsing glow for high activity
-                            if (zoomLevel > 2.0f)
-                            {
-                                float pulseIntensity = (MathF.Sin((float)DateTime.Now.TimeOfDay.TotalSeconds * 3) + 1) * 0.5f;
-                                int pulseRadius = (int)(volcanoSize * 1.3f);
-                                DrawCircleOutline(_spriteBatch, centerX, centerY, pulseRadius,
-                                    Color.Red * (0.6f * pulseIntensity), 2);
-                            }
-                        }
+                        _overlayColors[index] = volcanoColor;
                     }
                 }
             }
         }
 
-        // Draw rivers with enhanced detail when zoomed
+        // Render rivers to texture at 1:1 scale
         if (ShowRivers && _hydrologySim != null)
         {
             foreach (var river in _hydrologySim.Rivers)
             {
-                if (river.Path.Count < 2) continue;
-
-                // Generate meandering curve points from the river path
-                var curvePoints = GenerateMeanderingPath(river.Path, zoomLevel);
-
-                // River width increases moderately with zoom for better visibility
-                int lineWidth = (int)Math.Clamp(2 + (zoomLevel - 1) * 1.3f, 2, 6);
-
-                // Enhanced color at higher zoom levels (more vibrant blue)
-                Color riverColor = zoomLevel > 2.5f
-                    ? new Color(80, 140, 255)  // Brighter blue when zoomed
-                    : new Color(100, 150, 255); // Standard blue
-
-                // Draw the meandering river path
-                for (int i = 0; i < curvePoints.Count - 1; i++)
+                foreach (var (x, y) in river.Path)
                 {
-                    var (fx1, fy1) = curvePoints[i];
-                    var (fx2, fy2) = curvePoints[i + 1];
-
-                    // Use floating point for precise coordinate transformation
-                    int screenX1 = (int)(offsetX + fx1 * pixelScale + pixelScale * 0.5f);
-                    int screenY1 = (int)(offsetY + fy1 * pixelScale + pixelScale * 0.5f);
-                    int screenX2 = (int)(offsetX + fx2 * pixelScale + pixelScale * 0.5f);
-                    int screenY2 = (int)(offsetY + fy2 * pixelScale + pixelScale * 0.5f);
-
-                    // HIGH ZOOM: Add shimmer/reflection effects
-                    if (zoomLevel > 2.5f)
+                    if (x >= 0 && x < _map.Width && y >= 0 && y < _map.Height)
                     {
-                        // Draw lighter "reflection" line on top
-                        Color shimmerColor = new Color(150, 200, 255) * 0.6f;
-                        int shimmerWidth = Math.Max(1, lineWidth / 2);
-                        DrawLine(_spriteBatch, screenX1, screenY1 - 1, screenX2, screenY2 - 1,
-                               shimmerColor, shimmerWidth);
+                        int index = y * _map.Width + x;
+                        _overlayColors[index] = new Color(100, 150, 255); // River blue
                     }
-
-                    // Draw main river
-                    DrawLine(_spriteBatch, screenX1, screenY1, screenX2, screenY2,
-                           riverColor, lineWidth);
-
-                    // VERY HIGH ZOOM: Add flow indicators (dots along the path)
-                    if (zoomLevel > 3.5f && i % 3 == 0)
-                    {
-                        float distance = MathF.Sqrt((screenX2 - screenX1) * (screenX2 - screenX1) +
-                                                    (screenY2 - screenY1) * (screenY2 - screenY1));
-                        if (distance > 8)
-                        {
-                            // Animated flow dots
-                            float flowOffset = ((float)DateTime.Now.TimeOfDay.TotalSeconds * 10) % distance;
-                            float dotX = screenX1 + (screenX2 - screenX1) * (flowOffset / distance);
-                            float dotY = screenY1 + (screenY2 - screenY1) * (flowOffset / distance);
-                            DrawCircleFilled(_spriteBatch, (int)dotX, (int)dotY, 2, Color.White * 0.8f);
-                        }
-                    }
-                }
-
-                // River source indicator at very high zoom
-                if (zoomLevel > 3.0f && curvePoints.Count > 0)
-                {
-                    var (fx, fy) = curvePoints[0];
-                    int screenX = (int)(offsetX + fx * pixelScale + pixelScale * 0.5f);
-                    int screenY = (int)(offsetY + fy * pixelScale + pixelScale * 0.5f);
-                    DrawCircleFilled(_spriteBatch, screenX, screenY, lineWidth + 2, new Color(100, 180, 255));
-                    DrawCircleOutline(_spriteBatch, screenX, screenY, lineWidth + 4, Color.Cyan, 1);
                 }
             }
         }
 
-        // Draw plate boundaries with level-of-detail
+        // Render plate boundaries to texture at 1:1 scale
         if (ShowPlates)
         {
-            for (int x = 0; x < map.Width; x++)
+            for (int x = 0; x < _map.Width; x++)
             {
-                for (int y = 0; y < map.Height; y++)
+                for (int y = 0; y < _map.Height; y++)
                 {
-                    var geo = map.Cells[x, y].GetGeology();
+                    var geo = _map.Cells[x, y].GetGeology();
                     if (geo.BoundaryType != PlateBoundaryType.None)
                     {
-                        // Use floating point for precise coordinate transformation
-                        float screenX = offsetX + x * pixelScale;
-                        float screenY = offsetY + y * pixelScale;
-                        int centerX = (int)(screenX + pixelScale * 0.5f);
-                        int centerY = (int)(screenY + pixelScale * 0.5f);
-
                         Color boundaryColor = geo.BoundaryType switch
                         {
                             PlateBoundaryType.Divergent => Color.Yellow,
@@ -282,49 +162,179 @@ public class GeologicalEventsUI
                             _ => Color.White
                         };
 
-                        // Increase opacity moderately when zoomed for better visibility
-                        float alpha = Math.Clamp(0.5f + (zoomLevel - 1) * 0.1f, 0.5f, 0.8f);
+                        int index = y * _map.Width + x;
+                        _overlayColors[index] = boundaryColor * 0.6f; // Base opacity
+                    }
+                }
+            }
+        }
 
-                        // Draw base boundary cell - use integer for Rectangle
-                        _spriteBatch.Draw(_pixelTexture,
-                            new Rectangle((int)screenX, (int)screenY, (int)pixelScale, (int)pixelScale),
-                            boundaryColor * alpha);
+        _overlayTexture.SetData(_overlayColors);
+        _overlayDirty = false;
+    }
 
-                        // HIGH ZOOM: Add boundary type indicators
-                        if (zoomLevel > 2.5f)
+    public void DrawOverlay(PlanetMap map, int offsetX, int offsetY, int cellSize, float zoomLevel = 1.0f)
+    {
+        if (_geologicalSim == null) return;
+
+        // Update overlay texture if needed
+        UpdateOverlayTexture();
+
+        // Draw base overlay texture using SAME scaling as terrain - guaranteed perfect alignment
+        int zoomedWidth = (int)(map.Width * cellSize * zoomLevel);
+        int zoomedHeight = (int)(map.Height * cellSize * zoomLevel);
+
+        _spriteBatch.Draw(
+            _overlayTexture,
+            new Rectangle(offsetX, offsetY, zoomedWidth, zoomedHeight),
+            Color.White
+        );
+
+        // Draw LOD enhancement effects on top of base texture
+        // Only draw zoom-dependent visual enhancements, not base shapes (those are in texture)
+        float pixelScale = cellSize * zoomLevel;
+
+        // Volcano LOD effects (glows, particles, craters)
+        if (ShowVolcanoes && zoomLevel > 1.5f)
+        {
+            for (int x = 0; x < map.Width; x++)
+            {
+                for (int y = 0; y < map.Height; y++)
+                {
+                    var geo = map.Cells[x, y].GetGeology();
+                    if (geo.IsVolcano)
+                    {
+                        float screenX = offsetX + x * pixelScale;
+                        float screenY = offsetY + y * pixelScale;
+                        int centerX = (int)(screenX + pixelScale * 0.5f);
+                        int centerY = (int)(screenY + pixelScale * 0.5f);
+                        int size = (int)(pixelScale * 0.5f);
+
+                        // Glow effects at zoom > 2x
+                        if (zoomLevel > 2.0f && geo.VolcanicActivity > 0.3f)
                         {
-                            int indicatorSize = Math.Max(2, cellSize / 3);
+                            int glowRadius = (int)(size * 2.0f);
+                            DrawCircleFilled(_spriteBatch, centerX, centerY, glowRadius,
+                                Color.OrangeRed * (0.25f * geo.VolcanicActivity));
 
-                            switch (geo.BoundaryType)
+                            if (zoomLevel > 3.0f && geo.VolcanicActivity > 0.4f)
                             {
-                                case PlateBoundaryType.Divergent:
-                                    // Divergent - arrows pointing apart (<<  >>)
-                                    DrawArrow(_spriteBatch, centerX - indicatorSize, centerY, indicatorSize / 2, -1, Color.Yellow);
-                                    DrawArrow(_spriteBatch, centerX + indicatorSize, centerY, indicatorSize / 2, 1, Color.Yellow);
-                                    break;
-
-                                case PlateBoundaryType.Convergent:
-                                    // Convergent - arrows pointing together (>>  <<)
-                                    DrawArrow(_spriteBatch, centerX - indicatorSize, centerY, indicatorSize / 2, 1, Color.Red);
-                                    DrawArrow(_spriteBatch, centerX + indicatorSize, centerY, indicatorSize / 2, -1, Color.Red);
-                                    break;
-
-                                case PlateBoundaryType.Transform:
-                                    // Transform - arrows sliding past each other
-                                    DrawArrow(_spriteBatch, centerX, centerY - indicatorSize, indicatorSize / 2, 0, Color.Orange, true);
-                                    DrawArrow(_spriteBatch, centerX, centerY + indicatorSize, indicatorSize / 2, 0, Color.Orange, true, true);
-                                    break;
+                                int shimmerRadius = (int)(size * 1.6f);
+                                DrawCircleOutline(_spriteBatch, centerX, centerY, shimmerRadius,
+                                    Color.Yellow * (0.4f * geo.VolcanicActivity), 2);
                             }
                         }
 
-                        // VERY HIGH ZOOM: Add stress visualization
+                        // Eruption effects
+                        if (geo.MagmaPressure > 0.8f)
+                        {
+                            DrawStar(_spriteBatch, centerX, centerY - size, size / 2, Color.Yellow);
+
+                            if (zoomLevel > 3.5f)
+                            {
+                                for (int i = 0; i < 6; i++)
+                                {
+                                    float angle = (i / 6.0f) * MathF.PI * 2;
+                                    int px = centerX + (int)(MathF.Cos(angle) * size * 1.2f);
+                                    int py = centerY - size + (int)(MathF.Sin(angle) * size * 0.8f);
+                                    DrawCircleFilled(_spriteBatch, px, py, Math.Max(1, size / 6), Color.Orange);
+                                }
+                            }
+
+                            if (zoomLevel > 2.0f)
+                            {
+                                float pulse = (MathF.Sin((float)DateTime.Now.TimeOfDay.TotalSeconds * 3) + 1) * 0.5f;
+                                DrawCircleOutline(_spriteBatch, centerX, centerY, (int)(size * 1.3f),
+                                    Color.Red * (0.6f * pulse), 2);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // River LOD effects (shimmer, flow indicators, source markers)
+        if (ShowRivers && _hydrologySim != null && zoomLevel > 2.0f)
+        {
+            foreach (var river in _hydrologySim.Rivers)
+            {
+                if (river.Path.Count < 2) continue;
+
+                // Flow indicator dots at very high zoom
+                if (zoomLevel > 3.5f)
+                {
+                    for (int i = 0; i < river.Path.Count - 1; i += 3)
+                    {
+                        var (x, y) = river.Path[i];
+                        float screenX = offsetX + x * pixelScale + pixelScale * 0.5f;
+                        float screenY = offsetY + y * pixelScale + pixelScale * 0.5f;
+
+                        // Animated pulse
+                        float phase = ((float)DateTime.Now.TimeOfDay.TotalSeconds * 2 + i * 0.3f) % 1.0f;
+                        if (phase < 0.5f)
+                        {
+                            DrawCircleFilled(_spriteBatch, (int)screenX, (int)screenY, 2,
+                                Color.White * (0.8f * (1.0f - phase * 2)));
+                        }
+                    }
+                }
+
+                // River source marker at high zoom
+                if (zoomLevel > 3.0f && river.Path.Count > 0)
+                {
+                    var (x, y) = river.Path[0];
+                    int screenX = (int)(offsetX + x * pixelScale + pixelScale * 0.5f);
+                    int screenY = (int)(offsetY + y * pixelScale + pixelScale * 0.5f);
+                    int radius = (int)(pixelScale * 0.6f);
+                    DrawCircleFilled(_spriteBatch, screenX, screenY, radius, new Color(100, 180, 255) * 0.5f);
+                    DrawCircleOutline(_spriteBatch, screenX, screenY, radius + 2, Color.Cyan, 1);
+                }
+            }
+        }
+
+        // Plate boundary LOD effects (arrows and stress visualization)
+        if (ShowPlates && zoomLevel > 2.5f)
+        {
+            for (int x = 0; x < map.Width; x++)
+            {
+                for (int y = 0; y < map.Height; y++)
+                {
+                    var geo = map.Cells[x, y].GetGeology();
+                    if (geo.BoundaryType != PlateBoundaryType.None)
+                    {
+                        float screenX = offsetX + x * pixelScale;
+                        float screenY = offsetY + y * pixelScale;
+                        int centerX = (int)(screenX + pixelScale * 0.5f);
+                        int centerY = (int)(screenY + pixelScale * 0.5f);
+
+                        int indicatorSize = Math.Max(2, (int)(pixelScale * 0.3f));
+
+                        // Movement arrows
+                        switch (geo.BoundaryType)
+                        {
+                            case PlateBoundaryType.Divergent:
+                                DrawArrow(_spriteBatch, centerX - indicatorSize, centerY, indicatorSize / 2, -1, Color.Yellow);
+                                DrawArrow(_spriteBatch, centerX + indicatorSize, centerY, indicatorSize / 2, 1, Color.Yellow);
+                                break;
+
+                            case PlateBoundaryType.Convergent:
+                                DrawArrow(_spriteBatch, centerX - indicatorSize, centerY, indicatorSize / 2, 1, Color.Red);
+                                DrawArrow(_spriteBatch, centerX + indicatorSize, centerY, indicatorSize / 2, -1, Color.Red);
+                                break;
+
+                            case PlateBoundaryType.Transform:
+                                DrawArrow(_spriteBatch, centerX, centerY - indicatorSize, indicatorSize / 2, 0, Color.Orange, true);
+                                DrawArrow(_spriteBatch, centerX, centerY + indicatorSize, indicatorSize / 2, 0, Color.Orange, true, true);
+                                break;
+                        }
+
+                        // Stress visualization at very high zoom
                         if (zoomLevel > 3.5f && geo.TectonicStress > 0.5f)
                         {
-                            // Pulsing stress indicator
-                            float pulseIntensity = (MathF.Sin((float)DateTime.Now.TimeOfDay.TotalSeconds * 4) + 1) * 0.5f;
-                            int stressRadius = (int)(cellSize * 0.8f);
-                            Color stressColor = Color.White * (0.3f * geo.TectonicStress * pulseIntensity);
-                            DrawCircleOutline(_spriteBatch, centerX, centerY, stressRadius, stressColor, 1);
+                            float pulse = (MathF.Sin((float)DateTime.Now.TimeOfDay.TotalSeconds * 4) + 1) * 0.5f;
+                            int stressRadius = (int)(pixelScale * 0.8f);
+                            DrawCircleOutline(_spriteBatch, centerX, centerY, stressRadius,
+                                Color.White * (0.3f * geo.TectonicStress * pulse), 1);
                         }
                     }
                 }

@@ -267,6 +267,7 @@ public class SimPlanetGame : Game
         _mapOptionsUI = new MapOptionsUI(_spriteBatch, _font, GraphicsDevice);
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
+        _eventsUI.InitializeOverlayTexture(_map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
@@ -808,6 +809,7 @@ public class SimPlanetGame : Game
             _ui.SetPlanetStabilizer(_planetStabilizer);
             _minimap3D.Dispose();
             _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+            _eventsUI.InitializeOverlayTexture(_map);
             _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
 
             _mainMenu.CurrentScreen = GameScreen.InGame;
@@ -897,6 +899,7 @@ public class SimPlanetGame : Game
         _ui.SetPlanetStabilizer(_planetStabilizer);
         _minimap3D.Dispose();
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+        _eventsUI.InitializeOverlayTexture(_map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
 
         // Reset game state
