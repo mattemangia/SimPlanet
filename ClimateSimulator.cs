@@ -7,11 +7,13 @@ public class ClimateSimulator
 {
     private readonly PlanetMap _map;
     private readonly Random _random;
+    private float _previousIceVolume = 0f; // Track ice volume to adjust water levels
 
     public ClimateSimulator(PlanetMap map)
     {
         _map = map;
         _random = new Random();
+        _previousIceVolume = CalculateLandIceVolume(); // Initialize
     }
 
     public void Update(float deltaTime)
@@ -20,6 +22,7 @@ public class ClimateSimulator
         SimulateRainfall(deltaTime);
         SimulateHumidity(deltaTime);
         UpdateIceCycles(deltaTime);
+        UpdateWaterLevelFromIce(); // Adjust sea level based on ice sheet changes
     }
 
     private void SimulateTemperature(float deltaTime)
@@ -405,5 +408,54 @@ public class ClimateSimulator
         // For now, clouds are handled separately in weather system
 
         return Math.Clamp(albedo, 0.0f, 1.0f);
+    }
+
+    /// <summary>
+    /// Calculate total ice volume on land (not sea ice, as sea ice doesn't affect sea level)
+    /// Ice sheets lock up water on land, removing it from the ocean
+    /// </summary>
+    private float CalculateLandIceVolume()
+    {
+        float iceVolume = 0f;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+
+                // Only count ice on land (glaciers and ice sheets)
+                // Sea ice doesn't change sea level (it's already floating)
+                if (cell.IsLand && cell.IsIce && cell.Elevation > 0)
+                {
+                    // Ice volume is proportional to elevation above sea level
+                    iceVolume += cell.Elevation;
+                }
+            }
+        }
+
+        return iceVolume;
+    }
+
+    /// <summary>
+    /// Update global water level based on ice sheet volume changes
+    /// When ice sheets grow, water is locked on land -> sea level drops
+    /// When ice sheets melt, water returns to ocean -> sea level rises
+    /// </summary>
+    private void UpdateWaterLevelFromIce()
+    {
+        float currentIceVolume = CalculateLandIceVolume();
+        float iceVolumeChange = currentIceVolume - _previousIceVolume;
+
+        // Convert ice volume change to water level change
+        // Scaling factor: ice sheet volume to global sea level
+        // Negative because more ice = lower sea level
+        float waterLevelChange = -iceVolumeChange * 0.0001f;
+
+        // Apply water level change
+        _map.WaterLevel = Math.Clamp(_map.WaterLevel + waterLevelChange, -1.0f, 1.0f);
+
+        // Update tracking
+        _previousIceVolume = currentIceVolume;
     }
 }

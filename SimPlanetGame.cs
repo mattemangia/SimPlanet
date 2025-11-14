@@ -389,7 +389,44 @@ public class SimPlanetGame : Game
             return;
         }
 
-        // Only process key presses (not holds)
+        // Mouse controls for pan and zoom (MUST be processed every frame, not just on keyboard changes)
+        var mouseState = Mouse.GetState();
+
+        // Left mouse button for panning (more intuitive than middle button)
+        if (mouseState.LeftButton == ButtonState.Pressed)
+        {
+            if (_previousMouseState.LeftButton == ButtonState.Pressed)
+            {
+                float dx = mouseState.X - _previousMouseState.X;
+                float dy = mouseState.Y - _previousMouseState.Y;
+                _terrainRenderer.CameraX -= dx;
+                _terrainRenderer.CameraY -= dy;
+            }
+        }
+
+        // Middle mouse button for panning (alternative)
+        if (mouseState.MiddleButton == ButtonState.Pressed)
+        {
+            if (_previousMouseState.MiddleButton == ButtonState.Pressed)
+            {
+                float dx = mouseState.X - _previousMouseState.X;
+                float dy = mouseState.Y - _previousMouseState.Y;
+                _terrainRenderer.CameraX -= dx;
+                _terrainRenderer.CameraY -= dy;
+            }
+        }
+
+        // Mouse wheel for zoom
+        int scrollDelta = mouseState.ScrollWheelValue - _previousMouseState.ScrollWheelValue;
+        if (scrollDelta != 0)
+        {
+            float zoomChange = scrollDelta > 0 ? 1.1f : 0.9f;
+            _terrainRenderer.ZoomLevel = Math.Clamp(_terrainRenderer.ZoomLevel * zoomChange, 0.5f, 4.0f);
+        }
+
+        _previousMouseState = mouseState;
+
+        // Only process key presses (not holds) - but mouse input is always processed above
         if (keyState == _previousKeyState)
             return;
 
@@ -444,31 +481,6 @@ public class SimPlanetGame : Game
         {
             _terrainRenderer.ShowDayNight = !_terrainRenderer.ShowDayNight;
         }
-
-        // Mouse controls for pan and zoom
-        var mouseState = Mouse.GetState();
-
-        // Middle mouse button for panning
-        if (mouseState.MiddleButton == ButtonState.Pressed)
-        {
-            if (_previousMouseState.MiddleButton == ButtonState.Pressed)
-            {
-                float dx = mouseState.X - _previousMouseState.X;
-                float dy = mouseState.Y - _previousMouseState.Y;
-                _terrainRenderer.CameraX -= dx;
-                _terrainRenderer.CameraY -= dy;
-            }
-        }
-
-        // Mouse wheel for zoom
-        int scrollDelta = mouseState.ScrollWheelValue - _previousMouseState.ScrollWheelValue;
-        if (scrollDelta != 0)
-        {
-            float zoomChange = scrollDelta > 0 ? 1.1f : 0.9f;
-            _terrainRenderer.ZoomLevel = Math.Clamp(_terrainRenderer.ZoomLevel * zoomChange, 0.5f, 4.0f);
-        }
-
-        _previousMouseState = mouseState;
 
         // Seed life
         if (keyState.IsKeyDown(Keys.L) && _previousKeyState.IsKeyUp(Keys.L))

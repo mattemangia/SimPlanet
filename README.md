@@ -57,7 +57,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Humidity simulation with diffusion
   - **Geographic variation** prevents artificial horizontal banding
   - Surface albedo effects (ice reflects 85%, ocean absorbs 94%)
-- **Ice Cycles**:
+- **Ice Cycles & Sea Level**:
   - Polar ice caps formation and expansion with **smooth gradients**
   - Mountain glaciers and snow lines
   - **Realistic ice-albedo feedback** (prevents runaway glaciation)
@@ -65,6 +65,11 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Sea ice formation on frozen oceans
   - **No horizontal ice stripes** - geographic variation creates natural patterns
   - Prevents snowball Earth and runaway ice ages
+  - **Ice sheet water level mechanics**:
+    - Ice sheets forming on land remove water from oceans → sea level drops
+    - Ice sheets melting return water to oceans → sea level rises
+    - Realistic glacial-interglacial sea level changes (up to 120m equivalent)
+    - Continents flood during warm periods, ocean floors exposed during ice ages
 - **Magnetosphere & Radiation**:
   - Planetary magnetic field simulation (Earth-like dynamo)
   - Cosmic ray deflection (70% protection at equator)
@@ -129,6 +134,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Respects terrain constraints for realistic results
   - Scroll wheel adjusts brush size
 - **Auto-Stabilization System** (Press Y):
+  - **ENABLED BY DEFAULT** to prevent runaway climate disasters
   - Automatically maintains Earth-like habitable conditions
   - Monitors and adjusts: temperature (target 15°C), oxygen (21%), CO2 (0.04%)
   - Prevents snowball Earth and runaway greenhouse effects
@@ -136,6 +142,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Balances land/ocean ratio (target 29%/71%)
   - Shows real-time status: adjustments made, last action
   - Perfect for hands-free planetary management
+  - Press Y to toggle on/off during gameplay
 - **Save/Load System**:
   - Quick save with F5, quick load with F9
   - Full menu system with save slots and timestamps
@@ -269,7 +276,8 @@ dotnet run
 | **F9** | Quick load game (or Desert preset in map options) |
 | **ESC** | Pause menu / Back to main menu |
 | **Mouse Wheel** | Zoom in/out (0.5x to 4.0x) |
-| **Middle Click + Drag** | Pan camera around the map |
+| **Left Click + Drag** | Pan camera around the map |
+| **Middle Click + Drag** | Alternative pan control |
 
 ### 3D Minimap Controls (Press P to toggle)
 
@@ -552,7 +560,36 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Climate System Realism & 3D Minimap Fixes
+### Latest Update - Map Controls, Climate Balance & Ice Sheet Sea Level Mechanics
+
+**CRITICAL FIXES - Map Controls:**
+- ✅ **FIXED: Mouse Wheel Zoom** - Mouse wheel now properly zooms in/out (was broken due to input handling order)
+- ✅ **FIXED: Left Click Panning** - Added left mouse button drag to pan the map (more intuitive)
+- ✅ **FIXED: Middle Click Panning** - Middle mouse button panning now works correctly
+- ✅ **Input Processing Fix** - Mouse input now processes every frame, not just on keyboard changes
+
+**Climate Balance & Autobalancer:**
+- ✅ **Autobalancer ON by Default** - Prevents runaway ice ages, desert worlds, and vegetation collapse
+- ✅ **Climate Stabilization** - Maintains habitable conditions automatically (can be toggled with Y key)
+- ✅ **Ice Age Prevention** - Stops ice sheets from growing uncontrollably and killing all vegetation
+- ✅ **Desert Prevention** - Balances temperature and precipitation to support diverse ecosystems
+
+**Ice Sheet Sea Level Mechanics - NEW!**
+- ✅ **Realistic Water Cycle** - Ice sheets now affect global sea level
+- ✅ **Ice Formation Lowers Sea Level** - Water locked in glaciers on land reduces ocean volume
+- ✅ **Ice Melting Raises Sea Level** - Meltwater returns to oceans, flooding coastlines
+- ✅ **Dynamic Coastlines** - Continents flood during interglacial periods, expand during ice ages
+- ✅ **Accurate Physics** - Only land ice affects sea level (floating sea ice excluded)
+- ✅ **Real-Time Tracking** - Sea level responds to ice volume changes continuously
+
+**Volcano Generation Balance:**
+- ✅ **90% Reduction in Volcano Frequency** - Drastically reduced volcanic hotspot spawning (5-10 → 2-4)
+- ✅ **10x Reduction at Plate Boundaries** - All boundary volcanism probabilities reduced by 10x
+- ✅ **Island Formation Fixed** - Oceanic-oceanic convergence elevation boost reduced from 0.08 → 0.01
+- ✅ **Gradual Island Building** - Volcanic islands now build realistically over time, not instantly
+- ✅ **Fewer Rogue Islands** - Eliminated excessive island chain spam that was covering oceans
+
+### Previous Update - Climate System Realism & 3D Minimap Fixes
 
 **Climate & Geography Improvements:**
 - ✅ **Eliminated Blue Horizontal Stripes** - Ice now forms naturally without artificial banding
@@ -567,13 +604,6 @@ Potential additions (not yet implemented):
 - ✅ **Proper Rotation** - Horizontal rotation now applies before tilt transformation
 - ✅ **Accurate Latitude Mapping** - Uses proper asin calculation for realistic pole/equator display
 - ✅ **Ice Caps Show Correctly** - Polar ice now displays in proper positions on the 3D globe
-
-**Volcano & Geology Realism:**
-- ✅ **Reduced Volcano Spam** - 95% reduction in volcano creation probability
-- ✅ **Volcanic Island Formation** - Underwater volcanoes now build into islands (Hawaii-style)
-- ✅ **Shield Volcano Building** - Submarine eruptions build 2.5x faster to create island chains
-- ✅ **Island Arc Systems** - Oceanic-oceanic convergence creates realistic island chains (Japan, Philippines)
-- ✅ **Mid-Ocean Ridges** - Rare volcanic islands form along divergent boundaries (Iceland-like)
 
 **Code Quality:**
 - ✅ **Fixed deltaTime Compilation Errors** - Resolved scope issues in UI update methods

@@ -21,7 +21,7 @@ public class PlanetStabilizer
     private const float TargetMagneticField = 1.0f; // Earth-like
     private const float TargetCoreTemp = 5000f; // Active core
 
-    public bool IsActive { get; set; } = false;
+    public bool IsActive { get; set; } = true; // Auto-enabled to prevent runaway climate issues
 
     // Statistics
     public int AdjustmentsMade { get; private set; } = 0;
