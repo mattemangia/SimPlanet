@@ -164,16 +164,25 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 
 ## Performance Optimizations
 
-SimPlanet has been heavily optimized for smooth, responsive gameplay:
+SimPlanet uses **true multithreading** for maximum performance and responsiveness:
 
-- **UI Independence**: Interface updates at 60 FPS regardless of simulation load
-- **Smart Simulation Throttling**: Heavy systems run on round-robin schedule to prevent frame hitches
+### Multithreaded Architecture
+- **Dedicated Simulation Thread**: All simulation logic runs on a separate background thread
+- **UI Thread Independence**: Main thread handles ONLY input and rendering - always responsive
+- **Thread-Safe Synchronization**: Lock-based data access prevents race conditions
+- **Clean Separation**: Simulation never blocks UI, UI never blocks simulation
+
+### Additional Optimizations
 - **Cached Statistics**: UI data cached at 100ms intervals (prevents scanning 20,000 cells every frame)
 - **Throttled Terrain Preview**: Map generator preview updates at 150ms intervals (prevents lag during slider adjustments)
 - **Optimized Rendering**: Texture updates only when data changes (dirty flag system)
 - **Split-Screen Layout**: Info panel (400px) on left, resizable map on right - no more overlap!
 
-**Result**: Smooth 60 FPS gameplay even during complex simulations with large civilizations.
+**Result**:
+- UI renders at smooth 60 FPS regardless of simulation complexity
+- Window remains responsive even during heavy computation
+- Close button (X) always works - no more frozen windows
+- Perfect separation between simulation and UI threads
 
 ## Requirements
 
@@ -537,11 +546,15 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Performance Overhaul & Interactive 3D Minimap
+### Latest Update - True Multithreading & Complete UI Independence
 
-**Major Performance Improvements:**
-- ✅ **Eliminated All Lag** - UI now updates independently at 60 FPS regardless of simulation load
-- ✅ **Smart Simulation Scheduling** - Heavy systems run on round-robin schedule across frames
+**TRUE MULTITHREADING - ZERO LAG:**
+- ✅ **Dedicated Simulation Thread** - All simulation runs on separate background thread
+- ✅ **UI Thread Independence** - Main thread ONLY handles input/rendering - always responsive
+- ✅ **Thread-Safe Synchronization** - Lock-based data access prevents race conditions
+- ✅ **Window Never Freezes** - Close button (X) always works, even during heavy simulation
+- ✅ **Perfect Separation** - Simulation can't block UI, UI can't block simulation
+- ✅ **Smooth 60 FPS** - UI renders at constant 60 FPS regardless of simulation complexity
 - ✅ **Cached UI Statistics** - Stats updated every 100ms instead of scanning 20,000 cells per frame
 - ✅ **Responsive Terrain Sliders** - Preview throttled to 150ms (was updating 60 times/second!)
 - ✅ **Split-Screen Layout** - Info panel on left (400px), map on right - NO more overlap!

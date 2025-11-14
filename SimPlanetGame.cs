@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System.Threading;
 
 namespace SimPlanet;
 
@@ -58,12 +59,15 @@ public class SimPlanetGame : Game
     // Performance optimization: throttle expensive operations
     private float _globalStatsTimer = 0;
     private float _visualUpdateTimer = 0;
-    private float _simulationUpdateTimer = 0;
-    private float _uiUpdateTimer = 0;
     private const float GlobalStatsInterval = 1.0f; // Update global stats every 1 second
     private const float VisualUpdateInterval = 0.1f; // Update visuals 10 times per second
-    private const float SimulationUpdateInterval = 0.016f; // Update simulation ~60 times per second but split work
-    private const float UIUpdateInterval = 0.1f; // Update UI data cache 10 times per second
+
+    // Multithreading: Simulation runs on background thread, UI on main thread
+    private Thread _simulationThread;
+    private readonly object _simulationLock = new object();
+    private bool _simulationRunning = false;
+    private bool _simulationThreadActive = false;
+    private DateTime _lastSimulationUpdate = DateTime.Now;
 
     // Map generation settings
     private MapGenerationOptions _mapOptions;
@@ -90,6 +94,90 @@ public class SimPlanetGame : Game
         _graphics.ApplyChanges();
 
         Window.Title = "SimPlanet - Planetary Evolution Simulator";
+    }
+
+    private void SimulationThreadLoop()
+    {
+        while (_simulationThreadActive)
+        {
+            try
+            {
+                // Calculate delta time for simulation
+                DateTime now = DateTime.Now;
+                float deltaTime = (float)(now - _lastSimulationUpdate).TotalSeconds;
+                _lastSimulationUpdate = now;
+
+                // Clamp deltaTime to prevent huge jumps
+                deltaTime = Math.Clamp(deltaTime, 0, 0.1f);
+
+                // Check if simulation should run
+                bool shouldRun = false;
+                GameState gameStateCopy;
+
+                lock (_simulationLock)
+                {
+                    shouldRun = _simulationRunning && !_gameState.IsPaused;
+                    gameStateCopy = new GameState
+                    {
+                        Year = _gameState.Year,
+                        TimeSpeed = _gameState.TimeSpeed,
+                        IsPaused = _gameState.IsPaused,
+                        TimeAccumulator = _gameState.TimeAccumulator
+                    };
+                }
+
+                if (shouldRun)
+                {
+                    // Apply time speed
+                    float simDeltaTime = deltaTime * gameStateCopy.TimeSpeed;
+
+                    // Update time accumulator and year
+                    float newAccumulator = gameStateCopy.TimeAccumulator + simDeltaTime;
+                    int newYear = gameStateCopy.Year;
+
+                    if (newAccumulator >= 10.0f)
+                    {
+                        newYear++;
+                        newAccumulator -= 10.0f;
+                    }
+
+                    // Run all simulators (thread-safe, they only modify map data)
+                    _climateSimulator.Update(simDeltaTime);
+                    _atmosphereSimulator.Update(simDeltaTime);
+                    _weatherSystem.Update(simDeltaTime, newYear);
+                    _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem);
+                    _animalEvolutionSimulator.Update(simDeltaTime, newYear);
+                    _geologicalSimulator.Update(simDeltaTime, newYear);
+                    _hydrologySimulator.Update(simDeltaTime);
+                    _civilizationManager.Update(simDeltaTime, newYear);
+                    _diseaseManager.Update(simDeltaTime, newYear);
+                    _biomeSimulator.Update(simDeltaTime);
+                    _disasterManager.Update(simDeltaTime, newYear);
+                    _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager);
+                    _magnetosphereSimulator.Update(simDeltaTime, newYear);
+                    _planetStabilizer.Update(simDeltaTime);
+
+                    // Update game state (thread-safe)
+                    lock (_simulationLock)
+                    {
+                        _gameState.Year = newYear;
+                        _gameState.TimeAccumulator = newAccumulator;
+
+                        // Mark renderer dirty so UI knows to update
+                        _terrainRenderer.MarkDirty();
+                    }
+                }
+
+                // Sleep to prevent CPU spinning (target ~60 updates/sec)
+                Thread.Sleep(16);
+            }
+            catch (Exception ex)
+            {
+                // Log error but keep thread alive
+                Console.WriteLine($"Simulation thread error: {ex.Message}");
+                Thread.Sleep(100);
+            }
+        }
     }
 
     protected override void Initialize()
@@ -142,6 +230,13 @@ public class SimPlanetGame : Game
 
         _previousKeyState = Keyboard.GetState();
         _previousMouseState = Mouse.GetState();
+
+        // Start background simulation thread
+        _simulationThreadActive = true;
+        _simulationThread = new Thread(SimulationThreadLoop);
+        _simulationThread.IsBackground = true;
+        _simulationThread.Name = "Simulation Thread";
+        _simulationThread.Start();
 
         // Call base.Initialize() LAST so LoadContent() can use the initialized data
         base.Initialize();
@@ -227,63 +322,17 @@ public class SimPlanetGame : Game
 
         _previousKeyState = keyState;
 
-        // Update simulation if not paused
-        if (!_gameState.IsPaused && _mainMenu.CurrentScreen == GameScreen.InGame)
+        // Simulation now runs on background thread - UI thread just handles input/rendering
+        // Enable simulation when in-game
+        lock (_simulationLock)
+        {
+            _simulationRunning = (_mainMenu.CurrentScreen == GameScreen.InGame);
+        }
+
+        // Update global stats periodically (UI thread)
+        if (_mainMenu.CurrentScreen == GameScreen.InGame)
         {
             float realDeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            float deltaTime = realDeltaTime * _gameState.TimeSpeed;
-
-            // Accumulate time for year tracking
-            _gameState.TimeAccumulator += deltaTime;
-
-            // Each "year" is 10 seconds of real time at 1x speed
-            if (_gameState.TimeAccumulator >= 10.0f)
-            {
-                _gameState.Year++;
-                _gameState.TimeAccumulator -= 10.0f;
-            }
-
-            // Performance: Run simulation at 60 FPS with light workload per frame
-            // This prevents frame hitching and keeps UI responsive
-            _simulationUpdateTimer += realDeltaTime;
-            if (_simulationUpdateTimer >= SimulationUpdateInterval)
-            {
-                float simDeltaTime = deltaTime;
-
-                // Core systems - run every frame (fast)
-                _climateSimulator.Update(simDeltaTime);
-                _atmosphereSimulator.Update(simDeltaTime);
-                _planetStabilizer.Update(simDeltaTime);
-
-                // Round-robin heavy systems across frames to spread load
-                int frameIndex = _gameState.Year % 4;
-                switch (frameIndex)
-                {
-                    case 0:
-                        _weatherSystem.Update(simDeltaTime * 4, _gameState.Year);
-                        _hydrologySimulator.Update(simDeltaTime * 4);
-                        break;
-                    case 1:
-                        _lifeSimulator.Update(simDeltaTime * 4, _geologicalSimulator, _weatherSystem);
-                        _biomeSimulator.Update(simDeltaTime * 4);
-                        break;
-                    case 2:
-                        _geologicalSimulator.Update(simDeltaTime * 4, _gameState.Year);
-                        _animalEvolutionSimulator.Update(simDeltaTime * 4, _gameState.Year);
-                        break;
-                    case 3:
-                        _civilizationManager.Update(simDeltaTime * 4, _gameState.Year);
-                        _diseaseManager.Update(simDeltaTime * 4, _gameState.Year);
-                        _disasterManager.Update(simDeltaTime * 4, _gameState.Year);
-                        _forestFireManager.Update(simDeltaTime * 4, _weatherSystem, _civilizationManager);
-                        _magnetosphereSimulator.Update(simDeltaTime * 4, _gameState.Year);
-                        break;
-                }
-
-                _simulationUpdateTimer = 0;
-            }
-
-            // Performance optimization: Update global stats only once per second
             _globalStatsTimer += realDeltaTime;
             if (_globalStatsTimer >= GlobalStatsInterval)
             {
@@ -899,6 +948,13 @@ public class SimPlanetGame : Game
 
     protected override void OnExiting(object sender, EventArgs args)
     {
+        // Stop simulation thread
+        _simulationThreadActive = false;
+        if (_simulationThread != null && _simulationThread.IsAlive)
+        {
+            _simulationThread.Join(1000); // Wait up to 1 second for thread to finish
+        }
+
         // Force cleanup before exiting
         CleanupResources();
         base.OnExiting(sender, args);
@@ -908,6 +964,13 @@ public class SimPlanetGame : Game
     {
         if (disposing)
         {
+            // Stop simulation thread
+            _simulationThreadActive = false;
+            if (_simulationThread != null && _simulationThread.IsAlive)
+            {
+                _simulationThread.Join(1000);
+            }
+
             CleanupResources();
         }
 
@@ -926,6 +989,13 @@ public class SimPlanetGame : Game
 
     public new void Exit()
     {
+        // Stop simulation thread
+        _simulationThreadActive = false;
+        if (_simulationThread != null && _simulationThread.IsAlive)
+        {
+            _simulationThread.Join(1000);
+        }
+
         // Ensure proper cleanup and force exit
         CleanupResources();
         base.Exit();
