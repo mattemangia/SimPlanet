@@ -174,6 +174,8 @@ public class AtmosphereSimulator
             {
                 var cell = _map.Cells[x, y];
                 float currentValue = getValue(cell);
+
+                // Diffusion mixing with neighbors
                 float neighborAvg = 0;
                 int count = 0;
 
@@ -188,9 +190,36 @@ public class AtmosphereSimulator
                     neighborAvg /= count;
                 }
 
-                // Mix with neighbors
-                float mixRate = 0.05f * deltaTime;
-                newValues[x, y] = currentValue + (neighborAvg - currentValue) * mixRate;
+                // Base diffusion mixing (faster rate for better atmospheric circulation)
+                float diffusionRate = 0.15f * deltaTime;
+                float diffusedValue = currentValue + (neighborAvg - currentValue) * diffusionRate;
+
+                // Wind-driven advection (gases carried by wind)
+                var met = cell.GetMeteorology();
+                float windTransport = 0;
+
+                // Calculate wind direction and fetch upwind gas concentration
+                if (Math.Abs(met.WindSpeedX) > 0.1f || Math.Abs(met.WindSpeedY) > 0.1f)
+                {
+                    // Determine upwind direction
+                    int windDx = met.WindSpeedX > 0 ? -1 : (met.WindSpeedX < 0 ? 1 : 0);
+                    int windDy = met.WindSpeedY > 0 ? -1 : (met.WindSpeedY < 0 ? 1 : 0);
+
+                    if (windDx != 0 || windDy != 0)
+                    {
+                        int upwindX = (x + windDx + _map.Width) % _map.Width;
+                        int upwindY = Math.Clamp(y + windDy, 0, _map.Height - 1);
+
+                        float upwindValue = getValue(_map.Cells[upwindX, upwindY]);
+                        float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
+
+                        // Transport rate proportional to wind speed
+                        float transportRate = Math.Clamp(windSpeed * 0.01f * deltaTime, 0, 0.2f);
+                        windTransport = (upwindValue - currentValue) * transportRate;
+                    }
+                }
+
+                newValues[x, y] = Math.Clamp(diffusedValue + windTransport, 0, 100);
             }
         }
 
