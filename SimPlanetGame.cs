@@ -990,10 +990,12 @@ public class SimPlanetGame : Game
         // Draw geological events log
         _eventsUI.DrawEventLog(GraphicsDevice.Viewport.Width);
 
-        // Draw legend
-        _eventsUI.DrawLegend(GraphicsDevice.Viewport.Height);
+        // Note: Removed old overlay legend - overlay status now shown in info panel
+        // and symbols are visible directly on map when enabled
 
-        // Update and draw 3D minimap
+        // Update and draw 3D minimap (positioned at bottom of screen to avoid covering info panel text)
+        _minimap3D.PosX = 10;
+        _minimap3D.PosY = GraphicsDevice.Viewport.Height - 160; // 150px minimap + 10px margin
         _minimap3D.UpdateTexture(_terrainRenderer);
         _minimap3D.Draw(_spriteBatch);
 
