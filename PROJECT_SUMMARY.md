@@ -16,6 +16,7 @@ SimPlanet is a complete SimEarth-like planetary evolution simulator built from s
 - ✅ **Biomass Dynamics**: Growth, death, spreading mechanics with gradual biome transitions
 - ✅ **Environmental Interactions**: Life affects atmosphere, climate affects life, feedback loops
 - ✅ **Forest Fire System**: Natural and meteor-induced wildfires with realistic spread mechanics
+- ✅ **Disease & Pandemic System**: 6 pathogen types with realistic spread and civilization responses
 - ✅ **Auto-Stabilization**: Automatic planetary condition maintenance for habitability
 - ✅ **Disaster System**: Meteors, volcanoes, ice ages, droughts, and plagues
 - ✅ **Civilization Development**: Cities, railroads, commerce, and industrial development
@@ -68,6 +69,7 @@ SimPlanet/
 ├── MagnetosphereSimulator.cs     # Planetary magnetic field simulation
 ├── PlanetStabilizer.cs           # Auto-stabilization system
 ├── ForestFireManager.cs          # Wildfire simulation and spread
+├── DiseaseManager.cs             # Disease spread and pandemic simulation
 ├── DisasterSystem.cs             # Natural disasters (meteors, volcanoes, etc.)
 ├── CivilizationManager.cs        # Cities, railroads, commerce
 ├── TerrainGenerator.cs           # Enhanced terrain generation
@@ -75,7 +77,9 @@ SimPlanet/
 ├── TerrainRenderer.cs            # Rendering system (all procedural)
 ├── GameUI.cs                     # Main UI with all status displays
 ├── MapOptionsUI.cs               # Map customization UI with preview
-└── SimpleFont.cs                 # Procedural font rendering
+├── DiseaseControlUI.cs           # Disease/pandemic control center UI
+├── FontRenderer.cs               # TrueType font rendering (FontStashSharp)
+└── SimpleFont.cs                 # Legacy procedural font rendering
 ```
 
 ### Key Technologies
@@ -321,6 +325,7 @@ dotnet run
 - **T**: Toggle manual planting tool (click to place bacteria/algae/plants)
 - **Y**: Toggle auto-stabilizer (maintains Earth-like conditions)
 - **D**: Toggle disasters on/off
+- **K**: Toggle disease/pandemic control center
 - **G**: Toggle civilization growth/control
 - **M**: Open map options menu
 - **R**: Regenerate planet (new random seed)
@@ -381,6 +386,34 @@ dotnet run
 🆕 **100% Cross-Platform**: Mac M1/Intel, Linux, Windows guaranteed compatibility
 🆕 **No External Assets**: Completely self-contained, all procedural
 🆕 **Open Source**: Full access to all simulation code
+
+## Recent Updates
+
+### Disease & Pandemic System (Latest)
+- ✅ **6 Pathogen Types**: Bacteria, Virus, Fungus, Parasite, Prion, Bioweapon
+- ✅ **Realistic Spread**: Diseases spread via air travel, ships, land borders, railroads
+- ✅ **Transmission Methods**: Air, Water, Blood, Livestock, Insects, Rodents, Birds
+- ✅ **Evolution System**: Upgrade transmission, symptoms, resistances, and abilities
+- ✅ **Civilization Responses**: Auto-detection, border/airport/port closures, quarantines
+- ✅ **Cure Research**: Tech-level based (Tribal slow, Scientific/Spacefaring fast)
+- ✅ **Drug Resistance**: Slows cure development, requires more research
+- ✅ **Special Abilities**: Hardened Resurgence (re-infection), Genetic Reshuffle (delays cure), Total Organ Shutdown
+- ✅ **Disease Control UI**: Full control panel (Press K) for creating/evolving pandemics
+- ✅ **Population Tracking**: Real-time infected, dead, and healthy statistics
+
+### Terrain Generation Overhaul
+- ✅ **Fixed LandRatio**: Now accurately controls land/water percentage (0-100%)
+- ✅ **Fixed WaterLevel**: Properly adjusts sea level (-1.0 to 1.0 range)
+- ✅ **Fixed MountainLevel**: Mountains now have visible, scalable effect (0-100%)
+- ✅ **Improved Formula**: Simpler, more intuitive terrain generation logic
+- ✅ **Better Balance**: Prevents all-water maps and carbonate platform issues
+- ✅ **Mountain Scaling**: Height scales with base elevation for realistic peaks
+
+### Font Rendering Improvements
+- ✅ **TrueType Fonts**: Replaced broken pixel font with FontStashSharp + Roboto
+- ✅ **Clean Text**: No more garbled characters (8aaaa Baaaa AAAA...)
+- ✅ **Professional Look**: Proper kerning, antialiasing, and font rendering
+- ✅ **Variable Sizes**: Support for different font sizes throughout UI
 
 ## Future Enhancement Ideas
 

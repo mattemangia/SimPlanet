@@ -10,6 +10,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Surface albedo effects** (realistic solar reflection by terrain type)
 - **Civilization development** (technology advancement, territorial expansion, environmental impact)
 - **Forest fires** (natural ignition, smoke, rain extinguishing, firefighters)
+- **Disease & pandemic system** (6 pathogen types, realistic spread, civilization responses, cure research)
 - **Manual terraforming tool** (plant forests, create oceans, seed civilizations)
 - **Auto-stabilization system** (maintains habitable conditions automatically)
 - **Planet presets** (Earth, Mars, Water World, Desert World)
@@ -83,6 +84,16 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Industrial+ civilizations deploy firefighters
   - Fire recovery tracking
   - Entire forests can burn if not stopped
+- **Disease & Pandemic System**:
+  - 6 pathogen types: Bacteria, Virus, Fungus, Parasite, Prion, Bioweapon
+  - Realistic disease spread between civilizations
+  - Transmission methods: Air, Water, Blood, Livestock, Insects, Rodents, Birds
+  - Evolution system: upgrade transmission, symptoms, resistances, and abilities
+  - Civilization responses: border closures, airport/port shutdowns, quarantines
+  - Cure research based on tech level (faster for Scientific/Spacefaring civs)
+  - Population tracking: infected, dead, healthy
+  - Drug resistance and genetic reshuffling mechanics
+  - Transportation systems affect spread (air travel, ships, railroads)
 - **Civilization Development**:
   - Technology progression: Tribal → Agricultural → Industrial → Scientific → Spacefaring
   - Population growth and territorial expansion
@@ -216,6 +227,7 @@ dotnet run
 | **B** | Toggle river overlay |
 | **N** | Toggle plate boundary overlay |
 | **D** | Toggle disaster control panel |
+| **K** | Toggle disease/pandemic control center |
 | **G** | Open civilization control panel |
 | **R** | Regenerate planet with current settings |
 | **H** | Toggle help panel |
@@ -375,6 +387,7 @@ Civilization (produces more CO2, can adapt to various climates)
 - **CivilizationManager.cs**: Civilization emergence, technology, expansion, interactions, cities, railroads
 - **DisasterManager.cs**: Earthquakes, tsunamis, meteor impacts, acid rain, volcanic winter
 - **ForestFireManager.cs**: Natural fires, spread mechanics, rain extinguishing, firefighters
+- **DiseaseManager.cs**: Disease spread, pathogen evolution, civilization responses, cure research
 - **MagnetosphereSimulator.cs**: Magnetic field, cosmic rays, solar wind, radiation, auroras
 - **PlanetStabilizer.cs**: Auto-stabilization of temperature, atmosphere, magnetosphere, water cycle
 
@@ -382,6 +395,7 @@ Civilization (produces more CO2, can adapt to various climates)
 - **ManualPlantingTool.cs**: Terraforming tool for planting forests, creating oceans, seeding civilizations
 - **PlayerCivilizationControl.cs**: Direct control of civilization development
 - **DisasterControlUI.cs**: Trigger and control natural disasters
+- **DiseaseControlUI.cs**: Create and evolve pandemics, track disease spread and cure research
 - **InteractiveControls.cs**: Quick actions for terraforming and climate control
 
 ### Rendering and UI
@@ -490,7 +504,18 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Visual & Interaction Enhancements
+### Latest Update - Disease System & Terrain Generation Fixes
+- ✅ **Disease & Pandemic System** - Create and evolve 6 types of pathogens (Bacteria, Virus, Fungus, Parasite, Prion, Bioweapon)
+- ✅ **Realistic Disease Spread** - Diseases spread between civilizations via air travel, ships, land transport, and borders
+- ✅ **Evolution System** - Upgrade transmission methods, symptoms, resistances, and special abilities
+- ✅ **Civilization Responses** - Civs detect diseases, close borders/airports/ports, activate quarantines, and research cures
+- ✅ **Cure Research** - Scientific/Spacefaring civs develop cures faster; drug resistance slows research
+- ✅ **Disease Control Center** - Full UI (Press K) for creating pandemics, evolving traits, tracking statistics
+- ✅ **Terrain Generation Overhaul** - Fixed LandRatio, WaterLevel, and MountainLevel sliders
+- ✅ **Improved Font Rendering** - Replaced broken pixel font with TrueType font rendering (FontStashSharp + Roboto)
+- ✅ **Better Terrain Formula** - Mountains now scale properly, water levels work correctly, land ratios are accurate
+
+### Previous Update - Visual & Interaction Enhancements
 - ✅ **Day/Night Cycle** - Cities light up at night! Auto-enables when time speed drops below 0.5x
 - ✅ **4 New Meteorology Views** - Clouds (F1), Wind (F2), Air Pressure (F3), Storms (F4)
 - ✅ **Mouse Pan & Zoom** - Mouse wheel to zoom (0.5x-4x), middle-click drag to pan
