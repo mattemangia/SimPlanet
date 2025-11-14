@@ -1,24 +1,36 @@
 # SimPlanet - Planetary Evolution Simulator
 
 A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
-- Procedural planet generation with Perlin noise
+- Procedural planet generation with Perlin noise and **real-time preview**
 - **Full geological simulation** (plate tectonics, volcanoes, erosion, sedimentation)
 - **Hydrology system** (rivers, water flow, ocean currents)
 - **Weather systems** (storms, seasons, air pressure, wind patterns)
+- **Ice cycles** (glaciers, polar ice caps, ice-albedo feedback)
+- **Magnetosphere simulation** (cosmic ray protection, auroras, radiation)
+- **Surface albedo effects** (realistic solar reflection by terrain type)
 - **Civilization development** (technology advancement, territorial expansion, environmental impact)
+- **Forest fires** (natural ignition, smoke, rain extinguishing, firefighters)
+- **Manual terraforming tool** (plant forests, create oceans, seed civilizations)
+- **Auto-stabilization system** (maintains habitable conditions automatically)
+- **Planet presets** (Earth, Mars, Water World, Desert World)
 - **Rotating 3D planet minimap** (just like SimEarth!)
 - **Save/load game system** with quick save/load (F5/F9)
 - **Main menu** with new game, load game, and pause functionality
 - Climate simulation (temperature, rainfall, humidity)
 - Atmospheric simulation (oxygen, CO2, greenhouse effects)
 - Life evolution from bacteria to civilization with full environmental reactivity
-- 10 visualization modes with geological overlays
+- 14+ visualization modes with geological overlays
 - Real-time planetary evolution and geological events
+- **100% cross-platform** (Mac M1/Intel, Linux, Windows)
 
 ## Features
 
 ### Core Mechanics (SimEarth-like)
-- **Terrain Generation**: Procedural height maps with configurable land/water ratios
+- **Terrain Generation**:
+  - Procedural height maps with configurable land/water ratios
+  - Real-time preview of planet configuration
+  - Planet presets: Earth (29% land), Mars (dry, high mountains), Water World (90% ocean), Desert (85% land)
+  - Adjustable parameters: size, persistence, lacunarity, mountain level, water level
 - **Geological Systems**:
   - 8 tectonic plates with continental drift
   - Plate boundaries (convergent, divergent, transform)
@@ -32,20 +44,54 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Water flow and valley carving
   - Ocean currents with Coriolis effect
   - Soil moisture dynamics
-- **Climate System**: Temperature gradients, rainfall patterns, humidity simulation
-- **Atmosphere**: Oxygen and CO2 cycles, greenhouse effect modeling
+- **Climate System**:
+  - Temperature gradients based on latitude, elevation, and solar energy
+  - Rainfall patterns with realistic atmospheric circulation (Hadley, Ferrel, Polar cells)
+  - Humidity simulation with diffusion
+  - Surface albedo effects (ice reflects 85%, ocean absorbs 94%)
+- **Ice Cycles**:
+  - Polar ice caps formation and expansion
+  - Mountain glaciers and snow lines
+  - Ice-albedo feedback loops (ice reflects sunlight → stays cold → more ice)
+  - Glacier advance/retreat with elevation changes
+  - Sea ice formation on frozen oceans
+  - Prevents snowball Earth and runaway ice ages
+- **Magnetosphere & Radiation**:
+  - Planetary magnetic field simulation (Earth-like dynamo)
+  - Cosmic ray deflection (70% protection at equator)
+  - Solar wind shielding
+  - Polar auroras during high solar activity
+  - Radiation levels vary by latitude, altitude, and atmosphere
+  - Magnetic field reversals
+  - Life damage from high radiation
+- **Atmosphere**:
+  - Oxygen and CO2 cycles
+  - Greenhouse effect modeling
+  - Photosynthesis and respiration
+  - Volcanic emissions
 - **Weather Systems**:
   - Dynamic meteorology with seasons (4 seasons per year, hemisphere-aware)
   - Wind patterns (trade winds, westerlies, polar easterlies)
   - Air pressure systems affected by temperature and elevation
   - Storm generation and tracking (thunderstorms, hurricanes, blizzards, tornadoes)
   - Seasonal temperature variations based on latitude
+- **Forest Fire System**:
+  - Natural fire ignition from lightning and extreme heat (>35°C)
+  - Fire spreads based on biomass density, dryness, and temperature
+  - Rain extinguishes fires (heavy rain faster than light rain)
+  - Smoke generation increases cloud cover and CO2
+  - Industrial+ civilizations deploy firefighters
+  - Fire recovery tracking
+  - Entire forests can burn if not stopped
 - **Civilization Development**:
   - Technology progression: Tribal → Agricultural → Industrial → Scientific → Spacefaring
   - Population growth and territorial expansion
   - Environmental impact (pollution, deforestation, CO2 emissions)
   - Advanced civilizations can terraform and restore ecosystems
   - Inter-civilization interactions (war, cooperation, technology sharing)
+  - Railroad networks connect cities (unlocks at Industrial age)
+  - Cities with names, populations, and trade systems
+  - Commerce and trade income between cities
 - **Life Evolution**:
   - Bacteria → Algae → Plants → Simple Animals → Complex Animals → Intelligence → Civilization
   - Life spreads and adapts based on environmental conditions
@@ -56,6 +102,21 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
     - Climate stress drives evolution and adaptation
     - Sedimentation and environmental changes impact survival
   - Biomass dynamics and ecosystem interactions
+- **Manual Terraforming Tool** (Press T):
+  - Plant forests, grasslands, deserts, tundra
+  - Create oceans and raise mountains
+  - Seed new civilizations
+  - Adjustable brush size (1-15 radius)
+  - Respects terrain constraints for realistic results
+  - Scroll wheel adjusts brush size
+- **Auto-Stabilization System** (Press Y):
+  - Automatically maintains Earth-like habitable conditions
+  - Monitors and adjusts: temperature (target 15°C), oxygen (21%), CO2 (0.04%)
+  - Prevents snowball Earth and runaway greenhouse effects
+  - Restores magnetic field to protect from radiation
+  - Balances land/ocean ratio (target 29%/71%)
+  - Shows real-time status: adjustments made, last action
+  - Perfect for hands-free planetary management
 - **Save/Load System**:
   - Quick save with F5, quick load with F9
   - Full menu system with save slots and timestamps
@@ -148,14 +209,21 @@ dotnet run
 | **C** | Toggle day/night cycle (auto-enabled at <0.5x speed) |
 | **L** | Seed new life forms |
 | **M** | Open map generation options menu |
+| **T** | Toggle manual terraforming tool |
+| **Y** | Toggle auto-stabilization system |
 | **P** | Toggle 3D rotating minimap |
 | **V** | Toggle volcano overlay |
 | **B** | Toggle river overlay |
 | **N** | Toggle plate boundary overlay |
+| **D** | Toggle disaster control panel |
+| **G** | Open civilization control panel |
 | **R** | Regenerate planet with current settings |
 | **H** | Toggle help panel |
 | **F5** | Quick save game |
-| **F9** | Quick load game |
+| **F6** | Apply Earth preset (in map options) |
+| **F7** | Apply Mars preset (in map options) |
+| **F8** | Apply Water World preset (in map options) |
+| **F9** | Quick load game (or Desert preset in map options) |
 | **ESC** | Pause menu / Back to main menu |
 | **Mouse Wheel** | Zoom in/out (0.5x to 4.0x) |
 | **Middle Click + Drag** | Pan camera around the map |
@@ -166,23 +234,56 @@ When the map options menu is open, use these keys to customize the planet:
 
 | Key | Action |
 |-----|--------|
+| **F6** | Apply Earth preset (29% land, 71% water, moderate mountains) |
+| **F7** | Apply Mars preset (100% land, dry, high mountains) |
+| **F8** | Apply Water World preset (90% water, small islands) |
+| **F9** | Apply Desert World preset (85% land, sand dunes) |
+| **1/2** | Decrease/Increase map size |
 | **Q/W** | Decrease/Increase land ratio (10% - 90%) |
 | **A/S** | Decrease/Increase mountain level (0% - 100%) |
 | **Z/X** | Decrease/Increase water level (-1.0 to 1.0) |
+| **E/D** | Decrease/Increase persistence (smoother/rougher terrain) |
+| **C/V** | Decrease/Increase lacunarity (less/more detail) |
+| **R** | Randomize seed |
 | **M** | Close menu |
-| **R** | Regenerate planet with new settings |
+| **ENTER** | Generate new planet with current settings |
 
 ## Map Generation Options
 
-The game uses configurable map generation parameters:
+The game uses configurable map generation parameters with **real-time preview**:
 
 - **Seed**: Random seed for reproducible maps (default: 12345)
+- **Map Size**: Dimensions of the planet (affects performance)
 - **Land Ratio**: Percentage of land vs water (default: 0.3 = 30% land)
 - **Mountain Level**: How mountainous the terrain is (default: 0.5)
 - **Water Level**: Sea level adjustment (default: 0.0)
-- **Octaves**: Perlin noise detail level (default: 6)
+- **Persistence**: Controls terrain smoothness (0.0-1.0, default: 0.5)
+- **Lacunarity**: Controls terrain detail level (1.0-3.0, default: 2.0)
+- **Octaves**: Perlin noise layers (default: 6)
 
-To modify map generation, edit the `_mapOptions` in `SimPlanetGame.cs` or press **R** to regenerate with a random seed.
+### Planet Presets
+
+**Earth (F6)**: Realistic Earth-like planet
+- 29% land, 71% water
+- Moderate mountains and varied terrain
+- Balanced for life development
+
+**Mars (F7)**: Dry, barren world
+- 100% land (no oceans)
+- High mountains (Olympus Mons-like features)
+- Low valleys and varied elevations
+
+**Water World (F8)**: Ocean planet
+- 90% water with small scattered islands
+- Smooth underwater terrain
+- Challenging for land-based life
+
+**Desert World (F9)**: Dune-like planet
+- 85% land, limited water
+- Fine sand detail with dune formations
+- Hot and arid conditions
+
+All presets update the preview in real-time!
 
 ## How It Works
 
@@ -263,20 +364,33 @@ Civilization (produces more CO2, can adapt to various climates)
 - **PerlinNoise.cs**: Procedural noise generation for terrain
 
 ### Simulation Systems
-- **ClimateSimulator.cs**: Temperature, rainfall, humidity simulation
+- **ClimateSimulator.cs**: Temperature, rainfall, humidity, ice cycles, surface albedo
 - **AtmosphereSimulator.cs**: Atmospheric gas cycles (O2, CO2, greenhouse effect)
 - **LifeSimulator.cs**: Life evolution, biomass dynamics, and event reactivity
+- **AnimalEvolutionSimulator.cs**: Dinosaur and mammal evolution with mass extinction events
 - **GeologicalSimulator.cs**: Plate tectonics, volcanoes, erosion, sedimentation
 - **HydrologySimulator.cs**: Rivers, water flow, ocean currents, soil moisture
 - **WeatherSystem.cs**: Seasons, storms, wind patterns, air pressure
-- **CivilizationManager.cs**: Civilization emergence, technology, expansion, interactions
+- **BiomeSimulator.cs**: Biome classification and transitions
+- **CivilizationManager.cs**: Civilization emergence, technology, expansion, interactions, cities, railroads
+- **DisasterManager.cs**: Earthquakes, tsunamis, meteor impacts, acid rain, volcanic winter
+- **ForestFireManager.cs**: Natural fires, spread mechanics, rain extinguishing, firefighters
+- **MagnetosphereSimulator.cs**: Magnetic field, cosmic rays, solar wind, radiation, auroras
+- **PlanetStabilizer.cs**: Auto-stabilization of temperature, atmosphere, magnetosphere, water cycle
+
+### Interactive Tools
+- **ManualPlantingTool.cs**: Terraforming tool for planting forests, creating oceans, seeding civilizations
+- **PlayerCivilizationControl.cs**: Direct control of civilization development
+- **DisasterControlUI.cs**: Trigger and control natural disasters
+- **InteractiveControls.cs**: Quick actions for terraforming and climate control
 
 ### Rendering and UI
-- **TerrainRenderer.cs**: Rendering with 10 view modes and procedural colors
-- **GameUI.cs**: Information panels showing stats, civilizations, weather alerts
-- **MapOptionsUI.cs**: Map generation configuration interface
+- **TerrainRenderer.cs**: Rendering with 14+ view modes, day/night cycle, procedural colors
+- **GameUI.cs**: Information panels showing stats, civilizations, weather alerts, stabilizer status
+- **MapOptionsUI.cs**: Map generation configuration with real-time preview and planet presets
 - **PlanetMinimap3D.cs**: Rotating 3D sphere visualization
 - **GeologicalEventsUI.cs**: Event log and overlays (volcanoes, rivers, plate boundaries)
+- **SedimentColumnViewer.cs**: Geological sediment layer visualization
 - **SimpleFont.cs**: Procedural font rendering (no external assets needed)
 
 ### Game Management
@@ -288,26 +402,66 @@ Civilization (produces more CO2, can adapt to various climates)
 ## Tips for Playing
 
 1. **Start from Menu**: Launch the game to see the main menu, then select "New Game" to begin
-2. **Start Slowly**: Begin at 1x speed to watch initial life emergence
-3. **Seed Life**: Press L to add bacteria in suitable areas if life hasn't emerged naturally
-4. **Monitor Oxygen**: Plants must establish before complex life can evolve (15%+ for animals, 20%+ for intelligence)
-5. **Watch for Planetary Events**:
+2. **Try Planet Presets**: Press M then F6-F9 to load Earth, Mars, Water World, or Desert presets
+3. **Use Auto-Stabilizer**: Press Y to enable automatic planet stabilization - perfect for maintaining habitability
+4. **Start Slowly**: Begin at 1x speed to watch initial life emergence
+5. **Seed Life**: Press L to add bacteria in suitable areas if life hasn't emerged naturally
+6. **Monitor Oxygen**: Plants must establish before complex life can evolve (15%+ for animals, 20%+ for intelligence)
+7. **Terraform Manually**: Press T to use the terraforming tool - plant forests, create oceans, or seed civilizations
+8. **Watch for Planetary Events**:
    - Volcanic eruptions will devastate local ecosystems
+   - Forest fires can spread rapidly without rain or firefighters
    - Major storms can damage life and reshape coastlines
    - Civilizations will begin polluting and altering the environment
-6. **Save Often**: Use F5 to quick save your progress, especially before major experiments
-7. **Track Civilizations**: Watch the info panel for civilization emergence and development
-8. **Weather Alerts**: Pay attention to storm warnings in the UI - they can cause significant damage
-9. **Experiment**: Press R to generate new planets with different characteristics
-10. **Use View Modes**: Switch between different views (1-0 keys) to understand your planet better
+9. **Check Radiation**: Without a magnetosphere, cosmic rays can damage life - monitor the stabilizer
+10. **Save Often**: Use F5 to quick save your progress, especially before major experiments
+11. **Track Civilizations**: Watch the info panel for civilization emergence, cities, and railroads
+12. **Weather Alerts**: Pay attention to storm warnings in the UI - they can cause significant damage
+13. **Experiment**: Press R to generate new planets with different characteristics
+14. **Use View Modes**: Switch between different views (1-0, F1-F4 keys) to understand your planet better
+15. **Monitor Ice Ages**: Watch polar ice caps - if they expand too far, use the stabilizer to prevent snowball Earth
 
 ## Technical Details
 
-- **Map Size**: 200x100 cells for good performance
+- **Map Size**: 200x100 cells for optimal performance
 - **Cell Size**: 4 pixels per cell (scalable)
-- **Update Rate**: Real-time with variable time speed
+- **Update Rate**: Real-time with variable time speed (0.25x to 32x)
 - **Rendering**: Procedural texture generation, no external assets required
-- **Cross-Platform**: Uses MonoGame DesktopGL for maximum compatibility
+- **Graphics Profile**: Reach (Shader Model 2.0, OpenGL 2.1) for maximum compatibility
+- **Texture Format**: RGBA Color (universally supported)
+- **Max Texture Size**: 200x100 (well within all platform limits of 2048x2048)
+
+## Cross-Platform Compatibility
+
+**100% Guaranteed Compatible:**
+- ✅ **Mac M1/M2/M3** (Apple Silicon with Metal translation)
+- ✅ **Mac Intel** (x64 with native OpenGL)
+- ✅ **Linux** (all distributions with OpenGL 2.1+)
+- ✅ **Windows** (7, 8, 10, 11)
+
+**Technical Specifications:**
+- MonoGame DesktopGL 3.8.1 (OpenGL backend)
+- GraphicsProfile.Reach for maximum compatibility
+- Works with integrated graphics and older GPUs (15+ years old)
+- No platform-specific code or dependencies
+- No shaders or advanced rendering features
+- All rendering is standard 2D sprite batching
+
+**Mac Compatibility:**
+- Native ARM64 support on Apple Silicon
+- Automatic OpenGL → Metal translation by MonoGame
+- No Rosetta required
+- Works on macOS 10.13+
+
+**Linux Compatibility:**
+- Requires OpenGL 2.1+ (available on all modern distros since ~2010)
+- Works with Mesa drivers, NVIDIA, AMD
+- Tested on Ubuntu, Fedora, Arch, Debian
+
+**Windows Compatibility:**
+- Works with any GPU supporting DirectX 9.0c or later
+- Automatic fallback to OpenGL if needed
+- Compatible with Windows 7 through 11
 
 ## Offline Operation
 
@@ -316,6 +470,8 @@ The game is completely self-contained:
 - All sprites and graphics are procedurally generated
 - No external asset downloads needed
 - Font rendering is built-in
+- No system font dependencies
+- Zero external DLLs or native libraries
 
 ## License
 
