@@ -108,6 +108,8 @@ public class TerrainRenderer
                     RenderMode.Storms => GetStormsColor(cell),
                     RenderMode.Biomes => GetBiomeColor(cell),
                     RenderMode.Resources => GetResourcesColor(cell),
+                    RenderMode.Albedo => GetAlbedoColor(cell),
+                    RenderMode.Radiation => GetRadiationColor(cell),
                     _ => Color.Black
                 };
 
@@ -563,6 +565,119 @@ public class TerrainRenderer
         return Color.Lerp(baseColor, resourceColor, intensity);
     }
 
+    private Color GetAlbedoColor(TerrainCell cell)
+    {
+        // Calculate albedo (surface reflectivity) - same logic as ClimateSimulator.CalculateAlbedo()
+        float albedo = 0.0f;
+
+        // Ice and snow (highest albedo - 85%)
+        if (cell.IsIce)
+        {
+            albedo = 0.85f;
+        }
+        // Water (low albedo)
+        else if (cell.IsWater)
+        {
+            if (cell.Elevation < -0.5f)
+                albedo = 0.06f; // Deep ocean (very dark)
+            else
+                albedo = 0.08f; // Shallow water
+        }
+        // Desert (medium-high albedo - 35%)
+        else if (cell.IsDesert)
+        {
+            albedo = 0.35f;
+        }
+        // Forest (low-medium albedo - 17%)
+        else if (cell.IsForest)
+        {
+            albedo = 0.17f;
+        }
+        // Grassland (medium albedo - 23%)
+        else if (cell.Rainfall > 0.4f && cell.IsLand)
+        {
+            albedo = 0.23f;
+        }
+        // Bare rock/mountains (low-medium albedo - 15%)
+        else if (cell.Elevation > 0.6f)
+        {
+            albedo = 0.15f;
+        }
+        // Default land (20%)
+        else
+        {
+            albedo = 0.20f;
+        }
+
+        // Urban areas (civilizations) have different albedo (20%)
+        if (cell.LifeType == LifeForm.Civilization)
+        {
+            albedo = 0.20f;
+        }
+
+        // Color gradient: Dark (low albedo/absorbs heat) to White (high albedo/reflects heat)
+        // Low albedo (0-20%): Dark blue/green (absorbs solar energy)
+        // Medium albedo (20-40%): Yellow/tan (moderate reflection)
+        // High albedo (40-85%): White (high reflection - ice)
+        if (albedo < 0.20f)
+        {
+            // Low albedo - dark colors (ocean, forest)
+            float t = albedo / 0.20f;
+            return Color.Lerp(new Color(10, 20, 40), new Color(40, 80, 40), t);
+        }
+        else if (albedo < 0.40f)
+        {
+            // Medium albedo - earth tones (desert, grassland)
+            float t = (albedo - 0.20f) / 0.20f;
+            return Color.Lerp(new Color(40, 80, 40), new Color(200, 180, 100), t);
+        }
+        else
+        {
+            // High albedo - bright white (ice, snow)
+            float t = (albedo - 0.40f) / 0.45f;
+            return Color.Lerp(new Color(200, 180, 100), new Color(255, 255, 255), t);
+        }
+    }
+
+    private Color GetRadiationColor(TerrainCell cell)
+    {
+        // Get radiation level from magnetic data
+        var magneticData = cell.Magnetic;
+        float radiation = magneticData.RadiationLevel;
+
+        // Radiation levels: 0 (safe) to 5+ (deadly)
+        // Clamp for visualization
+        radiation = Math.Clamp(radiation, 0, 5.0f);
+        float t = radiation / 5.0f;
+
+        // Color gradient: Safe (green) → Warning (yellow) → Danger (orange) → Deadly (red/purple)
+        if (t < 0.2f)
+        {
+            // Safe: Dark green to bright green
+            return Color.Lerp(new Color(20, 40, 20), new Color(50, 200, 50), t * 5.0f);
+        }
+        else if (t < 0.4f)
+        {
+            // Low: Green to yellow
+            return Color.Lerp(new Color(50, 200, 50), new Color(200, 200, 50), (t - 0.2f) * 5.0f);
+        }
+        else if (t < 0.6f)
+        {
+            // Medium: Yellow to orange
+            return Color.Lerp(new Color(200, 200, 50), new Color(255, 150, 50), (t - 0.4f) * 5.0f);
+        }
+        else if (t < 0.8f)
+        {
+            // High: Orange to red
+            return Color.Lerp(new Color(255, 150, 50), new Color(255, 50, 50), (t - 0.6f) * 5.0f);
+        }
+        else
+        {
+            // Deadly: Red to purple
+            return Color.Lerp(new Color(255, 50, 50), new Color(150, 0, 150), (t - 0.8f) * 5.0f);
+        }
+    }
+
     public void DrawLegend(SpriteBatch spriteBatch, FontRenderer font, int screenWidth, int screenHeight)
     {
         // Don't show legend for Terrain mode (it's self-explanatory)
@@ -637,6 +752,8 @@ public class TerrainRenderer
             RenderMode.Storms => "STORM INTENSITY",
             RenderMode.Biomes => "BIOMES",
             RenderMode.Resources => "RESOURCES",
+            RenderMode.Albedo => "SURFACE ALBEDO",
+            RenderMode.Radiation => "RADIATION LEVELS",
             _ => "LEGEND"
         };
     }
@@ -650,7 +767,7 @@ public class TerrainRenderer
             RenderMode.Life => new List<string> { "None", "Bacteria", "Plants", "Animals", "Intelligence" },
             RenderMode.Oxygen => new List<string> { "0%", "25%" },
             RenderMode.CO2 => new List<string> { "0%", "10%" },
-            RenderMode.Elevation => new List<string> { "-1.0 (Ocean)", "1.0 (Mountain)" },
+            RenderMode.Elevation => new List<string> { "- 1.0 (Ocean)", "1.0 (Mountain)" },
             RenderMode.Geological => new List<string> { "Volcanic", "Sedimentary", "Crystalline" },
             RenderMode.TectonicPlates => new List<string> { "8 Tectonic Plates", "Boundaries Highlighted" },
             RenderMode.Volcanoes => new List<string> { "Inactive", "Active", "Erupting" },
@@ -660,6 +777,8 @@ public class TerrainRenderer
             RenderMode.Storms => new List<string> { "Clear", "Severe" },
             RenderMode.Biomes => new List<string> { "Ocean", "Desert", "Forest", "Ice", "Mountain" },
             RenderMode.Resources => new List<string> { "Coal", "Iron", "Oil", "Uranium", "Rare" },
+            RenderMode.Albedo => new List<string> { "0% (Dark/Absorbs)", "85% (Bright/Reflects)" },
+            RenderMode.Radiation => new List<string> { "0 (Safe)", "5+ (Deadly)" },
             _ => new List<string>()
         };
     }
@@ -695,8 +814,55 @@ public class TerrainRenderer
             RenderMode.Wind => LerpColor(new Color(200, 255, 200), new Color(255, 50, 50), t),
             RenderMode.Pressure => LerpColor(new Color(50, 100, 255), new Color(255, 50, 50), t),
             RenderMode.Storms => LerpColor(new Color(150, 200, 255), new Color(100, 0, 100), t),
+            RenderMode.Albedo => GetAlbedoGradientColor(t),
+            RenderMode.Radiation => GetRadiationGradientColor(t),
             _ => Color.Gray
         };
+    }
+
+    private Color GetAlbedoGradientColor(float t)
+    {
+        // Dark (low albedo) to White (high albedo)
+        if (t < 0.25f)
+        {
+            // Ocean/forest: dark blue to dark green
+            return Color.Lerp(new Color(10, 20, 40), new Color(40, 80, 40), t * 4);
+        }
+        else if (t < 0.5f)
+        {
+            // Grassland: green to yellow
+            return Color.Lerp(new Color(40, 80, 40), new Color(200, 180, 100), (t - 0.25f) * 4);
+        }
+        else
+        {
+            // Desert/ice: yellow to white
+            return Color.Lerp(new Color(200, 180, 100), Color.White, (t - 0.5f) * 2);
+        }
+    }
+
+    private Color GetRadiationGradientColor(float t)
+    {
+        // Safe (green) → Warning (yellow) → Danger (orange) → Deadly (red/purple)
+        if (t < 0.2f)
+        {
+            return Color.Lerp(new Color(20, 40, 20), new Color(50, 200, 50), t * 5);
+        }
+        else if (t < 0.4f)
+        {
+            return Color.Lerp(new Color(50, 200, 50), new Color(200, 200, 50), (t - 0.2f) * 5);
+        }
+        else if (t < 0.6f)
+        {
+            return Color.Lerp(new Color(200, 200, 50), new Color(255, 150, 50), (t - 0.4f) * 5);
+        }
+        else if (t < 0.8f)
+        {
+            return Color.Lerp(new Color(255, 150, 50), new Color(255, 50, 50), (t - 0.6f) * 5);
+        }
+        else
+        {
+            return Color.Lerp(new Color(255, 50, 50), new Color(150, 0, 150), (t - 0.8f) * 5);
+        }
     }
 
     private Color GetLifeGradientColor(float t)
@@ -755,5 +921,7 @@ public enum RenderMode
     Pressure,
     Storms,
     Biomes,
-    Resources
+    Resources,
+    Albedo,         // Surface reflectivity (ice-albedo feedback)
+    Radiation       // Cosmic rays and solar radiation
 }

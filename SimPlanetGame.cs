@@ -521,8 +521,16 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.F10) && _previousKeyState.IsKeyUp(Keys.F10))
             _currentRenderMode = RenderMode.Biomes;
 
-        // Resources view mode (F11)
+        // Albedo view mode (F11) - surface reflectivity and ice-albedo feedback
         if (keyState.IsKeyDown(Keys.F11) && _previousKeyState.IsKeyUp(Keys.F11))
+            _currentRenderMode = RenderMode.Albedo;
+
+        // Radiation view mode (F12) - cosmic rays and solar radiation levels
+        if (keyState.IsKeyDown(Keys.F12) && _previousKeyState.IsKeyUp(Keys.F12))
+            _currentRenderMode = RenderMode.Radiation;
+
+        // Resources view mode (J key)
+        if (keyState.IsKeyDown(Keys.J) && _previousKeyState.IsKeyUp(Keys.J))
             _currentRenderMode = RenderMode.Resources;
 
         // Apply render mode to terrain renderer (triggers texture update when mode changes)
