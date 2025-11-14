@@ -179,7 +179,7 @@ public class PlanetMinimap3D
 
                 // Convert to spherical coordinates
                 float theta = MathF.Atan2(tiltedY, dx); // Latitude
-                float phi = MathF.Acos(MathF.Clamp(tiltedZ / SphereRadius, -1f, 1f)); // Longitude
+                float phi = MathF.Acos(Math.Clamp(tiltedZ / SphereRadius, -1f, 1f)); // Longitude
 
                 // Apply horizontal rotation
                 phi += _rotation;
