@@ -60,7 +60,10 @@ public class PlanetMap
         var noise = new PerlinNoise(Options.Seed);
         float scale = 0.01f;
 
-        // First pass: Generate base elevation
+        // Step 1: Generate base elevation values
+        float[,] baseElevation = new float[Width, Height];
+        List<float> allValues = new List<float>(Width * Height);
+
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
@@ -76,55 +79,63 @@ public class PlanetMap
                     Options.Lacunarity
                 );
 
-                // Apply POWER CURVE to increase contrast (prevent flat terrain)
-                // Higher exponent = more extreme highs and lows
-                float exponent = 2.2f;
-                elevation = (float)Math.Pow(elevation, exponent);
+                baseElevation[x, y] = elevation;
+                allValues.Add(elevation);
+            }
+        }
 
-                // Map to -1 to 1 range
-                elevation = elevation * 2 - 1;
+        // Step 2: Calculate sea level threshold based on LandRatio
+        // Sort all elevation values to find the percentile
+        allValues.Sort();
+        int seaLevelIndex = (int)((1.0f - Options.LandRatio) * allValues.Count);
+        seaLevelIndex = Math.Clamp(seaLevelIndex, 0, allValues.Count - 1);
+        float seaLevelThreshold = allValues[seaLevelIndex];
 
-                // Add sharp mountain peaks to elevated areas BEFORE sea level shift
-                // This way mountains are added to naturally high areas (elevation > 0.2 in -1 to 1 range)
-                if (elevation > 0.2f)
+        // Step 3: Apply elevations with proper land/water distribution
+        for (int x = 0; x < Width; x++)
+        {
+            for (int y = 0; y < Height; y++)
+            {
+                float nx = x * scale;
+                float ny = y * scale;
+                float elevation = baseElevation[x, y];
+
+                // Shift so sea level threshold becomes 0
+                elevation = (elevation - seaLevelThreshold) * 4.0f; // Scale for better range
+
+                // Add mountains to elevated land areas
+                if (elevation > 0.1f && Options.MountainLevel > 0.01f)
                 {
                     float mountainNoise = noise.OctaveNoise(nx * 2.5f, ny * 2.5f, 4, 0.65f, 2.2f);
 
-                    // Square the mountain noise to make peaks sharper
+                    // Square for sharper peaks
                     mountainNoise = mountainNoise * mountainNoise;
 
-                    // Mountain height scales with MountainLevel slider and base elevation
-                    // Use the unshifted elevation for scaling to avoid over-amplification
-                    float mountainHeight = mountainNoise * Options.MountainLevel * (elevation + 1.0f) * 0.8f;
+                    // Mountain height scales with MountainLevel slider
+                    float mountainHeight = mountainNoise * Options.MountainLevel * 1.5f;
                     elevation += mountainHeight;
                 }
 
-                // Apply land ratio by shifting sea level
-                // LandRatio 0.3 means 30% should be land (above 0)
-                // So we shift down to make 70% below 0
-                float seaLevel = -1.0f + (Options.LandRatio * 2.0f);
-                elevation -= seaLevel;
+                // Apply water level offset
+                // Positive = raise sea level (more water), Negative = lower sea level (less water)
+                elevation -= Options.WaterLevel;
 
-                // Apply water level offset (fine-tuning)
-                // Positive WaterLevel = raise sea level (more water)
-                // Negative WaterLevel = lower sea level (less water)
-                elevation += Options.WaterLevel;
-
+                // Clamp to valid range
                 Cells[x, y].Elevation = Math.Clamp(elevation, -1.0f, 1.0f);
             }
         }
 
-        // Smooth edges (polar ice caps effect)
+        // Step 4: Smooth polar regions (ice caps effect)
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
             {
                 float latitudeFactor = Math.Abs((y - Height / 2.0f) / (Height / 2.0f));
 
-                // Make poles slightly more likely to be lower (ice caps)
+                // Make poles slightly lower (ice caps)
                 if (latitudeFactor > 0.8f)
                 {
-                    Cells[x, y].Elevation -= (latitudeFactor - 0.8f) * 0.5f;
+                    Cells[x, y].Elevation -= (latitudeFactor - 0.8f) * 0.3f;
                 }
             }
         }

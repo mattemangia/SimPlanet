@@ -65,6 +65,7 @@ public class MapOptionsUI
         int panelX = 300;
         int panelY = 50;
         int panelWidth = 680;
+        int panelHeight = 620;
 
         // Update UI elements positions
         UpdateUIElements(panelX, panelY, panelWidth, options);
@@ -117,6 +118,28 @@ public class MapOptionsUI
                     }
                     NeedsPreviewUpdate = true;
                 }
+            }
+
+            // Handle seed control buttons
+            int seedY = panelY + panelHeight - 60;
+            Rectangle decreaseSeedBtn = new Rectangle(panelX + 200, seedY - 2, 30, 20);
+            Rectangle increaseSeedBtn = new Rectangle(panelX + 235, seedY - 2, 30, 20);
+            Rectangle randomSeedBtn = new Rectangle(panelX + 270, seedY - 2, 80, 20);
+
+            if (decreaseSeedBtn.Contains(mouseState.Position))
+            {
+                options.Seed = Math.Max(0, options.Seed - 1);
+                NeedsPreviewUpdate = true;
+            }
+            else if (increaseSeedBtn.Contains(mouseState.Position))
+            {
+                options.Seed++;
+                NeedsPreviewUpdate = true;
+            }
+            else if (randomSeedBtn.Contains(mouseState.Position))
+            {
+                options.Seed = new Random().Next();
+                NeedsPreviewUpdate = true;
             }
         }
 
@@ -395,8 +418,37 @@ public class MapOptionsUI
             DrawRectangle(handleX, slider.Bounds.Y - 2, 10, slider.Bounds.Height + 4, Color.White);
         }
 
+        // Seed controls
+        int seedY = panelY + panelHeight - 60;
+        _font.DrawString(_spriteBatch, "Seed:", new Vector2(panelX + 20, seedY), Color.Cyan, 14);
+
+        // Seed value display
+        string seedText = options.Seed.ToString();
+        _font.DrawString(_spriteBatch, seedText, new Vector2(panelX + 80, seedY), Color.White, 14);
+
+        // Seed buttons
+        Rectangle decreaseSeedBtn = new Rectangle(panelX + 200, seedY - 2, 30, 20);
+        Rectangle increaseSeedBtn = new Rectangle(panelX + 235, seedY - 2, 30, 20);
+        Rectangle randomSeedBtn = new Rectangle(panelX + 270, seedY - 2, 80, 20);
+
+        // Draw seed buttons
+        DrawRectangle(decreaseSeedBtn.X, decreaseSeedBtn.Y, decreaseSeedBtn.Width, decreaseSeedBtn.Height,
+            decreaseSeedBtn.Contains(mousePos) ? new Color(100, 100, 150) : new Color(60, 60, 100));
+        DrawRectangleBorder(decreaseSeedBtn.X, decreaseSeedBtn.Y, decreaseSeedBtn.Width, decreaseSeedBtn.Height, Color.White, 1);
+        _font.DrawString(_spriteBatch, "-", new Vector2(decreaseSeedBtn.X + 10, decreaseSeedBtn.Y + 2), Color.White, 14);
+
+        DrawRectangle(increaseSeedBtn.X, increaseSeedBtn.Y, increaseSeedBtn.Width, increaseSeedBtn.Height,
+            increaseSeedBtn.Contains(mousePos) ? new Color(100, 100, 150) : new Color(60, 60, 100));
+        DrawRectangleBorder(increaseSeedBtn.X, increaseSeedBtn.Y, increaseSeedBtn.Width, increaseSeedBtn.Height, Color.White, 1);
+        _font.DrawString(_spriteBatch, "+", new Vector2(increaseSeedBtn.X + 9, increaseSeedBtn.Y + 2), Color.White, 14);
+
+        DrawRectangle(randomSeedBtn.X, randomSeedBtn.Y, randomSeedBtn.Width, randomSeedBtn.Height,
+            randomSeedBtn.Contains(mousePos) ? new Color(100, 150, 100) : new Color(60, 100, 60));
+        DrawRectangleBorder(randomSeedBtn.X, randomSeedBtn.Y, randomSeedBtn.Width, randomSeedBtn.Height, Color.White, 1);
+        _font.DrawString(_spriteBatch, "Random", new Vector2(randomSeedBtn.X + 10, randomSeedBtn.Y + 2), Color.White, 12);
+
         // Instructions
-        string info = $"Seed: {options.Seed} | Size: {options.MapWidth}x{options.MapHeight}";
+        string info = $"Size: {options.MapWidth}x{options.MapHeight}";
         _font.DrawString(_spriteBatch, info, new Vector2(panelX + 20, panelY + panelHeight - 30), Color.Gray, 12);
     }
 
