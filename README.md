@@ -562,9 +562,23 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Map Controls, Climate Balance & Ice Sheet Sea Level Mechanics
+### Latest Update - Click Detection, Map Editor Fixes & Seamless Planet Continuity
 
-**CRITICAL FIXES - Map Controls:**
+**CRITICAL FIXES - Click vs Drag Detection:**
+- ✅ **FIXED: Tile Info Panel** - Clicking and dragging the map no longer opens the tile info panel
+- ✅ **FIXED: Disaster Placement** - Dragging the map while placing disasters no longer triggers placement
+- ✅ **Smart Click Detection** - Panels only open on actual clicks (< 5 pixel movement threshold)
+- ✅ **Better Map Navigation** - Pan freely without accidentally opening info panels
+
+**Map Editor & Generation Fixes:**
+- ✅ **FIXED: Seed Preservation** - Generate button now uses your configured seed instead of randomizing
+- ✅ **FIXED: Preview Accuracy** - Preview now uses proportional dimensions to match actual map generation
+- ✅ **FIXED: Map Dimensions** - Generated map uses dimensions from editor settings instead of old map size
+- ✅ **Seamless Wrapping** - Map already has perfect cylindrical continuity (no stitching artifacts)
+
+**Previous Update - Map Controls, Climate Balance & Ice Sheet Sea Level Mechanics**
+
+**Map Controls:**
 - ✅ **FIXED: Mouse Wheel Zoom** - Mouse wheel now properly zooms in/out (was broken due to input handling order)
 - ✅ **FIXED: Left Click Panning** - Added left mouse button drag to pan the map (more intuitive)
 - ✅ **FIXED: Middle Click Panning** - Middle mouse button panning now works correctly

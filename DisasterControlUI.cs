@@ -17,6 +17,8 @@ public class DisasterControlUI
     private readonly PlanetMap _map;
     private Texture2D _pixelTexture;
     private MouseState _previousMouseState;
+    private Point? _mouseDownPosition = null;
+    private const int DragThreshold = 5; // pixels
 
     public bool IsVisible { get; set; } = false;
     public bool IsSelectingTarget { get; private set; } = false;
@@ -161,8 +163,32 @@ public class DisasterControlUI
             return;
         }
 
-        bool clicked = mouseState.LeftButton == ButtonState.Pressed &&
-                      _previousMouseState.LeftButton == ButtonState.Released;
+        // Track mouse down position to detect drags
+        if (mouseState.LeftButton == ButtonState.Pressed &&
+            _previousMouseState.LeftButton == ButtonState.Released)
+        {
+            _mouseDownPosition = mouseState.Position;
+        }
+
+        // Check for click (on release, and only if not dragging)
+        bool clicked = false;
+        if (mouseState.LeftButton == ButtonState.Released &&
+            _previousMouseState.LeftButton == ButtonState.Pressed &&
+            _mouseDownPosition.HasValue)
+        {
+            int dragDistance = (int)Vector2.Distance(
+                new Vector2(_mouseDownPosition.Value.X, _mouseDownPosition.Value.Y),
+                new Vector2(mouseState.Position.X, mouseState.Position.Y)
+            );
+            clicked = dragDistance <= DragThreshold;
+            _mouseDownPosition = null;
+        }
+
+        // Reset mouse down position if button is released
+        if (mouseState.LeftButton == ButtonState.Released)
+        {
+            _mouseDownPosition = null;
+        }
 
         var mousePos = new Point(mouseState.X, mouseState.Y);
 

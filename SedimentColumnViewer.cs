@@ -15,6 +15,8 @@ public class SedimentColumnViewer
     private Texture2D _pixelTexture;
     private (int x, int y)? _selectedTile = null;
     private MouseState _previousMouseState;
+    private Point? _mouseDownPosition = null;
+    private const int DragThreshold = 5; // pixels
 
     public bool IsVisible { get; private set; } = false;
 
@@ -49,20 +51,45 @@ public class SedimentColumnViewer
             }
         }
 
-        // Check for left mouse click on map
-        if (!IsVisible && mouseState.LeftButton == ButtonState.Pressed &&
+        // Track mouse down position to detect drags
+        if (mouseState.LeftButton == ButtonState.Pressed &&
             _previousMouseState.LeftButton == ButtonState.Released)
         {
-            // Convert mouse position to tile coordinates
-            int tileX = (int)((mouseState.X / zoomLevel + cameraX) / cellSize);
-            int tileY = (int)((mouseState.Y / zoomLevel + cameraY) / cellSize);
+            _mouseDownPosition = mouseState.Position;
+        }
 
-            // Check if tile is within bounds
-            if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
+        // Check for left mouse click on map (only trigger on release, and only if not dragging)
+        if (!IsVisible && mouseState.LeftButton == ButtonState.Released &&
+            _previousMouseState.LeftButton == ButtonState.Pressed &&
+            _mouseDownPosition.HasValue)
+        {
+            // Calculate distance moved since mouse down
+            int dragDistance = (int)Vector2.Distance(
+                new Vector2(_mouseDownPosition.Value.X, _mouseDownPosition.Value.Y),
+                new Vector2(mouseState.Position.X, mouseState.Position.Y)
+            );
+
+            // Only open viewer if this was a click, not a drag
+            if (dragDistance <= DragThreshold)
             {
-                _selectedTile = (tileX, tileY);
-                IsVisible = true;
+                // Convert mouse position to tile coordinates
+                int tileX = (int)((mouseState.X / zoomLevel + cameraX) / cellSize);
+                int tileY = (int)((mouseState.Y / zoomLevel + cameraY) / cellSize);
+
+                // Check if tile is within bounds
+                if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
+                {
+                    _selectedTile = (tileX, tileY);
+                    IsVisible = true;
+                }
             }
+            _mouseDownPosition = null;
+        }
+
+        // Reset mouse down position if button is released
+        if (mouseState.LeftButton == ButtonState.Released)
+        {
+            _mouseDownPosition = null;
         }
 
         // Close with right click or ESC
