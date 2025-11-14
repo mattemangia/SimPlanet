@@ -562,7 +562,53 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Atmospheric Circulation & Weather System Overhaul
+### Latest Update - Enhanced UI, Ice System Overhaul & Accurate Map Preview
+
+**NEW - Enhanced Sediment Column Viewer:**
+- ✅ **Full-Height Panel** - Uses almost entire screen height (dynamic sizing) instead of fixed 600px
+- ✅ **Mouse Wheel Scrolling** - Scroll through all sediment layers without size limits
+- ✅ **Visual Scrollbar** - Shows scroll position and allows viewing extensive geological histories
+- ✅ **Click-to-Update** - No longer need to close panel to view another tile
+- ✅ **Quick Tile Exploration** - Click any tile on map to instantly update viewer with new location's data
+- ✅ **Shows All Layers** - No longer limited to 18 layers, displays complete stratigraphic column
+- ✅ **Professional Layout** - Fixed 15px layer height for consistency, clear legends
+
+**FIXED - Ice Formation & Melting System:**
+- ✅ **Land Ice Sheets** - Ice now properly forms on both land (glaciers, ice sheets) and water (sea ice)
+- ✅ **Proper Temperature Thresholds**:
+  - Temperature < -10°C: Permanent ice caps (land and water)
+  - Temperature -10°C to -2°C: Seasonal sea ice (water only)
+  - Temperature >= 0°C: Sea ice melts immediately
+  - Temperature > 2°C: Land ice (glaciers) melts
+- ✅ **Desert Formation Fixed** - Hot deserts (>20°C) no longer incorrectly classified as ice
+- ✅ **Realistic Polar Ice** - Proper ice caps on Antarctica-like landmasses and Greenland-like regions
+- ✅ **Mountain Glaciers** - Cold mountain peaks can now have glaciers
+- ✅ **Different Melting Rates** - Sea ice responds quickly, land ice persists longer (realistic behavior)
+
+**FIXED - Map Preview Accuracy:**
+- ✅ **Preview Matches Generated Terrain** - Preview now shows exactly what will be generated
+- ✅ **Consistent Noise Sampling** - Uses reference dimensions to sample noise at correct coordinates
+- ✅ **Half-Resolution Performance** - Preview generates at half size for speed while maintaining accuracy
+- ✅ **Perlin Noise Coordination** - Cylindrical wrapping calculations use full-map scale
+- ✅ **No More Surprises** - Generated map perfectly matches preview every time
+
+**ENHANCED - Seasonal System:**
+- ✅ **Seasonal Rainfall Variations**:
+  - Spring: 1.2x rainfall (spring rains)
+  - Summer: 1.5x in tropics (monsoons), 0.8x in mid-latitudes (dry)
+  - Fall: 1.1x rainfall (moderate rains)
+  - Winter: 0.7x in tropics (dry season), 1.3x in mid-latitudes (winter storms)
+- ✅ **Hemisphere-Specific Patterns** - Different seasonal effects in northern vs southern hemispheres
+- ✅ **Dynamic Ice Expansion** - Ice caps grow and shrink with seasonal temperature changes
+- ✅ **Realistic Climate Cycles** - Seasonal rainfall and ice create natural climate variation
+
+**User Experience Improvements:**
+- ✅ **Better Workflow** - Explore multiple tiles quickly without closing/reopening panels
+- ✅ **Complete Geological Data** - Scroll through unlimited sediment layers
+- ✅ **Accurate Previews** - What you see is what you get in map generation
+- ✅ **Natural Ice Distribution** - Ice forms realistically on land and water
+
+### Previous Update - Atmospheric Circulation & Weather System Overhaul
 
 **NEW - Wind-Driven Atmospheric Gas Transport:**
 - ✅ **Global CO2 Circulation** - CO2 now spreads globally through wind patterns
