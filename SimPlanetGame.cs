@@ -59,9 +59,11 @@ public class SimPlanetGame : Game
     private float _globalStatsTimer = 0;
     private float _visualUpdateTimer = 0;
     private float _simulationUpdateTimer = 0;
+    private float _uiUpdateTimer = 0;
     private const float GlobalStatsInterval = 1.0f; // Update global stats every 1 second
     private const float VisualUpdateInterval = 0.1f; // Update visuals 10 times per second
-    private const float SimulationUpdateInterval = 0.033f; // Update simulation ~30 times per second
+    private const float SimulationUpdateInterval = 0.016f; // Update simulation ~60 times per second but split work
+    private const float UIUpdateInterval = 0.1f; // Update UI data cache 10 times per second
 
     // Map generation settings
     private MapGenerationOptions _mapOptions;
@@ -241,28 +243,42 @@ public class SimPlanetGame : Game
                 _gameState.TimeAccumulator -= 10.0f;
             }
 
-            // Performance: Throttle simulation updates to ~30 FPS instead of 60 FPS
+            // Performance: Run simulation at 60 FPS with light workload per frame
+            // This prevents frame hitching and keeps UI responsive
             _simulationUpdateTimer += realDeltaTime;
             if (_simulationUpdateTimer >= SimulationUpdateInterval)
             {
-                // Accumulate time since last update for more accurate simulation
-                float simDeltaTime = deltaTime * (_simulationUpdateTimer / realDeltaTime);
+                float simDeltaTime = deltaTime;
 
-                // Update simulators
+                // Core systems - run every frame (fast)
                 _climateSimulator.Update(simDeltaTime);
                 _atmosphereSimulator.Update(simDeltaTime);
-                _weatherSystem.Update(simDeltaTime, _gameState.Year);
-                _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem);
-                _animalEvolutionSimulator.Update(simDeltaTime, _gameState.Year);
-                _geologicalSimulator.Update(simDeltaTime, _gameState.Year);
-                _hydrologySimulator.Update(simDeltaTime);
-                _civilizationManager.Update(simDeltaTime, _gameState.Year);
-                _diseaseManager.Update(simDeltaTime, _gameState.Year);
-                _biomeSimulator.Update(simDeltaTime);
-                _disasterManager.Update(simDeltaTime, _gameState.Year);
-                _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager);
-                _magnetosphereSimulator.Update(simDeltaTime, _gameState.Year);
                 _planetStabilizer.Update(simDeltaTime);
+
+                // Round-robin heavy systems across frames to spread load
+                int frameIndex = _gameState.Year % 4;
+                switch (frameIndex)
+                {
+                    case 0:
+                        _weatherSystem.Update(simDeltaTime * 4, _gameState.Year);
+                        _hydrologySimulator.Update(simDeltaTime * 4);
+                        break;
+                    case 1:
+                        _lifeSimulator.Update(simDeltaTime * 4, _geologicalSimulator, _weatherSystem);
+                        _biomeSimulator.Update(simDeltaTime * 4);
+                        break;
+                    case 2:
+                        _geologicalSimulator.Update(simDeltaTime * 4, _gameState.Year);
+                        _animalEvolutionSimulator.Update(simDeltaTime * 4, _gameState.Year);
+                        break;
+                    case 3:
+                        _civilizationManager.Update(simDeltaTime * 4, _gameState.Year);
+                        _diseaseManager.Update(simDeltaTime * 4, _gameState.Year);
+                        _disasterManager.Update(simDeltaTime * 4, _gameState.Year);
+                        _forestFireManager.Update(simDeltaTime * 4, _weatherSystem, _civilizationManager);
+                        _magnetosphereSimulator.Update(simDeltaTime * 4, _gameState.Year);
+                        break;
+                }
 
                 _simulationUpdateTimer = 0;
             }

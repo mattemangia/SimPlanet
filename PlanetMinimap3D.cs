@@ -1,10 +1,11 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 
 namespace SimPlanet;
 
 /// <summary>
-/// 3D rotating planet minimap like in SimEarth
+/// 3D rotating planet minimap like in SimEarth with pan and rotation controls
 /// </summary>
 public class PlanetMinimap3D
 {
@@ -16,6 +17,7 @@ public class PlanetMinimap3D
     private Color[] _terrainColors;
 
     private float _rotation = 0;
+    private float _tilt = 0; // Vertical tilt angle
     private const int MinimapSize = 150;
     private const int SphereRadius = 70;
 
@@ -23,6 +25,10 @@ public class PlanetMinimap3D
     public int PosY { get; set; } = 420;
     public bool IsVisible { get; set; } = true;
     public bool AutoRotate { get; set; } = true;
+
+    // Mouse interaction
+    private MouseState _previousMouseState;
+    private bool _isDragging = false;
 
     // Performance optimization
     private bool _isDirty = true;
@@ -36,17 +42,66 @@ public class PlanetMinimap3D
         _minimapTexture = new Texture2D(_graphicsDevice, MinimapSize, MinimapSize);
         _sphereTexture = new Texture2D(_graphicsDevice, _map.Width, _map.Height);
         _spherePixels = new Color[MinimapSize * MinimapSize];
+        _previousMouseState = Mouse.GetState();
     }
 
     public void Update(float deltaTime)
     {
-        if (AutoRotate)
+        var mouseState = Mouse.GetState();
+
+        // Check if mouse is over minimap
+        Rectangle minimapBounds = new Rectangle(PosX, PosY, MinimapSize, MinimapSize);
+        bool isMouseOver = minimapBounds.Contains(mouseState.Position);
+
+        // Handle mouse drag for manual rotation
+        if (isMouseOver && mouseState.LeftButton == ButtonState.Pressed)
+        {
+            if (_previousMouseState.LeftButton == ButtonState.Pressed && _isDragging)
+            {
+                // Drag to rotate
+                float dx = mouseState.X - _previousMouseState.X;
+                float dy = mouseState.Y - _previousMouseState.Y;
+
+                _rotation -= dx * 0.01f; // Horizontal rotation
+                _tilt += dy * 0.01f; // Vertical tilt
+
+                // Clamp tilt to prevent flipping
+                _tilt = Math.Clamp(_tilt, -MathF.PI / 3, MathF.PI / 3);
+
+                // Normalize rotation
+                if (_rotation > MathF.PI * 2) _rotation -= MathF.PI * 2;
+                if (_rotation < 0) _rotation += MathF.PI * 2;
+
+                _isDirty = true;
+                AutoRotate = false; // Disable auto-rotate when manually controlled
+            }
+            _isDragging = true;
+        }
+        else
+        {
+            _isDragging = false;
+        }
+
+        // Auto-rotate when not manually controlled
+        if (AutoRotate && !_isDragging)
         {
             _rotation += deltaTime * 0.5f; // Rotate slowly
             if (_rotation > MathF.PI * 2)
                 _rotation -= MathF.PI * 2;
             _isDirty = true; // Need to re-render when rotating
         }
+
+        // Right-click to reset to default view and re-enable auto-rotate
+        if (isMouseOver && mouseState.RightButton == ButtonState.Pressed &&
+            _previousMouseState.RightButton == ButtonState.Released)
+        {
+            _rotation = 0;
+            _tilt = 0;
+            AutoRotate = true;
+            _isDirty = true;
+        }
+
+        _previousMouseState = mouseState;
     }
 
     public void UpdateTexture(TerrainRenderer terrainRenderer)
@@ -118,11 +173,15 @@ public class PlanetMinimap3D
                 // Calculate 3D point on sphere surface
                 float z = MathF.Sqrt(SphereRadius * SphereRadius - dx * dx - dy * dy);
 
-                // Convert to spherical coordinates
-                float theta = MathF.Atan2(dy, dx); // Latitude
-                float phi = MathF.Acos(z / SphereRadius); // Longitude with rotation
+                // Apply tilt transformation
+                float tiltedY = dy * MathF.Cos(_tilt) - z * MathF.Sin(_tilt);
+                float tiltedZ = dy * MathF.Sin(_tilt) + z * MathF.Cos(_tilt);
 
-                // Apply rotation
+                // Convert to spherical coordinates
+                float theta = MathF.Atan2(tiltedY, dx); // Latitude
+                float phi = MathF.Acos(MathF.Clamp(tiltedZ / SphereRadius, -1f, 1f)); // Longitude
+
+                // Apply horizontal rotation
                 phi += _rotation;
 
                 // Map to texture coordinates

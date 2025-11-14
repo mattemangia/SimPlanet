@@ -14,7 +14,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Manual terraforming tool** (plant forests, create oceans, seed civilizations)
 - **Auto-stabilization system** (maintains habitable conditions automatically)
 - **Planet presets** (Earth, Mars, Water World, Desert World)
-- **Rotating 3D planet minimap** (just like SimEarth!)
+- **Interactive 3D planet minimap** with manual rotation and tilt controls (just like SimEarth!)
 - **Save/load game system** with quick save/load (F5/F9)
 - **Main menu** with new game, load game, and pause functionality
 - Climate simulation (temperature, rainfall, humidity)
@@ -43,6 +43,8 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Hydrology System**:
   - River formation from mountains to oceans
   - Water flow and valley carving
+  - River freezing during ice ages (freeze when >50% covered by ice)
+  - Dynamic river reformation when ice retreats
   - Ocean currents with Coriolis effect
   - Soil moisture dynamics
 - **Climate System**:
@@ -133,7 +135,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Full menu system with save slots and timestamps
   - Serializes entire game state (terrain, life, civilizations, weather, geology)
 - **Time Control**: Adjustable simulation speed (0.25x to 32x)
-- **3D Minimap**: Rotating sphere view of your planet (SimEarth-style!)
+- **3D Minimap**: Interactive rotating sphere with manual rotation and tilt controls (SimEarth-style!)
 
 ### Visualization Modes
 **Standard Views (1-0 keys):**
@@ -160,11 +162,25 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Plate Boundaries**: Highlighted convergent, divergent, and transform zones
 - **3D Minimap**: Rotating globe in bottom-left corner
 
+## Performance Optimizations
+
+SimPlanet has been heavily optimized for smooth, responsive gameplay:
+
+- **UI Independence**: Interface updates at 60 FPS regardless of simulation load
+- **Smart Simulation Throttling**: Heavy systems run on round-robin schedule to prevent frame hitches
+- **Cached Statistics**: UI data cached at 100ms intervals (prevents scanning 20,000 cells every frame)
+- **Throttled Terrain Preview**: Map generator preview updates at 150ms intervals (prevents lag during slider adjustments)
+- **Optimized Rendering**: Texture updates only when data changes (dirty flag system)
+- **Split-Screen Layout**: Info panel (400px) on left, resizable map on right - no more overlap!
+
+**Result**: Smooth 60 FPS gameplay even during complex simulations with large civilizations.
+
 ## Requirements
 
 - .NET 8.0 SDK or later
 - Works on Linux, macOS, and Windows
 - OpenGL-compatible graphics
+- Window is resizable! Default: 1600×900 (previously 1280×720)
 
 ## Building and Running
 
@@ -239,6 +255,22 @@ dotnet run
 | **ESC** | Pause menu / Back to main menu |
 | **Mouse Wheel** | Zoom in/out (0.5x to 4.0x) |
 | **Middle Click + Drag** | Pan camera around the map |
+
+### 3D Minimap Controls (Press P to toggle)
+
+The minimap is fully interactive:
+
+| Action | Control |
+|--------|---------|
+| **Left Click + Drag** | Manually rotate and tilt the planet |
+| **Right Click** | Reset to default view and re-enable auto-rotation |
+| **Auto-Rotation** | Automatically rotates when not manually controlled |
+
+Features:
+- Drag horizontally to spin the planet left/right
+- Drag vertically to tilt the view up/down (±60°)
+- Right-click resets camera and enables auto-rotation
+- Manual control disables auto-rotation until reset
 
 ### Map Options Menu (Press M)
 
@@ -402,7 +434,7 @@ Civilization (produces more CO2, can adapt to various climates)
 - **TerrainRenderer.cs**: Rendering with 14+ view modes, day/night cycle, procedural colors
 - **GameUI.cs**: Information panels showing stats, civilizations, weather alerts, stabilizer status
 - **MapOptionsUI.cs**: Map generation configuration with real-time preview and planet presets
-- **PlanetMinimap3D.cs**: Rotating 3D sphere visualization
+- **PlanetMinimap3D.cs**: Interactive 3D sphere with rotation and tilt controls
 - **GeologicalEventsUI.cs**: Event log and overlays (volcanoes, rivers, plate boundaries)
 - **SedimentColumnViewer.cs**: Geological sediment layer visualization
 - **SimpleFont.cs**: Procedural font rendering (no external assets needed)
@@ -460,6 +492,7 @@ Civilization (produces more CO2, can adapt to various climates)
 - No platform-specific code or dependencies
 - No shaders or advanced rendering features
 - All rendering is standard 2D sprite batching
+- Resizable window with responsive layout (1600×900 default)
 
 **Mac Compatibility:**
 - Native ARM64 support on Apple Silicon
@@ -504,7 +537,29 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Disease System & Complete Terrain Generation Overhaul
+### Latest Update - Performance Overhaul & Interactive 3D Minimap
+
+**Major Performance Improvements:**
+- ✅ **Eliminated All Lag** - UI now updates independently at 60 FPS regardless of simulation load
+- ✅ **Smart Simulation Scheduling** - Heavy systems run on round-robin schedule across frames
+- ✅ **Cached UI Statistics** - Stats updated every 100ms instead of scanning 20,000 cells per frame
+- ✅ **Responsive Terrain Sliders** - Preview throttled to 150ms (was updating 60 times/second!)
+- ✅ **Split-Screen Layout** - Info panel on left (400px), map on right - NO more overlap!
+- ✅ **Resizable Window** - Window can be resized! Default now 1600×900 (was 1280×720)
+
+**Interactive 3D Minimap:**
+- ✅ **Manual Rotation** - Left-click drag to rotate and tilt the planet in any direction
+- ✅ **Camera Reset** - Right-click to reset view and re-enable auto-rotation
+- ✅ **Smooth Controls** - ±60° vertical tilt, full 360° horizontal rotation
+- ✅ **Auto-Rotation** - Disabled during manual control, re-enabled on reset
+
+**River Freezing Feature:**
+- ✅ **Dynamic Glaciation** - Rivers freeze when ice sheets advance over them
+- ✅ **Automatic Thaw** - Rivers reform based on elevation when ice retreats
+- ✅ **Realistic Behavior** - No water flow in frozen areas (temperature < 0°C)
+- ✅ **Post-Glacial Rivers** - New rivers form naturally after ice ages based on terrain
+
+### Previous Update - Disease System & Complete Terrain Generation Overhaul
 
 **Disease & Pandemic System:**
 - ✅ **6 Pathogen Types** - Create and evolve Bacteria, Virus, Fungus, Parasite, Prion, or Bioweapon

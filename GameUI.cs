@@ -19,6 +19,11 @@ public class GameUI
     private AnimalEvolutionSimulator? _animalEvolutionSimulator;
     private PlanetStabilizer? _planetStabilizer;
 
+    // Cached UI data to prevent per-frame cell scanning
+    private Dictionary<LifeForm, int> _cachedLifeStats = new();
+    private DateTime _lastStatsUpdate = DateTime.MinValue;
+    private const double StatsUpdateIntervalMs = 100; // Update stats every 100ms
+
     public bool ShowHelp { get; set; } = false;
 
     public GameUI(SpriteBatch spriteBatch, FontRenderer font, PlanetMap map, GraphicsDevice graphicsDevice)
@@ -60,6 +65,14 @@ public class GameUI
 
     private void DrawInfoPanel(GameState state, RenderMode renderMode)
     {
+        // Update cached stats if needed (throttled to prevent lag)
+        var timeSinceUpdate = (DateTime.Now - _lastStatsUpdate).TotalMilliseconds;
+        if (timeSinceUpdate >= StatsUpdateIntervalMs)
+        {
+            _cachedLifeStats = CalculateLifeStats();
+            _lastStatsUpdate = DateTime.Now;
+        }
+
         // Use full left side of screen
         int panelX = 0;
         int panelY = 0;
@@ -112,40 +125,58 @@ public class GameUI
         textY += 5;
 
         DrawSectionHeader("LIFE");
-        var lifeStats = CalculateLifeStats();
-        DrawText($"Bacteria: {lifeStats[LifeForm.Bacteria]}", Color.Gray);
-        DrawText($"Algae: {lifeStats[LifeForm.Algae]}", Color.LightGreen);
-        DrawText($"Plants: {lifeStats[LifeForm.PlantLife]}", Color.Green);
-        DrawText($"Simple Animals: {lifeStats[LifeForm.SimpleAnimals]}", Color.SandyBrown);
+        // Use cached stats to prevent per-frame cell scanning (20,000 cells)
+        DrawText($"Bacteria: {_cachedLifeStats.GetValueOrDefault(LifeForm.Bacteria, 0)}", Color.Gray);
+        DrawText($"Algae: {_cachedLifeStats.GetValueOrDefault(LifeForm.Algae, 0)}", Color.LightGreen);
+        DrawText($"Plants: {_cachedLifeStats.GetValueOrDefault(LifeForm.PlantLife, 0)}", Color.Green);
+        DrawText($"Simple Animals: {_cachedLifeStats.GetValueOrDefault(LifeForm.SimpleAnimals, 0)}", Color.SandyBrown);
 
         // Vertebrate evolution
-        if (lifeStats[LifeForm.Fish] > 0)
-            DrawText($"Fish: {lifeStats[LifeForm.Fish]}", new Color(100, 120, 200));
-        if (lifeStats[LifeForm.Amphibians] > 0)
-            DrawText($"Amphibians: {lifeStats[LifeForm.Amphibians]}", new Color(120, 160, 80));
-        if (lifeStats[LifeForm.Reptiles] > 0)
-            DrawText($"Reptiles: {lifeStats[LifeForm.Reptiles]}", new Color(140, 140, 60));
+        int fishCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Fish, 0);
+        if (fishCount > 0)
+            DrawText($"Fish: {fishCount}", new Color(100, 120, 200));
+
+        int amphibiansCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Amphibians, 0);
+        if (amphibiansCount > 0)
+            DrawText($"Amphibians: {amphibiansCount}", new Color(120, 160, 80));
+
+        int reptilesCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Reptiles, 0);
+        if (reptilesCount > 0)
+            DrawText($"Reptiles: {reptilesCount}", new Color(140, 140, 60));
 
         // Age of Dinosaurs
-        if (lifeStats[LifeForm.Dinosaurs] > 0)
-            DrawText($"DINOSAURS: {lifeStats[LifeForm.Dinosaurs]}", Color.Orange);
-        if (lifeStats[LifeForm.MarineDinosaurs] > 0)
-            DrawText($"Marine Dinosaurs: {lifeStats[LifeForm.MarineDinosaurs]}", new Color(100, 100, 180));
-        if (lifeStats[LifeForm.Pterosaurs] > 0)
-            DrawText($"Pterosaurs: {lifeStats[LifeForm.Pterosaurs]}", new Color(160, 140, 100));
+        int dinosaursCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Dinosaurs, 0);
+        if (dinosaursCount > 0)
+            DrawText($"DINOSAURS: {dinosaursCount}", Color.Orange);
+
+        int marineDinosaursCount = _cachedLifeStats.GetValueOrDefault(LifeForm.MarineDinosaurs, 0);
+        if (marineDinosaursCount > 0)
+            DrawText($"Marine Dinosaurs: {marineDinosaursCount}", new Color(100, 100, 180));
+
+        int pterosaursCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Pterosaurs, 0);
+        if (pterosaursCount > 0)
+            DrawText($"Pterosaurs: {pterosaursCount}", new Color(160, 140, 100));
 
         // Age of Mammals
-        if (lifeStats[LifeForm.Mammals] > 0)
-            DrawText($"Mammals: {lifeStats[LifeForm.Mammals]}", new Color(160, 120, 90));
-        if (lifeStats[LifeForm.Birds] > 0)
-            DrawText($"Birds: {lifeStats[LifeForm.Birds]}", new Color(150, 180, 150));
+        int mammalsCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Mammals, 0);
+        if (mammalsCount > 0)
+            DrawText($"Mammals: {mammalsCount}", new Color(160, 120, 90));
 
-        if (lifeStats[LifeForm.ComplexAnimals] > 0)
-            DrawText($"Complex Animals: {lifeStats[LifeForm.ComplexAnimals]}", Color.Orange);
-        if (lifeStats[LifeForm.Intelligence] > 0)
-            DrawText($"Intelligence: {lifeStats[LifeForm.Intelligence]}", Color.Gold);
-        if (lifeStats[LifeForm.Civilization] > 0)
-            DrawText($"Civilization: {lifeStats[LifeForm.Civilization]}", Color.Yellow);
+        int birdsCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Birds, 0);
+        if (birdsCount > 0)
+            DrawText($"Birds: {birdsCount}", new Color(150, 180, 150));
+
+        int complexAnimalsCount = _cachedLifeStats.GetValueOrDefault(LifeForm.ComplexAnimals, 0);
+        if (complexAnimalsCount > 0)
+            DrawText($"Complex Animals: {complexAnimalsCount}", Color.Orange);
+
+        int intelligenceCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Intelligence, 0);
+        if (intelligenceCount > 0)
+            DrawText($"Intelligence: {intelligenceCount}", Color.Gold);
+
+        int civilizationCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Civilization, 0);
+        if (civilizationCount > 0)
+            DrawText($"Civilization: {civilizationCount}", Color.Yellow);
         textY += 5;
 
         // Civilization statistics
