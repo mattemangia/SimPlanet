@@ -177,13 +177,21 @@ public class SimPlanetGame : Game
             if (_mainMenu.CurrentScreen == GameScreen.NewGame)
             {
                 _mapOptionsUI.IsVisible = true;
-                HandleMapOptionsInput(keyState);
 
-                // Handle map options UI close button
-                if (_mapOptionsUI.Update(mouseState))
+                // Update map options UI (handles mouse interactions)
+                if (_mapOptionsUI.Update(mouseState, _mapOptions))
                 {
                     _mainMenu.CurrentScreen = GameScreen.MainMenu;
                 }
+
+                // Check if Generate button was clicked
+                if (_mapOptionsUI.GenerateRequested)
+                {
+                    StartNewGame();
+                }
+
+                // Update preview
+                _mapOptionsUI.UpdatePreview(_mapOptions);
             }
             else
             {
@@ -402,8 +410,8 @@ public class SimPlanetGame : Game
         // Map option controls (only when menu is visible in-game)
         if (_mapOptionsUI.IsVisible)
         {
-            HandleMapOptionsInput(keyState);
-            _mapOptionsUI.Update(Mouse.GetState());
+            _mapOptionsUI.Update(Mouse.GetState(), _mapOptions);
+            _mapOptionsUI.UpdatePreview(_mapOptions);
         }
 
         // Toggle minimap

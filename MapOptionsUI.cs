@@ -1,11 +1,12 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 
 namespace SimPlanet;
 
 /// <summary>
-/// UI for displaying and adjusting map generation options
+/// Interactive UI for map generation with mouse controls
 /// </summary>
 public class MapOptionsUI
 {
@@ -19,6 +20,12 @@ public class MapOptionsUI
 
     public bool IsVisible { get; set; } = false;
     public bool NeedsPreviewUpdate { get; set; } = true;
+    public bool GenerateRequested { get; private set; } = false;
+
+    // Slider tracking
+    private string? _activeSlider = null;
+    private List<UIButton> _buttons = new();
+    private List<UISlider> _sliders = new();
 
     public MapOptionsUI(SpriteBatch spriteBatch, FontRenderer font, GraphicsDevice graphicsDevice)
     {
@@ -31,25 +38,71 @@ public class MapOptionsUI
         _previousMouseState = Mouse.GetState();
     }
 
-    public bool Update(MouseState mouseState)
+    public bool Update(MouseState mouseState, MapGenerationOptions options)
     {
         bool closeButtonClicked = false;
+        GenerateRequested = false;
 
-        if (IsVisible)
+        if (!IsVisible)
         {
-            int panelX = 300;
-            int panelY = 50;
-            int panelWidth = 680;
+            _previousMouseState = mouseState;
+            return false;
+        }
 
-            // Check for close button click (X in top right)
-            if (mouseState.LeftButton == ButtonState.Released &&
-                _previousMouseState.LeftButton == ButtonState.Pressed)
+        int panelX = 300;
+        int panelY = 50;
+        int panelWidth = 680;
+
+        // Update UI elements positions
+        UpdateUIElements(panelX, panelY, panelWidth, options);
+
+        // Handle close button
+        Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
+        if (mouseState.LeftButton == ButtonState.Released &&
+            _previousMouseState.LeftButton == ButtonState.Pressed)
+        {
+            if (closeButtonBounds.Contains(mouseState.Position))
             {
-                Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
-                if (closeButtonBounds.Contains(mouseState.Position))
+                IsVisible = false;
+                closeButtonClicked = true;
+            }
+        }
+
+        // Handle slider dragging
+        if (mouseState.LeftButton == ButtonState.Pressed)
+        {
+            foreach (var slider in _sliders)
+            {
+                if (_activeSlider == slider.Name || slider.Bounds.Contains(mouseState.Position))
                 {
-                    IsVisible = false;
-                    closeButtonClicked = true;
+                    _activeSlider = slider.Name;
+                    float newValue = (mouseState.X - slider.Bounds.X) / (float)slider.Bounds.Width;
+                    newValue = Math.Clamp(newValue, 0f, 1f);
+
+                    ApplySliderValue(slider.Name, newValue, options);
+                    NeedsPreviewUpdate = true;
+                }
+            }
+        }
+        else
+        {
+            _activeSlider = null;
+        }
+
+        // Handle button clicks
+        if (mouseState.LeftButton == ButtonState.Released &&
+            _previousMouseState.LeftButton == ButtonState.Pressed)
+        {
+            foreach (var button in _buttons)
+            {
+                if (button.Bounds.Contains(mouseState.Position))
+                {
+                    button.OnClick(options);
+                    if (button.Name == "Generate")
+                    {
+                        GenerateRequested = true;
+                    }
+                    NeedsPreviewUpdate = true;
                 }
             }
         }
@@ -58,33 +111,133 @@ public class MapOptionsUI
         return closeButtonClicked;
     }
 
+    private void UpdateUIElements(int panelX, int panelY, int panelWidth, MapGenerationOptions options)
+    {
+        _buttons.Clear();
+        _sliders.Clear();
+
+        int buttonY = panelY + 250;
+        int buttonWidth = 150;
+        int buttonHeight = 35;
+        int buttonSpacing = 10;
+
+        // Preset buttons
+        int startX = panelX + (panelWidth - (buttonWidth * 4 + buttonSpacing * 3)) / 2;
+
+        _buttons.Add(new UIButton("Earth", new Rectangle(startX, buttonY, buttonWidth, buttonHeight),
+            new Color(50, 150, 255), (opt) => ApplyEarthPreset(opt)));
+
+        _buttons.Add(new UIButton("Mars", new Rectangle(startX + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight),
+            new Color(200, 100, 50), (opt) => ApplyMarsPreset(opt)));
+
+        _buttons.Add(new UIButton("Water World", new Rectangle(startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight),
+            new Color(50, 100, 200), (opt) => ApplyWaterWorldPreset(opt)));
+
+        _buttons.Add(new UIButton("Desert", new Rectangle(startX + (buttonWidth + buttonSpacing) * 3, buttonY, buttonWidth, buttonHeight),
+            new Color(220, 180, 100), (opt) => ApplyDesertWorldPreset(opt)));
+
+        // Action buttons
+        buttonY += buttonHeight + 15;
+        int actionButtonWidth = (panelWidth - 60) / 2;
+
+        _buttons.Add(new UIButton("Randomize Seed", new Rectangle(panelX + 20, buttonY, actionButtonWidth, buttonHeight),
+            new Color(150, 100, 200), (opt) => opt.Seed = new Random().Next()));
+
+        _buttons.Add(new UIButton("Generate", new Rectangle(panelX + panelWidth - actionButtonWidth - 20, buttonY, actionButtonWidth, buttonHeight),
+            new Color(50, 200, 50), (opt) => { }));
+
+        // Sliders
+        int sliderY = buttonY + buttonHeight + 25;
+        int sliderX = panelX + 200;
+        int sliderWidth = panelWidth - 250;
+        int sliderHeight = 20;
+        int sliderSpacing = 35;
+
+        _sliders.Add(new UISlider("LandRatio", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
+        sliderY += sliderSpacing;
+
+        _sliders.Add(new UISlider("MountainLevel", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
+        sliderY += sliderSpacing;
+
+        _sliders.Add(new UISlider("WaterLevel", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
+        sliderY += sliderSpacing;
+
+        _sliders.Add(new UISlider("Persistence", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
+        sliderY += sliderSpacing;
+
+        _sliders.Add(new UISlider("Lacunarity", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
+    }
+
+    private void ApplySliderValue(string sliderName, float normalizedValue, MapGenerationOptions options)
+    {
+        switch (sliderName)
+        {
+            case "LandRatio":
+                options.LandRatio = normalizedValue;
+                break;
+            case "MountainLevel":
+                options.MountainLevel = normalizedValue;
+                break;
+            case "WaterLevel":
+                options.WaterLevel = normalizedValue * 2f - 1f; // -1 to 1
+                break;
+            case "Persistence":
+                options.Persistence = normalizedValue;
+                break;
+            case "Lacunarity":
+                options.Lacunarity = 1f + normalizedValue * 3f; // 1 to 4
+                break;
+        }
+    }
+
+    private float GetSliderValue(string sliderName, MapGenerationOptions options)
+    {
+        return sliderName switch
+        {
+            "LandRatio" => options.LandRatio,
+            "MountainLevel" => options.MountainLevel,
+            "WaterLevel" => (options.WaterLevel + 1f) / 2f,
+            "Persistence" => options.Persistence,
+            "Lacunarity" => (options.Lacunarity - 1f) / 3f,
+            _ => 0f
+        };
+    }
+
     public void UpdatePreview(MapGenerationOptions options)
     {
         if (!NeedsPreviewUpdate) return;
 
-        // Generate small preview map (100x50 for performance)
-        _previewMap = new PlanetMap(100, 50, options);
-
-        // Create preview texture
-        if (_previewTexture == null || _previewTexture.Width != 100)
+        try
         {
-            _previewTexture?.Dispose();
-            _previewTexture = new Texture2D(_graphicsDevice, 100, 50);
-        }
+            // Generate small preview map (100x50 for performance)
+            _previewMap = new PlanetMap(100, 50, options);
 
-        // Generate preview colors
-        var colors = new Color[100 * 50];
-        for (int x = 0; x < 100; x++)
-        {
-            for (int y = 0; y < 50; y++)
+            // Create preview texture
+            if (_previewTexture == null || _previewTexture.Width != 100)
             {
-                var cell = _previewMap.Cells[x, y];
-                colors[y * 100 + x] = GetPreviewColor(cell);
+                _previewTexture?.Dispose();
+                _previewTexture = new Texture2D(_graphicsDevice, 100, 50);
             }
-        }
 
-        _previewTexture.SetData(colors);
-        NeedsPreviewUpdate = false;
+            // Generate preview colors
+            var colors = new Color[100 * 50];
+            for (int x = 0; x < 100; x++)
+            {
+                for (int y = 0; y < 50; y++)
+                {
+                    var cell = _previewMap.Cells[x, y];
+                    colors[y * 100 + x] = GetPreviewColor(cell);
+                }
+            }
+
+            _previewTexture.SetData(colors);
+            NeedsPreviewUpdate = false;
+        }
+        catch
+        {
+            // If preview generation fails, mark for retry
+            NeedsPreviewUpdate = true;
+        }
     }
 
     private Color GetPreviewColor(TerrainCell cell)
@@ -119,88 +272,106 @@ public class MapOptionsUI
         int panelWidth = 680;
         int panelHeight = 620;
 
-        // Draw background
-        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(20, 20, 40, 240));
-        DrawRectangle(panelX, panelY, panelWidth, 3, new Color(100, 150, 255, 255)); // Top border
+        // Draw background with gradient
+        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(20, 20, 40, 250));
+        DrawRectangle(panelX, panelY, panelWidth, 4, new Color(100, 150, 255, 255)); // Top border
+        DrawRectangle(panelX, panelY + panelHeight - 4, panelWidth, 4, new Color(100, 150, 255, 255)); // Bottom border
 
-        // Draw close button (X) in top right
+        // Draw close button (X)
         Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
-        DrawRectangle(closeButtonBounds.X, closeButtonBounds.Y, closeButtonBounds.Width, closeButtonBounds.Height, new Color(180, 0, 0, 200));
+        var mousePos = Mouse.GetState().Position;
+        Color closeColor = closeButtonBounds.Contains(mousePos) ? new Color(255, 50, 50) : new Color(180, 0, 0, 200);
+        DrawRectangle(closeButtonBounds.X, closeButtonBounds.Y, closeButtonBounds.Width, closeButtonBounds.Height, closeColor);
         _font.DrawString(_spriteBatch, "X", new Vector2(closeButtonBounds.X + 7, closeButtonBounds.Y + 3), Color.White, 16);
 
-        int textY = panelY + 15;
-        int lineHeight = 20;
-
-        void DrawText(string text, Color color, int offsetX = 10)
-        {
-            _font.DrawString(_spriteBatch, text, new Vector2(panelX + offsetX, textY), color);
-            textY += lineHeight;
-        }
-
-        DrawText("=== MAP GENERATION OPTIONS ===", Color.Yellow, 160);
-        textY += 5;
+        // Title
+        _font.DrawString(_spriteBatch, "WORLD GENERATOR", new Vector2(panelX + 230, panelY + 15), Color.Yellow, 20);
 
         // Draw preview
+        int previewWidth = 500;
+        int previewHeight = 200;
+        int previewX = panelX + (panelWidth - previewWidth) / 2;
+        int previewY = panelY + 45;
+
         if (_previewTexture != null)
         {
-            int previewWidth = 400;
-            int previewHeight = 200;
-            int previewX = panelX + (panelWidth - previewWidth) / 2;
-            int previewY = textY;
-
             _spriteBatch.Draw(_previewTexture,
                 new Rectangle(previewX, previewY, previewWidth, previewHeight),
                 Color.White);
-
-            // Preview border
-            DrawRectangle(previewX - 2, previewY - 2, previewWidth + 4, 2, Color.White);
-            DrawRectangle(previewX - 2, previewY + previewHeight, previewWidth + 4, 2, Color.White);
-            DrawRectangle(previewX - 2, previewY, 2, previewHeight, Color.White);
-            DrawRectangle(previewX + previewWidth, previewY, 2, previewHeight, Color.White);
-
-            textY += previewHeight + 15;
+        }
+        else
+        {
+            // Show loading text
+            DrawRectangle(previewX, previewY, previewWidth, previewHeight, new Color(30, 30, 50));
+            _font.DrawString(_spriteBatch, "Generating Preview...",
+                new Vector2(previewX + 160, previewY + 90), Color.Gray, 18);
         }
 
+        // Preview border
+        DrawRectangleBorder(previewX - 2, previewY - 2, previewWidth + 4, previewHeight + 4, Color.White, 2);
+
         // Draw preset buttons
-        DrawText("PRESETS:", Color.Gold);
-        DrawText($"  F6: Earth  |  F7: Mars  |  F8: Water World  |  F9: Desert", Color.Gray, 20);
-        textY += 8;
+        foreach (var button in _buttons)
+        {
+            bool hover = button.Bounds.Contains(mousePos);
+            Color bgColor = hover ? Color.Lerp(button.Color, Color.White, 0.3f) : button.Color;
 
-        DrawText($"Seed: {options.Seed}", Color.White);
-        DrawText($"  R: Randomize", Color.Gray, 20);
-        textY += 3;
+            DrawRectangle(button.Bounds.X, button.Bounds.Y, button.Bounds.Width, button.Bounds.Height, bgColor);
+            DrawRectangleBorder(button.Bounds.X, button.Bounds.Y, button.Bounds.Width, button.Bounds.Height, Color.White, 2);
 
-        DrawText($"Map Size: {options.MapWidth}x{options.MapHeight}", Color.Cyan);
-        DrawText($"  1/2: Small/Large", Color.Gray, 20);
-        textY += 3;
+            var textSize = _font.MeasureString(button.Name, 16);
+            float textX = button.Bounds.X + (button.Bounds.Width - textSize.X) / 2;
+            float textY = button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2;
+            _font.DrawString(_spriteBatch, button.Name, new Vector2(textX, textY), Color.White, 16);
+        }
 
-        DrawText($"Land Ratio: {options.LandRatio:P0}", Color.LightGreen);
-        DrawText($"  Q/W: Less/More Land", Color.Gray, 20);
-        DrawBar(panelX + 250, textY - 38, 200, options.LandRatio, Color.Green);
-        textY += 3;
+        // Draw sliders
+        int labelX = panelX + 20;
+        foreach (var slider in _sliders)
+        {
+            float value = GetSliderValue(slider.Name, options);
 
-        DrawText($"Mountain Level: {options.MountainLevel:P0}", Color.Orange);
-        DrawText($"  A/S: Flatter/Mountainous", Color.Gray, 20);
-        DrawBar(panelX + 250, textY - 38, 200, options.MountainLevel, Color.SaddleBrown);
-        textY += 3;
+            // Label
+            string label = slider.Name switch
+            {
+                "LandRatio" => $"Land Ratio: {value:P0}",
+                "MountainLevel" => $"Mountains: {value:P0}",
+                "WaterLevel" => $"Water: {(value * 2f - 1f):F2}",
+                "Persistence" => $"Smoothness: {value:F2}",
+                "Lacunarity" => $"Detail: {(1f + value * 3f):F2}",
+                _ => slider.Name
+            };
 
-        DrawText($"Water Level: {options.WaterLevel:F2}", Color.LightBlue);
-        DrawText($"  Z/X: Lower/Higher Seas", Color.Gray, 20);
-        float waterNorm = (options.WaterLevel + 1.0f) / 2.0f;
-        DrawBar(panelX + 250, textY - 38, 200, waterNorm, Color.Blue);
-        textY += 3;
+            Color labelColor = slider.Name switch
+            {
+                "LandRatio" => Color.LightGreen,
+                "MountainLevel" => Color.Orange,
+                "WaterLevel" => Color.LightBlue,
+                "Persistence" => Color.Magenta,
+                "Lacunarity" => Color.Yellow,
+                _ => Color.White
+            };
 
-        DrawText($"Persistence: {options.Persistence:F2}", Color.Magenta);
-        DrawText($"  E/D: Smoother/Rougher", Color.Gray, 20);
-        DrawBar(panelX + 250, textY - 38, 200, options.Persistence, Color.Purple);
-        textY += 3;
+            _font.DrawString(_spriteBatch, label, new Vector2(labelX, slider.Bounds.Y), labelColor, 14);
 
-        DrawText($"Lacunarity: {options.Lacunarity:F2}", Color.Yellow);
-        DrawText($"  C/V: Less/More Detail", Color.Gray, 20);
-        DrawBar(panelX + 250, textY - 38, 200, (options.Lacunarity - 1.0f) / 2.0f, Color.Gold);
-        textY += 5;
+            // Slider background
+            DrawRectangle(slider.Bounds.X, slider.Bounds.Y, slider.Bounds.Width, slider.Bounds.Height, new Color(40, 40, 40, 200));
 
-        DrawText("M: Close  |  ENTER: Generate New Planet  |  ESC: Cancel", Color.LightGreen, 60);
+            // Slider fill
+            int fillWidth = (int)(slider.Bounds.Width * value);
+            DrawRectangle(slider.Bounds.X, slider.Bounds.Y, fillWidth, slider.Bounds.Height, labelColor);
+
+            // Slider border
+            DrawRectangleBorder(slider.Bounds.X, slider.Bounds.Y, slider.Bounds.Width, slider.Bounds.Height, Color.White, 1);
+
+            // Slider handle
+            int handleX = slider.Bounds.X + fillWidth - 5;
+            DrawRectangle(handleX, slider.Bounds.Y - 2, 10, slider.Bounds.Height + 4, Color.White);
+        }
+
+        // Instructions
+        string info = $"Seed: {options.Seed} | Size: {options.MapWidth}x{options.MapHeight}";
+        _font.DrawString(_spriteBatch, info, new Vector2(panelX + 20, panelY + panelHeight - 30), Color.Gray, 12);
     }
 
     private void DrawRectangle(int x, int y, int width, int height, Color color)
@@ -208,63 +379,79 @@ public class MapOptionsUI
         _spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, height), color);
     }
 
+    private void DrawRectangleBorder(int x, int y, int width, int height, Color color, int thickness)
+    {
+        DrawRectangle(x, y, width, thickness, color); // Top
+        DrawRectangle(x, y + height - thickness, width, thickness, color); // Bottom
+        DrawRectangle(x, y, thickness, height, color); // Left
+        DrawRectangle(x + width - thickness, y, thickness, height, color); // Right
+    }
+
     public static void ApplyEarthPreset(MapGenerationOptions options)
     {
-        // Earth-like planet: 29% land, 71% water
         options.LandRatio = 0.29f;
-        options.MountainLevel = 0.5f; // Moderate mountains
-        options.WaterLevel = 0.0f; // Sea level at zero
-        options.Persistence = 0.55f; // Realistic terrain variation
-        options.Lacunarity = 2.1f; // Good detail level
+        options.MountainLevel = 0.5f;
+        options.WaterLevel = 0.0f;
+        options.Persistence = 0.55f;
+        options.Lacunarity = 2.1f;
         options.Octaves = 6;
     }
 
     public static void ApplyMarsPreset(MapGenerationOptions options)
     {
-        // Mars: Dry, barren, higher mountains (Olympus Mons)
-        options.LandRatio = 1.0f; // All land (dry)
-        options.MountainLevel = 0.7f; // High mountains
-        options.WaterLevel = -0.5f; // Very low valleys
-        options.Persistence = 0.6f; // Varied terrain
+        options.LandRatio = 1.0f;
+        options.MountainLevel = 0.7f;
+        options.WaterLevel = -0.5f;
+        options.Persistence = 0.6f;
         options.Lacunarity = 2.0f;
         options.Octaves = 7;
     }
 
     public static void ApplyWaterWorldPreset(MapGenerationOptions options)
     {
-        // Ocean planet: 90% water, small islands
         options.LandRatio = 0.1f;
-        options.MountainLevel = 0.3f; // Low islands
-        options.WaterLevel = 0.3f; // High sea level
-        options.Persistence = 0.45f; // Smooth terrain
+        options.MountainLevel = 0.3f;
+        options.WaterLevel = 0.3f;
+        options.Persistence = 0.45f;
         options.Lacunarity = 1.8f;
         options.Octaves = 5;
     }
 
     public static void ApplyDesertWorldPreset(MapGenerationOptions options)
     {
-        // Desert planet (like Dune): Lots of land, low water
         options.LandRatio = 0.85f;
-        options.MountainLevel = 0.4f; // Moderate dunes/mountains
-        options.WaterLevel = -0.3f; // Low sea level
+        options.MountainLevel = 0.4f;
+        options.WaterLevel = -0.3f;
         options.Persistence = 0.5f;
-        options.Lacunarity = 2.5f; // Fine sand detail
+        options.Lacunarity = 2.5f;
         options.Octaves = 8;
     }
 
-    private void DrawBar(int x, int y, int width, float value, Color color)
+    private class UIButton
     {
-        // Background
-        DrawRectangle(x, y, width, 16, new Color(50, 50, 50, 200));
+        public string Name { get; set; }
+        public Rectangle Bounds { get; set; }
+        public Color Color { get; set; }
+        public Action<MapGenerationOptions> OnClick { get; set; }
 
-        // Fill
-        int fillWidth = (int)(width * Math.Clamp(value, 0, 1));
-        DrawRectangle(x, y, fillWidth, 16, color);
+        public UIButton(string name, Rectangle bounds, Color color, Action<MapGenerationOptions> onClick)
+        {
+            Name = name;
+            Bounds = bounds;
+            Color = color;
+            OnClick = onClick;
+        }
+    }
 
-        // Border
-        DrawRectangle(x, y, width, 1, Color.White);
-        DrawRectangle(x, y + 15, width, 1, Color.White);
-        DrawRectangle(x, y, 1, 16, Color.White);
-        DrawRectangle(x + width - 1, y, 1, 16, Color.White);
+    private class UISlider
+    {
+        public string Name { get; set; }
+        public Rectangle Bounds { get; set; }
+
+        public UISlider(string name, Rectangle bounds)
+        {
+            Name = name;
+            Bounds = bounds;
+        }
     }
 }
