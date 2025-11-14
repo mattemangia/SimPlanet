@@ -106,30 +106,109 @@ public class SedimentColumnViewer
         int lineHeight = 20;
 
         // Title
-        _font.DrawString(spriteBatch, $"SEDIMENT COLUMN ({x},{y})",
+        _font.DrawString(spriteBatch, $"TILE INFO ({x},{y})",
             new Vector2(panelX + 10, textY), Color.Yellow);
-        textY += lineHeight * 2;
+        textY += lineHeight + 5;
 
-        // Cell info
-        _font.DrawString(spriteBatch, $"Elevation: {cell.Elevation:F3}",
+        // === BIOME & TERRAIN ===
+        _font.DrawString(spriteBatch, "=== TERRAIN ===",
+            new Vector2(panelX + 10, textY), Color.Orange);
+        textY += lineHeight;
+
+        string biomeType = GetBiomeType(cell);
+        Color biomeColor = GetBiomeColor(cell);
+        _font.DrawString(spriteBatch, $"Biome: {biomeType}",
+            new Vector2(panelX + 10, textY), biomeColor);
+        textY += lineHeight;
+
+        _font.DrawString(spriteBatch, $"Elevation: {cell.Elevation:F2}",
             new Vector2(panelX + 10, textY), Color.White);
         textY += lineHeight;
 
-        _font.DrawString(spriteBatch, $"Sediment Layer: {geo.SedimentLayer:F3}",
-            new Vector2(panelX + 10, textY), Color.White);
+        _font.DrawString(spriteBatch, $"Temperature: {cell.Temperature:F1}°C",
+            new Vector2(panelX + 10, textY), GetTempColor(cell.Temperature));
         textY += lineHeight;
 
-        _font.DrawString(spriteBatch, $"Flood Level: {geo.FloodLevel:F3}",
-            new Vector2(panelX + 10, textY), GetFloodColor(geo.FloodLevel));
+        _font.DrawString(spriteBatch, $"Rainfall: {cell.Rainfall:F2}",
+            new Vector2(panelX + 10, textY), GetRainfallColor(cell.Rainfall));
+        textY += lineHeight + 3;
+
+        // === LIFE ===
+        if (cell.Biomass > 0.01f)
+        {
+            _font.DrawString(spriteBatch, "=== LIFE ===",
+                new Vector2(panelX + 10, textY), Color.LightGreen);
+            textY += lineHeight;
+
+            _font.DrawString(spriteBatch, $"Type: {cell.LifeType}",
+                new Vector2(panelX + 10, textY), Color.White);
+            textY += lineHeight;
+
+            _font.DrawString(spriteBatch, $"Biomass: {cell.Biomass:F2}",
+                new Vector2(panelX + 10, textY), Color.Green);
+            textY += lineHeight + 3;
+        }
+
+        // === VOLCANO ===
+        if (geo.IsVolcano)
+        {
+            _font.DrawString(spriteBatch, "=== VOLCANO ===",
+                new Vector2(panelX + 10, textY), Color.Red);
+            textY += lineHeight;
+
+            _font.DrawString(spriteBatch, $"Activity: {geo.VolcanicActivity:P0}",
+                new Vector2(panelX + 10, textY), Color.OrangeRed);
+            textY += lineHeight;
+
+            _font.DrawString(spriteBatch, $"Magma Pressure: {geo.MagmaPressure:P0}",
+                new Vector2(panelX + 10, textY), GetPressureColor(geo.MagmaPressure));
+            textY += lineHeight;
+
+            string eruptionState = geo.MagmaPressure > 0.8f ? "ERUPTING!" :
+                                   geo.MagmaPressure > 0.6f ? "Critical" :
+                                   geo.MagmaPressure > 0.4f ? "Building" : "Dormant";
+            _font.DrawString(spriteBatch, $"State: {eruptionState}",
+                new Vector2(panelX + 10, textY),
+                geo.MagmaPressure > 0.8f ? Color.Yellow : Color.Gray);
+            textY += lineHeight + 3;
+        }
+
+        // === ATMOSPHERE ===
+        _font.DrawString(spriteBatch, "=== ATMOSPHERE ===",
+            new Vector2(panelX + 10, textY), Color.LightBlue);
         textY += lineHeight;
 
-        _font.DrawString(spriteBatch, $"Tide Level: {geo.TideLevel:F3}",
+        _font.DrawString(spriteBatch, $"Oxygen: {cell.Oxygen:F1}%",
             new Vector2(panelX + 10, textY), Color.Cyan);
         textY += lineHeight;
 
-        _font.DrawString(spriteBatch, $"Water Flow: {geo.WaterFlow:F3}",
-            new Vector2(panelX + 10, textY), Color.LightBlue);
-        textY += lineHeight * 2;
+        _font.DrawString(spriteBatch, $"CO2: {cell.CO2:F1}%",
+            new Vector2(panelX + 10, textY), Color.Yellow);
+        textY += lineHeight;
+
+        _font.DrawString(spriteBatch, $"Humidity: {cell.Humidity:F2}",
+            new Vector2(panelX + 10, textY), Color.LightCyan);
+        textY += lineHeight + 3;
+
+        // === GEOLOGY ===
+        _font.DrawString(spriteBatch, "=== GEOLOGY ===",
+            new Vector2(panelX + 10, textY), Color.Orange);
+        textY += lineHeight;
+
+        _font.DrawString(spriteBatch, $"Plate Boundary: {geo.BoundaryType}",
+            new Vector2(panelX + 10, textY), GetBoundaryColor(geo.BoundaryType));
+        textY += lineHeight;
+
+        if (geo.TectonicStress > 0.1f)
+        {
+            _font.DrawString(spriteBatch, $"Tectonic Stress: {geo.TectonicStress:P0}",
+                new Vector2(panelX + 10, textY), Color.Yellow);
+            textY += lineHeight;
+        }
+
+        _font.DrawString(spriteBatch, $"Sediment Layer: {geo.SedimentLayer:F2}",
+            new Vector2(panelX + 10, textY), Color.White);
+        textY += lineHeight + 5;
 
         // Sediment column header
         _font.DrawString(spriteBatch, "SEDIMENT COLUMN DIAGRAM:",
@@ -378,6 +457,73 @@ public class SedimentColumnViewer
         if (floodLevel < 0.3f) return Color.Yellow;
         if (floodLevel < 0.6f) return Color.Orange;
         return Color.Red;
+    }
+
+    private string GetBiomeType(PlanetCell cell)
+    {
+        if (cell.Elevation < 0.0f) return "Ocean";
+        if (cell.Elevation < 0.05f) return "Coastal";
+        if (cell.Temperature < -20f) return "Polar Ice";
+        if (cell.Temperature < 0f && cell.Rainfall > 0.3f) return "Tundra";
+        if (cell.Temperature < 0f) return "Polar Desert";
+        if (cell.Rainfall < 0.1f && cell.Temperature > 25f) return "Desert";
+        if (cell.Rainfall < 0.2f && cell.Temperature > 20f) return "Arid";
+        if (cell.Rainfall > 0.7f && cell.Temperature > 20f) return "Rainforest";
+        if (cell.Rainfall > 0.5f && cell.Temperature > 15f) return "Tropical Forest";
+        if (cell.Rainfall > 0.4f && cell.Temperature > 10f) return "Temperate Forest";
+        if (cell.Rainfall > 0.3f && cell.Temperature > 5f) return "Grassland";
+        if (cell.Rainfall < 0.3f) return "Savanna";
+        if (cell.Elevation > 0.6f) return "Mountain";
+        return "Plains";
+    }
+
+    private Color GetBiomeColor(PlanetCell cell)
+    {
+        if (cell.Elevation < 0.0f) return new Color(50, 100, 200); // Ocean
+        if (cell.Temperature < -20f) return Color.White; // Ice
+        if (cell.Temperature < 0f) return Color.LightBlue; // Cold
+        if (cell.Rainfall < 0.1f) return new Color(240, 200, 100); // Desert
+        if (cell.Rainfall > 0.7f) return new Color(0, 150, 0); // Rainforest
+        if (cell.Rainfall > 0.4f) return new Color(50, 200, 50); // Forest
+        return new Color(150, 200, 100); // Grassland
+    }
+
+    private Color GetTempColor(float temp)
+    {
+        if (temp < -20f) return new Color(150, 200, 255); // Very cold
+        if (temp < 0f) return Color.Cyan; // Cold
+        if (temp < 15f) return Color.LightGreen; // Cool
+        if (temp < 25f) return Color.Yellow; // Warm
+        if (temp < 35f) return Color.Orange; // Hot
+        return Color.Red; // Very hot
+    }
+
+    private Color GetRainfallColor(float rainfall)
+    {
+        if (rainfall < 0.1f) return new Color(200, 150, 100); // Arid
+        if (rainfall < 0.3f) return Color.Yellow; // Dry
+        if (rainfall < 0.5f) return Color.LightGreen; // Moderate
+        if (rainfall < 0.7f) return Color.Green; // Wet
+        return new Color(0, 100, 200); // Very wet
+    }
+
+    private Color GetPressureColor(float pressure)
+    {
+        if (pressure > 0.8f) return Color.Red; // Critical
+        if (pressure > 0.6f) return Color.Orange; // High
+        if (pressure > 0.4f) return Color.Yellow; // Medium
+        return Color.Gray; // Low
+    }
+
+    private Color GetBoundaryColor(PlateBoundaryType boundaryType)
+    {
+        return boundaryType switch
+        {
+            PlateBoundaryType.Divergent => Color.Yellow,
+            PlateBoundaryType.Convergent => Color.Red,
+            PlateBoundaryType.Transform => Color.Orange,
+            _ => Color.Gray
+        };
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
