@@ -68,7 +68,7 @@ public class PlanetMap
                 float nx = x * scale;
                 float ny = y * scale;
 
-                // Generate height using multiple octaves
+                // Generate height using multiple octaves (returns 0-1)
                 float elevation = noise.OctaveNoise(
                     nx, ny,
                     Options.Octaves,
@@ -76,28 +76,37 @@ public class PlanetMap
                     Options.Lacunarity
                 );
 
+                // Apply POWER CURVE to increase contrast (prevent flat terrain)
+                // Higher exponent = more extreme highs and lows
+                float exponent = 2.2f;
+                elevation = (float)Math.Pow(elevation, exponent);
+
                 // Map to -1 to 1 range
                 elevation = elevation * 2 - 1;
 
-                // Shift elevation based on desired land ratio
-                // LandRatio of 0.3 means we want 30% land, so shift down
-                // We want the median to be at the right position
-                float landShift = (0.5f - Options.LandRatio) * 2.0f;
-                elevation -= landShift;
+                // Apply land ratio by shifting sea level
+                // LandRatio 0.3 means 30% should be land (above 0)
+                // So we shift down to make 70% below 0
+                float seaLevel = -1.0f + (Options.LandRatio * 2.0f);
+                elevation -= seaLevel;
 
-                // Add mountain features to higher areas
-                // MountainLevel controls how much mountainous terrain we add
-                if (elevation > 0.1f)
+                // Add sharp mountain peaks to elevated areas
+                if (elevation > 0.15f)
                 {
-                    float mountainNoise = noise.OctaveNoise(nx * 3, ny * 3, 3, 0.5f, 2.0f);
-                    // Mountain effect scales with base elevation and MountainLevel slider
-                    float mountainEffect = mountainNoise * Options.MountainLevel * elevation * 0.8f;
-                    elevation += mountainEffect;
+                    float mountainNoise = noise.OctaveNoise(nx * 2.5f, ny * 2.5f, 4, 0.65f, 2.2f);
+
+                    // Square the mountain noise to make peaks sharper
+                    mountainNoise = mountainNoise * mountainNoise;
+
+                    // Mountain height scales with MountainLevel slider and base elevation
+                    float mountainHeight = mountainNoise * Options.MountainLevel * elevation * 2.0f;
+                    elevation += mountainHeight;
                 }
 
-                // Apply water level (shifts the sea level up or down)
-                // Negative WaterLevel = less water, Positive WaterLevel = more water
-                elevation -= Options.WaterLevel;
+                // Apply water level offset (fine-tuning)
+                // Positive WaterLevel = raise sea level (more water)
+                // Negative WaterLevel = lower sea level (less water)
+                elevation += Options.WaterLevel;
 
                 Cells[x, y].Elevation = Math.Clamp(elevation, -1.0f, 1.0f);
             }

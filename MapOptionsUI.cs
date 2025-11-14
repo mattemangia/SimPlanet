@@ -415,42 +415,42 @@ public class MapOptionsUI
 
     public static void ApplyEarthPreset(MapGenerationOptions options)
     {
-        options.LandRatio = 0.29f;
-        options.MountainLevel = 0.5f;
-        options.WaterLevel = 0.0f;
-        options.Persistence = 0.55f;
-        options.Lacunarity = 2.1f;
+        options.LandRatio = 0.29f;      // 29% land (Earth-like)
+        options.MountainLevel = 0.6f;   // Moderate mountains
+        options.WaterLevel = 0.0f;      // Balanced sea level
+        options.Persistence = 0.5f;     // Smooth continents
+        options.Lacunarity = 2.0f;      // Normal detail
         options.Octaves = 6;
     }
 
     public static void ApplyMarsPreset(MapGenerationOptions options)
     {
-        options.LandRatio = 1.0f;
-        options.MountainLevel = 0.7f;
-        options.WaterLevel = -0.5f;
-        options.Persistence = 0.6f;
-        options.Lacunarity = 2.0f;
+        options.LandRatio = 0.95f;      // Almost all land (Mars has no oceans, only low areas)
+        options.MountainLevel = 0.8f;   // Very high mountains (Olympus Mons!)
+        options.WaterLevel = -0.2f;     // Lower "sea level" to create basins
+        options.Persistence = 0.55f;    // Rough terrain
+        options.Lacunarity = 2.2f;      // High detail
         options.Octaves = 7;
     }
 
     public static void ApplyWaterWorldPreset(MapGenerationOptions options)
     {
-        options.LandRatio = 0.1f;
-        options.MountainLevel = 0.3f;
-        options.WaterLevel = 0.3f;
-        options.Persistence = 0.45f;
-        options.Lacunarity = 1.8f;
+        options.LandRatio = 0.08f;      // Only 8% land (small islands)
+        options.MountainLevel = 0.3f;   // Low mountains on islands
+        options.WaterLevel = 0.15f;     // High sea level
+        options.Persistence = 0.4f;     // Smooth ocean floor
+        options.Lacunarity = 1.8f;      // Less detail (smoother)
         options.Octaves = 5;
     }
 
     public static void ApplyDesertWorldPreset(MapGenerationOptions options)
     {
-        options.LandRatio = 0.85f;
-        options.MountainLevel = 0.4f;
-        options.WaterLevel = -0.3f;
-        options.Persistence = 0.5f;
-        options.Lacunarity = 2.5f;
-        options.Octaves = 8;
+        options.LandRatio = 0.75f;      // 75% land (dry planet)
+        options.MountainLevel = 0.5f;   // Moderate dunes and plateaus
+        options.WaterLevel = -0.15f;    // Lower sea level (small seas/lakes)
+        options.Persistence = 0.45f;    // Sandy, smooth terrain
+        options.Lacunarity = 2.3f;      // Fine detail for dunes
+        options.Octaves = 7;
     }
 
     private class UIButton

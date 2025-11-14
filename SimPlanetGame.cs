@@ -89,9 +89,9 @@ public class SimPlanetGame : Game
         _mapOptions = new MapGenerationOptions
         {
             Seed = 12345,
-            LandRatio = 0.29f,  // Earth-like 29% land
-            MountainLevel = 0.5f,
-            WaterLevel = 0.0f,  // Sea level (negative = less water, positive = more water)
+            LandRatio = 0.29f,      // Earth-like 29% land
+            MountainLevel = 0.6f,   // Moderate mountains
+            WaterLevel = 0.0f,      // Balanced sea level
             Octaves = 6,
             Persistence = 0.5f,
             Lacunarity = 2.0f
