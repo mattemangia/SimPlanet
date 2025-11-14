@@ -504,16 +504,25 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Disease System & Terrain Generation Fixes
-- ✅ **Disease & Pandemic System** - Create and evolve 6 types of pathogens (Bacteria, Virus, Fungus, Parasite, Prion, Bioweapon)
-- ✅ **Realistic Disease Spread** - Diseases spread between civilizations via air travel, ships, land transport, and borders
+### Latest Update - Disease System & Complete Terrain Generation Overhaul
+
+**Disease & Pandemic System:**
+- ✅ **6 Pathogen Types** - Create and evolve Bacteria, Virus, Fungus, Parasite, Prion, or Bioweapon
+- ✅ **Realistic Spread** - Diseases spread between civilizations via air travel, ships, land transport, and borders
 - ✅ **Evolution System** - Upgrade transmission methods, symptoms, resistances, and special abilities
 - ✅ **Civilization Responses** - Civs detect diseases, close borders/airports/ports, activate quarantines, and research cures
 - ✅ **Cure Research** - Scientific/Spacefaring civs develop cures faster; drug resistance slows research
 - ✅ **Disease Control Center** - Full UI (Press K) for creating pandemics, evolving traits, tracking statistics
-- ✅ **Terrain Generation Overhaul** - Fixed LandRatio, WaterLevel, and MountainLevel sliders
+
+**Terrain Generation - Complete Rewrite:**
+- ✅ **Percentile-Based Land/Water** - LandRatio now guarantees exact percentages (30% = exactly 30% land)
+- ✅ **Working Mountains Slider** - MountainLevel properly controls mountain height and coverage
+- ✅ **Working Water Level** - Raises/lowers sea level to flood continents or expose ocean floor
+- ✅ **Manual Seed Input** - Click seed value to type exact number, or use +/- buttons
+- ✅ **All Sliders Functional** - Smoothness (Persistence) and Detail (Lacunarity) working correctly
+- ✅ **Real-time Preview** - See terrain changes instantly with responsive preview generation
+- ✅ **Sediment Column Diagram** - Professional geological column with visual patterns for each sediment type
 - ✅ **Improved Font Rendering** - Replaced broken pixel font with TrueType font rendering (FontStashSharp + Roboto)
-- ✅ **Better Terrain Formula** - Mountains now scale properly, water levels work correctly, land ratios are accurate
 
 ### Previous Update - Visual & Interaction Enhancements
 - ✅ **Day/Night Cycle** - Cities light up at night! Auto-enables when time speed drops below 0.5x
