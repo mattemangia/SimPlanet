@@ -108,7 +108,7 @@ public class GeologicalEventsUI
         for (int i = 0; i < _overlayColors.Length; i++)
             _overlayColors[i] = Color.Transparent;
 
-        // Render volcanoes to texture at 1:1 scale
+        // Render volcanoes to texture at 1:1 scale with thickness for visibility
         if (ShowVolcanoes)
         {
             for (int x = 0; x < _map.Width; x++)
@@ -118,17 +118,17 @@ public class GeologicalEventsUI
                     var geo = _map.Cells[x, y].GetGeology();
                     if (geo.IsVolcano)
                     {
-                        int index = y * _map.Width + x;
-                        // Simple marker - LOD effects will be drawn on top
                         Color volcanoColor = geo.VolcanicActivity > 0.5f
                             ? Color.Red : new Color(180, 60, 0);
-                        _overlayColors[index] = volcanoColor;
+
+                        // Draw 3x3 block for visibility when scaled
+                        SetTexturePixelThick(x, y, volcanoColor, 1);
                     }
                 }
             }
         }
 
-        // Render rivers to texture at 1:1 scale
+        // Render rivers to texture at 1:1 scale with thickness for visibility
         if (ShowRivers && _hydrologySim != null)
         {
             foreach (var river in _hydrologySim.Rivers)
@@ -137,8 +137,8 @@ public class GeologicalEventsUI
                 {
                     if (x >= 0 && x < _map.Width && y >= 0 && y < _map.Height)
                     {
-                        int index = y * _map.Width + x;
-                        _overlayColors[index] = new Color(100, 150, 255); // River blue
+                        // Draw 2-pixel thick rivers for better visibility
+                        SetTexturePixelThick(x, y, new Color(100, 150, 255), 1);
                     }
                 }
             }
@@ -162,8 +162,7 @@ public class GeologicalEventsUI
                             _ => Color.White
                         };
 
-                        int index = y * _map.Width + x;
-                        _overlayColors[index] = boundaryColor * 0.6f; // Base opacity
+                        SetTexturePixelThick(x, y, boundaryColor * 0.6f, 0);
                     }
                 }
             }
@@ -171,6 +170,29 @@ public class GeologicalEventsUI
 
         _overlayTexture.SetData(_overlayColors);
         _overlayDirty = false;
+    }
+
+    // Helper to set pixel with thickness for better visibility when scaled
+    private void SetTexturePixelThick(int x, int y, Color color, int thickness)
+    {
+        for (int dy = -thickness; dy <= thickness; dy++)
+        {
+            for (int dx = -thickness; dx <= thickness; dx++)
+            {
+                int nx = x + dx;
+                int ny = y + dy;
+
+                if (nx >= 0 && nx < _map.Width && ny >= 0 && ny < _map.Height)
+                {
+                    int index = ny * _map.Width + nx;
+                    // Blend with existing color (don't overwrite if already set)
+                    if (_overlayColors[index].A < color.A)
+                    {
+                        _overlayColors[index] = color;
+                    }
+                }
+            }
+        }
     }
 
     public void DrawOverlay(PlanetMap map, int offsetX, int offsetY, int cellSize, float zoomLevel = 1.0f)
