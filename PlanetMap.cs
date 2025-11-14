@@ -79,15 +79,17 @@ public class PlanetMap
                 // Map to -1 to 1 range
                 elevation = elevation * 2 - 1;
 
-                // Adjust based on land ratio
-                elevation -= (1.0f - Options.LandRatio * 2.0f) + Options.WaterLevel;
-
-                // Add some randomness for mountains
-                if (elevation > 0.3f)
+                // Add mountain features BEFORE water level adjustment for better effect
+                // Apply mountains to higher elevation areas
+                if (elevation > -0.2f)
                 {
                     float mountainNoise = noise.OctaveNoise(nx * 3, ny * 3, 3, 0.5f, 2.0f);
-                    elevation += mountainNoise * Options.MountainLevel * 0.3f;
+                    // Increased multiplier from 0.3 to 0.6 for more visible mountains
+                    elevation += mountainNoise * Options.MountainLevel * 0.6f;
                 }
+
+                // Adjust based on land ratio and water level
+                elevation -= (1.0f - Options.LandRatio * 2.0f) + Options.WaterLevel;
 
                 Cells[x, y].Elevation = Math.Clamp(elevation, -1.0f, 1.0f);
             }

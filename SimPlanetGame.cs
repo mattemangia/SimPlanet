@@ -89,7 +89,7 @@ public class SimPlanetGame : Game
             Seed = 12345,
             LandRatio = 0.29f,  // Earth-like 29% land
             MountainLevel = 0.5f,
-            WaterLevel = -0.1f,  // Slightly lower to ensure land appears
+            WaterLevel = -0.6f,  // Lower value to ensure continents are visible (-1.0 to 1.0 range)
             Octaves = 6,
             Persistence = 0.5f,
             Lacunarity = 2.0f
