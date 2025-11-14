@@ -606,6 +606,14 @@ Potential additions (not yet implemented):
 - ✅ **True Planetary Topology** - Map wraps horizontally just like a sphere
 - ✅ **Consistent Mountains** - Mountain ranges flow naturally across the wrap boundary
 
+**Improved Help Dialog - NEW!**
+- ✅ **2-Column Layout** - Help panel now uses efficient 2-column design that fits on screen
+- ✅ **Better Organization** - Controls grouped by category: Keyboard, Mouse, View Modes, Weather, Overlays, Advanced Tools
+- ✅ **Compact Design** - Reduced from 600px to 400px height while showing all information
+- ✅ **Clearer Sections** - Color-coded headers and better visual hierarchy
+- ✅ **Professional Border** - Yellow border highlights the help panel
+- ✅ **Wider Panel** - Increased to 780px width to accommodate 2 columns comfortably
+
 **Overlay Zoom Synchronization & Level-of-Detail - NEW!**
 - ✅ **Perfect Overlay Sync** - Rivers, volcanoes, and plate boundaries now stay aligned with terrain during zoom
 - ✅ **Enhanced River Detail** - River line width scales from 2px to 6px when zooming in

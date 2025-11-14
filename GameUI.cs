@@ -267,66 +267,91 @@ public class GameUI
 
     private void DrawHelpPanel()
     {
-        // Position help panel in the map area (right side)
+        // Position help panel in the map area (centered with 2 columns)
         int infoPanelWidth = 400;
         int panelX = infoPanelWidth + 20;
         int panelY = 20;
-        int panelWidth = 520;
-        int panelHeight = Math.Min(600, _graphicsDevice.Viewport.Height - 40);
+        int panelWidth = 780;
+        int panelHeight = Math.Min(400, _graphicsDevice.Viewport.Height - 40);
 
-        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 180));
+        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 200));
+        DrawBorder(panelX, panelY, panelWidth, panelHeight, Color.Yellow, 2);
 
-        int textY = panelY + 10;
-        int lineHeight = 20;
+        int lineHeight = 18;
+        int columnWidth = (panelWidth - 30) / 2;
+        int leftColX = panelX + 10;
+        int rightColX = panelX + columnWidth + 20;
 
-        void DrawText(string text, Color color)
+        // Helper to draw text in columns
+        void DrawTextAt(string text, Color color, int x, int y)
         {
-            _font.DrawString(_spriteBatch, text, new Vector2(panelX + 10, textY), color);
-            textY += lineHeight;
+            _font.DrawString(_spriteBatch, text, new Vector2(x, y), color);
         }
 
-        DrawText("=== CONTROLS ===", Color.Yellow);
-        DrawText("SPACE: Pause/Resume", Color.White);
-        DrawText("1-0: View modes", Color.White);
-        DrawText("  1: Terrain  2: Temp  3: Rain", Color.Gray);
-        DrawText("  4: Life  5: O2  6: CO2  7: Elev", Color.Gray);
-        DrawText("  8: Geology  9: Plates  0: Volc", Color.Gray);
-        DrawText("F1-F4: Meteorology views", Color.White);
-        DrawText("  F1: Clouds  F2: Wind", Color.Gray);
-        DrawText("  F3: Pressure  F4: Storms", Color.Gray);
-        DrawText("+/-: Time speed  L: Seed life", Color.White);
-        DrawText("C: Day/Night cycle (auto at <0.5x)", Color.Cyan);
-        DrawText("Mouse Wheel: Zoom", Color.Cyan);
-        DrawText("Middle Click+Drag: Pan camera", Color.Cyan);
-        DrawText("P: 3D Minimap  M: Map options", Color.White);
-        DrawText("V/B/N: Volc/Rivers/Plates", Color.White);
-        DrawText("R: Regenerate  H: Help", Color.White);
-        DrawText("D: Disasters  K: Pandemics", Color.White);
-        DrawText("T: Manual planting  G: Control civ", Color.White);
-        DrawText("Y: Auto-stabilizer", Color.Cyan);
-        DrawText("F5: Quick Save  F9: Quick Load", Color.Cyan);
-        DrawText("ESC: Pause/Menu", Color.White);
-        textY += 5;
+        int leftY = panelY + 10;
+        int rightY = panelY + 10;
 
-        DrawText("=== INTERACTIVE CONTROLS ===", Color.Yellow);
-        DrawText("Use buttons at bottom of screen:", Color.White);
-        DrawText("  Terraform: Restore habitats", Color.Green);
-        DrawText("  Cool: Reduce global temp", Color.LightBlue);
-        DrawText("  Seed Life: Add bacteria", Color.LightGreen);
-        DrawText("  Clear Pollution: Reduce CO2", Color.Cyan);
-        textY += 5;
+        // Left Column - Main Controls
+        DrawTextAt("=== KEYBOARD CONTROLS ===", Color.Yellow, leftColX, leftY);
+        leftY += lineHeight + 3;
+        DrawTextAt("SPACE: Pause/Resume", Color.White, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("+/-: Time speed", Color.White, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("ESC: Pause/Menu", Color.White, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("H: Toggle Help", Color.White, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("R: Regenerate planet", Color.White, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("L: Seed life", Color.White, leftColX, leftY); leftY += lineHeight;
+        leftY += 5;
 
-        DrawText("=== GAME INFO ===", Color.Cyan);
-        DrawText("Watch your planet evolve!", Color.White);
-        DrawText("Life emerges and evolves through", Color.White);
-        DrawText("bacteria to civilizations.", Color.White);
-        DrawText("Weather systems, plate tectonics,", Color.White);
-        DrawText("and geological events shape the", Color.White);
-        DrawText("world. Civilizations develop tech", Color.White);
-        DrawText("and interact with the environment.", Color.White);
-        textY += 5;
+        DrawTextAt("=== VIEW MODES (1-0) ===", Color.Yellow, leftColX, leftY);
+        leftY += lineHeight + 3;
+        DrawTextAt("1: Terrain  2: Temperature", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("3: Rainfall  4: Life forms", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("5: Oxygen  6: CO2", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("7: Elevation  8: Geology", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("9: Plates  0: Volcanoes", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        leftY += 5;
 
-        DrawText("Press H to hide this panel", Color.Yellow);
+        DrawTextAt("=== WEATHER (F1-F4) ===", Color.Yellow, leftColX, leftY);
+        leftY += lineHeight + 3;
+        DrawTextAt("F1: Clouds  F2: Wind", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("F3: Pressure  F4: Storms", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        leftY += 5;
+
+        DrawTextAt("=== SAVE/LOAD ===", Color.Yellow, leftColX, leftY);
+        leftY += lineHeight + 3;
+        DrawTextAt("F5: Quick Save", Color.Cyan, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("F9: Quick Load", Color.Cyan, leftColX, leftY); leftY += lineHeight;
+
+        // Right Column - Mouse & Advanced Controls
+        DrawTextAt("=== MOUSE CONTROLS ===", Color.Yellow, rightColX, rightY);
+        rightY += lineHeight + 3;
+        DrawTextAt("Mouse Wheel: Zoom in/out", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("Middle Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("Bottom Buttons: Interactive tools", Color.White, rightColX, rightY); rightY += lineHeight;
+        rightY += 5;
+
+        DrawTextAt("=== OVERLAYS & FEATURES ===", Color.Yellow, rightColX, rightY);
+        rightY += lineHeight + 3;
+        DrawTextAt("V: Toggle volcanoes", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("B: Toggle rivers", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("N: Toggle plate boundaries", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("P: Toggle 3D minimap", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("M: Map options", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("C: Day/Night cycle", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        rightY += 5;
+
+        DrawTextAt("=== ADVANCED TOOLS ===", Color.Yellow, rightColX, rightY);
+        rightY += lineHeight + 3;
+        DrawTextAt("D: Disaster controls", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("K: Pandemic controls", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("T: Manual planting tool", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("G: Control civilization", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("Y: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+
+        // Footer
+        int footerY = panelY + panelHeight - 25;
+        DrawTextAt("Watch your planet evolve from bacteria to civilizations with realistic geology and climate!",
+            Color.LightGray, leftColX, footerY);
     }
 
     private void DrawRectangle(int x, int y, int width, int height, Color color)
