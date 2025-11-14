@@ -297,6 +297,121 @@ public class CivilizationManager
             int popLoss = (int)(civ.Population * 0.05f * deltaTime);
             civ.Population = Math.Max(civ.Population - popLoss, 100);
         }
+
+        // Natural resource extraction
+        ExtractNaturalResources(civ, deltaTime);
+    }
+
+    private void ExtractNaturalResources(Civilization civ, float deltaTime)
+    {
+        // Reset annual production tracking
+        civ.AnnualProduction.Clear();
+        civ.ProductionBonus = 1.0f;
+
+        // Determine extraction tech level based on civilization type
+        ExtractionTech civTech = civ.CivType switch
+        {
+            CivType.Tribal => ExtractionTech.Primitive,
+            CivType.Agricultural => ExtractionTech.Medieval,
+            CivType.Industrial => ExtractionTech.Industrial,
+            CivType.Scientific => ExtractionTech.Modern,
+            CivType.Spacefaring => ExtractionTech.Advanced,
+            _ => ExtractionTech.Primitive
+        };
+
+        // Scan territory for resources
+        foreach (var (x, y) in civ.Territory)
+        {
+            var cell = _map.Cells[x, y];
+            var resources = cell.GetResources();
+
+            foreach (var deposit in resources)
+            {
+                // Can we extract this resource?
+                if (deposit.RequiredTech > civTech) continue;
+                if (deposit.Amount <= 0) continue;
+
+                // Discover resource if not yet found
+                if (!deposit.Discovered)
+                {
+                    deposit.Discovered = true;
+                    // Create a mine/well if tech level allows
+                    if (!civ.ActiveMines.Exists(m => m.x == x && m.y == y && m.type == deposit.Type))
+                    {
+                        civ.ActiveMines.Add((x, y, deposit.Type));
+                    }
+                }
+
+                // Calculate extraction rate based on tech and depth
+                float baseExtraction = 0.001f; // Base extraction rate
+                float techMultiplier = civTech switch
+                {
+                    ExtractionTech.Primitive => 0.5f,
+                    ExtractionTech.Medieval => 1.0f,
+                    ExtractionTech.Industrial => 3.0f,
+                    ExtractionTech.Modern => 5.0f,
+                    ExtractionTech.Advanced => 10.0f,
+                    _ => 1.0f
+                };
+
+                // Deeper deposits are harder to extract
+                float depthPenalty = 1.0f - (deposit.Depth * 0.5f);
+
+                float extractionAmount = baseExtraction * techMultiplier * depthPenalty * deltaTime;
+
+                // Extract resource
+                float extracted = cell.ExtractResource(deposit.Type, extractionAmount);
+
+                // Add to stockpile
+                if (!civ.ResourceStockpile.ContainsKey(deposit.Type))
+                {
+                    civ.ResourceStockpile[deposit.Type] = 0;
+                }
+                civ.ResourceStockpile[deposit.Type] += extracted;
+
+                // Track annual production
+                if (!civ.AnnualProduction.ContainsKey(deposit.Type))
+                {
+                    civ.AnnualProduction[deposit.Type] = 0;
+                }
+                civ.AnnualProduction[deposit.Type] += extracted / deltaTime;
+            }
+        }
+
+        // Calculate production bonus from strategic resources
+        civ.ProductionBonus = 1.0f;
+
+        // Iron boosts all production
+        if (civ.ResourceStockpile.GetValueOrDefault(ResourceType.Iron, 0) > 1.0f)
+        {
+            civ.ProductionBonus += 0.2f;
+        }
+
+        // Coal/Oil boosts industrial output
+        if (civ.CivType >= CivType.Industrial)
+        {
+            if (civ.ResourceStockpile.GetValueOrDefault(ResourceType.Coal, 0) > 0.5f ||
+                civ.ResourceStockpile.GetValueOrDefault(ResourceType.Oil, 0) > 0.5f)
+            {
+                civ.ProductionBonus += 0.3f;
+            }
+        }
+
+        // Uranium enables nuclear power
+        if (civ.CivType >= CivType.Scientific &&
+            civ.ResourceStockpile.GetValueOrDefault(ResourceType.Uranium, 0) > 0.1f)
+        {
+            civ.ProductionBonus += 0.5f;
+        }
+
+        // Apply production bonus to resource generation
+        civ.MetalProduction *= civ.ProductionBonus;
+
+        // Cap stockpiles
+        foreach (var key in civ.ResourceStockpile.Keys.ToList())
+        {
+            civ.ResourceStockpile[key] = Math.Min(civ.ResourceStockpile[key], 100f);
+        }
     }
 
     private void ExpandTerritory(Civilization civ, int cells)
@@ -845,6 +960,12 @@ public class Civilization
     public bool HasNuclearWeapons { get; set; } = false;
     public int NuclearStockpile { get; set; } = 0;
     public List<(int x, int y, int year)> NuclearStrikes { get; set; } = new();
+
+    // Resource extraction
+    public Dictionary<ResourceType, float> ResourceStockpile { get; set; } = new();
+    public Dictionary<ResourceType, float> AnnualProduction { get; set; } = new();
+    public List<(int x, int y, ResourceType type)> ActiveMines { get; set; } = new();
+    public float ProductionBonus { get; set; } = 1.0f; // Multiplier from resources
 
     // Resources
     public float Food { get; set; } = 100.0f;            // From hunting, farming, fishing

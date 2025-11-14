@@ -95,6 +95,7 @@ public class TerrainRenderer
                     RenderMode.Pressure => GetPressureColor(cell),
                     RenderMode.Storms => GetStormsColor(cell),
                     RenderMode.Biomes => GetBiomeColor(cell),
+                    RenderMode.Resources => GetResourcesColor(cell),
                     _ => Color.Black
                 };
 
@@ -543,6 +544,49 @@ public class TerrainRenderer
         return color;
     }
 
+    private Color GetResourcesColor(TerrainCell cell)
+    {
+        // Show all resources at this location
+        var resources = cell.GetResources();
+
+        if (resources.Count == 0)
+        {
+            // No resources - show terrain base color
+            if (cell.IsWater)
+                return new Color(30, 60, 100);
+            else
+                return new Color(60, 50, 40);
+        }
+
+        // Find the most valuable/abundant resource
+        ResourceDeposit? dominantResource = null;
+        float maxValue = 0;
+
+        foreach (var deposit in resources)
+        {
+            float value = deposit.Amount * deposit.Concentration;
+            if (value > maxValue)
+            {
+                maxValue = value;
+                dominantResource = deposit;
+            }
+        }
+
+        if (dominantResource == null)
+            return new Color(60, 50, 40);
+
+        // Get resource color and blend with amount/concentration
+        Color resourceColor = ResourceExtensions.GetResourceColor(dominantResource.Type);
+
+        // Intensity based on amount and concentration
+        float intensity = dominantResource.Amount * dominantResource.Concentration;
+        intensity = Math.Clamp(intensity, 0.3f, 1.0f);
+
+        // Blend with base terrain
+        Color baseColor = cell.IsWater ? new Color(30, 60, 100) : new Color(60, 50, 40);
+        return Color.Lerp(baseColor, resourceColor, intensity);
+    }
+
     public void Dispose()
     {
         _pixelTexture?.Dispose();
@@ -566,5 +610,6 @@ public enum RenderMode
     Wind,
     Pressure,
     Storms,
-    Biomes
+    Biomes,
+    Resources
 }

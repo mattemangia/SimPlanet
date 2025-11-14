@@ -53,6 +53,10 @@ public class PlanetMap
 
         GenerateTerrain();
         InitializeClimate();
+
+        // Generate natural resources after terrain and climate are set
+        var resourceGenerator = new ResourceGenerator(this, options.Seed);
+        resourceGenerator.GenerateResources();
     }
 
     private void GenerateTerrain()

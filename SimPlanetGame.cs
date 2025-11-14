@@ -354,6 +354,10 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.F10) && _previousKeyState.IsKeyUp(Keys.F10))
             _currentRenderMode = RenderMode.Biomes;
 
+        // Resources view mode (F11)
+        if (keyState.IsKeyDown(Keys.F11) && _previousKeyState.IsKeyUp(Keys.F11))
+            _currentRenderMode = RenderMode.Resources;
+
         // Toggle day/night cycle (C key)
         if (keyState.IsKeyDown(Keys.C) && _previousKeyState.IsKeyUp(Keys.C))
         {
@@ -703,6 +707,7 @@ public class SimPlanetGame : Game
         TerrainCellExtensions.ClearGeologicalData();
         MeteorologicalExtensions.ClearMeteorologicalData();
         BiomeExtensions.ClearBiomeData();
+        ResourceExtensions.ClearResourceData();
 
         // Recreate simulators
         _climateSimulator = new ClimateSimulator(_map);
