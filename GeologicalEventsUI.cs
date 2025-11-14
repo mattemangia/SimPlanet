@@ -86,9 +86,8 @@ public class GeologicalEventsUI
     {
         if (_geologicalSim == null) return;
 
-        // cellSize is base size (4 pixels) - DON'T multiply by zoomLevel
-        // The terrain renderer already handles zoom scaling
-        // We only scale visual elements (line widths, symbol sizes) for level-of-detail
+        // Calculate zoomed cell size for proper positioning
+        int zoomedCellSize = (int)(cellSize * zoomLevel);
 
         // Draw volcanoes with level-of-detail enhancement
         if (ShowVolcanoes)
@@ -100,10 +99,10 @@ public class GeologicalEventsUI
                     var geo = map.Cells[x, y].GetGeology();
                     if (geo.IsVolcano)
                     {
-                        int screenX = offsetX + x * cellSize;
-                        int screenY = offsetY + y * cellSize;
-                        int centerX = screenX + cellSize / 2;
-                        int centerY = screenY + cellSize / 2;
+                        int screenX = offsetX + x * zoomedCellSize;
+                        int screenY = offsetY + y * zoomedCellSize;
+                        int centerX = screenX + zoomedCellSize / 2;
+                        int centerY = screenY + zoomedCellSize / 2;
 
                         // Scale volcano triangle size with zoom level
                         int volcanoSize = Math.Max(cellSize / 2, (int)(cellSize / 2 * (1 + (zoomLevel - 1) * 0.5f)));
@@ -190,23 +189,29 @@ public class GeologicalEventsUI
         {
             foreach (var river in _hydrologySim.Rivers)
             {
-                for (int i = 0; i < river.Path.Count - 1; i++)
+                if (river.Path.Count < 2) continue;
+
+                // Generate meandering curve points from the river path
+                var curvePoints = GenerateMeanderingPath(river.Path, zoomLevel);
+
+                // River width increases moderately with zoom for better visibility
+                int lineWidth = (int)Math.Clamp(2 + (zoomLevel - 1) * 1.3f, 2, 6);
+
+                // Enhanced color at higher zoom levels (more vibrant blue)
+                Color riverColor = zoomLevel > 2.5f
+                    ? new Color(80, 140, 255)  // Brighter blue when zoomed
+                    : new Color(100, 150, 255); // Standard blue
+
+                // Draw the meandering river path
+                for (int i = 0; i < curvePoints.Count - 1; i++)
                 {
-                    var (x1, y1) = river.Path[i];
-                    var (x2, y2) = river.Path[i + 1];
+                    var (fx1, fy1) = curvePoints[i];
+                    var (fx2, fy2) = curvePoints[i + 1];
 
-                    int screenX1 = offsetX + x1 * cellSize + cellSize / 2;
-                    int screenY1 = offsetY + y1 * cellSize + cellSize / 2;
-                    int screenX2 = offsetX + x2 * cellSize + cellSize / 2;
-                    int screenY2 = offsetY + y2 * cellSize + cellSize / 2;
-
-                    // River width increases moderately with zoom for better visibility
-                    int lineWidth = (int)Math.Clamp(2 + (zoomLevel - 1) * 1.3f, 2, 6);
-
-                    // Enhanced color at higher zoom levels (more vibrant blue)
-                    Color riverColor = zoomLevel > 2.5f
-                        ? new Color(80, 140, 255)  // Brighter blue when zoomed
-                        : new Color(100, 150, 255); // Standard blue
+                    int screenX1 = offsetX + (int)(fx1 * zoomedCellSize) + zoomedCellSize / 2;
+                    int screenY1 = offsetY + (int)(fy1 * zoomedCellSize) + zoomedCellSize / 2;
+                    int screenX2 = offsetX + (int)(fx2 * zoomedCellSize) + zoomedCellSize / 2;
+                    int screenY2 = offsetY + (int)(fy2 * zoomedCellSize) + zoomedCellSize / 2;
 
                     // HIGH ZOOM: Add shimmer/reflection effects
                     if (zoomLevel > 2.5f)
@@ -223,7 +228,7 @@ public class GeologicalEventsUI
                            riverColor, lineWidth);
 
                     // VERY HIGH ZOOM: Add flow indicators (dots along the path)
-                    if (zoomLevel > 3.5f)
+                    if (zoomLevel > 3.5f && i % 3 == 0)
                     {
                         float distance = MathF.Sqrt((screenX2 - screenX1) * (screenX2 - screenX1) +
                                                     (screenY2 - screenY1) * (screenY2 - screenY1));
@@ -236,13 +241,16 @@ public class GeologicalEventsUI
                             DrawCircleFilled(_spriteBatch, (int)dotX, (int)dotY, 2, Color.White * 0.8f);
                         }
                     }
+                }
 
-                    // River source indicator at very high zoom
-                    if (zoomLevel > 3.0f && i == 0)
-                    {
-                        DrawCircleFilled(_spriteBatch, screenX1, screenY1, lineWidth + 2, new Color(100, 180, 255));
-                        DrawCircleOutline(_spriteBatch, screenX1, screenY1, lineWidth + 4, Color.Cyan, 1);
-                    }
+                // River source indicator at very high zoom
+                if (zoomLevel > 3.0f && curvePoints.Count > 0)
+                {
+                    var (fx, fy) = curvePoints[0];
+                    int screenX = offsetX + (int)(fx * zoomedCellSize) + zoomedCellSize / 2;
+                    int screenY = offsetY + (int)(fy * zoomedCellSize) + zoomedCellSize / 2;
+                    DrawCircleFilled(_spriteBatch, screenX, screenY, lineWidth + 2, new Color(100, 180, 255));
+                    DrawCircleOutline(_spriteBatch, screenX, screenY, lineWidth + 4, Color.Cyan, 1);
                 }
             }
         }
@@ -257,10 +265,10 @@ public class GeologicalEventsUI
                     var geo = map.Cells[x, y].GetGeology();
                     if (geo.BoundaryType != PlateBoundaryType.None)
                     {
-                        int screenX = offsetX + x * cellSize;
-                        int screenY = offsetY + y * cellSize;
-                        int centerX = screenX + cellSize / 2;
-                        int centerY = screenY + cellSize / 2;
+                        int screenX = offsetX + x * zoomedCellSize;
+                        int screenY = offsetY + y * zoomedCellSize;
+                        int centerX = screenX + zoomedCellSize / 2;
+                        int centerY = screenY + zoomedCellSize / 2;
 
                         Color boundaryColor = geo.BoundaryType switch
                         {
@@ -275,7 +283,7 @@ public class GeologicalEventsUI
 
                         // Draw base boundary cell
                         _spriteBatch.Draw(_pixelTexture,
-                            new Rectangle(screenX, screenY, cellSize, cellSize),
+                            new Rectangle(screenX, screenY, zoomedCellSize, zoomedCellSize),
                             boundaryColor * alpha);
 
                         // HIGH ZOOM: Add boundary type indicators
@@ -504,5 +512,95 @@ public class GeologicalEventsUI
             sb.Draw(_pixelTexture, new Rectangle(x + dirX * size, y - size / 2, 1, size), color);
             sb.Draw(_pixelTexture, new Rectangle(x + dirX * (size - 1), y - size / 3, 1, size / 3 * 2), color);
         }
+    }
+
+    private List<(float x, float y)> GenerateMeanderingPath(List<(int x, int y)> path, float zoomLevel)
+    {
+        var result = new List<(float x, float y)>();
+
+        if (path.Count < 2)
+        {
+            foreach (var p in path)
+                result.Add((p.x, p.y));
+            return result;
+        }
+
+        // More subdivision for higher zoom levels
+        int subdivisions = Math.Max(2, (int)(2 + zoomLevel * 1.5f));
+
+        // Generate smooth curves using Catmull-Rom splines with meandering
+        for (int i = 0; i < path.Count - 1; i++)
+        {
+            var p0 = i > 0 ? path[i - 1] : path[i];
+            var p1 = path[i];
+            var p2 = path[i + 1];
+            var p3 = (i + 2 < path.Count) ? path[i + 2] : path[i + 1];
+
+            // Calculate perpendicular offset for meandering
+            float dx = p2.x - p1.x;
+            float dy = p2.y - p1.y;
+            float length = MathF.Sqrt(dx * dx + dy * dy);
+
+            if (length > 0)
+            {
+                // Perpendicular vector
+                float perpX = -dy / length;
+                float perpY = dx / length;
+
+                // Create meandering effect based on position along river
+                // Use hash-like function for deterministic but random-looking meanders
+                int seed = p1.x * 1000 + p1.y;
+                float meander1 = MathF.Sin(seed * 0.1f) * 0.3f;
+                float meander2 = MathF.Cos(seed * 0.15f) * 0.2f;
+
+                for (int t = 0; t < subdivisions; t++)
+                {
+                    float u = t / (float)subdivisions;
+
+                    // Catmull-Rom spline interpolation
+                    float u2 = u * u;
+                    float u3 = u2 * u;
+
+                    float x = 0.5f * (
+                        (2 * p1.x) +
+                        (-p0.x + p2.x) * u +
+                        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * u2 +
+                        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * u3
+                    );
+
+                    float y = 0.5f * (
+                        (2 * p1.y) +
+                        (-p0.y + p2.y) * u +
+                        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * u2 +
+                        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * u3
+                    );
+
+                    // Add meandering offset (stronger at curve midpoints)
+                    float meanderStrength = MathF.Sin(u * MathF.PI); // Peaks at middle of segment
+                    float offsetAmount = (meander1 + meander2 * MathF.Sin(u * 2 * MathF.PI)) * meanderStrength;
+
+                    x += perpX * offsetAmount;
+                    y += perpY * offsetAmount;
+
+                    result.Add((x, y));
+                }
+            }
+            else
+            {
+                // Straight segment (no length), just add points
+                for (int t = 0; t < subdivisions; t++)
+                {
+                    float u = t / (float)subdivisions;
+                    float x = p1.x + (p2.x - p1.x) * u;
+                    float y = p1.y + (p2.y - p1.y) * u;
+                    result.Add((x, y));
+                }
+            }
+        }
+
+        // Add final point
+        result.Add((path[path.Count - 1].x, path[path.Count - 1].y));
+
+        return result;
     }
 }
