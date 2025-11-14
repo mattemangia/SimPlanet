@@ -622,13 +622,17 @@ Potential additions (not yet implemented):
   - **Shadow/depth effects** create 3D appearance at high zoom
   - **Lava particle spray** at maximum zoom (> 3.5x) during eruptions
   - **Pulsing glow animation** around erupting volcanoes for visual impact
+  - **Proper zoom scaling** - volcanoes stay perfectly aligned with terrain at all zoom levels
 - ✅ **River Enhancements** (zoom > 2.5x):
+  - **Meandering river systems** - rivers now flow in smooth, natural curves instead of straight lines
+  - **Catmull-Rom spline rendering** - organic, realistic river paths with deterministic meandering
+  - **Dynamic subdivision** - more curve detail at higher zoom levels for smoother appearance
   - **Shimmer/reflection effects** - lighter reflection line on top of river
   - **Animated flow indicators** - moving dots show water direction at very high zoom (> 3.5x)
   - **River source markers** - cyan highlighted circles at river origins (zoom > 3x)
   - **Enhanced colors** - brighter, more vibrant blue at high zoom levels
-  - **Gradient effects** - multi-layer rendering creates depth perception
-- ✅ **Plate Boundary Enhancements** (zoom > 2.5x):
+  - **Perfect zoom alignment** - rivers scale correctly with terrain at all zoom levels
+- ✅ **Plate Boundary Enhancements** (zoom > 2.5f):
   - **Movement arrows** show plate motion direction:
     - Divergent boundaries: Arrows pointing apart (<<  >>)
     - Convergent boundaries: Arrows pointing together (>>  <<)
@@ -636,6 +640,7 @@ Potential additions (not yet implemented):
   - **Stress visualization** - pulsing rings show tectonic stress at very high zoom (> 3.5x)
   - **Dynamic animations** - stress indicators pulse based on stress levels
   - **Color-coded indicators** - Yellow for divergent, Red for convergent, Orange for transform
+  - **Accurate scaling** - plate boundaries scale perfectly with zoom
 
 ### Previous Update - Climate System Realism & 3D Minimap Fixes
 
