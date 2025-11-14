@@ -71,6 +71,9 @@ public class LifeSimulator
                 float netGrowth = (growthRate - deathRate) * deltaTime;
                 cell.Biomass = Math.Clamp(cell.Biomass + netGrowth, 0, 1);
 
+                // Photosynthesis and respiration (gas exchange)
+                SimulatePhotosynthesis(cell, deltaTime);
+
                 // Die off if conditions are too harsh
                 if (cell.Biomass < 0.01f)
                 {
@@ -79,6 +82,62 @@ public class LifeSimulator
                     cell.Evolution = 0;
                 }
             }
+        }
+    }
+
+    private void SimulatePhotosynthesis(TerrainCell cell, float deltaTime)
+    {
+        // Photosynthetic organisms: Bacteria (some), Algae, PlantLife
+        // They consume CO2 and produce O2 during photosynthesis
+
+        float photosynthesisRate = 0;
+
+        switch (cell.LifeType)
+        {
+            case LifeForm.Bacteria:
+                // Cyanobacteria - early oxygen producers
+                if (cell.CO2 > 0.1f)
+                {
+                    photosynthesisRate = 0.05f * cell.Biomass * deltaTime;
+                }
+                break;
+
+            case LifeForm.Algae:
+                // Marine photosynthesis - major oxygen producer
+                if (cell.IsWater && cell.CO2 > 0.1f && cell.Temperature > 0)
+                {
+                    photosynthesisRate = 0.15f * cell.Biomass * deltaTime;
+                }
+                break;
+
+            case LifeForm.PlantLife:
+                // Land plants - consume CO2, produce O2
+                if (cell.IsLand && cell.CO2 > 0.05f && cell.Temperature > 5)
+                {
+                    // Rate depends on biomass density and light (assume daytime average)
+                    photosynthesisRate = 0.2f * cell.Biomass * deltaTime * cell.Rainfall;
+                }
+                break;
+        }
+
+        if (photosynthesisRate > 0)
+        {
+            // Consume CO2
+            float co2Consumed = Math.Min(photosynthesisRate * 1.5f, cell.CO2);
+            cell.CO2 -= co2Consumed;
+
+            // Produce O2 (slightly less due to efficiency)
+            float o2Produced = co2Consumed * 0.7f;
+            cell.Oxygen = Math.Min(cell.Oxygen + o2Produced, 100.0f);
+        }
+
+        // All organisms respire (consume O2, produce CO2) - but much less than photosynthesis
+        if (cell.Biomass > 0.01f && cell.Oxygen > 1.0f)
+        {
+            float respirationRate = 0.02f * cell.Biomass * deltaTime;
+            float o2Consumed = Math.Min(respirationRate, cell.Oxygen);
+            cell.Oxygen -= o2Consumed;
+            cell.CO2 += o2Consumed * 0.8f; // Produce CO2 from respiration
         }
     }
 

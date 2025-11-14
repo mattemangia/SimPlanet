@@ -26,7 +26,7 @@ public class PlanetMap
     // Global atmospheric values
     public float GlobalTemperature { get; set; } = 15.0f; // Average Earth temp
     public float GlobalOxygen { get; set; } = 21.0f;
-    public float GlobalCO2 { get; set; } = 0.04f;
+    public float GlobalCO2 { get; set; } = 2.5f; // Early Earth-like: high CO2 from volcanic outgassing
     public float SolarEnergy { get; set; } = 1.0f;
     public float AxisTilt { get; set; } = 23.5f; // Earth's tilt
 
