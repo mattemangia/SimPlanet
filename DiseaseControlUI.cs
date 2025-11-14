@@ -497,7 +497,7 @@ public class DiseaseControlUI
 
     private void DrawButton(SpriteBatch spriteBatch, UIButton btn, Color color)
     {
-        spriteBatch.Draw(_pixelTexture, btn.Bounds, new Color(color.R, color.G, color.B, 200));
+        spriteBatch.Draw(_pixelTexture, btn.Bounds, new Color(color.R, color.G, color.B, (byte)200));
         DrawBorder(spriteBatch, btn.Bounds.X, btn.Bounds.Y, btn.Bounds.Width, btn.Bounds.Height, color, 2);
 
         var textSize = _font.MeasureString(btn.Label, 14);
