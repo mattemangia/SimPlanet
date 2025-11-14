@@ -562,9 +562,25 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Click Detection, Map Editor Fixes & Seamless Planet Continuity
+### Latest Update - Legends & Parameter Indicators
 
-**CRITICAL FIXES - Click vs Drag Detection:**
+**NEW - Color Legends for All View Modes:**
+- ✅ **Auto-Generated Legends** - Each view mode now displays a color legend (Temperature, Rainfall, Life, etc.)
+- ✅ **Color Gradients** - Visual color gradient bar shows the full range of values
+- ✅ **Clear Labels** - Min/max values or category names displayed for each mode
+- ✅ **Smart Positioning** - Legend appears in bottom-left, doesn't obstruct gameplay
+- ✅ **14+ View Modes Supported** - Legends for all visualization modes except Terrain
+
+**Enhanced Parameter Indicators:**
+- ✅ **Zoom Level Display** - Current zoom level (0.5x-4.0x) shown in info panel
+- ✅ **Active Overlays** - Shows which overlays are enabled (Volcanoes, Rivers, Plates)
+- ✅ **View Mode** - Current visualization mode clearly displayed
+- ✅ **Time Speed** - Simulation speed indicator with pause status
+- ✅ **Complete Visibility** - All interactive parameters now have visual indicators
+
+**Previous Update - Click Detection & Map Editor Fixes**
+
+**Click vs Drag Detection:**
 - ✅ **FIXED: Tile Info Panel** - Clicking and dragging the map no longer opens the tile info panel
 - ✅ **FIXED: Disaster Placement** - Dragging the map while placing disasters no longer triggers placement
 - ✅ **Smart Click Detection** - Panels only open on actual clicks (< 5 pixel movement threshold)

@@ -53,9 +53,9 @@ public class GameUI
         _planetStabilizer = planetStabilizer;
     }
 
-    public void Draw(GameState state, RenderMode renderMode)
+    public void Draw(GameState state, RenderMode renderMode, float zoomLevel = 1.0f, bool showVolcanoes = false, bool showRivers = false, bool showPlates = false)
     {
-        DrawInfoPanel(state, renderMode);
+        DrawInfoPanel(state, renderMode, zoomLevel, showVolcanoes, showRivers, showPlates);
 
         if (ShowHelp)
         {
@@ -63,7 +63,7 @@ public class GameUI
         }
     }
 
-    private void DrawInfoPanel(GameState state, RenderMode renderMode)
+    private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates)
     {
         // Update cached stats if needed (throttled to prevent lag)
         var timeSinceUpdate = (DateTime.Now - _lastStatsUpdate).TotalMilliseconds;
@@ -263,6 +263,17 @@ public class GameUI
         }
 
         DrawText($"View Mode: {renderMode}", Color.Magenta);
+        DrawText($"Zoom: {zoomLevel:F1}x", Color.Cyan);
+
+        // Show active overlays
+        string overlays = "";
+        if (showVolcanoes) overlays += "[Volcanoes] ";
+        if (showRivers) overlays += "[Rivers] ";
+        if (showPlates) overlays += "[Plates] ";
+        if (!string.IsNullOrEmpty(overlays))
+        {
+            DrawText($"Overlays: {overlays.Trim()}", Color.Yellow);
+        }
     }
 
     private void DrawHelpPanel()

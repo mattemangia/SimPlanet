@@ -587,6 +587,173 @@ public class TerrainRenderer
         return Color.Lerp(baseColor, resourceColor, intensity);
     }
 
+    public void DrawLegend(SpriteBatch spriteBatch, FontRenderer font, int screenWidth, int screenHeight)
+    {
+        // Don't show legend for Terrain mode (it's self-explanatory)
+        if (Mode == RenderMode.Terrain)
+            return;
+
+        int legendWidth = 220;
+        int legendHeight = 180;
+        int legendX = screenWidth - legendWidth - 420; // Left of info panel
+        int legendY = screenHeight - legendHeight - 10;
+
+        // Background
+        spriteBatch.Draw(_pixelTexture,
+            new Rectangle(legendX, legendY, legendWidth, legendHeight),
+            new Color(0, 0, 0, 200));
+
+        // Border
+        DrawBorder(spriteBatch, legendX, legendY, legendWidth, legendHeight, Color.White, 2);
+
+        // Title
+        string title = GetLegendTitle();
+        font.DrawString(spriteBatch, title, new Vector2(legendX + 10, legendY + 10), Color.Yellow, 14);
+
+        // Draw color gradient and labels
+        int gradientX = legendX + 15;
+        int gradientY = legendY + 35;
+        int gradientWidth = legendWidth - 30;
+        int gradientHeight = 20;
+
+        DrawGradientBar(spriteBatch, gradientX, gradientY, gradientWidth, gradientHeight);
+
+        // Labels below gradient
+        var labels = GetLegendLabels();
+        int labelY = gradientY + gradientHeight + 5;
+
+        if (labels.Count == 2)
+        {
+            // Min and Max labels
+            font.DrawString(spriteBatch, labels[0], new Vector2(gradientX, labelY), Color.White, 11);
+            var maxSize = font.MeasureString(labels[1], 11);
+            font.DrawString(spriteBatch, labels[1], new Vector2(gradientX + gradientWidth - maxSize.X, labelY), Color.White, 11);
+        }
+        else if (labels.Count > 2)
+        {
+            // Category labels
+            int currentY = labelY;
+            foreach (var label in labels)
+            {
+                font.DrawString(spriteBatch, label, new Vector2(gradientX, currentY), Color.White, 10);
+                currentY += 15;
+            }
+        }
+    }
+
+    private string GetLegendTitle()
+    {
+        return Mode switch
+        {
+            RenderMode.Temperature => "TEMPERATURE",
+            RenderMode.Rainfall => "RAINFALL",
+            RenderMode.Life => "LIFE / BIOMASS",
+            RenderMode.Oxygen => "OXYGEN LEVELS",
+            RenderMode.CO2 => "CO2 LEVELS",
+            RenderMode.Elevation => "ELEVATION",
+            RenderMode.Geological => "ROCK TYPES",
+            RenderMode.TectonicPlates => "TECTONIC PLATES",
+            RenderMode.Volcanoes => "VOLCANIC ACTIVITY",
+            RenderMode.Clouds => "CLOUD COVER",
+            RenderMode.Wind => "WIND SPEED",
+            RenderMode.Pressure => "AIR PRESSURE",
+            RenderMode.Storms => "STORM INTENSITY",
+            RenderMode.Biomes => "BIOMES",
+            RenderMode.Resources => "RESOURCES",
+            _ => "LEGEND"
+        };
+    }
+
+    private List<string> GetLegendLabels()
+    {
+        return Mode switch
+        {
+            RenderMode.Temperature => new List<string> { "-50°C (Cold)", "50°C (Hot)" },
+            RenderMode.Rainfall => new List<string> { "0% (Arid)", "100% (Wet)" },
+            RenderMode.Life => new List<string> { "None", "Bacteria", "Plants", "Animals", "Intelligence" },
+            RenderMode.Oxygen => new List<string> { "0%", "25%" },
+            RenderMode.CO2 => new List<string> { "0%", "10%" },
+            RenderMode.Elevation => new List<string> { "-1.0 (Ocean)", "1.0 (Mountain)" },
+            RenderMode.Geological => new List<string> { "Volcanic", "Sedimentary", "Crystalline" },
+            RenderMode.TectonicPlates => new List<string> { "8 Tectonic Plates", "Boundaries Highlighted" },
+            RenderMode.Volcanoes => new List<string> { "Inactive", "Active", "Erupting" },
+            RenderMode.Clouds => new List<string> { "Clear", "Cloudy" },
+            RenderMode.Wind => new List<string> { "Calm", "Extreme" },
+            RenderMode.Pressure => new List<string> { "Low", "High" },
+            RenderMode.Storms => new List<string> { "Clear", "Severe" },
+            RenderMode.Biomes => new List<string> { "Ocean", "Desert", "Forest", "Ice", "Mountain" },
+            RenderMode.Resources => new List<string> { "Coal", "Iron", "Oil", "Uranium", "Rare" },
+            _ => new List<string>()
+        };
+    }
+
+    private void DrawGradientBar(SpriteBatch spriteBatch, int x, int y, int width, int height)
+    {
+        // Draw a color gradient representing the current view mode
+        for (int i = 0; i < width; i++)
+        {
+            float t = i / (float)width;
+            Color color = GetGradientColor(t);
+            spriteBatch.Draw(_pixelTexture, new Rectangle(x + i, y, 1, height), color);
+        }
+
+        // Border around gradient
+        DrawBorder(spriteBatch, x, y, width, height, Color.Gray, 1);
+    }
+
+    private Color GetGradientColor(float t)
+    {
+        // t ranges from 0 to 1
+        return Mode switch
+        {
+            RenderMode.Temperature => LerpColor(new Color(100, 150, 255), new Color(255, 100, 50), t),
+            RenderMode.Rainfall => LerpColor(new Color(220, 180, 100), new Color(50, 100, 255), t),
+            RenderMode.Life => GetLifeGradientColor(t),
+            RenderMode.Oxygen => LerpColor(new Color(100, 50, 50), new Color(100, 255, 100), t),
+            RenderMode.CO2 => LerpColor(new Color(50, 50, 100), new Color(255, 200, 50), t),
+            RenderMode.Elevation => LerpColor(new Color(10, 50, 120), new Color(200, 200, 200), t),
+            RenderMode.Geological => GetGeologicalGradientColor(t),
+            RenderMode.Volcanoes => LerpColor(new Color(60, 60, 60), new Color(255, 100, 0), t),
+            RenderMode.Clouds => LerpColor(new Color(50, 100, 150), Color.White, t),
+            RenderMode.Wind => LerpColor(new Color(200, 255, 200), new Color(255, 50, 50), t),
+            RenderMode.Pressure => LerpColor(new Color(50, 100, 255), new Color(255, 50, 50), t),
+            RenderMode.Storms => LerpColor(new Color(150, 200, 255), new Color(100, 0, 100), t),
+            _ => Color.Gray
+        };
+    }
+
+    private Color GetLifeGradientColor(float t)
+    {
+        if (t < 0.25f) return Color.Lerp(new Color(80, 80, 80), new Color(150, 100, 50), t * 4);
+        if (t < 0.5f) return Color.Lerp(new Color(150, 100, 50), new Color(100, 200, 100), (t - 0.25f) * 4);
+        if (t < 0.75f) return Color.Lerp(new Color(100, 200, 100), new Color(255, 150, 50), (t - 0.5f) * 4);
+        return Color.Lerp(new Color(255, 150, 50), new Color(255, 255, 100), (t - 0.75f) * 4);
+    }
+
+    private Color GetGeologicalGradientColor(float t)
+    {
+        if (t < 0.33f) return Color.Lerp(new Color(80, 80, 80), new Color(120, 100, 80), t * 3);
+        if (t < 0.66f) return Color.Lerp(new Color(120, 100, 80), new Color(200, 180, 140), (t - 0.33f) * 3);
+        return Color.Lerp(new Color(200, 180, 140), new Color(150, 150, 200), (t - 0.66f) * 3);
+    }
+
+    private Color LerpColor(Color start, Color end, float t)
+    {
+        return Color.Lerp(start, end, t);
+    }
+
+    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
+    {
+        // Top
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
+        // Bottom
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
+        // Left
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
+        // Right
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
+    }
+
     public void Dispose()
     {
         _pixelTexture?.Dispose();

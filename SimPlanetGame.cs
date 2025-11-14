@@ -977,8 +977,12 @@ public class SimPlanetGame : Game
         int overlayOffsetY = offsetY - (int)_terrainRenderer.CameraY;
         _eventsUI.DrawOverlay(_map, overlayOffsetX, overlayOffsetY, _terrainRenderer.CellSize, _terrainRenderer.ZoomLevel);
 
-        // Draw UI
-        _ui.Draw(_gameState, _currentRenderMode);
+        // Draw view mode legend
+        _terrainRenderer.DrawLegend(_spriteBatch, _font, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw UI with current zoom and overlay states
+        _ui.Draw(_gameState, _currentRenderMode, _terrainRenderer.ZoomLevel,
+            _eventsUI.ShowVolcanoes, _eventsUI.ShowRivers, _eventsUI.ShowPlates);
 
         // Draw map options menu (if visible)
         _mapOptionsUI.Draw(_mapOptions);
