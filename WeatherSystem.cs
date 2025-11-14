@@ -122,15 +122,28 @@ public class WeatherSystem
                 cell.Humidity = Math.Clamp(cell.Humidity * rainfallModifier, 0, 1);
 
                 // Seasonal ice formation/melting
-                if (cell.Temperature < -5 && cell.IsWater)
+                // Ice can form on both water (sea ice) and land (ice sheets, glaciers)
+                if (cell.Temperature < -10)
                 {
-                    // Winter ice formation
+                    // Permanent ice caps and glaciers (very cold)
                     cell.IsIce = true;
                 }
-                else if (cell.Temperature > 5 && cell.IsIce)
+                else if (cell.Temperature < -5 && cell.Temperature >= -10)
                 {
-                    // Spring/summer ice melting
-                    cell.IsIce = false;
+                    // Seasonal ice - only on water (sea ice freezes faster than land ice sheets)
+                    if (cell.IsWater)
+                    {
+                        cell.IsIce = true;
+                    }
+                }
+                else if (cell.Temperature > 0)
+                {
+                    // Ice melts above freezing
+                    // Land ice (glaciers) melts slower, so check if we're on water
+                    if (cell.IsWater || cell.Temperature > 5)
+                    {
+                        cell.IsIce = false;
+                    }
                 }
             }
         }
