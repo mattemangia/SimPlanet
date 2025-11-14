@@ -43,7 +43,7 @@ public class SimPlanetGame : Game
     private PlayerCivilizationControl _playerCivControl;
     private DisasterControlUI _disasterControlUI;
     private ManualPlantingTool _plantingTool;
-    private SimpleFont _font;
+    private FontRenderer _font;
 
     // Game state
     private GameState _gameState;
@@ -140,7 +140,7 @@ public class SimPlanetGame : Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
         // Create font
-        _font = new SimpleFont(GraphicsDevice);
+        _font = new FontRenderer(GraphicsDevice, 16);
 
         // Create renderer
         _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);

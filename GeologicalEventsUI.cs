@@ -8,7 +8,7 @@ namespace SimPlanet;
 /// </summary>
 public class GeologicalEventsUI
 {
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private readonly SpriteBatch _spriteBatch;
     private readonly GraphicsDevice _graphicsDevice;
     private Texture2D _pixelTexture;
@@ -23,7 +23,7 @@ public class GeologicalEventsUI
     public bool ShowPlates { get; set; } = false;
     public bool ShowVolcanoes { get; set; } = true;
 
-    public GeologicalEventsUI(SpriteBatch spriteBatch, SimpleFont font,
+    public GeologicalEventsUI(SpriteBatch spriteBatch, FontRenderer font,
                               GraphicsDevice graphicsDevice)
     {
         _spriteBatch = spriteBatch;

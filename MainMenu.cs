@@ -20,7 +20,7 @@ public enum GameScreen
 public class MainMenu
 {
     private readonly GraphicsDevice _graphicsDevice;
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private Texture2D _pixelTexture;
 
     public GameScreen CurrentScreen { get; set; } = GameScreen.MainMenu;
@@ -32,7 +32,7 @@ public class MainMenu
     private string[] _mainMenuItems = { "New Game", "Load Game", "Quit" };
     private string[] _pauseMenuItems = { "Resume", "Save Game", "Main Menu" };
 
-    public MainMenu(GraphicsDevice graphicsDevice, SimpleFont font)
+    public MainMenu(GraphicsDevice graphicsDevice, FontRenderer font)
     {
         _graphicsDevice = graphicsDevice;
         _font = font;

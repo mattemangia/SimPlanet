@@ -10,7 +10,7 @@ namespace SimPlanet;
 public class PlayerCivilizationControl
 {
     private readonly GraphicsDevice _graphicsDevice;
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private readonly CivilizationManager _civManager;
     private Texture2D _pixelTexture;
     private MouseState _previousMouseState;
@@ -22,7 +22,7 @@ public class PlayerCivilizationControl
     private List<Button> _controlButtons = new();
     private List<Button> _selectorButtons = new();
 
-    public PlayerCivilizationControl(GraphicsDevice graphicsDevice, SimpleFont font, CivilizationManager civManager)
+    public PlayerCivilizationControl(GraphicsDevice graphicsDevice, FontRenderer font, CivilizationManager civManager)
     {
         _graphicsDevice = graphicsDevice;
         _font = font;

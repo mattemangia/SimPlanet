@@ -12,7 +12,7 @@ namespace SimPlanet;
 public class DisasterControlUI
 {
     private readonly GraphicsDevice _graphicsDevice;
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private readonly DisasterManager _disasterManager;
     private readonly PlanetMap _map;
     private Texture2D _pixelTexture;
@@ -26,7 +26,7 @@ public class DisasterControlUI
     private List<ToggleButton> _toggleButtons = new();
     private List<ActionButton> _actionButtons = new();
 
-    public DisasterControlUI(GraphicsDevice graphicsDevice, SimpleFont font,
+    public DisasterControlUI(GraphicsDevice graphicsDevice, FontRenderer font,
         DisasterManager disasterManager, PlanetMap map)
     {
         _graphicsDevice = graphicsDevice;

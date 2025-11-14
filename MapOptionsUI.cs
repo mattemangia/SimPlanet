@@ -8,7 +8,7 @@ namespace SimPlanet;
 /// </summary>
 public class MapOptionsUI
 {
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private readonly SpriteBatch _spriteBatch;
     private readonly GraphicsDevice _graphicsDevice;
     private Texture2D _pixelTexture;
@@ -18,7 +18,7 @@ public class MapOptionsUI
     public bool IsVisible { get; set; } = false;
     public bool NeedsPreviewUpdate { get; set; } = true;
 
-    public MapOptionsUI(SpriteBatch spriteBatch, SimpleFont font, GraphicsDevice graphicsDevice)
+    public MapOptionsUI(SpriteBatch spriteBatch, FontRenderer font, GraphicsDevice graphicsDevice)
     {
         _spriteBatch = spriteBatch;
         _font = font;

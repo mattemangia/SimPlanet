@@ -10,7 +10,7 @@ namespace SimPlanet;
 public class SedimentColumnViewer
 {
     private readonly GraphicsDevice _graphicsDevice;
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private readonly PlanetMap _map;
     private Texture2D _pixelTexture;
     private (int x, int y)? _selectedTile = null;
@@ -18,7 +18,7 @@ public class SedimentColumnViewer
 
     public bool IsVisible { get; private set; } = false;
 
-    public SedimentColumnViewer(GraphicsDevice graphicsDevice, SimpleFont font, PlanetMap map)
+    public SedimentColumnViewer(GraphicsDevice graphicsDevice, FontRenderer font, PlanetMap map)
     {
         _graphicsDevice = graphicsDevice;
         _font = font;

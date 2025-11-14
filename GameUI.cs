@@ -9,7 +9,7 @@ namespace SimPlanet;
 /// </summary>
 public class GameUI
 {
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private readonly SpriteBatch _spriteBatch;
     private readonly PlanetMap _map;
     private Texture2D _pixelTexture;
@@ -20,7 +20,7 @@ public class GameUI
 
     public bool ShowHelp { get; set; } = true;
 
-    public GameUI(SpriteBatch spriteBatch, SimpleFont font, PlanetMap map, GraphicsDevice graphicsDevice)
+    public GameUI(SpriteBatch spriteBatch, FontRenderer font, PlanetMap map, GraphicsDevice graphicsDevice)
     {
         _spriteBatch = spriteBatch;
         _font = font;

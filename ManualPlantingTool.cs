@@ -12,7 +12,7 @@ public class ManualPlantingTool
 {
     private readonly PlanetMap _map;
     private readonly GraphicsDevice _graphicsDevice;
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private Texture2D _pixelTexture;
     private MouseState _previousMouseState;
 
@@ -20,7 +20,7 @@ public class ManualPlantingTool
     public PlantingType CurrentType { get; set; } = PlantingType.Forest;
     public int BrushSize { get; set; } = 3; // Radius of planting brush
 
-    public ManualPlantingTool(PlanetMap map, GraphicsDevice graphicsDevice, SimpleFont font)
+    public ManualPlantingTool(PlanetMap map, GraphicsDevice graphicsDevice, FontRenderer font)
     {
         _map = map;
         _graphicsDevice = graphicsDevice;

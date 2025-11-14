@@ -10,7 +10,7 @@ namespace SimPlanet;
 public class InteractiveControls
 {
     private readonly GraphicsDevice _graphicsDevice;
-    private readonly SimpleFont _font;
+    private readonly FontRenderer _font;
     private readonly PlanetMap _map;
     private Texture2D _pixelTexture;
     private List<Button> _buttons;
@@ -22,7 +22,7 @@ public class InteractiveControls
     private float _terraformProgress = 0;
     private const float TerraformDuration = 100f; // 100 years of gradual restoration
 
-    public InteractiveControls(GraphicsDevice graphicsDevice, SimpleFont font, PlanetMap map)
+    public InteractiveControls(GraphicsDevice graphicsDevice, FontRenderer font, PlanetMap map)
     {
         _graphicsDevice = graphicsDevice;
         _font = font;
