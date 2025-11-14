@@ -108,7 +108,7 @@ public class GeologicalEventsUI
         for (int i = 0; i < _overlayColors.Length; i++)
             _overlayColors[i] = Color.Transparent;
 
-        // Render volcanoes to texture at 1:1 scale with thickness for visibility
+        // Render volcanoes to texture at 1:1 scale with triangle shapes for better visual
         if (ShowVolcanoes)
         {
             for (int x = 0; x < _map.Width; x++)
@@ -121,8 +121,8 @@ public class GeologicalEventsUI
                         Color volcanoColor = geo.VolcanicActivity > 0.5f
                             ? Color.Red : new Color(180, 60, 0);
 
-                        // Draw 3x3 block for visibility when scaled
-                        SetTexturePixelThick(x, y, volcanoColor, 1);
+                        // Draw triangle shape (classic volcano icon)
+                        DrawTextureTriangle(x, y, volcanoColor, 2);
                     }
                 }
             }
@@ -190,6 +190,47 @@ public class GeologicalEventsUI
                     {
                         _overlayColors[index] = color;
                     }
+                }
+            }
+        }
+    }
+
+    // Helper to draw triangle shape into texture (for volcano icons)
+    private void DrawTextureTriangle(int centerX, int centerY, Color color, int size)
+    {
+        // Draw filled triangle pointing upward (classic volcano/mountain shape)
+        for (int row = 0; row < size; row++)
+        {
+            // Each row gets narrower as we go up
+            int halfWidth = size - row;
+            for (int dx = -halfWidth; dx <= halfWidth; dx++)
+            {
+                int nx = centerX + dx;
+                int ny = centerY - row; // Negative to point upward
+
+                if (nx >= 0 && nx < _map.Width && ny >= 0 && ny < _map.Height)
+                {
+                    int index = ny * _map.Width + nx;
+                    if (_overlayColors[index].A < color.A)
+                    {
+                        _overlayColors[index] = color;
+                    }
+                }
+            }
+        }
+
+        // Add base for stability
+        for (int dx = -size; dx <= size; dx++)
+        {
+            int nx = centerX + dx;
+            int ny = centerY;
+
+            if (nx >= 0 && nx < _map.Width && ny >= 0 && ny < _map.Height)
+            {
+                int index = ny * _map.Width + nx;
+                if (_overlayColors[index].A < color.A)
+                {
+                    _overlayColors[index] = color;
                 }
             }
         }
