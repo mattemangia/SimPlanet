@@ -235,7 +235,7 @@ public class MainMenu
             Color borderColor = isSelected ? new Color(120, 200, 255) : new Color(80, 120, 160);
 
             spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], bgColor);
-            DrawBorder(_menuItemBounds[i].X, _menuItemBounds[i].Y, _menuItemBounds[i].Width, _menuItemBounds[i].Height, borderColor, 2);
+            DrawBorder(spriteBatch, _menuItemBounds[i].X, _menuItemBounds[i].Y, _menuItemBounds[i].Width, _menuItemBounds[i].Height, borderColor, 2);
 
             // Draw text
             var textSize = _font.MeasureString(text, 18);
@@ -262,7 +262,7 @@ public class MainMenu
         }
     }
 
-    private void DrawBorder(int x, int y, int width, int height, Color color, int thickness)
+    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
     {
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
