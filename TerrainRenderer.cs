@@ -278,8 +278,9 @@ public class TerrainRenderer
 
     private Color GetCO2Color(TerrainCell cell)
     {
+        // Match legend gradient: dark blue (low CO2) to yellow (high CO2)
         float normalized = Math.Clamp(cell.CO2 / 10.0f, 0, 1);
-        return Color.Lerp(Color.Black, new Color(255, 100, 100), normalized);
+        return Color.Lerp(new Color(50, 50, 100), new Color(255, 200, 50), normalized);
     }
 
     private Color GetElevationColor(TerrainCell cell)
@@ -292,25 +293,28 @@ public class TerrainRenderer
     {
         var geo = cell.GetGeology();
 
-        // Show rock types
+        // Show dominant rock type clearly
         Color rockColor;
-        if (geo.VolcanicRock > 0.5f)
-            rockColor = new Color(80, 40, 40); // Dark volcanic
-        else if (geo.SedimentaryRock > 0.5f)
-            rockColor = new Color(160, 140, 100); // Sandstone/limestone
-        else
-            rockColor = new Color(120, 120, 120); // Crystalline/granite
 
-        // Overlay erosion
-        if (geo.ErosionRate > 0.1f)
+        // Determine dominant rock type (max of the three)
+        float maxVolcanic = geo.VolcanicRock;
+        float maxSedimentary = geo.SedimentaryRock;
+        float maxCrystalline = geo.CrystallineRock;
+
+        if (maxVolcanic >= maxSedimentary && maxVolcanic >= maxCrystalline)
         {
-            rockColor = Color.Lerp(rockColor, new Color(200, 180, 150), geo.ErosionRate);
+            // Volcanic (basalt) - dark gray/black
+            rockColor = Color.Lerp(new Color(60, 60, 60), new Color(90, 70, 60), maxVolcanic);
         }
-
-        // Show sediment accumulation
-        if (geo.SedimentLayer > 0.1f)
+        else if (maxSedimentary > maxCrystalline)
         {
-            rockColor = Color.Lerp(rockColor, new Color(220, 200, 150), geo.SedimentLayer);
+            // Sedimentary (sandstone, limestone) - tan/beige
+            rockColor = Color.Lerp(new Color(140, 120, 90), new Color(200, 180, 140), maxSedimentary);
+        }
+        else
+        {
+            // Crystalline (granite) - light gray
+            rockColor = Color.Lerp(new Color(100, 100, 100), new Color(160, 160, 160), maxCrystalline);
         }
 
         return rockColor;
@@ -356,21 +360,34 @@ public class TerrainRenderer
     {
         var geo = cell.GetGeology();
 
-        // Base terrain
-        Color baseColor = GetTerrainColor(cell);
+        // Base color: darker background
+        Color baseColor = cell.IsWater ? new Color(20, 40, 70) : new Color(40, 40, 40);
 
-        // Highlight volcanoes
+        // Highlight volcanoes with activity level
         if (geo.IsVolcano)
         {
-            float activity = geo.VolcanicActivity + geo.MagmaPressure;
-            Color volcanoColor = Color.Lerp(new Color(150, 50, 0), Color.Red, activity);
-            baseColor = Color.Lerp(baseColor, volcanoColor, 0.7f);
-        }
+            float activity = Math.Clamp(geo.VolcanicActivity + geo.MagmaPressure, 0, 2);
 
-        // Show volcanic rock
-        if (geo.VolcanicRock > 0.3f)
+            if (activity > 1.5f)
+            {
+                // Erupting - bright red/orange
+                baseColor = Color.Lerp(new Color(255, 100, 0), new Color(255, 255, 0), (activity - 1.5f) * 2);
+            }
+            else if (activity > 0.5f)
+            {
+                // Active - orange to red
+                baseColor = Color.Lerp(new Color(150, 50, 0), new Color(255, 100, 0), (activity - 0.5f));
+            }
+            else
+            {
+                // Dormant - dark red
+                baseColor = Color.Lerp(new Color(60, 30, 30), new Color(120, 40, 0), activity * 2);
+            }
+        }
+        // Show volcanic rock areas (even if not currently a volcano)
+        else if (geo.VolcanicRock > 0.5f)
         {
-            baseColor = Color.Lerp(baseColor, new Color(60, 30, 30), geo.VolcanicRock * 0.5f);
+            baseColor = Color.Lerp(baseColor, new Color(80, 60, 60), geo.VolcanicRock);
         }
 
         return baseColor;
@@ -380,22 +397,38 @@ public class TerrainRenderer
     {
         var met = cell.GetMeteorology();
 
-        // Base sky color
-        Color skyColor = cell.IsWater ? new Color(100, 150, 220) : new Color(135, 206, 235);
+        // Satellite view: show terrain underneath with cloud overlay
+        Color terrainColor = GetTerrainColor(cell);
 
-        // Cloud coverage
-        if (met.CloudCover > 0.1f)
+        // Darken terrain slightly for satellite effect
+        terrainColor = Color.Lerp(terrainColor, Color.Black, 0.2f);
+
+        // Cloud coverage overlay (like satellite imagery)
+        if (met.CloudCover > 0.05f)
         {
-            Color cloudColor = new Color(255, 255, 255);
-            if (met.CloudCover > 0.7f)
+            Color cloudColor;
+            if (met.CloudCover > 0.8f)
             {
-                cloudColor = new Color(180, 180, 190); // Storm clouds
+                // Dense storm clouds - very white/gray
+                cloudColor = new Color(240, 240, 245);
+            }
+            else if (met.CloudCover > 0.5f)
+            {
+                // Thick clouds - white
+                cloudColor = new Color(255, 255, 255);
+            }
+            else
+            {
+                // Light clouds - slightly transparent white
+                cloudColor = new Color(245, 250, 255);
             }
 
-            return Color.Lerp(skyColor, cloudColor, met.CloudCover);
+            // Blend clouds over terrain based on coverage
+            float cloudAlpha = Math.Clamp(met.CloudCover * 0.9f, 0, 0.95f);
+            return Color.Lerp(terrainColor, cloudColor, cloudAlpha);
         }
 
-        return skyColor;
+        return terrainColor;
     }
 
     private Color GetWindColor(TerrainCell cell)
