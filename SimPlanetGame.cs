@@ -909,6 +909,13 @@ public class SimPlanetGame : Game
         _eventsUI.InitializeOverlayTexture(_map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
 
+        // Update sediment viewer with new map reference
+        _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
+
+        // Update other interactive tools with new map
+        _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
+        _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
+
         // Reset game state
         _gameState.Year = 0;
         _gameState.TimeAccumulator = 0;
