@@ -85,16 +85,25 @@ public class PlanetMap
         float[,] baseElevation = new float[Width, Height];
         List<float> allValues = new List<float>(Width * Height);
 
+        // For seamless wrapping, map X to a cylinder (wraps horizontally like a sphere)
+        // Y stays linear (latitude from pole to pole)
+        float circumference = Width * scale;
+        float radius = circumference / (2.0f * MathF.PI);
+
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
             {
-                float nx = x * scale;
+                // Map x to circular coordinates for seamless horizontal wrapping
+                float angle = (x / (float)Width) * 2.0f * MathF.PI;
+                float nx = MathF.Cos(angle) * radius;
+                float nz = MathF.Sin(angle) * radius;
                 float ny = y * scale;
 
-                // Generate height using multiple octaves (returns 0-1)
-                float elevation = noise.OctaveNoise(
-                    nx, ny,
+                // Generate height using 3D noise for seamless wrapping
+                // Use nx, ny, nz where nx/nz form a circle
+                float elevation = noise.OctaveNoise3D(
+                    nx, ny, nz,
                     Options.Octaves,
                     Options.Persistence,
                     Options.Lacunarity
@@ -117,8 +126,12 @@ public class PlanetMap
         {
             for (int y = 0; y < Height; y++)
             {
-                float nx = x * scale;
+                // Use same cylindrical coordinates for mountains
+                float angle = (x / (float)Width) * 2.0f * MathF.PI;
+                float nx = MathF.Cos(angle) * radius;
+                float nz = MathF.Sin(angle) * radius;
                 float ny = y * scale;
+
                 float elevation = baseElevation[x, y];
 
                 // Shift so sea level threshold becomes 0
@@ -127,7 +140,7 @@ public class PlanetMap
                 // Add mountains to elevated land areas
                 if (elevation > 0.1f && Options.MountainLevel > 0.01f)
                 {
-                    float mountainNoise = noise.OctaveNoise(nx * 2.5f, ny * 2.5f, 4, 0.65f, 2.2f);
+                    float mountainNoise = noise.OctaveNoise3D(nx * 2.5f, ny * 2.5f, nz * 2.5f, 4, 0.65f, 2.2f);
 
                     // Square for sharper peaks
                     mountainNoise = mountainNoise * mountainNoise;

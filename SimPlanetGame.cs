@@ -971,7 +971,7 @@ public class SimPlanetGame : Game
         // Apply camera offset to overlays so they move with the terrain
         int overlayOffsetX = offsetX - (int)_terrainRenderer.CameraX;
         int overlayOffsetY = offsetY - (int)_terrainRenderer.CameraY;
-        _eventsUI.DrawOverlay(_map, overlayOffsetX, overlayOffsetY, _terrainRenderer.CellSize);
+        _eventsUI.DrawOverlay(_map, overlayOffsetX, overlayOffsetY, _terrainRenderer.CellSize, _terrainRenderer.ZoomLevel);
 
         // Draw UI
         _ui.Draw(_gameState, _currentRenderMode);

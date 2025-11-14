@@ -82,9 +82,12 @@ public class GeologicalEventsUI
         }
     }
 
-    public void DrawOverlay(PlanetMap map, int offsetX, int offsetY, int cellSize)
+    public void DrawOverlay(PlanetMap map, int offsetX, int offsetY, int cellSize, float zoomLevel = 1.0f)
     {
         if (_geologicalSim == null) return;
+
+        // Apply zoom to cell size for proper scaling
+        int zoomedCellSize = (int)(cellSize * zoomLevel);
 
         // Draw volcanoes
         if (ShowVolcanoes)
@@ -96,21 +99,21 @@ public class GeologicalEventsUI
                     var geo = map.Cells[x, y].GetGeology();
                     if (geo.IsVolcano)
                     {
-                        int screenX = offsetX + x * cellSize;
-                        int screenY = offsetY + y * cellSize;
+                        int screenX = offsetX + x * zoomedCellSize;
+                        int screenY = offsetY + y * zoomedCellSize;
 
-                        // Draw volcano symbol
+                        // Draw volcano symbol (scale with zoom)
                         Color volcanoColor = geo.VolcanicActivity > 0.5f
                             ? Color.Red : new Color(180, 60, 0);
 
-                        DrawTriangle(_spriteBatch, screenX + cellSize / 2,
-                                   screenY + cellSize / 2, cellSize / 2, volcanoColor);
+                        DrawTriangle(_spriteBatch, screenX + zoomedCellSize / 2,
+                                   screenY + zoomedCellSize / 2, zoomedCellSize / 2, volcanoColor);
 
                         // Active eruption
                         if (geo.MagmaPressure > 0.8f)
                         {
-                            DrawStar(_spriteBatch, screenX + cellSize / 2,
-                                   screenY, cellSize / 3, Color.Yellow);
+                            DrawStar(_spriteBatch, screenX + zoomedCellSize / 2,
+                                   screenY, zoomedCellSize / 3, Color.Yellow);
                         }
                     }
                 }
@@ -127,13 +130,15 @@ public class GeologicalEventsUI
                     var (x1, y1) = river.Path[i];
                     var (x2, y2) = river.Path[i + 1];
 
-                    int screenX1 = offsetX + x1 * cellSize + cellSize / 2;
-                    int screenY1 = offsetY + y1 * cellSize + cellSize / 2;
-                    int screenX2 = offsetX + x2 * cellSize + cellSize / 2;
-                    int screenY2 = offsetY + y2 * cellSize + cellSize / 2;
+                    int screenX1 = offsetX + x1 * zoomedCellSize + zoomedCellSize / 2;
+                    int screenY1 = offsetY + y1 * zoomedCellSize + zoomedCellSize / 2;
+                    int screenX2 = offsetX + x2 * zoomedCellSize + zoomedCellSize / 2;
+                    int screenY2 = offsetY + y2 * zoomedCellSize + zoomedCellSize / 2;
 
+                    // Scale river line width with zoom
+                    int lineWidth = Math.Max(1, (int)(2 * zoomLevel));
                     DrawLine(_spriteBatch, screenX1, screenY1, screenX2, screenY2,
-                           new Color(100, 150, 255), 2);
+                           new Color(100, 150, 255), lineWidth);
                 }
             }
         }
@@ -148,8 +153,8 @@ public class GeologicalEventsUI
                     var geo = map.Cells[x, y].GetGeology();
                     if (geo.BoundaryType != PlateBoundaryType.None)
                     {
-                        int screenX = offsetX + x * cellSize;
-                        int screenY = offsetY + y * cellSize;
+                        int screenX = offsetX + x * zoomedCellSize;
+                        int screenY = offsetY + y * zoomedCellSize;
 
                         Color boundaryColor = geo.BoundaryType switch
                         {
@@ -160,7 +165,7 @@ public class GeologicalEventsUI
                         };
 
                         _spriteBatch.Draw(_pixelTexture,
-                            new Rectangle(screenX, screenY, cellSize, cellSize),
+                            new Rectangle(screenX, screenY, zoomedCellSize, zoomedCellSize),
                             boundaryColor * 0.5f);
                     }
                 }
