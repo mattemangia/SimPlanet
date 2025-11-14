@@ -760,7 +760,8 @@ public class SimPlanetGame : Game
     private void StartNewGame()
     {
         _mapOptionsUI.IsVisible = false;
-        RegeneratePlanet();
+        // Don't randomize seed - use the seed configured in the editor
+        StartWorldGeneration();
         // Screen will switch to InGame after generation completes in FinalizeNewWorld
     }
 
@@ -851,7 +852,7 @@ public class SimPlanetGame : Game
         {
             try
             {
-                _newMap = new PlanetMap(_map.Width, _map.Height, _mapOptions);
+                _newMap = new PlanetMap(_mapOptions.MapWidth, _mapOptions.MapHeight, _mapOptions);
             }
             catch (Exception ex)
             {

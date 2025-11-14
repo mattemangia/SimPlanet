@@ -295,12 +295,16 @@ public class MapOptionsUI
 
         try
         {
-            // Generate small preview map with Earth-like defaults first time
+            // Generate preview map with same dimensions as actual map for accurate preview
+            // Use smaller size for performance (1/2 scale)
+            int previewWidth = options.MapWidth / 2;
+            int previewHeight = options.MapHeight / 2;
+
             var previewOptions = new MapGenerationOptions
             {
                 Seed = options.Seed,
-                MapWidth = 100,
-                MapHeight = 50,
+                MapWidth = previewWidth,
+                MapHeight = previewHeight,
                 LandRatio = options.LandRatio,
                 MountainLevel = options.MountainLevel,
                 WaterLevel = options.WaterLevel,
@@ -309,23 +313,23 @@ public class MapOptionsUI
                 Octaves = options.Octaves
             };
 
-            _previewMap = new PlanetMap(100, 50, previewOptions);
+            _previewMap = new PlanetMap(previewWidth, previewHeight, previewOptions);
 
             // Create preview texture
-            if (_previewTexture == null || _previewTexture.Width != 100)
+            if (_previewTexture == null || _previewTexture.Width != previewWidth || _previewTexture.Height != previewHeight)
             {
                 _previewTexture?.Dispose();
-                _previewTexture = new Texture2D(_graphicsDevice, 100, 50);
+                _previewTexture = new Texture2D(_graphicsDevice, previewWidth, previewHeight);
             }
 
             // Generate preview colors
-            var colors = new Color[100 * 50];
-            for (int x = 0; x < 100; x++)
+            var colors = new Color[previewWidth * previewHeight];
+            for (int x = 0; x < previewWidth; x++)
             {
-                for (int y = 0; y < 50; y++)
+                for (int y = 0; y < previewHeight; y++)
                 {
                     var cell = _previewMap.Cells[x, y];
-                    colors[y * 100 + x] = GetPreviewColor(cell);
+                    colors[y * previewWidth + x] = GetPreviewColor(cell);
                 }
             }
 
