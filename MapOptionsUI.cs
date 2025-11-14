@@ -40,6 +40,11 @@ public class MapOptionsUI
     private List<UIButton> _buttons = new();
     private List<UISlider> _sliders = new();
 
+    // Seed input
+    private bool _seedInputActive = false;
+    private string _seedInputText = "";
+    private KeyboardState _previousKeyState;
+
     public MapOptionsUI(SpriteBatch spriteBatch, FontRenderer font, GraphicsDevice graphicsDevice)
     {
         _spriteBatch = spriteBatch;
@@ -59,6 +64,7 @@ public class MapOptionsUI
         if (!IsVisible)
         {
             _previousMouseState = mouseState;
+            _previousKeyState = Keyboard.GetState();
             return false;
         }
 
@@ -69,6 +75,14 @@ public class MapOptionsUI
 
         // Update UI elements positions
         UpdateUIElements(panelX, panelY, panelWidth, options);
+
+        // Handle seed text input
+        var keyState = Keyboard.GetState();
+        if (_seedInputActive)
+        {
+            HandleSeedTextInput(keyState, options);
+        }
+        _previousKeyState = keyState;
 
         // Handle close button
         Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
@@ -122,24 +136,49 @@ public class MapOptionsUI
 
             // Handle seed control buttons
             int seedY = panelY + panelHeight - 60;
-            Rectangle decreaseSeedBtn = new Rectangle(panelX + 200, seedY - 2, 30, 20);
-            Rectangle increaseSeedBtn = new Rectangle(panelX + 235, seedY - 2, 30, 20);
-            Rectangle randomSeedBtn = new Rectangle(panelX + 270, seedY - 2, 80, 20);
+            Rectangle seedInputBox = new Rectangle(panelX + 80, seedY - 2, 110, 20);
+            Rectangle decreaseSeedBtn = new Rectangle(panelX + 195, seedY - 2, 30, 20);
+            Rectangle increaseSeedBtn = new Rectangle(panelX + 230, seedY - 2, 30, 20);
+            Rectangle randomSeedBtn = new Rectangle(panelX + 265, seedY - 2, 80, 20);
+
+            // Check if clicking on seed input box
+            if (seedInputBox.Contains(mouseState.Position))
+            {
+                _seedInputActive = true;
+                _seedInputText = options.Seed.ToString();
+            }
+            // Check if clicking outside to deactivate
+            else if (!seedInputBox.Contains(mouseState.Position))
+            {
+                if (_seedInputActive)
+                {
+                    // Try to parse the input
+                    if (int.TryParse(_seedInputText, out int newSeed))
+                    {
+                        options.Seed = Math.Max(0, newSeed);
+                        NeedsPreviewUpdate = true;
+                    }
+                }
+                _seedInputActive = false;
+            }
 
             if (decreaseSeedBtn.Contains(mouseState.Position))
             {
                 options.Seed = Math.Max(0, options.Seed - 1);
                 NeedsPreviewUpdate = true;
+                _seedInputActive = false;
             }
             else if (increaseSeedBtn.Contains(mouseState.Position))
             {
                 options.Seed++;
                 NeedsPreviewUpdate = true;
+                _seedInputActive = false;
             }
             else if (randomSeedBtn.Contains(mouseState.Position))
             {
                 options.Seed = new Random().Next();
                 NeedsPreviewUpdate = true;
+                _seedInputActive = false;
             }
         }
 
@@ -422,14 +461,28 @@ public class MapOptionsUI
         int seedY = panelY + panelHeight - 60;
         _font.DrawString(_spriteBatch, "Seed:", new Vector2(panelX + 20, seedY), Color.Cyan, 14);
 
-        // Seed value display
-        string seedText = options.Seed.ToString();
-        _font.DrawString(_spriteBatch, seedText, new Vector2(panelX + 80, seedY), Color.White, 14);
+        // Seed input box
+        Rectangle seedInputBox = new Rectangle(panelX + 80, seedY - 2, 110, 20);
+        Color inputBgColor = _seedInputActive ? new Color(80, 80, 120) : new Color(40, 40, 60);
+        Color inputBorderColor = _seedInputActive ? new Color(150, 200, 255) : Color.White;
+        DrawRectangle(seedInputBox.X, seedInputBox.Y, seedInputBox.Width, seedInputBox.Height, inputBgColor);
+        DrawRectangleBorder(seedInputBox.X, seedInputBox.Y, seedInputBox.Width, seedInputBox.Height, inputBorderColor, _seedInputActive ? 2 : 1);
+
+        // Draw seed text (either editing or current value)
+        string seedText = _seedInputActive ? _seedInputText : options.Seed.ToString();
+        _font.DrawString(_spriteBatch, seedText, new Vector2(seedInputBox.X + 4, seedInputBox.Y + 2), Color.White, 12);
+
+        // Draw cursor if active
+        if (_seedInputActive && (DateTime.Now.Millisecond / 500) % 2 == 0)
+        {
+            var textSize = _font.MeasureString(seedText, 12);
+            DrawRectangle((int)(seedInputBox.X + 4 + textSize.X), seedInputBox.Y + 3, 2, 14, Color.White);
+        }
 
         // Seed buttons
-        Rectangle decreaseSeedBtn = new Rectangle(panelX + 200, seedY - 2, 30, 20);
-        Rectangle increaseSeedBtn = new Rectangle(panelX + 235, seedY - 2, 30, 20);
-        Rectangle randomSeedBtn = new Rectangle(panelX + 270, seedY - 2, 80, 20);
+        Rectangle decreaseSeedBtn = new Rectangle(panelX + 195, seedY - 2, 30, 20);
+        Rectangle increaseSeedBtn = new Rectangle(panelX + 230, seedY - 2, 30, 20);
+        Rectangle randomSeedBtn = new Rectangle(panelX + 265, seedY - 2, 80, 20);
 
         // Draw seed buttons
         DrawRectangle(decreaseSeedBtn.X, decreaseSeedBtn.Y, decreaseSeedBtn.Width, decreaseSeedBtn.Height,
@@ -463,6 +516,56 @@ public class MapOptionsUI
         DrawRectangle(x, y + height - thickness, width, thickness, color); // Bottom
         DrawRectangle(x, y, thickness, height, color); // Left
         DrawRectangle(x + width - thickness, y, thickness, height, color); // Right
+    }
+
+    private void HandleSeedTextInput(KeyboardState keyState, MapGenerationOptions options)
+    {
+        // Handle number keys
+        var keys = new[]
+        {
+            (Keys.D0, '0'), (Keys.D1, '1'), (Keys.D2, '2'), (Keys.D3, '3'), (Keys.D4, '4'),
+            (Keys.D5, '5'), (Keys.D6, '6'), (Keys.D7, '7'), (Keys.D8, '8'), (Keys.D9, '9'),
+            (Keys.NumPad0, '0'), (Keys.NumPad1, '1'), (Keys.NumPad2, '2'), (Keys.NumPad3, '3'),
+            (Keys.NumPad4, '4'), (Keys.NumPad5, '5'), (Keys.NumPad6, '6'), (Keys.NumPad7, '7'),
+            (Keys.NumPad8, '8'), (Keys.NumPad9, '9')
+        };
+
+        foreach (var (key, character) in keys)
+        {
+            if (keyState.IsKeyDown(key) && _previousKeyState.IsKeyUp(key))
+            {
+                if (_seedInputText.Length < 10) // Limit to 10 digits
+                {
+                    _seedInputText += character;
+                }
+            }
+        }
+
+        // Handle backspace
+        if (keyState.IsKeyDown(Keys.Back) && _previousKeyState.IsKeyUp(Keys.Back))
+        {
+            if (_seedInputText.Length > 0)
+            {
+                _seedInputText = _seedInputText.Substring(0, _seedInputText.Length - 1);
+            }
+        }
+
+        // Handle Enter to confirm
+        if (keyState.IsKeyDown(Keys.Enter) && _previousKeyState.IsKeyUp(Keys.Enter))
+        {
+            if (int.TryParse(_seedInputText, out int newSeed))
+            {
+                options.Seed = Math.Max(0, newSeed);
+                NeedsPreviewUpdate = true;
+            }
+            _seedInputActive = false;
+        }
+
+        // Handle Escape to cancel
+        if (keyState.IsKeyDown(Keys.Escape) && _previousKeyState.IsKeyUp(Keys.Escape))
+        {
+            _seedInputActive = false;
+        }
     }
 
     public static void ApplyEarthPreset(MapGenerationOptions options)
