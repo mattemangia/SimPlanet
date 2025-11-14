@@ -453,7 +453,7 @@ public class ClimateSimulator
         float waterLevelChange = -iceVolumeChange * 0.0001f;
 
         // Apply water level change
-        _map.WaterLevel = Math.Clamp(_map.WaterLevel + waterLevelChange, -1.0f, 1.0f);
+        _map.Options.WaterLevel = Math.Clamp(_map.Options.WaterLevel + waterLevelChange, -1.0f, 1.0f);
 
         // Update tracking
         _previousIceVolume = currentIceVolume;
