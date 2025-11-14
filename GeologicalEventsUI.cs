@@ -86,8 +86,9 @@ public class GeologicalEventsUI
     {
         if (_geologicalSim == null) return;
 
-        // Calculate zoomed cell size for proper positioning
-        int zoomedCellSize = (int)(cellSize * zoomLevel);
+        // Use the SAME transformation as TerrainRenderer for perfect synchronization
+        // TerrainRenderer scales the entire texture, so we need to match that scaling exactly
+        float pixelScale = cellSize * zoomLevel;
 
         // Draw volcanoes with level-of-detail enhancement
         if (ShowVolcanoes)
@@ -99,10 +100,11 @@ public class GeologicalEventsUI
                     var geo = map.Cells[x, y].GetGeology();
                     if (geo.IsVolcano)
                     {
-                        int screenX = offsetX + x * zoomedCellSize;
-                        int screenY = offsetY + y * zoomedCellSize;
-                        int centerX = screenX + zoomedCellSize / 2;
-                        int centerY = screenY + zoomedCellSize / 2;
+                        // Convert cell coordinates to screen coordinates using floating point for precision
+                        float screenX = offsetX + x * pixelScale;
+                        float screenY = offsetY + y * pixelScale;
+                        int centerX = (int)(screenX + pixelScale * 0.5f);
+                        int centerY = (int)(screenY + pixelScale * 0.5f);
 
                         // Scale volcano triangle size with zoom level
                         int volcanoSize = Math.Max(cellSize / 2, (int)(cellSize / 2 * (1 + (zoomLevel - 1) * 0.5f)));
@@ -208,10 +210,11 @@ public class GeologicalEventsUI
                     var (fx1, fy1) = curvePoints[i];
                     var (fx2, fy2) = curvePoints[i + 1];
 
-                    int screenX1 = offsetX + (int)(fx1 * zoomedCellSize) + zoomedCellSize / 2;
-                    int screenY1 = offsetY + (int)(fy1 * zoomedCellSize) + zoomedCellSize / 2;
-                    int screenX2 = offsetX + (int)(fx2 * zoomedCellSize) + zoomedCellSize / 2;
-                    int screenY2 = offsetY + (int)(fy2 * zoomedCellSize) + zoomedCellSize / 2;
+                    // Use floating point for precise coordinate transformation
+                    int screenX1 = (int)(offsetX + fx1 * pixelScale + pixelScale * 0.5f);
+                    int screenY1 = (int)(offsetY + fy1 * pixelScale + pixelScale * 0.5f);
+                    int screenX2 = (int)(offsetX + fx2 * pixelScale + pixelScale * 0.5f);
+                    int screenY2 = (int)(offsetY + fy2 * pixelScale + pixelScale * 0.5f);
 
                     // HIGH ZOOM: Add shimmer/reflection effects
                     if (zoomLevel > 2.5f)
@@ -247,8 +250,8 @@ public class GeologicalEventsUI
                 if (zoomLevel > 3.0f && curvePoints.Count > 0)
                 {
                     var (fx, fy) = curvePoints[0];
-                    int screenX = offsetX + (int)(fx * zoomedCellSize) + zoomedCellSize / 2;
-                    int screenY = offsetY + (int)(fy * zoomedCellSize) + zoomedCellSize / 2;
+                    int screenX = (int)(offsetX + fx * pixelScale + pixelScale * 0.5f);
+                    int screenY = (int)(offsetY + fy * pixelScale + pixelScale * 0.5f);
                     DrawCircleFilled(_spriteBatch, screenX, screenY, lineWidth + 2, new Color(100, 180, 255));
                     DrawCircleOutline(_spriteBatch, screenX, screenY, lineWidth + 4, Color.Cyan, 1);
                 }
@@ -265,10 +268,11 @@ public class GeologicalEventsUI
                     var geo = map.Cells[x, y].GetGeology();
                     if (geo.BoundaryType != PlateBoundaryType.None)
                     {
-                        int screenX = offsetX + x * zoomedCellSize;
-                        int screenY = offsetY + y * zoomedCellSize;
-                        int centerX = screenX + zoomedCellSize / 2;
-                        int centerY = screenY + zoomedCellSize / 2;
+                        // Use floating point for precise coordinate transformation
+                        float screenX = offsetX + x * pixelScale;
+                        float screenY = offsetY + y * pixelScale;
+                        int centerX = (int)(screenX + pixelScale * 0.5f);
+                        int centerY = (int)(screenY + pixelScale * 0.5f);
 
                         Color boundaryColor = geo.BoundaryType switch
                         {
@@ -281,9 +285,9 @@ public class GeologicalEventsUI
                         // Increase opacity moderately when zoomed for better visibility
                         float alpha = Math.Clamp(0.5f + (zoomLevel - 1) * 0.1f, 0.5f, 0.8f);
 
-                        // Draw base boundary cell
+                        // Draw base boundary cell - use integer for Rectangle
                         _spriteBatch.Draw(_pixelTexture,
-                            new Rectangle(screenX, screenY, zoomedCellSize, zoomedCellSize),
+                            new Rectangle((int)screenX, (int)screenY, (int)pixelScale, (int)pixelScale),
                             boundaryColor * alpha);
 
                         // HIGH ZOOM: Add boundary type indicators
