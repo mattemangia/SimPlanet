@@ -17,7 +17,7 @@ public class SedimentColumnViewer
     private MouseState _previousMouseState;
     private Point? _mouseDownPosition = null;
     private const int DragThreshold = 25; // pixels (increased for trackpad users - more forgiving)
-    private const int InfoPanelWidth = 400; // Don't open viewer when clicking in info panel
+    private const int InfoPanelWidth = 280; // Don't open viewer when clicking in info panel
 
     public bool IsVisible { get; private set; } = false;
 

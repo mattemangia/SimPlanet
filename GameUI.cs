@@ -279,7 +279,7 @@ public class GameUI
     private void DrawHelpPanel()
     {
         // Position help panel in the map area (centered with 2 columns)
-        int infoPanelWidth = 400;
+        int infoPanelWidth = 280;
         int panelX = infoPanelWidth + 20;
         int panelY = 20;
         int panelWidth = 780;

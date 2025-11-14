@@ -970,8 +970,8 @@ public class SimPlanetGame : Game
         // Update terrain texture only when dirty (performance optimization)
         _terrainRenderer.UpdateTerrainTexture();
 
-        // Split screen layout: Info panel on left (400px), map on right
-        int infoPanelWidth = 400;
+        // Split screen layout: Info panel on left (280px), map on right
+        int infoPanelWidth = 280;
         int mapAreaX = infoPanelWidth;
         int mapAreaWidth = GraphicsDevice.Viewport.Width - infoPanelWidth;
         int mapAreaHeight = GraphicsDevice.Viewport.Height;
