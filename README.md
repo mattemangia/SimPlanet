@@ -562,7 +562,27 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Legends & Parameter Indicators
+### Latest Update - Enhanced Sedimentary System & Coordinate Fixes
+
+**NEW - Comprehensive Sedimentary Environments:**
+- ✅ **Delta Systems** - River sediment deposition at coastal areas with high rainfall (silt, sand, clay, organic marsh deposits)
+- ✅ **Carbonate Platforms** - Shallow warm-water limestone reefs and platforms properly marked and modeled
+- ✅ **Desert Environments** - Aeolian (wind-blown) sediments including dune sand, loess, and desert pavement
+- ✅ **Fluvial Systems** - River channel deposits, floodplains, and backswamp sediments
+- ✅ **Coastal Zones** - Beach sand, gravel, and tidal flat sediments
+- ✅ **Glacial Environments** - Glacial till, glacial flour, and glacial lake deposits in cold mountain regions
+- ✅ **Deep Ocean** - Pelagic ooze (clay and limestone), organic ooze
+- ✅ **Volcanic Areas** - Volcanic ash layers in mountain regions and from eruptions
+- ✅ **All Terrain Types** - Every cell now has 5-15 initial sediment layers based on environment
+- ✅ **Failsafe System** - Ensures no cell is left without sediment layers
+
+**FIXED - Coordinate Conversion Bug:**
+- ✅ **Accurate Tile Selection** - Fixed bug where clicking on land showed ocean data
+- ✅ **Proper Map Bounds** - Info panels no longer open when clicking outside map area
+- ✅ **All UI Components** - Fixed coordinate conversion in sediment viewer, disaster control, and planting tool
+- ✅ **Map Offset Handling** - Properly accounts for 400px info panel and map centering
+
+**Previous Update - Legends & Parameter Indicators**
 
 **NEW - Color Legends for All View Modes:**
 - ✅ **Auto-Generated Legends** - Each view mode now displays a color legend (Temperature, Rainfall, Life, etc.)

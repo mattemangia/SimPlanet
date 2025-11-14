@@ -182,68 +182,174 @@ public class PlanetMap
     private void InitializeGeology()
     {
         var random = new Random(Options.Seed + 5000);
+        int totalLayers = 0; // Debug: count total layers added
 
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
             {
                 var cell = Cells[x, y];
-                var geo = cell.GetGeology();
+                if (cell == null) continue; // Safety check
 
-                // Initialize sediment layers based on terrain type
-                int layerCount = random.Next(3, 12); // 3-12 initial layers
+                var geo = cell.GetGeology();
+                if (geo == null) continue; // Safety check
+
+                // Ensure sediment column exists
+                if (geo.SedimentColumn == null)
+                {
+                    geo.SedimentColumn = new List<SedimentType>();
+                }
+
+                // Initialize sediment layers based on terrain type and environment
+                int layerCount = random.Next(5, 15); // 5-15 initial layers (increased from 3-12)
+
+                // Check if this is a coastal area (near water transition)
+                bool isCoastal = false;
+                bool isDelta = false;
+                if (cell.Elevation >= 0 && cell.Elevation < 0.15f)
+                {
+                    // Check neighbors for water
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        for (int dy = -1; dy <= 1; dy++)
+                        {
+                            int nx = (x + dx + Width) % Width;
+                            int ny = Math.Clamp(y + dy, 0, Height - 1);
+                            if (Cells[nx, ny].Elevation < 0)
+                            {
+                                isCoastal = true;
+                                // Delta: high rainfall + coastal + low elevation
+                                if (cell.Rainfall > 0.5f && cell.Elevation < 0.1f)
+                                {
+                                    isDelta = true;
+                                }
+                                break;
+                            }
+                        }
+                        if (isCoastal) break;
+                    }
+                }
 
                 for (int i = 0; i < layerCount; i++)
                 {
                     SedimentType sedimentType;
 
-                    if (cell.Elevation < 0.0f)
+                    // DELTAS - river sediment deposition at coast
+                    if (isDelta)
                     {
-                        // Ocean floor - marine sediments
+                        double roll = random.NextDouble();
+                        if (roll < 0.4) sedimentType = SedimentType.Silt; // Fine river sediments
+                        else if (roll < 0.7) sedimentType = SedimentType.Sand; // Coarser deposits
+                        else if (roll < 0.85) sedimentType = SedimentType.Clay; // Floodplain muds
+                        else sedimentType = SedimentType.Organic; // Marsh deposits
+                    }
+                    // OCEAN FLOOR - marine sediments
+                    else if (cell.Elevation < 0.0f)
+                    {
                         if (cell.Elevation < -0.5f)
                         {
                             // Deep ocean - fine clay and ooze
-                            sedimentType = random.NextDouble() < 0.7 ? SedimentType.Clay : SedimentType.Limestone;
+                            double roll = random.NextDouble();
+                            if (roll < 0.6) sedimentType = SedimentType.Clay;
+                            else if (roll < 0.85) sedimentType = SedimentType.Limestone; // Pelagic ooze
+                            else sedimentType = SedimentType.Organic; // Organic ooze
                         }
                         else
                         {
-                            // Shallow ocean - more variety
+                            // Shallow ocean - carbonate platforms and reefs
                             double roll = random.NextDouble();
-                            if (roll < 0.4) sedimentType = SedimentType.Limestone; // Carbonate platform
-                            else if (roll < 0.7) sedimentType = SedimentType.Sand;
-                            else sedimentType = SedimentType.Clay;
+                            if (roll < 0.5) sedimentType = SedimentType.Limestone; // Carbonate platform
+                            else if (roll < 0.75) sedimentType = SedimentType.Sand; // Carbonate sand
+                            else if (roll < 0.9) sedimentType = SedimentType.Clay;
+                            else sedimentType = SedimentType.Organic; // Reef debris
+
+                            // Mark carbonate platforms
+                            if (cell.Elevation > -0.3f && cell.Temperature > 15f)
+                            {
+                                geo.IsCarbonatePlatform = true;
+                            }
                         }
                     }
+                    // COASTAL ZONES - beach and nearshore
+                    else if (isCoastal)
+                    {
+                        double roll = random.NextDouble();
+                        if (roll < 0.6) sedimentType = SedimentType.Sand; // Beach sand
+                        else if (roll < 0.8) sedimentType = SedimentType.Gravel; // Beach gravel
+                        else sedimentType = SedimentType.Silt; // Tidal flats
+                    }
+                    // LOWLANDS - alluvial plains, floodplains
                     else if (cell.Elevation < 0.2f)
                     {
-                        // Lowlands and alluvial plains - sedimentary deposits
-                        double roll = random.NextDouble();
-                        if (roll < 0.35) sedimentType = SedimentType.Sand; // River deposits
-                        else if (roll < 0.65) sedimentType = SedimentType.Silt; // Floodplain
-                        else if (roll < 0.85) sedimentType = SedimentType.Clay; // Fine sediments
-                        else sedimentType = SedimentType.Gravel; // Coarse deposits
+                        // Desert vs fluvial environment
+                        if (cell.Rainfall < 0.2f && cell.Temperature > 20f)
+                        {
+                            // Desert - aeolian (wind-blown) sediments
+                            double roll = random.NextDouble();
+                            if (roll < 0.7) sedimentType = SedimentType.Sand; // Dune sand
+                            else if (roll < 0.9) sedimentType = SedimentType.Silt; // Loess (wind-blown silt)
+                            else sedimentType = SedimentType.Gravel; // Desert pavement
+                        }
+                        else
+                        {
+                            // Fluvial plains - river deposits
+                            double roll = random.NextDouble();
+                            if (roll < 0.35) sedimentType = SedimentType.Sand; // River channel
+                            else if (roll < 0.65) sedimentType = SedimentType.Silt; // Floodplain
+                            else if (roll < 0.85) sedimentType = SedimentType.Clay; // Backswamp
+                            else sedimentType = SedimentType.Gravel; // Coarse channel deposits
+                        }
                     }
+                    // HILLS AND UPLANDS - weathered rock and colluvium
                     else if (cell.Elevation < 0.6f)
                     {
-                        // Hills and uplands - weathered rock and colluvium
                         double roll = random.NextDouble();
-                        if (roll < 0.5) sedimentType = SedimentType.Gravel; // Weathered rock
-                        else if (roll < 0.75) sedimentType = SedimentType.Sand;
-                        else sedimentType = SedimentType.Silt; // Ancient deposits
+                        if (roll < 0.5) sedimentType = SedimentType.Gravel; // Weathered rock fragments
+                        else if (roll < 0.75) sedimentType = SedimentType.Sand; // Weathered sand
+                        else if (roll < 0.9) sedimentType = SedimentType.Silt; // Ancient deposits
+                        else sedimentType = SedimentType.Volcanic; // Volcanic ash layers
                     }
+                    // MOUNTAINS - minimal sediment, mostly bedrock
                     else
                     {
-                        // Mountains - minimal sediment, mostly exposed bedrock
-                        double roll = random.NextDouble();
-                        if (roll < 0.6) sedimentType = SedimentType.Gravel; // Talus and weathered rock
-                        else if (roll < 0.8) sedimentType = SedimentType.Silt; // Fine glacial flour
-                        else sedimentType = SedimentType.Volcanic; // Volcanic ash from ancient eruptions
+                        // Cold vs warm mountains
+                        if (cell.Temperature < 0f)
+                        {
+                            // Glacial environment
+                            double roll = random.NextDouble();
+                            if (roll < 0.5) sedimentType = SedimentType.Gravel; // Glacial till
+                            else if (roll < 0.8) sedimentType = SedimentType.Silt; // Glacial flour
+                            else sedimentType = SedimentType.Clay; // Glacial lake deposits
+                        }
+                        else
+                        {
+                            // Alpine weathering
+                            double roll = random.NextDouble();
+                            if (roll < 0.6) sedimentType = SedimentType.Gravel; // Talus and scree
+                            else if (roll < 0.8) sedimentType = SedimentType.Silt; // Mountain soil
+                            else sedimentType = SedimentType.Volcanic; // Volcanic ash
+                        }
                     }
 
                     geo.SedimentColumn.Add(sedimentType);
+                    totalLayers++;
+                }
+
+                // Ensure geo data is properly initialized
+                if (geo.SedimentColumn.Count == 0)
+                {
+                    // Failsafe: add at least some sediment
+                    geo.SedimentColumn.Add(SedimentType.Sand);
+                    geo.SedimentColumn.Add(SedimentType.Silt);
+                    geo.SedimentColumn.Add(SedimentType.Clay);
+                    totalLayers += 3;
                 }
             }
         }
+
+        // Debug output
+        Console.WriteLine($"[InitializeGeology] Added {totalLayers} sediment layers across {Width}x{Height} cells");
+        Console.WriteLine($"[InitializeGeology] Average {totalLayers / (Width * Height)} layers per cell");
     }
 
     private void InitializeClimate()
