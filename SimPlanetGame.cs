@@ -409,10 +409,16 @@ public class SimPlanetGame : Game
                 _terrainRenderer.DayNightTime -= 24.0f;
             }
 
-            // Auto-enable day/night when time is very slow
+            // Auto-enable/disable day/night based on time speed
+            // Only show day/night cycle when simulation is slow enough to appreciate it
             if (_gameState.TimeSpeed <= 0.5f)
             {
                 _terrainRenderer.ShowDayNight = true;
+            }
+            else if (_gameState.TimeSpeed > 1.0f)
+            {
+                // Disable day/night at faster speeds (user manually toggling with 'C' overrides this)
+                _terrainRenderer.ShowDayNight = false;
             }
         }
 

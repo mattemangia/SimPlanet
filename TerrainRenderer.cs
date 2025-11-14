@@ -416,27 +416,14 @@ public class TerrainRenderer
         terrainColor = Color.Lerp(terrainColor, Color.Black, 0.2f);
 
         // Cloud coverage overlay (like satellite imagery)
+        // Clouds should be white - if they're showing other colors, it's a bug
         if (met.CloudCover > 0.05f)
         {
-            Color cloudColor;
-            if (met.CloudCover > 0.8f)
-            {
-                // Dense storm clouds - very white/gray
-                cloudColor = new Color(240, 240, 245);
-            }
-            else if (met.CloudCover > 0.5f)
-            {
-                // Thick clouds - white
-                cloudColor = new Color(255, 255, 255);
-            }
-            else
-            {
-                // Light clouds - slightly transparent white
-                cloudColor = new Color(245, 250, 255);
-            }
+            // Pure white clouds, intensity based on coverage
+            Color cloudColor = new Color(255, 255, 255);
 
             // Blend clouds over terrain based on coverage
-            float cloudAlpha = Math.Clamp(met.CloudCover * 0.9f, 0, 0.95f);
+            float cloudAlpha = Math.Clamp(met.CloudCover, 0, 0.95f);
             return Color.Lerp(terrainColor, cloudColor, cloudAlpha);
         }
 
@@ -447,97 +434,41 @@ public class TerrainRenderer
     {
         var met = cell.GetMeteorology();
 
-        // Base terrain faded
-        Color baseColor = Color.Lerp(GetTerrainColor(cell), Color.Gray, 0.5f);
-
-        // Wind speed as color intensity
+        // Wind speed magnitude
         float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
 
-        if (windSpeed < 0.1f)
-        {
-            return Color.Lerp(baseColor, new Color(200, 200, 255), 0.3f); // Calm - blue
-        }
-        else if (windSpeed < 0.3f)
-        {
-            return Color.Lerp(baseColor, Color.Green, 0.5f); // Gentle - green
-        }
-        else if (windSpeed < 0.6f)
-        {
-            return Color.Lerp(baseColor, Color.Yellow, 0.6f); // Moderate - yellow
-        }
-        else if (windSpeed < 1.0f)
-        {
-            return Color.Lerp(baseColor, Color.Orange, 0.7f); // Strong - orange
-        }
-        else
-        {
-            return Color.Lerp(baseColor, Color.Red, 0.8f); // Extreme - red
-        }
+        // Normalize wind speed (typical range: 0-15, extreme can go higher)
+        // Map to 0-1 range for color interpolation
+        float normalized = Math.Clamp(windSpeed / 15.0f, 0, 1);
+
+        // Gradient from green (calm) to red (extreme), matching legend
+        return Color.Lerp(new Color(200, 255, 200), new Color(255, 50, 50), normalized);
     }
 
     private Color GetPressureColor(TerrainCell cell)
     {
         var met = cell.GetMeteorology();
 
-        // Map pressure to color gradient
-        // Low pressure (< 0.4) = Blue (storms)
-        // Normal pressure (0.4 - 0.6) = Green
-        // High pressure (> 0.6) = Red (fair weather)
+        // Air pressure in millibars: typical range 950-1050, standard = 1013.25
+        // Normalize to 0-1: (pressure - 950) / 100
+        float normalized = Math.Clamp((met.AirPressure - 950f) / 100f, 0, 1);
 
-        if (met.AirPressure < 0.3f)
-        {
-            return new Color(0, 0, 200); // Deep low pressure
-        }
-        else if (met.AirPressure < 0.4f)
-        {
-            return new Color(50, 50, 255); // Low pressure
-        }
-        else if (met.AirPressure < 0.5f)
-        {
-            return new Color(100, 200, 100); // Normal-low
-        }
-        else if (met.AirPressure < 0.6f)
-        {
-            return new Color(100, 255, 100); // Normal-high
-        }
-        else if (met.AirPressure < 0.7f)
-        {
-            return new Color(255, 200, 100); // High pressure
-        }
-        else
-        {
-            return new Color(255, 100, 100); // Very high pressure
-        }
+        // Gradient: Blue (low pressure/storms) to Red (high pressure/fair weather)
+        return Color.Lerp(new Color(50, 100, 255), new Color(255, 50, 50), normalized);
     }
 
     private Color GetStormsColor(TerrainCell cell)
     {
         var met = cell.GetMeteorology();
 
-        // Base terrain
-        Color baseColor = GetTerrainColor(cell);
-
-        // Show precipitation intensity
-        if (met.Precipitation > 0.1f)
-        {
-            Color rainColor = new Color(100, 100, 200);
-            baseColor = Color.Lerp(baseColor, rainColor, met.Precipitation);
-        }
-
-        // Highlight areas with high wind (storms)
+        // Calculate storm intensity from precipitation + wind speed
         float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
-        if (windSpeed > 0.8f)
-        {
-            baseColor = Color.Lerp(baseColor, Color.Red, (windSpeed - 0.8f) * 2.0f);
-        }
 
-        // Show cloud cover for storm systems
-        if (met.CloudCover > 0.7f)
-        {
-            baseColor = Color.Lerp(baseColor, new Color(80, 80, 80), (met.CloudCover - 0.7f));
-        }
+        // Storm intensity combines precipitation (0-1) and high wind (normalized)
+        float stormIntensity = Math.Clamp(met.Precipitation * 0.5f + (windSpeed / 15.0f) * 0.5f, 0, 1);
 
-        return baseColor;
+        // Gradient from clear (light blue) to severe storm (purple), matching legend
+        return Color.Lerp(new Color(150, 200, 255), new Color(100, 0, 100), stormIntensity);
     }
 
     private Color GetBiomeColor(TerrainCell cell)
