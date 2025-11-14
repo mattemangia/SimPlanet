@@ -18,7 +18,20 @@ public class MapOptionsUI
     private PlanetMap? _previewMap;
     private MouseState _previousMouseState;
 
-    public bool IsVisible { get; set; } = false;
+    private bool _isVisible = false;
+    public bool IsVisible
+    {
+        get => _isVisible;
+        set
+        {
+            if (value && !_isVisible)
+            {
+                // Force preview generation when showing
+                NeedsPreviewUpdate = true;
+            }
+            _isVisible = value;
+        }
+    }
     public bool NeedsPreviewUpdate { get; set; } = true;
     public bool GenerateRequested { get; private set; } = false;
 
@@ -209,8 +222,21 @@ public class MapOptionsUI
 
         try
         {
-            // Generate small preview map (100x50 for performance)
-            _previewMap = new PlanetMap(100, 50, options);
+            // Generate small preview map with Earth-like defaults first time
+            var previewOptions = new MapGenerationOptions
+            {
+                Seed = options.Seed,
+                MapWidth = 100,
+                MapHeight = 50,
+                LandRatio = options.LandRatio,
+                MountainLevel = options.MountainLevel,
+                WaterLevel = options.WaterLevel,
+                Persistence = options.Persistence,
+                Lacunarity = options.Lacunarity,
+                Octaves = options.Octaves
+            };
+
+            _previewMap = new PlanetMap(100, 50, previewOptions);
 
             // Create preview texture
             if (_previewTexture == null || _previewTexture.Width != 100)

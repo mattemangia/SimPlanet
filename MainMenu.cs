@@ -206,54 +206,79 @@ public class MainMenu
     {
         _menuItemBounds.Clear();
 
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(10, 20, 40, 255));
+        // Gradient background
+        DrawGradientBackground(spriteBatch, screenWidth, screenHeight, new Color(5, 10, 30), new Color(20, 40, 80));
 
-        // Title
-        DrawCenteredText(spriteBatch, "=== SIM PLANET ===", screenHeight / 3, Color.Yellow, 1.0f);
-        DrawCenteredText(spriteBatch, "Planetary Evolution Simulator", screenHeight / 3 + 30,
-            Color.Cyan, 1.0f);
+        // Title with glow effect
+        DrawCenteredText(spriteBatch, "SIMPLANET", screenHeight / 3 - 10, new Color(255, 200, 50), 1.8f);
+        DrawCenteredText(spriteBatch, "Planetary Evolution Simulator", screenHeight / 3 + 35,
+            new Color(100, 200, 255), 0.8f);
 
-        // Menu items
+        // Menu items with fancy boxes
         int startY = screenHeight / 2;
+        int buttonWidth = 300;
+        int buttonHeight = 50;
+
         for (int i = 0; i < _mainMenuItems.Length; i++)
         {
             bool isSelected = i == _selectedMenuItem;
-            Color color = isSelected ? Color.Yellow : Color.White;
-            string text = isSelected ? "> " + _mainMenuItems[i] + " <" : _mainMenuItems[i];
+            string text = _mainMenuItems[i];
 
-            var size = _font.MeasureString(text, 16);
-            int x = (screenWidth - (int)size.X) / 2;
-            int y = startY + i * 40;
+            int x = (screenWidth - buttonWidth) / 2;
+            int y = startY + i * 60;
 
-            // Store button bounds for mouse interaction
-            _menuItemBounds.Add(new Rectangle(x - 10, y - 5, (int)size.X + 20, (int)size.Y + 10));
+            // Store button bounds
+            _menuItemBounds.Add(new Rectangle(x, y, buttonWidth, buttonHeight));
 
-            // Draw button background if hovered
-            if (isSelected)
-            {
-                spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], new Color(50, 50, 80, 150));
-            }
+            // Draw button
+            Color bgColor = isSelected ? new Color(70, 140, 255, 200) : new Color(30, 60, 100, 180);
+            Color borderColor = isSelected ? new Color(120, 200, 255) : new Color(80, 120, 160);
 
-            _font.DrawString(spriteBatch, text, new Vector2(x, y), color, 16);
+            spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], bgColor);
+            DrawBorder(_menuItemBounds[i].X, _menuItemBounds[i].Y, _menuItemBounds[i].Width, _menuItemBounds[i].Height, borderColor, 2);
+
+            // Draw text
+            var textSize = _font.MeasureString(text, 18);
+            float textX = x + (buttonWidth - textSize.X) / 2;
+            float textY = y + (buttonHeight - textSize.Y) / 2;
+            _font.DrawString(spriteBatch, text, new Vector2(textX, textY), Color.White, 18);
         }
 
         // Instructions
-        DrawCenteredText(spriteBatch, "Use MOUSE or UP/DOWN arrows and ENTER to select",
-            screenHeight - 60, Color.Gray, 1.0f);
+        DrawCenteredText(spriteBatch, "Click or use Arrow Keys + ENTER",
+            screenHeight - 50, new Color(150, 150, 150), 0.7f);
+    }
+
+    private void DrawGradientBackground(SpriteBatch spriteBatch, int width, int height, Color top, Color bottom)
+    {
+        int steps = 100;
+        for (int i = 0; i < steps; i++)
+        {
+            float t = i / (float)steps;
+            Color color = Color.Lerp(top, bottom, t);
+            int y = (int)(height * t);
+            int h = (int)(height / (float)steps) + 1;
+            spriteBatch.Draw(_pixelTexture, new Rectangle(0, y, width, h), color);
+        }
+    }
+
+    private void DrawBorder(int x, int y, int width, int height, Color color, int thickness)
+    {
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
     }
 
     private void DrawLoadGameMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         _menuItemBounds.Clear();
 
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(10, 20, 40, 230));
+        // Gradient background
+        DrawGradientBackground(spriteBatch, screenWidth, screenHeight, new Color(5, 10, 30), new Color(20, 40, 80));
 
         // Title
-        DrawCenteredText(spriteBatch, "=== LOAD GAME ===", 100, Color.Yellow, 1.0f);
+        DrawCenteredText(spriteBatch, "LOAD GAME", 80, new Color(255, 200, 50), 1.5f);
 
         if (_saveGames.Count == 0)
         {
@@ -293,10 +318,10 @@ public class MainMenu
 
         // Semi-transparent overlay
         spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(0, 0, 0, 180));
+            new Color(0, 0, 0, 200));
 
         // Title
-        DrawCenteredText(spriteBatch, "=== PAUSED ===", screenHeight / 3, Color.Yellow, 1.0f);
+        DrawCenteredText(spriteBatch, "PAUSED", screenHeight / 3, new Color(255, 200, 50), 1.8f);
 
         // Menu items
         int startY = screenHeight / 2;
