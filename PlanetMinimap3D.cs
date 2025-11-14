@@ -173,22 +173,29 @@ public class PlanetMinimap3D
                 // Calculate 3D point on sphere surface
                 float z = MathF.Sqrt(SphereRadius * SphereRadius - dx * dx - dy * dy);
 
+                // Apply horizontal rotation first
+                float rotatedX = dx * MathF.Cos(_rotation) - z * MathF.Sin(_rotation);
+                float rotatedZ = dx * MathF.Sin(_rotation) + z * MathF.Cos(_rotation);
+
                 // Apply tilt transformation
-                float tiltedY = dy * MathF.Cos(_tilt) - z * MathF.Sin(_tilt);
-                float tiltedZ = dy * MathF.Sin(_tilt) + z * MathF.Cos(_tilt);
+                float tiltedY = dy * MathF.Cos(_tilt) - rotatedZ * MathF.Sin(_tilt);
+                float tiltedZ = dy * MathF.Sin(_tilt) + rotatedZ * MathF.Cos(_tilt);
 
-                // Convert to spherical coordinates
-                float theta = MathF.Atan2(tiltedY, dx); // Latitude
-                float phi = MathF.Acos(Math.Clamp(tiltedZ / SphereRadius, -1f, 1f)); // Longitude
+                // Convert to spherical coordinates for texture mapping
+                // Longitude (around equator): atan2 gives angle in horizontal plane
+                float longitude = MathF.Atan2(rotatedX, tiltedZ);
 
-                // Apply horizontal rotation
-                phi += _rotation;
+                // Latitude (from north pole to south pole): asin for proper latitude
+                float latitude = MathF.Asin(Math.Clamp(tiltedY / SphereRadius, -1f, 1f));
 
                 // Map to texture coordinates
-                float u = (phi / MathF.PI); // 0 to 1
-                float v = (theta + MathF.PI) / (2 * MathF.PI); // 0 to 1
+                // Longitude: -PI to PI -> 0 to 1 (wraps around)
+                float u = (longitude + MathF.PI) / (2 * MathF.PI);
 
-                // Wrap around
+                // Latitude: -PI/2 to PI/2 -> 0 to 1 (north pole to south pole)
+                float v = (latitude + MathF.PI / 2) / MathF.PI;
+
+                // Wrap u coordinate for seamless horizontal wrapping
                 u = u % 1.0f;
                 if (u < 0) u += 1.0f;
 

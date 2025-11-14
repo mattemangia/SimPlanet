@@ -35,9 +35,12 @@ public class ClimateSimulator
                 // Base temperature from latitude with stronger polar cooling
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
+                // Add longitude variation to prevent perfect horizontal bands
+                float longitudeVariation = MathF.Sin(x * 0.3f) * 2.0f; // Small variation across longitude
+
                 // Realistic temperature gradient: hot equator, freezing poles
                 // Equator (lat=0): ~30°C, Poles (lat=1): ~-40°C
-                float baseTemp = 30 - (latitude * latitude * 70); // Quadratic for stronger polar effect
+                float baseTemp = 30 - (latitude * latitude * 70) + longitudeVariation;
 
                 // Calculate surface albedo (reflection coefficient)
                 float albedo = CalculateAlbedo(cell);
@@ -54,13 +57,13 @@ public class ClimateSimulator
                 // Greenhouse effect
                 solarHeating += cell.Greenhouse * 20;
 
-                // Water moderates temperature
+                // Water moderates temperature (oceanic thermal inertia)
                 if (cell.IsWater)
                 {
                     solarHeating += 5;
                 }
 
-                // Heat diffusion from neighbors
+                // Heat diffusion from neighbors (prevents sharp boundaries)
                 float neighborTemp = 0;
                 int neighborCount = 0;
                 foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
@@ -73,8 +76,8 @@ public class ClimateSimulator
                     neighborTemp /= neighborCount;
                 }
 
-                // Blend current temperature with target
-                float targetTemp = solarHeating * 0.3f + neighborTemp * 0.7f;
+                // Blend current temperature with target - higher neighbor influence prevents bands
+                float targetTemp = solarHeating * 0.2f + neighborTemp * 0.8f;
                 newTemperatures[x, y] = cell.Temperature + (targetTemp - cell.Temperature) * deltaTime * 0.1f;
             }
         }
@@ -120,30 +123,38 @@ public class ClimateSimulator
                 // Realistic atmospheric circulation patterns (Hadley, Ferrel, Polar cells)
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
+                // Add longitude variation to break up perfect bands
+                float rainfallVariation = MathF.Sin(x * 0.2f + y * 0.1f) * 0.15f;
+
                 float latitudeEffect;
-                if (latitude < 0.15f)
+                if (latitude < 0.12f)
                 {
                     // ITCZ (Intertropical Convergence Zone) - Heavy rainfall at equator
-                    latitudeEffect = 1.5f;
+                    latitudeEffect = 1.3f + rainfallVariation;
                 }
-                else if (latitude < 0.4f)
+                else if (latitude < 0.45f)
                 {
                     // Subtropical high pressure - Deserts (Hadley cell descending air)
                     // Peak aridity around 25-30 degrees (0.25-0.35 latitude)
-                    float desertPeak = 0.27f;
-                    float desertStrength = 1.0f - Math.Abs(latitude - desertPeak) / 0.15f;
-                    desertStrength = Math.Clamp(desertStrength, 0, 1);
-                    latitudeEffect = 0.2f + (0.4f * (1.0f - desertStrength)); // Very dry
+                    float desertPeak = 0.28f;
+                    float desertWidth = 0.18f;
+                    float distanceFromPeak = Math.Abs(latitude - desertPeak);
+                    float desertStrength = Math.Max(0, 1.0f - (distanceFromPeak / desertWidth));
+
+                    // Strong desert belt effect - very dry at peak
+                    latitudeEffect = 0.15f + (0.5f * (1.0f - desertStrength)) + rainfallVariation;
+                    latitudeEffect = Math.Max(0.1f, latitudeEffect); // Ensure truly arid zones
                 }
-                else if (latitude < 0.7f)
+                else if (latitude < 0.75f)
                 {
-                    // Mid-latitudes (Ferrel cell) - Moderate rainfall
-                    latitudeEffect = 0.8f + (1.0f - ((latitude - 0.4f) / 0.3f)) * 0.4f;
+                    // Mid-latitudes (Ferrel cell) - Moderate to high rainfall
+                    float midLatEffect = (latitude - 0.45f) / 0.3f; // 0 to 1
+                    latitudeEffect = 1.0f - (midLatEffect * 0.3f) + rainfallVariation; // 1.0 to 0.7
                 }
                 else
                 {
-                    // Polar regions - Cold deserts (low moisture capacity)
-                    latitudeEffect = 0.3f;
+                    // Polar regions - Cold deserts (low moisture capacity due to cold)
+                    latitudeEffect = 0.25f + rainfallVariation * 0.5f;
                 }
 
                 float targetRainfall = (evaporation + orographicEffect) * latitudeEffect;
@@ -213,12 +224,15 @@ public class ClimateSimulator
 
                 // Calculate latitude (0 = equator, 1 = poles)
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
-                bool isPolarRegion = latitude > 0.8f; // High latitudes
+
+                // Gradual transition - not sharp boundary at 0.8
+                bool isPolarRegion = latitude > 0.75f;
+                float polarStrength = Math.Max(0, (latitude - 0.75f) / 0.25f); // 0 to 1 gradient
                 bool isMountainPeak = cell.Elevation > 0.7f; // High elevation
 
-                // Ice accumulation threshold varies by location
-                float iceFormationTemp = isPolarRegion ? -5f : -10f; // Polar ice forms easier
-                float iceMeltingTemp = isPolarRegion ? 2f : 5f; // Polar ice melts slower
+                // Ice accumulation threshold varies smoothly by location
+                float iceFormationTemp = -10f + (polarStrength * 5f); // -10°C to -5°C gradient
+                float iceMeltingTemp = 5f - (polarStrength * 3f); // 5°C to 2°C gradient
 
                 // Mountain snow line (permanent ice at high elevations)
                 if (isMountainPeak)
@@ -231,8 +245,8 @@ public class ClimateSimulator
                     }
                 }
 
-                // Polar ice sheets
-                if (isPolarRegion)
+                // Polar ice sheets (gradual, not banded)
+                if (isPolarRegion && polarStrength > 0.2f)
                 {
                     // Ice accumulation in polar regions
                     if (cell.Temperature < iceFormationTemp)
@@ -240,21 +254,21 @@ public class ClimateSimulator
                         // Sea ice forms on ocean
                         if (cell.IsWater)
                         {
-                            // Increase albedo effect by cooling further
-                            cell.Temperature -= deltaTime * 2.0f; // Ice-albedo feedback
+                            // Gradual ice-albedo feedback proportional to polar strength
+                            cell.Temperature -= deltaTime * 1.0f * polarStrength;
 
                             // Frozen ocean reduces evaporation
-                            cell.Humidity = Math.Max(cell.Humidity - deltaTime * 0.1f, 0.2f);
+                            cell.Humidity = Math.Max(cell.Humidity - deltaTime * 0.1f * polarStrength, 0.2f);
                         }
                         // Glaciers accumulate on land
                         else if (cell.IsLand)
                         {
                             // Ice sheets slowly increase elevation (glacier growth)
-                            cell.Elevation += deltaTime * 0.0001f; // Very slow accumulation
+                            cell.Elevation += deltaTime * 0.00008f * polarStrength;
                             cell.Elevation = Math.Min(cell.Elevation, 1.0f);
 
-                            // Ice-albedo feedback (ice reflects sunlight, stays cold)
-                            cell.Temperature -= deltaTime * 1.5f;
+                            // Gradual ice-albedo feedback
+                            cell.Temperature -= deltaTime * 0.8f * polarStrength;
                         }
                     }
                     // Melting
@@ -263,7 +277,7 @@ public class ClimateSimulator
                         // Glacier retreat
                         if (cell.IsLand && cell.Elevation > 0.2f)
                         {
-                            cell.Elevation -= deltaTime * 0.0002f; // Faster melting than accumulation
+                            cell.Elevation -= deltaTime * 0.00015f; // Faster melting than accumulation
                         }
 
                         // Melting ice increases humidity
@@ -305,18 +319,17 @@ public class ClimateSimulator
                     }
                 }
 
-                // Global ice-albedo feedback
+                // Global ice-albedo feedback (reduced to prevent banding)
                 // Ice reflects more sunlight, reducing local heating
                 if (cell.IsIce)
                 {
-                    // High albedo keeps ice cold (positive feedback loop)
-                    cell.Temperature -= deltaTime * 0.5f;
+                    // Moderate albedo feedback - prevents runaway ice formation
+                    float feedbackStrength = isPolarRegion ? 0.3f : 0.2f;
+                    cell.Temperature -= deltaTime * feedbackStrength;
 
-                    // Prevent runaway cooling
-                    if (isPolarRegion)
-                        cell.Temperature = Math.Max(cell.Temperature, -60f);
-                    else
-                        cell.Temperature = Math.Max(cell.Temperature, -40f);
+                    // Prevent runaway cooling with latitude-dependent limits
+                    float minTemp = isPolarRegion ? -55f : -35f;
+                    cell.Temperature = Math.Max(cell.Temperature, minTemp);
                 }
             }
         }

@@ -287,7 +287,7 @@ public class GeologicalSimulator
                                     cell.Elevation += 0.003f * relVel; // Mountains build up on continental side
                                 }
 
-                                if (_random.NextDouble() < 0.01) // Increased from 0.001
+                                if (_random.NextDouble() < 0.0002) // Reduced - rare volcanic arcs
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -307,7 +307,7 @@ public class GeologicalSimulator
                                 cell.Elevation += 0.003f * relVel; // Mountains on continental side
                                 geo.TectonicStress += 0.02f;
 
-                                if (_random.NextDouble() < 0.01)
+                                if (_random.NextDouble() < 0.0002) // Reduced - rare volcanic arcs
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -330,9 +330,9 @@ public class GeologicalSimulator
                             else if (plate1.IsOceanic && plate2.IsOceanic)
                             {
                                 // Oceanic-oceanic convergence - island arcs (Japan, Philippines)
-                                if (_random.NextDouble() < 0.005) // Increased from 0.0005
+                                if (_random.NextDouble() < 0.0003) // Reduced - rare island chains
                                 {
-                                    cell.Elevation += 0.03f;
+                                    cell.Elevation += 0.08f; // Build higher to create islands
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.7f;
                                     geo.MagmaPressure = 0.4f;
@@ -344,16 +344,16 @@ public class GeologicalSimulator
                             geo.BoundaryType = PlateBoundaryType.Divergent;
 
                             // Mid-ocean ridge volcanism (Iceland-like)
-                            if (cell.IsWater && _random.NextDouble() < 0.003) // Increased from 0.0003
+                            if (cell.IsWater && _random.NextDouble() < 0.0001) // Reduced - rare mid-ocean ridge volcanoes
                             {
                                 geo.IsVolcano = true;
                                 geo.VolcanicActivity = 0.4f;
                                 geo.MagmaPressure = 0.2f;
-                                cell.Elevation += 0.01f; // Underwater volcanoes
+                                cell.Elevation += 0.02f; // Build underwater volcanoes higher
                             }
 
                             // Continental rifts (East African Rift)
-                            if (cell.IsLand && _random.NextDouble() < 0.002)
+                            if (cell.IsLand && _random.NextDouble() < 0.0001) // Reduced - rare rift volcanoes
                             {
                                 geo.IsVolcano = true;
                                 geo.VolcanicActivity = 0.5f;
@@ -500,7 +500,18 @@ public class GeologicalSimulator
         var cell = _map.Cells[x, y];
         var geo = cell.GetGeology();
 
-        cell.Elevation += 0.02f * (vei + 1);
+        float elevationIncrease = 0.02f * (vei + 1);
+
+        // Underwater volcanoes build up faster to form islands (like Hawaii)
+        if (cell.IsWater)
+        {
+            elevationIncrease *= 2.5f; // Faster buildup underwater
+
+            // Submarine lava cools quickly into pillow basalts
+            geo.Basalt += 0.2f;
+        }
+
+        cell.Elevation += elevationIncrease;
         geo.VolcanicRock += 0.3f;
         cell.Temperature += 20 * (vei + 1);
         cell.CO2 += 1.0f * (vei + 1);
@@ -520,7 +531,15 @@ public class GeologicalSimulator
         var cell = _map.Cells[x, y];
         var geo = cell.GetGeology();
 
-        cell.Elevation += 0.04f * (vei + 1);
+        float elevationIncrease = 0.04f * (vei + 1);
+
+        // Underwater volcanoes build into islands
+        if (cell.IsWater)
+        {
+            elevationIncrease *= 2.0f;
+        }
+
+        cell.Elevation += elevationIncrease;
         geo.VolcanicRock += 0.25f;
         cell.Temperature += 35 * (vei + 1);
         cell.CO2 += 1.5f * (vei + 1);
