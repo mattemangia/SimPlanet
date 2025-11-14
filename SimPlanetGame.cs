@@ -993,7 +993,8 @@ public class SimPlanetGame : Game
         // Draw legend
         _eventsUI.DrawLegend(GraphicsDevice.Viewport.Height);
 
-        // Update and draw 3D minimap
+        // Update and draw 3D minimap (position at bottom of info panel)
+        _minimap3D.PosY = GraphicsDevice.Viewport.Height - 160; // 150 (minimap size) + 10 margin
         _minimap3D.UpdateTexture(_terrainRenderer);
         _minimap3D.Draw(_spriteBatch);
 

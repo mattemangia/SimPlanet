@@ -595,7 +595,9 @@ public class TerrainRenderer
 
         int legendWidth = 220;
         int legendHeight = 180;
-        int legendX = screenWidth - legendWidth - 420; // Left of info panel
+        int infoPanelWidth = 400;
+        // Position legend in bottom-left of map area (to the right of info panel, won't overlap minimap)
+        int legendX = infoPanelWidth + 10;
         int legendY = screenHeight - legendHeight - 10;
 
         // Background
