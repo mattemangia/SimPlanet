@@ -683,10 +683,11 @@ Potential additions (not yet implemented):
 - ✅ **Different Melting Rates** - Sea ice responds quickly, land ice persists longer (realistic behavior)
 
 **FIXED - Map Preview Accuracy:**
-- ✅ **Preview Matches Generated Terrain** - Preview now shows exactly what will be generated
-- ✅ **Consistent Noise Sampling** - Uses reference dimensions to sample noise at correct coordinates
-- ✅ **Half-Resolution Performance** - Preview generates at half size for speed while maintaining accuracy
-- ✅ **Perlin Noise Coordination** - Cylindrical wrapping calculations use full-map scale
+- ✅ **Preview Matches Generated Terrain** - Preview now shows exactly what will be generated with same seed
+- ✅ **Consistent Noise Sampling** - Fixed constructor parameter passing for reference dimensions
+- ✅ **Half-Resolution Performance** - Preview generates at 120×60 for speed while sampling at full scale
+- ✅ **Reference Dimension Fix** - Pass reference dimensions as constructor params, not in options object
+- ✅ **Same Seed Guarantee** - Preview and final map use identical Perlin noise coordinates
 - ✅ **No More Surprises** - Generated map perfectly matches preview every time
 
 **ENHANCED - Seasonal System:**
