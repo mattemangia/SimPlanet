@@ -424,8 +424,12 @@ public class SimPlanetGame : Game
         // Mouse controls for pan and zoom (MUST be processed every frame, not just on keyboard changes)
         var mouseState = Mouse.GetState();
 
+        // Check if mouse is over the minimap (don't pan if it is)
+        bool isOverMinimap = _minimap3D != null && _minimap3D.IsMouseOver(mouseState);
+
         // Left mouse button for panning (more intuitive than middle button)
-        if (mouseState.LeftButton == ButtonState.Pressed)
+        // Don't pan if mouse is over minimap
+        if (mouseState.LeftButton == ButtonState.Pressed && !isOverMinimap)
         {
             if (_previousMouseState.LeftButton == ButtonState.Pressed)
             {
@@ -964,7 +968,10 @@ public class SimPlanetGame : Game
         _terrainRenderer.Draw(_spriteBatch, offsetX, offsetY);
 
         // Draw geological overlays (volcanoes, rivers, plates)
-        _eventsUI.DrawOverlay(_map, offsetX, offsetY, _terrainRenderer.CellSize);
+        // Apply camera offset to overlays so they move with the terrain
+        int overlayOffsetX = offsetX - (int)_terrainRenderer.CameraX;
+        int overlayOffsetY = offsetY - (int)_terrainRenderer.CameraY;
+        _eventsUI.DrawOverlay(_map, overlayOffsetX, overlayOffsetY, _terrainRenderer.CellSize);
 
         // Draw UI
         _ui.Draw(_gameState, _currentRenderMode);

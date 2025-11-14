@@ -30,6 +30,16 @@ public class PlanetMinimap3D
     private MouseState _previousMouseState;
     private bool _isDragging = false;
 
+    /// <summary>
+    /// Check if the mouse is currently over the minimap
+    /// </summary>
+    public bool IsMouseOver(MouseState mouseState)
+    {
+        if (!IsVisible) return false;
+        Rectangle minimapBounds = new Rectangle(PosX, PosY, MinimapSize, MinimapSize);
+        return minimapBounds.Contains(mouseState.Position);
+    }
+
     // Performance optimization
     private bool _isDirty = true;
     public void MarkDirty() => _isDirty = true;
