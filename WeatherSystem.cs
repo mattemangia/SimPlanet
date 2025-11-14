@@ -128,20 +128,27 @@ public class WeatherSystem
                     // Permanent ice caps and glaciers (very cold)
                     cell.IsIce = true;
                 }
-                else if (cell.Temperature < -5 && cell.Temperature >= -10)
+                else if (cell.Temperature < 0 && cell.Temperature >= -10)
                 {
-                    // Seasonal ice - only on water (sea ice freezes faster than land ice sheets)
-                    if (cell.IsWater)
+                    // Seasonal ice formation
+                    // Sea ice forms easily, land ice (glaciers) only in very cold sustained conditions
+                    if (cell.IsWater && cell.Temperature < -2)
                     {
                         cell.IsIce = true;
                     }
                 }
-                else if (cell.Temperature > 0)
+                else if (cell.Temperature >= 0)
                 {
-                    // Ice melts above freezing
-                    // Land ice (glaciers) melts slower, so check if we're on water
-                    if (cell.IsWater || cell.Temperature > 5)
+                    // Ice melts at or above freezing
+                    // Sea ice melts quickly, land ice (glaciers) persist a bit longer
+                    if (cell.IsWater)
                     {
+                        // Sea ice melts at 0°C
+                        cell.IsIce = false;
+                    }
+                    else if (cell.Temperature > 2)
+                    {
+                        // Land ice melts above 2°C (gives glaciers some persistence)
                         cell.IsIce = false;
                     }
                 }
