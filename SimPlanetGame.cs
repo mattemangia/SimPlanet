@@ -178,6 +178,12 @@ public class SimPlanetGame : Game
             {
                 _mapOptionsUI.IsVisible = true;
                 HandleMapOptionsInput(keyState);
+
+                // Handle map options UI close button
+                if (_mapOptionsUI.Update(mouseState))
+                {
+                    _mainMenu.CurrentScreen = GameScreen.MainMenu;
+                }
             }
             else
             {
@@ -394,6 +400,7 @@ public class SimPlanetGame : Game
         if (_mapOptionsUI.IsVisible)
         {
             HandleMapOptionsInput(keyState);
+            _mapOptionsUI.Update(Mouse.GetState());
         }
 
         // Toggle minimap

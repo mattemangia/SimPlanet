@@ -30,8 +30,27 @@ public class SedimentColumnViewer
 
     public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel)
     {
-        // Check for left mouse click
-        if (mouseState.LeftButton == ButtonState.Pressed &&
+        int screenWidth = _graphicsDevice.Viewport.Width;
+        int panelWidth = 400;
+        int panelX = screenWidth - panelWidth - 10;
+        int panelY = 10;
+
+        // Check for close button click (X in top right)
+        if (IsVisible && mouseState.LeftButton == ButtonState.Released &&
+            _previousMouseState.LeftButton == ButtonState.Pressed)
+        {
+            Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
+            if (closeButtonBounds.Contains(mouseState.Position))
+            {
+                IsVisible = false;
+                _selectedTile = null;
+                _previousMouseState = mouseState;
+                return;
+            }
+        }
+
+        // Check for left mouse click on map
+        if (!IsVisible && mouseState.LeftButton == ButtonState.Pressed &&
             _previousMouseState.LeftButton == ButtonState.Released)
         {
             // Convert mouse position to tile coordinates
@@ -77,6 +96,11 @@ public class SedimentColumnViewer
 
         // Draw border
         DrawBorder(spriteBatch, panelX, panelY, panelWidth, panelHeight, Color.White, 2);
+
+        // Draw close button (X) in top right
+        Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
+        spriteBatch.Draw(_pixelTexture, closeButtonBounds, new Color(180, 0, 0, 200));
+        _font.DrawString(spriteBatch, "X", new Vector2(closeButtonBounds.X + 7, closeButtonBounds.Y + 3), Color.White, 16);
 
         int textY = panelY + 10;
         int lineHeight = 20;

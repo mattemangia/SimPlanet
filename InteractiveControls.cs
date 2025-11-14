@@ -38,17 +38,17 @@ public class InteractiveControls
     {
         _buttons = new List<Button>();
 
-        // Terraforming button - restore planet to habitable state
+        // Terraforming button - restore planet to habitable state (smaller, positioned to avoid legend overlap)
         _buttons.Add(new Button(
-            new Rectangle(10, 600, 200, 40),
-            "Terraform Planet",
+            new Rectangle(220, 680, 140, 30),
+            "Terraform",
             Color.Green,
             () => ActivateTerraforming()
         ));
 
         // Cool Planet button - reduce global temperature
         _buttons.Add(new Button(
-            new Rectangle(220, 600, 180, 40),
+            new Rectangle(370, 680, 120, 30),
             "Cool Planet",
             Color.LightBlue,
             () => CoolPlanet()
@@ -56,7 +56,7 @@ public class InteractiveControls
 
         // Seed Life button - add bacteria to suitable areas
         _buttons.Add(new Button(
-            new Rectangle(410, 600, 180, 40),
+            new Rectangle(500, 680, 110, 30),
             "Seed Life",
             Color.LightGreen,
             () => SeedLife()
@@ -64,8 +64,8 @@ public class InteractiveControls
 
         // Clear Pollution button - reduce CO2
         _buttons.Add(new Button(
-            new Rectangle(600, 600, 180, 40),
-            "Clear Pollution",
+            new Rectangle(620, 680, 130, 30),
+            "Clear CO2",
             Color.Cyan,
             () => ClearPollution()
         ));

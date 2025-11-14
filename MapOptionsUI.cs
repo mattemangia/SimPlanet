@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 
 namespace SimPlanet;
 
@@ -14,6 +15,7 @@ public class MapOptionsUI
     private Texture2D _pixelTexture;
     private Texture2D? _previewTexture;
     private PlanetMap? _previewMap;
+    private MouseState _previousMouseState;
 
     public bool IsVisible { get; set; } = false;
     public bool NeedsPreviewUpdate { get; set; } = true;
@@ -26,6 +28,34 @@ public class MapOptionsUI
 
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
+        _previousMouseState = Mouse.GetState();
+    }
+
+    public bool Update(MouseState mouseState)
+    {
+        bool closeButtonClicked = false;
+
+        if (IsVisible)
+        {
+            int panelX = 300;
+            int panelY = 50;
+            int panelWidth = 680;
+
+            // Check for close button click (X in top right)
+            if (mouseState.LeftButton == ButtonState.Released &&
+                _previousMouseState.LeftButton == ButtonState.Pressed)
+            {
+                Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
+                if (closeButtonBounds.Contains(mouseState.Position))
+                {
+                    IsVisible = false;
+                    closeButtonClicked = true;
+                }
+            }
+        }
+
+        _previousMouseState = mouseState;
+        return closeButtonClicked;
     }
 
     public void UpdatePreview(MapGenerationOptions options)
@@ -92,6 +122,11 @@ public class MapOptionsUI
         // Draw background
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(20, 20, 40, 240));
         DrawRectangle(panelX, panelY, panelWidth, 3, new Color(100, 150, 255, 255)); // Top border
+
+        // Draw close button (X) in top right
+        Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
+        DrawRectangle(closeButtonBounds.X, closeButtonBounds.Y, closeButtonBounds.Width, closeButtonBounds.Height, new Color(180, 0, 0, 200));
+        _font.DrawString(_spriteBatch, "X", new Vector2(closeButtonBounds.X + 7, closeButtonBounds.Y + 3), Color.White, 16);
 
         int textY = panelY + 15;
         int lineHeight = 20;
