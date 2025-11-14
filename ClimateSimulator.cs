@@ -225,14 +225,19 @@ public class ClimateSimulator
                 // Calculate latitude (0 = equator, 1 = poles)
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
-                // Gradual transition - not sharp boundary at 0.8
-                bool isPolarRegion = latitude > 0.75f;
-                float polarStrength = Math.Max(0, (latitude - 0.75f) / 0.25f); // 0 to 1 gradient
+                // Add geographic variation to prevent horizontal ice bands
+                float geoVariation = MathF.Sin(x * 0.4f + y * 0.2f) * 0.08f; // Breaks up bands
+                float adjustedLatitude = latitude + geoVariation;
+
+                // Gradual transition - not sharp boundary
+                bool isPolarRegion = adjustedLatitude > 0.72f;
+                float polarStrength = Math.Max(0, (adjustedLatitude - 0.72f) / 0.28f); // 0 to 1 gradient
                 bool isMountainPeak = cell.Elevation > 0.7f; // High elevation
 
-                // Ice accumulation threshold varies smoothly by location
-                float iceFormationTemp = -10f + (polarStrength * 5f); // -10°C to -5°C gradient
-                float iceMeltingTemp = 5f - (polarStrength * 3f); // 5°C to 2°C gradient
+                // Ice accumulation threshold varies smoothly by location with geographic noise
+                float tempVariation = MathF.Sin(x * 0.25f) * MathF.Cos(y * 0.15f) * 3.0f;
+                float iceFormationTemp = -10f + (polarStrength * 5f) + tempVariation;
+                float iceMeltingTemp = 5f - (polarStrength * 3f) + (tempVariation * 0.5f);
 
                 // Mountain snow line (permanent ice at high elevations)
                 if (isMountainPeak)
@@ -246,7 +251,7 @@ public class ClimateSimulator
                 }
 
                 // Polar ice sheets (gradual, not banded)
-                if (isPolarRegion && polarStrength > 0.2f)
+                if (isPolarRegion && polarStrength > 0.15f)
                 {
                     // Ice accumulation in polar regions
                     if (cell.Temperature < iceFormationTemp)
@@ -255,20 +260,21 @@ public class ClimateSimulator
                         if (cell.IsWater)
                         {
                             // Gradual ice-albedo feedback proportional to polar strength
-                            cell.Temperature -= deltaTime * 1.0f * polarStrength;
+                            // Reduced strength to prevent sharp boundaries
+                            cell.Temperature -= deltaTime * 0.6f * polarStrength;
 
                             // Frozen ocean reduces evaporation
-                            cell.Humidity = Math.Max(cell.Humidity - deltaTime * 0.1f * polarStrength, 0.2f);
+                            cell.Humidity = Math.Max(cell.Humidity - deltaTime * 0.08f * polarStrength, 0.2f);
                         }
                         // Glaciers accumulate on land
                         else if (cell.IsLand)
                         {
                             // Ice sheets slowly increase elevation (glacier growth)
-                            cell.Elevation += deltaTime * 0.00008f * polarStrength;
+                            cell.Elevation += deltaTime * 0.00006f * polarStrength;
                             cell.Elevation = Math.Min(cell.Elevation, 1.0f);
 
                             // Gradual ice-albedo feedback
-                            cell.Temperature -= deltaTime * 0.8f * polarStrength;
+                            cell.Temperature -= deltaTime * 0.5f * polarStrength;
                         }
                     }
                     // Melting
@@ -319,16 +325,18 @@ public class ClimateSimulator
                     }
                 }
 
-                // Global ice-albedo feedback (reduced to prevent banding)
+                // Global ice-albedo feedback (highly reduced to prevent banding)
                 // Ice reflects more sunlight, reducing local heating
                 if (cell.IsIce)
                 {
-                    // Moderate albedo feedback - prevents runaway ice formation
-                    float feedbackStrength = isPolarRegion ? 0.3f : 0.2f;
-                    cell.Temperature -= deltaTime * feedbackStrength;
+                    // Very moderate albedo feedback - prevents runaway ice formation and banding
+                    // Use geographic variation to avoid uniform cooling
+                    float localVariation = MathF.Sin(x * 0.5f + y * 0.3f) * 0.1f;
+                    float feedbackStrength = (isPolarRegion ? 0.2f : 0.15f) + localVariation;
+                    cell.Temperature -= deltaTime * Math.Max(0.05f, feedbackStrength);
 
                     // Prevent runaway cooling with latitude-dependent limits
-                    float minTemp = isPolarRegion ? -55f : -35f;
+                    float minTemp = isPolarRegion ? -50f : -30f;
                     cell.Temperature = Math.Max(cell.Temperature, minTemp);
                 }
             }
