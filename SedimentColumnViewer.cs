@@ -18,6 +18,8 @@ public class SedimentColumnViewer
     private Point? _mouseDownPosition = null;
     private const int DragThreshold = 25; // pixels (increased for trackpad users - more forgiving)
     private const int InfoPanelWidth = 280; // Don't open viewer when clicking in info panel
+    private int _scrollOffset = 0; // For scrolling through sediment layers
+    private const int ScrollSpeed = 20;
 
     public bool IsVisible { get; private set; } = false;
 
@@ -59,8 +61,9 @@ public class SedimentColumnViewer
             _mouseDownPosition = mouseState.Position;
         }
 
-        // Check for left mouse click on map (only trigger on release, and only if not dragging)
-        if (!IsVisible && mouseState.LeftButton == ButtonState.Released &&
+        // Check for left mouse click on map (trigger on release, and only if not dragging)
+        // Allow clicking to update tile even when panel is visible
+        if (mouseState.LeftButton == ButtonState.Released &&
             _previousMouseState.LeftButton == ButtonState.Pressed &&
             _mouseDownPosition.HasValue)
         {
@@ -70,12 +73,38 @@ public class SedimentColumnViewer
                 new Vector2(mouseState.Position.X, mouseState.Position.Y)
             );
 
-            // Only open viewer if this was a click, not a drag
+            // Only open/update viewer if this was a click, not a drag
             if (dragDistance <= DragThreshold)
             {
-                // Don't open if clicking in the info panel area
+                // Don't open if clicking in the info panel area or in the viewer panel
                 if (mouseState.X < InfoPanelWidth)
                 {
+                    _mouseDownPosition = null;
+                }
+                else if (IsVisible)
+                {
+                    // Check if clicking inside the viewer panel
+                    int screenWidth = _graphicsDevice.Viewport.Width;
+                    int panelWidth = 400;
+                    int panelX = screenWidth - panelWidth - 10;
+                    int panelY = 10;
+                    int panelHeight = _graphicsDevice.Viewport.Height - 20; // Use almost full height
+                    Rectangle panelBounds = new Rectangle(panelX, panelY, panelWidth, panelHeight);
+
+                    if (!panelBounds.Contains(mouseState.Position))
+                    {
+                        // Clicking outside panel - update to new tile
+                        float mapRelativeX = (mouseState.X - mapRenderOffsetX) + cameraX;
+                        float mapRelativeY = (mouseState.Y - mapRenderOffsetY) + cameraY;
+                        int tileX = (int)(mapRelativeX / (cellSize * zoomLevel));
+                        int tileY = (int)(mapRelativeY / (cellSize * zoomLevel));
+
+                        if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
+                        {
+                            _selectedTile = (tileX, tileY);
+                            _scrollOffset = 0; // Reset scroll when changing tile
+                        }
+                    }
                     _mouseDownPosition = null;
                 }
                 else
@@ -94,6 +123,7 @@ public class SedimentColumnViewer
                     {
                         _selectedTile = (tileX, tileY);
                         IsVisible = true;
+                        _scrollOffset = 0;
                     }
                 }
             }
@@ -106,11 +136,23 @@ public class SedimentColumnViewer
             _mouseDownPosition = null;
         }
 
+        // Handle scroll wheel for sediment column scrolling
+        if (IsVisible)
+        {
+            int scrollDelta = mouseState.ScrollWheelValue - _previousMouseState.ScrollWheelValue;
+            if (scrollDelta != 0)
+            {
+                _scrollOffset -= (scrollDelta / 120) * ScrollSpeed; // Each wheel "click" is 120 units
+                _scrollOffset = Math.Max(0, _scrollOffset); // Can't scroll above top
+            }
+        }
+
         // Close with right click or ESC
         if (mouseState.RightButton == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
         {
             IsVisible = false;
             _selectedTile = null;
+            _scrollOffset = 0;
         }
 
         _previousMouseState = mouseState;
@@ -124,9 +166,9 @@ public class SedimentColumnViewer
         var cell = _map.Cells[x, y];
         var geo = cell.GetGeology();
 
-        // Panel dimensions
+        // Panel dimensions - use almost full screen height
         int panelWidth = 400;
-        int panelHeight = 600;
+        int panelHeight = screenHeight - 20; // Leave small margin at top and bottom
         int panelX = screenWidth - panelWidth - 10;
         int panelY = 10;
 
@@ -143,8 +185,21 @@ public class SedimentColumnViewer
         spriteBatch.Draw(_pixelTexture, closeButtonBounds, new Color(180, 0, 0, 200));
         _font.DrawString(spriteBatch, "X", new Vector2(closeButtonBounds.X + 7, closeButtonBounds.Y + 3), Color.White, 16);
 
-        int textY = panelY + 10;
+        // Set up clipping rectangle for scrollable content
+        Rectangle scissorRect = new Rectangle(panelX, panelY + 35, panelWidth, panelHeight - 70);
+        Rectangle oldScissorRect = spriteBatch.GraphicsDevice.ScissorRectangle;
+        RasterizerState oldRasterizer = spriteBatch.GraphicsDevice.RasterizerState;
+
+        RasterizerState rasterizerState = new RasterizerState { ScissorTestEnable = true };
+
+        int textY = panelY + 40 - _scrollOffset; // Apply scroll offset
         int lineHeight = 20;
+        int contentStartY = textY; // Track where content starts
+
+        // Enable scissor test for scrollable content
+        spriteBatch.End();
+        spriteBatch.GraphicsDevice.ScissorRectangle = scissorRect;
+        spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, rasterizerState);
 
         // Title
         _font.DrawString(spriteBatch, $"TILE INFO ({x},{y})",
@@ -267,13 +322,12 @@ public class SedimentColumnViewer
             int columnWidth = 120;
             int columnX = panelX + 20;
             int columnStartY = textY;
-            int maxColumnHeight = 280;
 
-            // Display most recent layers (top of column)
-            int layersToShow = Math.Min(18, geo.SedimentColumn.Count);
-            var recentLayers = geo.SedimentColumn.Skip(geo.SedimentColumn.Count - layersToShow).Reverse().ToList();
+            // Show all layers - scrolling allows viewing everything
+            int layersToShow = geo.SedimentColumn.Count;
+            var recentLayers = geo.SedimentColumn.AsEnumerable().Reverse().ToList();
 
-            int layerHeight = Math.Min(20, maxColumnHeight / layersToShow);
+            int layerHeight = 15; // Fixed height per layer for consistency
 
             // Draw column border
             DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, (layerHeight * layersToShow) + 4, Color.White, 2);
@@ -347,13 +401,6 @@ public class SedimentColumnViewer
                 textY += 18;
             }
 
-            if (geo.SedimentColumn.Count > layersToShow)
-            {
-                textY = bottomY + 10;
-                _font.DrawString(spriteBatch, $"+ {geo.SedimentColumn.Count - layersToShow} deeper layers",
-                    new Vector2(columnX, textY), Color.Gray, 11);
-            }
-
             // Update textY for rock composition section
             textY = Math.Max(textY, bottomY + 30);
         }
@@ -374,11 +421,46 @@ public class SedimentColumnViewer
 
         _font.DrawString(spriteBatch, $"Volcanic: {geo.VolcanicRock:P0}",
             new Vector2(panelX + 10, textY), new Color(80, 80, 80));
+        textY += lineHeight * 2; // Add some padding at the bottom
 
-        // Instructions
-        textY = panelY + panelHeight - 30;
-        _font.DrawString(spriteBatch, "Right-click or ESC to close",
-            new Vector2(panelX + 10, textY), Color.Gray);
+        // Calculate total content height and clamp scroll offset
+        int totalContentHeight = (textY + _scrollOffset) - contentStartY;
+        int visibleHeight = scissorRect.Height;
+        int maxScroll = Math.Max(0, totalContentHeight - visibleHeight);
+        _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
+
+        // Disable scissor test for UI elements outside content area
+        spriteBatch.End();
+        spriteBatch.GraphicsDevice.ScissorRectangle = oldScissorRect;
+        spriteBatch.Begin();
+
+        // Draw scrollbar if content is scrollable
+        if (maxScroll > 0)
+        {
+            int scrollbarX = panelX + panelWidth - 12;
+            int scrollbarY = panelY + 35;
+            int scrollbarHeight = panelHeight - 70;
+            int scrollbarWidth = 8;
+
+            // Scrollbar track
+            spriteBatch.Draw(_pixelTexture,
+                new Rectangle(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight),
+                new Color(50, 50, 50, 150));
+
+            // Scrollbar thumb
+            float scrollPercentage = (float)_scrollOffset / maxScroll;
+            float thumbHeight = Math.Max(20, scrollbarHeight * ((float)visibleHeight / totalContentHeight));
+            int thumbY = scrollbarY + (int)((scrollbarHeight - thumbHeight) * scrollPercentage);
+
+            spriteBatch.Draw(_pixelTexture,
+                new Rectangle(scrollbarX, thumbY, scrollbarWidth, (int)thumbHeight),
+                new Color(150, 150, 150, 200));
+        }
+
+        // Instructions (drawn outside scrollable area)
+        int instructionsY = panelY + panelHeight - 30;
+        _font.DrawString(spriteBatch, "Scroll wheel to scroll | Right-click or ESC to close",
+            new Vector2(panelX + 10, instructionsY), Color.Gray, 11);
     }
 
     private void DrawSedimentPattern(SpriteBatch spriteBatch, int x, int y, int width, int height, SedimentType type)
