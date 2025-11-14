@@ -378,6 +378,9 @@ public class PlanetMap
 
                 cell.Temperature = baseTemp;
 
+                // Initialize ice based on temperature and water
+                cell.IsIce = (cell.Temperature < -10 && cell.IsWater);
+
                 // Rainfall - more at equator, less at poles
                 float baseRainfall = 1.0f - latitude * 0.7f;
 

@@ -21,10 +21,12 @@ public class TerrainCell
     public float Biomass { get; set; }          // Amount of life
     public float Evolution { get; set; }        // Evolution level (0-1)
 
+    // Ice state (controlled by seasonal dynamics)
+    public bool IsIce { get; set; }
+
     // Derived properties
     public bool IsWater => Elevation < 0;
     public bool IsLand => Elevation >= 0;
-    public bool IsIce => Temperature < -10;
     public bool IsDesert => Rainfall < 0.2f && IsLand;
     public bool IsForest => Rainfall > 0.5f && Temperature > 5 && IsLand && Biomass > 0.3f;
 
