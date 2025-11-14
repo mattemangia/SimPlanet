@@ -168,17 +168,32 @@ public class SimPlanetGame : Game
     protected override void Update(GameTime gameTime)
     {
         var keyState = Keyboard.GetState();
+        var mouseState = Mouse.GetState();
 
         // Handle menu navigation
         if (_mainMenu.CurrentScreen != GameScreen.InGame)
         {
-            var menuAction = _mainMenu.HandleInput(keyState, _previousKeyState);
+            // Show map options UI when on NewGame screen
+            if (_mainMenu.CurrentScreen == GameScreen.NewGame)
+            {
+                _mapOptionsUI.IsVisible = true;
+                HandleMapOptionsInput(keyState);
+            }
+            else
+            {
+                _mapOptionsUI.IsVisible = false;
+            }
+
+            var menuAction = _mainMenu.HandleInput(keyState, _previousKeyState, mouseState);
             HandleMenuAction(menuAction);
 
             _previousKeyState = keyState;
+            _previousMouseState = mouseState;
             base.Update(gameTime);
             return;
         }
+
+        _mapOptionsUI.IsVisible = false;
 
         // Handle in-game input
         HandleInput(keyState);
@@ -365,66 +380,20 @@ public class SimPlanetGame : Game
             _ui.ShowHelp = !_ui.ShowHelp;
         }
 
-        // Toggle map options menu
+        // Toggle map options menu (in-game)
         if (keyState.IsKeyDown(Keys.M) && _previousKeyState.IsKeyUp(Keys.M))
         {
             _mapOptionsUI.IsVisible = !_mapOptionsUI.IsVisible;
+            if (_mapOptionsUI.IsVisible)
+            {
+                _mapOptionsUI.NeedsPreviewUpdate = true;
+            }
         }
 
-        // Map option controls (only when menu is visible)
+        // Map option controls (only when menu is visible in-game)
         if (_mapOptionsUI.IsVisible)
         {
-            // Land Ratio: Q/W
-            if (keyState.IsKeyDown(Keys.Q) && _previousKeyState.IsKeyUp(Keys.Q))
-            {
-                _mapOptions.LandRatio = Math.Max(0.1f, _mapOptions.LandRatio - 0.05f);
-            }
-            if (keyState.IsKeyDown(Keys.W) && _previousKeyState.IsKeyUp(Keys.W))
-            {
-                _mapOptions.LandRatio = Math.Min(0.9f, _mapOptions.LandRatio + 0.05f);
-            }
-
-            // Mountain Level: A/S
-            if (keyState.IsKeyDown(Keys.A) && _previousKeyState.IsKeyUp(Keys.A))
-            {
-                _mapOptions.MountainLevel = Math.Max(0.0f, _mapOptions.MountainLevel - 0.1f);
-            }
-            if (keyState.IsKeyDown(Keys.S) && _previousKeyState.IsKeyUp(Keys.S))
-            {
-                _mapOptions.MountainLevel = Math.Min(1.0f, _mapOptions.MountainLevel + 0.1f);
-            }
-
-            // Water Level: Z/X
-            if (keyState.IsKeyDown(Keys.Z) && _previousKeyState.IsKeyUp(Keys.Z))
-            {
-                _mapOptions.WaterLevel = Math.Max(-1.0f, _mapOptions.WaterLevel - 0.1f);
-            }
-            if (keyState.IsKeyDown(Keys.X) && _previousKeyState.IsKeyUp(Keys.X))
-            {
-                _mapOptions.WaterLevel = Math.Min(1.0f, _mapOptions.WaterLevel + 0.1f);
-            }
-
-            // Presets: F6-F9
-            if (keyState.IsKeyDown(Keys.F6) && _previousKeyState.IsKeyUp(Keys.F6))
-            {
-                MapOptionsUI.ApplyEarthPreset(_mapOptions);
-                _mapOptionsUI.NeedsPreviewUpdate = true;
-            }
-            if (keyState.IsKeyDown(Keys.F7) && _previousKeyState.IsKeyUp(Keys.F7))
-            {
-                MapOptionsUI.ApplyMarsPreset(_mapOptions);
-                _mapOptionsUI.NeedsPreviewUpdate = true;
-            }
-            if (keyState.IsKeyDown(Keys.F8) && _previousKeyState.IsKeyUp(Keys.F8))
-            {
-                MapOptionsUI.ApplyWaterWorldPreset(_mapOptions);
-                _mapOptionsUI.NeedsPreviewUpdate = true;
-            }
-            if (keyState.IsKeyDown(Keys.F9) && _previousKeyState.IsKeyUp(Keys.F9))
-            {
-                MapOptionsUI.ApplyDesertWorldPreset(_mapOptions);
-                _mapOptionsUI.NeedsPreviewUpdate = true;
-            }
+            HandleMapOptionsInput(keyState);
         }
 
         // Toggle minimap
@@ -489,7 +458,12 @@ public class SimPlanetGame : Game
         switch (action)
         {
             case MenuAction.NewGame:
-                StartNewGame();
+            case MenuAction.ShowMapOptions:
+                _mapOptionsUI.IsVisible = true;
+                _mapOptionsUI.NeedsPreviewUpdate = true;
+                break;
+            case MenuAction.CancelNewGame:
+                _mapOptionsUI.IsVisible = false;
                 break;
             case MenuAction.LoadGame:
                 LoadGame(_mainMenu.GetSelectedSaveName());
@@ -504,9 +478,125 @@ public class SimPlanetGame : Game
         }
     }
 
+    private void HandleMapOptionsInput(KeyboardState keyState)
+    {
+        // Randomize seed
+        if (keyState.IsKeyDown(Keys.R) && _previousKeyState.IsKeyUp(Keys.R))
+        {
+            _mapOptions.Seed = new Random().Next();
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+
+        // Map size
+        if (keyState.IsKeyDown(Keys.D1) && _previousKeyState.IsKeyUp(Keys.D1))
+        {
+            _mapOptions.MapWidth = 150;
+            _mapOptions.MapHeight = 75;
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.D2) && _previousKeyState.IsKeyUp(Keys.D2))
+        {
+            _mapOptions.MapWidth = 250;
+            _mapOptions.MapHeight = 125;
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+
+        // Land ratio
+        if (keyState.IsKeyDown(Keys.Q))
+        {
+            _mapOptions.LandRatio = Math.Max(0.05f, _mapOptions.LandRatio - 0.01f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.W))
+        {
+            _mapOptions.LandRatio = Math.Min(1.0f, _mapOptions.LandRatio + 0.01f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+
+        // Mountain level
+        if (keyState.IsKeyDown(Keys.A))
+        {
+            _mapOptions.MountainLevel = Math.Max(0.1f, _mapOptions.MountainLevel - 0.01f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.S))
+        {
+            _mapOptions.MountainLevel = Math.Min(1.0f, _mapOptions.MountainLevel + 0.01f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+
+        // Water level
+        if (keyState.IsKeyDown(Keys.Z))
+        {
+            _mapOptions.WaterLevel = Math.Max(-1.0f, _mapOptions.WaterLevel - 0.01f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.X))
+        {
+            _mapOptions.WaterLevel = Math.Min(1.0f, _mapOptions.WaterLevel + 0.01f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+
+        // Persistence
+        if (keyState.IsKeyDown(Keys.E))
+        {
+            _mapOptions.Persistence = Math.Max(0.1f, _mapOptions.Persistence - 0.01f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.D))
+        {
+            _mapOptions.Persistence = Math.Min(1.0f, _mapOptions.Persistence + 0.01f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+
+        // Lacunarity
+        if (keyState.IsKeyDown(Keys.C))
+        {
+            _mapOptions.Lacunarity = Math.Max(1.0f, _mapOptions.Lacunarity - 0.05f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.V))
+        {
+            _mapOptions.Lacunarity = Math.Min(4.0f, _mapOptions.Lacunarity + 0.05f);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+
+        // Presets
+        if (keyState.IsKeyDown(Keys.F6) && _previousKeyState.IsKeyUp(Keys.F6))
+        {
+            MapOptionsUI.ApplyEarthPreset(_mapOptions);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.F7) && _previousKeyState.IsKeyUp(Keys.F7))
+        {
+            MapOptionsUI.ApplyMarsPreset(_mapOptions);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.F8) && _previousKeyState.IsKeyUp(Keys.F8))
+        {
+            MapOptionsUI.ApplyWaterWorldPreset(_mapOptions);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+        if (keyState.IsKeyDown(Keys.F9) && _previousKeyState.IsKeyUp(Keys.F9))
+        {
+            MapOptionsUI.ApplyDesertWorldPreset(_mapOptions);
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+
+        // Generate and start game
+        if (keyState.IsKeyDown(Keys.Enter) && _previousKeyState.IsKeyUp(Keys.Enter))
+        {
+            StartNewGame();
+        }
+
+        // Update preview
+        _mapOptionsUI.UpdatePreview(_mapOptions);
+    }
+
     private void StartNewGame()
     {
         RegeneratePlanet();
+        _mapOptionsUI.IsVisible = false;
         _mainMenu.CurrentScreen = GameScreen.InGame;
     }
 

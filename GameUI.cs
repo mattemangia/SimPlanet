@@ -18,7 +18,7 @@ public class GameUI
     private AnimalEvolutionSimulator? _animalEvolutionSimulator;
     private PlanetStabilizer? _planetStabilizer;
 
-    public bool ShowHelp { get; set; } = true;
+    public bool ShowHelp { get; set; } = false;
 
     public GameUI(SpriteBatch spriteBatch, FontRenderer font, PlanetMap map, GraphicsDevice graphicsDevice)
     {

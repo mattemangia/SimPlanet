@@ -17,7 +17,7 @@ public class InteractiveControls
     private MouseState _previousMouseState;
 
     public bool TerraformingActive { get; private set; } = false;
-    public bool ShowControls { get; set; } = true;
+    public bool ShowControls { get; set; } = false;
 
     private float _terraformProgress = 0;
     private const float TerraformDuration = 100f; // 100 years of gradual restoration

@@ -30,7 +30,7 @@ public class FontRenderer
         _fontSystem.AddFont(fontData);
     }
 
-    public void DrawString(SpriteBatch spriteBatch, string text, Vector2 position, Color color, float fontSize = 0)
+    public void DrawString(SpriteBatch spriteBatch, string text, Vector2 position, Color color, float fontSize)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -40,7 +40,12 @@ public class FontRenderer
         font.DrawText(spriteBatch, text, position, color);
     }
 
-    public Vector2 MeasureString(string text, float fontSize = 0)
+    public void DrawString(SpriteBatch spriteBatch, string text, Vector2 position, Color color)
+    {
+        DrawString(spriteBatch, text, position, color, _defaultFontSize);
+    }
+
+    public Vector2 MeasureString(string text, float fontSize)
     {
         if (string.IsNullOrEmpty(text))
             return Vector2.Zero;
@@ -49,6 +54,11 @@ public class FontRenderer
         var font = _fontSystem.GetFont(size);
         var bounds = font.MeasureString(text);
         return bounds;
+    }
+
+    public Vector2 MeasureString(string text)
+    {
+        return MeasureString(text, _defaultFontSize);
     }
 
     public void Dispose()

@@ -15,7 +15,7 @@ public enum GameScreen
 }
 
 /// <summary>
-/// Main menu and game state management
+/// Main menu and game state management with mouse and keyboard support
 /// </summary>
 public class MainMenu
 {
@@ -28,9 +28,13 @@ public class MainMenu
     private int _selectedMenuItem = 0;
     private int _selectedSaveSlot = 0;
     private List<string> _saveGames = new();
+    private MouseState _previousMouseState;
 
     private string[] _mainMenuItems = { "New Game", "Load Game", "Quit" };
     private string[] _pauseMenuItems = { "Resume", "Save Game", "Main Menu" };
+
+    // Store menu item bounds for mouse clicking
+    private List<Rectangle> _menuItemBounds = new();
 
     public MainMenu(GraphicsDevice graphicsDevice, FontRenderer font)
     {
@@ -39,11 +43,39 @@ public class MainMenu
 
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
+        _previousMouseState = Mouse.GetState();
     }
 
-    public MenuAction HandleInput(KeyboardState keyState, KeyboardState previousKeyState)
+    public MenuAction HandleInput(KeyboardState keyState, KeyboardState previousKeyState, MouseState mouseState)
     {
-        // Navigate menu
+        // Handle mouse hover
+        for (int i = 0; i < _menuItemBounds.Count; i++)
+        {
+            if (_menuItemBounds[i].Contains(mouseState.Position))
+            {
+                _selectedMenuItem = i;
+                break;
+            }
+        }
+
+        // Handle mouse click
+        if (mouseState.LeftButton == ButtonState.Released &&
+            _previousMouseState.LeftButton == ButtonState.Pressed)
+        {
+            for (int i = 0; i < _menuItemBounds.Count; i++)
+            {
+                if (_menuItemBounds[i].Contains(mouseState.Position))
+                {
+                    _selectedMenuItem = i;
+                    _previousMouseState = mouseState;
+                    return HandleMenuSelection();
+                }
+            }
+        }
+
+        _previousMouseState = mouseState;
+
+        // Navigate menu with keyboard
         if (keyState.IsKeyDown(Keys.Down) && previousKeyState.IsKeyUp(Keys.Down))
         {
             _selectedMenuItem++;
@@ -89,6 +121,12 @@ public class MainMenu
                 CurrentScreen = GameScreen.InGame;
                 return MenuAction.Resume;
             }
+            else if (CurrentScreen == GameScreen.NewGame)
+            {
+                CurrentScreen = GameScreen.MainMenu;
+                _selectedMenuItem = 0;
+                return MenuAction.CancelNewGame;
+            }
             else if (CurrentScreen != GameScreen.MainMenu)
             {
                 CurrentScreen = GameScreen.MainMenu;
@@ -108,7 +146,7 @@ public class MainMenu
                 {
                     case 0: // New Game
                         CurrentScreen = GameScreen.NewGame;
-                        return MenuAction.NewGame;
+                        return MenuAction.ShowMapOptions;
                     case 1: // Load Game
                         CurrentScreen = GameScreen.LoadGame;
                         RefreshSaveGames();
@@ -166,13 +204,15 @@ public class MainMenu
 
     private void DrawMainMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
+        _menuItemBounds.Clear();
+
         // Background
         spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
             new Color(10, 20, 40, 255));
 
         // Title
-        DrawCenteredText(spriteBatch, "=== SIM PLANET ===", screenHeight / 3, Color.Yellow, 2.0f);
-        DrawCenteredText(spriteBatch, "Planetary Evolution Simulator", screenHeight / 3 + 40,
+        DrawCenteredText(spriteBatch, "=== SIM PLANET ===", screenHeight / 3, Color.Yellow, 1.0f);
+        DrawCenteredText(spriteBatch, "Planetary Evolution Simulator", screenHeight / 3 + 30,
             Color.Cyan, 1.0f);
 
         // Menu items
@@ -183,27 +223,42 @@ public class MainMenu
             Color color = isSelected ? Color.Yellow : Color.White;
             string text = isSelected ? "> " + _mainMenuItems[i] + " <" : _mainMenuItems[i];
 
-            DrawCenteredText(spriteBatch, text, startY + i * 40, color, 1.5f);
+            var size = _font.MeasureString(text, 16);
+            int x = (screenWidth - (int)size.X) / 2;
+            int y = startY + i * 40;
+
+            // Store button bounds for mouse interaction
+            _menuItemBounds.Add(new Rectangle(x - 10, y - 5, (int)size.X + 20, (int)size.Y + 10));
+
+            // Draw button background if hovered
+            if (isSelected)
+            {
+                spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], new Color(50, 50, 80, 150));
+            }
+
+            _font.DrawString(spriteBatch, text, new Vector2(x, y), color, 16);
         }
 
         // Instructions
-        DrawCenteredText(spriteBatch, "Use UP/DOWN arrows and ENTER to select",
-            screenHeight - 80, Color.Gray, 1.0f);
+        DrawCenteredText(spriteBatch, "Use MOUSE or UP/DOWN arrows and ENTER to select",
+            screenHeight - 60, Color.Gray, 1.0f);
     }
 
     private void DrawLoadGameMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
+        _menuItemBounds.Clear();
+
         // Background
         spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
             new Color(10, 20, 40, 230));
 
         // Title
-        DrawCenteredText(spriteBatch, "=== LOAD GAME ===", 100, Color.Yellow, 2.0f);
+        DrawCenteredText(spriteBatch, "=== LOAD GAME ===", 100, Color.Yellow, 1.0f);
 
         if (_saveGames.Count == 0)
         {
             DrawCenteredText(spriteBatch, "No saved games found", screenHeight / 2,
-                Color.Gray, 1.5f);
+                Color.Gray, 1.0f);
         }
         else
         {
@@ -214,7 +269,18 @@ public class MainMenu
                 Color color = isSelected ? Color.Yellow : Color.White;
                 string text = isSelected ? "> " + _saveGames[i] + " <" : _saveGames[i];
 
-                DrawCenteredText(spriteBatch, text, startY + i * 35, color, 1.2f);
+                var size = _font.MeasureString(text, 16);
+                int x = (screenWidth - (int)size.X) / 2;
+                int y = startY + i * 35;
+
+                _menuItemBounds.Add(new Rectangle(x - 10, y - 5, (int)size.X + 20, (int)size.Y + 10));
+
+                if (isSelected)
+                {
+                    spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], new Color(50, 50, 80, 150));
+                }
+
+                _font.DrawString(spriteBatch, text, new Vector2(x, y), color, 16);
             }
         }
 
@@ -223,12 +289,14 @@ public class MainMenu
 
     private void DrawPauseMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
+        _menuItemBounds.Clear();
+
         // Semi-transparent overlay
         spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
             new Color(0, 0, 0, 180));
 
         // Title
-        DrawCenteredText(spriteBatch, "=== PAUSED ===", screenHeight / 3, Color.Yellow, 2.0f);
+        DrawCenteredText(spriteBatch, "=== PAUSED ===", screenHeight / 3, Color.Yellow, 1.0f);
 
         // Menu items
         int startY = screenHeight / 2;
@@ -238,15 +306,26 @@ public class MainMenu
             Color color = isSelected ? Color.Yellow : Color.White;
             string text = isSelected ? "> " + _pauseMenuItems[i] + " <" : _pauseMenuItems[i];
 
-            DrawCenteredText(spriteBatch, text, startY + i * 40, color, 1.5f);
+            var size = _font.MeasureString(text, 16);
+            int x = (screenWidth - (int)size.X) / 2;
+            int y = startY + i * 40;
+
+            _menuItemBounds.Add(new Rectangle(x - 10, y - 5, (int)size.X + 20, (int)size.Y + 10));
+
+            if (isSelected)
+            {
+                spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], new Color(50, 50, 80, 150));
+            }
+
+            _font.DrawString(spriteBatch, text, new Vector2(x, y), color, 16);
         }
     }
 
     private void DrawCenteredText(SpriteBatch spriteBatch, string text, int y, Color color, float scale)
     {
-        var size = _font.MeasureString(text);
-        int x = (_graphicsDevice.Viewport.Width - (int)(size.X * scale)) / 2;
-        _font.DrawString(spriteBatch, text, new Vector2(x, y), color);
+        var size = _font.MeasureString(text, 16 * scale);
+        int x = (_graphicsDevice.Viewport.Width - (int)size.X) / 2;
+        _font.DrawString(spriteBatch, text, new Vector2(x, y), color, 16 * scale);
     }
 
     private void RefreshSaveGames()
@@ -272,5 +351,7 @@ public enum MenuAction
     Resume,
     ShowPauseMenu,
     BackToMainMenu,
+    ShowMapOptions,
+    CancelNewGame,
     Quit
 }
