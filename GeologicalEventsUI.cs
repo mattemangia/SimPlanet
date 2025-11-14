@@ -172,50 +172,63 @@ public class GeologicalEventsUI
     {
         if (!ShowEvents || _eventLog.Count == 0) return;
 
-        int panelWidth = 300;
-        int panelHeight = 150;
+        int panelWidth = 340;
+        int panelHeight = 160;
         int panelX = screenWidth - panelWidth - 10;
         int panelY = 10;
 
         // Background
         _spriteBatch.Draw(_pixelTexture,
             new Rectangle(panelX, panelY, panelWidth, panelHeight),
-            new Color(0, 0, 0, 180));
+            new Color(10, 15, 30, 230));
 
         // Border
-        DrawRectangleOutline(panelX, panelY, panelWidth, panelHeight, Color.Orange, 2);
+        DrawRectangleOutline(panelX, panelY, panelWidth, panelHeight, new Color(255, 150, 50), 2);
+
+        // Header bar
+        _spriteBatch.Draw(_pixelTexture,
+            new Rectangle(panelX, panelY, panelWidth, 28),
+            new Color(80, 40, 10, 220));
 
         // Title
-        _font.DrawString(_spriteBatch, "=== EVENTS ===",
-            new Vector2(panelX + 80, panelY + 10), Color.Orange);
+        _font.DrawString(_spriteBatch, "GEOLOGICAL EVENTS",
+            new Vector2(panelX + 70, panelY + 7), new Color(255, 200, 100), 15);
 
         // Events
         int textY = panelY + 35;
         foreach (var eventText in _eventLog)
         {
             _font.DrawString(_spriteBatch, eventText,
-                new Vector2(panelX + 10, textY), Color.White);
-            textY += 20;
+                new Vector2(panelX + 10, textY), new Color(255, 255, 200), 13);
+            textY += 22;
         }
     }
 
     public void DrawLegend(int screenHeight)
     {
         int panelX = 10;
-        int panelY = screenHeight - 120;
+        int panelY = screenHeight - 125;
         int panelWidth = 200;
-        int panelHeight = 110;
+        int panelHeight = 115;
 
         // Background
         _spriteBatch.Draw(_pixelTexture,
             new Rectangle(panelX, panelY, panelWidth, panelHeight),
-            new Color(0, 0, 0, 160));
+            new Color(10, 15, 30, 230));
 
-        int y = panelY + 10;
+        // Border
+        DrawRectangleOutline(panelX, panelY, panelWidth, panelHeight, new Color(100, 150, 200), 2);
 
-        _font.DrawString(_spriteBatch, "LEGEND:",
-            new Vector2(panelX + 10, y), Color.Yellow);
-        y += 20;
+        // Header
+        _spriteBatch.Draw(_pixelTexture,
+            new Rectangle(panelX, panelY, panelWidth, 25),
+            new Color(30, 50, 80, 220));
+
+        int y = panelY + 5;
+
+        _font.DrawString(_spriteBatch, "LEGEND",
+            new Vector2(panelX + 60, y), new Color(200, 220, 255), 14);
+        y += 27;
 
         // Volcano symbol
         DrawTriangle(_spriteBatch, panelX + 15, y + 5, 5, Color.Red);

@@ -60,43 +60,55 @@ public class GameUI
     {
         int panelX = 10;
         int panelY = 10;
-        int panelWidth = 320;
+        int panelWidth = 350;
         int panelHeight = 580;
 
-        // Draw semi-transparent background
-        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 180));
+        // Draw background with border
+        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(10, 15, 30, 230));
+        DrawBorder(panelX, panelY, panelWidth, panelHeight, new Color(80, 120, 200), 2);
 
-        int textY = panelY + 10;
+        // Header bar
+        DrawRectangle(panelX, panelY, panelWidth, 30, new Color(30, 60, 120, 220));
+
+        int textY = panelY + 8;
         int lineHeight = 20;
 
-        void DrawText(string text, Color color)
+        void DrawText(string text, Color color, int fontSize = 14)
         {
-            _font.DrawString(_spriteBatch, text, new Vector2(panelX + 10, textY), color);
+            _font.DrawString(_spriteBatch, text, new Vector2(panelX + 12, textY), color, fontSize);
             textY += lineHeight;
         }
 
-        DrawText("=== SIM PLANET ===", Color.Yellow);
-        DrawText($"Year: {state.Year}", Color.White);
+        void DrawSectionHeader(string text)
+        {
+            textY += 3;
+            DrawRectangle(panelX + 5, textY - 2, panelWidth - 10, 22, new Color(20, 40, 80, 150));
+            DrawText(text, new Color(255, 220, 100), 15);
+            textY += 3;
+        }
+
+        DrawText("SIMPLANET", new Color(255, 200, 50), 16);
+        textY = panelY + 35;
+        DrawText($"Year: {state.Year:N0}", new Color(200, 220, 255));
         if (_animalEvolutionSimulator != null)
         {
             string eraName = _animalEvolutionSimulator.GetCurrentEraName();
-            Color eraColor = _animalEvolutionSimulator.DinosaursDominant ? Color.Orange :
-                           _animalEvolutionSimulator.MammalsDominant ? Color.LightBlue :
-                           Color.Gray;
+            Color eraColor = _animalEvolutionSimulator.DinosaursDominant ? new Color(255, 150, 50) :
+                           _animalEvolutionSimulator.MammalsDominant ? new Color(150, 200, 255) :
+                           new Color(180, 180, 180);
             DrawText($"Era: {eraName}", eraColor);
         }
-        DrawText($"Speed: {state.TimeSpeed}x", Color.White);
-        DrawText($"Paused: {state.IsPaused}", Color.White);
-        textY += 5;
+        DrawText($"Speed: {state.TimeSpeed}x", state.IsPaused ? new Color(255, 100, 100) : new Color(100, 255, 100));
+        if (state.IsPaused) DrawText("⏸ PAUSED", new Color(255, 200, 100));
 
-        DrawText("=== Global Stats ===", Color.Cyan);
+        DrawSectionHeader("ATMOSPHERE");
         DrawText($"Oxygen: {_map.GlobalOxygen:F1}%", GetOxygenColor(_map.GlobalOxygen));
         DrawText($"CO2: {_map.GlobalCO2:F2}%", GetCO2Color(_map.GlobalCO2));
         DrawText($"Avg Temp: {_map.GlobalTemperature:F1}C", GetTempColor(_map.GlobalTemperature));
         DrawText($"Solar: {_map.SolarEnergy:F2}", Color.Yellow);
         textY += 5;
 
-        DrawText("=== Life Statistics ===", Color.Green);
+        DrawSectionHeader("LIFE");
         var lifeStats = CalculateLifeStats();
         DrawText($"Bacteria: {lifeStats[LifeForm.Bacteria]}", Color.Gray);
         DrawText($"Algae: {lifeStats[LifeForm.Algae]}", Color.LightGreen);
@@ -283,6 +295,14 @@ public class GameUI
     private void DrawRectangle(int x, int y, int width, int height, Color color)
     {
         _spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, height), color);
+    }
+
+    private void DrawBorder(int x, int y, int width, int height, Color color, int thickness)
+    {
+        _spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color); // Top
+        _spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color); // Bottom
+        _spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color); // Left
+        _spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color); // Right
     }
 
     private Dictionary<LifeForm, int> CalculateLifeStats()
