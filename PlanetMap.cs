@@ -11,6 +11,10 @@ public class MapGenerationOptions
     public int Octaves { get; set; } = 6;
     public float Persistence { get; set; } = 0.5f;
     public float Lacunarity { get; set; } = 2.0f;
+
+    // For preview generation: allows sampling noise at full-map scale while generating fewer cells
+    public int ReferenceWidth { get; set; } = 200;
+    public int ReferenceHeight { get; set; } = 100;
 }
 
 /// <summary>
@@ -34,11 +38,13 @@ public class PlanetMap
     public static float GenerationProgress { get; set; } = 0f;
     public static string GenerationTask { get; set; } = "";
 
-    public PlanetMap(int width, int height, MapGenerationOptions options)
+    public PlanetMap(int width, int height, MapGenerationOptions options, int? referenceWidth = null, int? referenceHeight = null)
     {
         Width = width;
         Height = height;
         Options = options;
+        Options.ReferenceWidth = referenceWidth ?? width;
+        Options.ReferenceHeight = referenceHeight ?? height;
         Cells = new TerrainCell[width, height];
 
         GenerationProgress = 0f;
@@ -91,7 +97,8 @@ public class PlanetMap
 
         // For seamless wrapping, map X to a cylinder (wraps horizontally like a sphere)
         // Y stays linear (latitude from pole to pole)
-        float circumference = Width * scale;
+        // Use ReferenceWidth for consistent noise sampling (allows accurate previews)
+        float circumference = Options.ReferenceWidth * scale;
         float radius = circumference / (2.0f * MathF.PI);
 
         for (int x = 0; x < Width; x++)
@@ -99,10 +106,12 @@ public class PlanetMap
             for (int y = 0; y < Height; y++)
             {
                 // Map x to circular coordinates for seamless horizontal wrapping
-                float angle = (x / (float)Width) * 2.0f * MathF.PI;
+                // Use ReferenceWidth so preview samples the same noise as full map
+                float angle = (x / (float)Options.ReferenceWidth) * 2.0f * MathF.PI;
                 float nx = MathF.Cos(angle) * radius;
                 float nz = MathF.Sin(angle) * radius;
-                float ny = y * scale;
+                // Use ReferenceHeight for consistent vertical scale
+                float ny = (y / (float)Options.ReferenceHeight) * Options.ReferenceHeight * scale;
 
                 // Generate height using 3D noise for seamless wrapping
                 // Use nx, ny, nz where nx/nz form a circle
@@ -130,11 +139,11 @@ public class PlanetMap
         {
             for (int y = 0; y < Height; y++)
             {
-                // Use same cylindrical coordinates for mountains
-                float angle = (x / (float)Width) * 2.0f * MathF.PI;
+                // Use same cylindrical coordinates for mountains (using ReferenceWidth for consistency)
+                float angle = (x / (float)Options.ReferenceWidth) * 2.0f * MathF.PI;
                 float nx = MathF.Cos(angle) * radius;
                 float nz = MathF.Sin(angle) * radius;
-                float ny = y * scale;
+                float ny = (y / (float)Options.ReferenceHeight) * Options.ReferenceHeight * scale;
 
                 float elevation = baseElevation[x, y];
 
