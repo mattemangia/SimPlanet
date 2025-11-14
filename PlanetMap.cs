@@ -62,6 +62,10 @@ public class PlanetMap
         GenerationTask = "Generating terrain elevation...";
         GenerateTerrain();
 
+        GenerationProgress = 0.4f;
+        GenerationTask = "Initializing geological layers...";
+        InitializeGeology();
+
         GenerationProgress = 0.6f;
         GenerationTask = "Initializing climate systems...";
         InitializeClimate();
@@ -170,6 +174,73 @@ public class PlanetMap
                 if (latitudeFactor > 0.8f)
                 {
                     Cells[x, y].Elevation -= (latitudeFactor - 0.8f) * 0.3f;
+                }
+            }
+        }
+    }
+
+    private void InitializeGeology()
+    {
+        var random = new Random(Options.Seed + 5000);
+
+        for (int x = 0; x < Width; x++)
+        {
+            for (int y = 0; y < Height; y++)
+            {
+                var cell = Cells[x, y];
+                var geo = cell.GetGeology();
+
+                // Initialize sediment layers based on terrain type
+                int layerCount = random.Next(3, 12); // 3-12 initial layers
+
+                for (int i = 0; i < layerCount; i++)
+                {
+                    SedimentType sedimentType;
+
+                    if (cell.Elevation < 0.0f)
+                    {
+                        // Ocean floor - marine sediments
+                        if (cell.Elevation < -0.5f)
+                        {
+                            // Deep ocean - fine clay and ooze
+                            sedimentType = random.NextDouble() < 0.7 ? SedimentType.Clay : SedimentType.Limestone;
+                        }
+                        else
+                        {
+                            // Shallow ocean - more variety
+                            double roll = random.NextDouble();
+                            if (roll < 0.4) sedimentType = SedimentType.Limestone; // Carbonate platform
+                            else if (roll < 0.7) sedimentType = SedimentType.Sand;
+                            else sedimentType = SedimentType.Clay;
+                        }
+                    }
+                    else if (cell.Elevation < 0.2f)
+                    {
+                        // Lowlands and alluvial plains - sedimentary deposits
+                        double roll = random.NextDouble();
+                        if (roll < 0.35) sedimentType = SedimentType.Sand; // River deposits
+                        else if (roll < 0.65) sedimentType = SedimentType.Silt; // Floodplain
+                        else if (roll < 0.85) sedimentType = SedimentType.Clay; // Fine sediments
+                        else sedimentType = SedimentType.Gravel; // Coarse deposits
+                    }
+                    else if (cell.Elevation < 0.6f)
+                    {
+                        // Hills and uplands - weathered rock and colluvium
+                        double roll = random.NextDouble();
+                        if (roll < 0.5) sedimentType = SedimentType.Gravel; // Weathered rock
+                        else if (roll < 0.75) sedimentType = SedimentType.Sand;
+                        else sedimentType = SedimentType.Silt; // Ancient deposits
+                    }
+                    else
+                    {
+                        // Mountains - minimal sediment, mostly exposed bedrock
+                        double roll = random.NextDouble();
+                        if (roll < 0.6) sedimentType = SedimentType.Gravel; // Talus and weathered rock
+                        else if (roll < 0.8) sedimentType = SedimentType.Silt; // Fine glacial flour
+                        else sedimentType = SedimentType.Volcanic; // Volcanic ash from ancient eruptions
+                    }
+
+                    geo.SedimentColumn.Add(sedimentType);
                 }
             }
         }
