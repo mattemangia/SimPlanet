@@ -265,8 +265,9 @@ public class GameUI
         DrawText("P: 3D Minimap  M: Map options", Color.White);
         DrawText("V/B/N: Volc/Rivers/Plates", Color.White);
         DrawText("R: Regenerate  H: Help", Color.White);
-        DrawText("D: Disasters  T: Manual planting", Color.White);
-        DrawText("G: Control civ  Y: Auto-stabilizer", Color.Cyan);
+        DrawText("D: Disasters  K: Pandemics", Color.White);
+        DrawText("T: Manual planting  G: Control civ", Color.White);
+        DrawText("Y: Auto-stabilizer", Color.Cyan);
         DrawText("F5: Quick Save  F9: Quick Load", Color.Cyan);
         DrawText("ESC: Pause/Menu", Color.White);
         textY += 5;

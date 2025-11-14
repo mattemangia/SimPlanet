@@ -27,6 +27,7 @@ public class SimPlanetGame : Game
     private ForestFireManager _forestFireManager;
     private MagnetosphereSimulator _magnetosphereSimulator;
     private PlanetStabilizer _planetStabilizer;
+    private DiseaseManager _diseaseManager;
 
     // Menu and save/load
     private MainMenu _mainMenu;
@@ -43,6 +44,7 @@ public class SimPlanetGame : Game
     private PlayerCivilizationControl _playerCivControl;
     private DisasterControlUI _disasterControlUI;
     private ManualPlantingTool _plantingTool;
+    private DiseaseControlUI _diseaseControlUI;
     private FontRenderer _font;
 
     // Game state
@@ -112,6 +114,7 @@ public class SimPlanetGame : Game
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
+        _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -160,6 +163,7 @@ public class SimPlanetGame : Game
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
+        _diseaseControlUI = new DiseaseControlUI(_font, _terrainRenderer.PixelTexture, _diseaseManager, _map, _civilizationManager);
 
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
@@ -240,6 +244,7 @@ public class SimPlanetGame : Game
             _geologicalSimulator.Update(deltaTime, _gameState.Year);
             _hydrologySimulator.Update(deltaTime);
             _civilizationManager.Update(deltaTime, _gameState.Year);
+            _diseaseManager.Update(deltaTime, _gameState.Year);
             _biomeSimulator.Update(deltaTime);
             _disasterManager.Update(deltaTime, _gameState.Year);
             _forestFireManager.Update(deltaTime, _weatherSystem, _civilizationManager);
@@ -272,6 +277,7 @@ public class SimPlanetGame : Game
             _playerCivControl.Update(Mouse.GetState());
             _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+            _diseaseControlUI.Update(Mouse.GetState(), _previousMouseState, keyState);
             _plantingTool.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
                 _civilizationManager, _gameState.Year);
@@ -444,6 +450,12 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.D) && _previousKeyState.IsKeyUp(Keys.D))
         {
             _disasterControlUI.IsVisible = !_disasterControlUI.IsVisible;
+        }
+
+        // Toggle disease control (K key for disease/sickness)
+        if (keyState.IsKeyDown(Keys.K) && _previousKeyState.IsKeyUp(Keys.K))
+        {
+            _diseaseControlUI.IsVisible = !_diseaseControlUI.IsVisible;
         }
 
         // Toggle manual planting tool (T key)
@@ -641,6 +653,7 @@ public class SimPlanetGame : Game
             _hydrologySimulator = new HydrologySimulator(_map, saveData.MapOptions.Seed);
             _weatherSystem = new WeatherSystem(_map, saveData.MapOptions.Seed);
             _civilizationManager = new CivilizationManager(_map, saveData.MapOptions.Seed);
+            _diseaseManager = new DiseaseManager(_map, _civilizationManager, saveData.MapOptions.Seed);
             _biomeSimulator = new BiomeSimulator(_map, saveData.MapOptions.Seed);
             _disasterManager = new DisasterManager(_map, _geologicalSimulator, saveData.MapOptions.Seed);
             _forestFireManager = new ForestFireManager(_map, saveData.MapOptions.Seed);
@@ -700,6 +713,7 @@ public class SimPlanetGame : Game
         _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
         _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
         _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
+        _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
@@ -809,6 +823,9 @@ public class SimPlanetGame : Game
 
         // Draw disaster control UI
         _disasterControlUI.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw disease control UI
+        _diseaseControlUI.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         // Draw manual planting tool
         _plantingTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
