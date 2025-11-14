@@ -26,6 +26,7 @@ public class SimPlanetGame : Game
     private DisasterManager _disasterManager;
     private ForestFireManager _forestFireManager;
     private MagnetosphereSimulator _magnetosphereSimulator;
+    private PlanetStabilizer _planetStabilizer;
 
     // Menu and save/load
     private MainMenu _mainMenu;
@@ -106,6 +107,7 @@ public class SimPlanetGame : Game
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
+        _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -144,6 +146,7 @@ public class SimPlanetGame : Game
         _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
         _ui.SetManagers(_civilizationManager, _weatherSystem);
         _ui.SetAnimalEvolutionSimulator(_animalEvolutionSimulator);
+        _ui.SetPlanetStabilizer(_planetStabilizer);
         _mapOptionsUI = new MapOptionsUI(_spriteBatch, _font, GraphicsDevice);
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
@@ -208,6 +211,7 @@ public class SimPlanetGame : Game
             _disasterManager.Update(deltaTime, _gameState.Year);
             _forestFireManager.Update(deltaTime, _weatherSystem, _civilizationManager);
             _magnetosphereSimulator.Update(deltaTime, _gameState.Year);
+            _planetStabilizer.Update(deltaTime);
 
             // Performance optimization: Update global stats only once per second
             _globalStatsTimer += realDeltaTime;
@@ -457,6 +461,12 @@ public class SimPlanetGame : Game
             _plantingTool.IsActive = !_plantingTool.IsActive;
         }
 
+        // Toggle planet stabilizer (Y key)
+        if (keyState.IsKeyDown(Keys.Y) && _previousKeyState.IsKeyUp(Keys.Y))
+        {
+            _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
+        }
+
         // Quick save (F5)
         if (keyState.IsKeyDown(Keys.F5) && _previousKeyState.IsKeyUp(Keys.F5))
         {
@@ -536,6 +546,8 @@ public class SimPlanetGame : Game
 
             // Update UI
             _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
+            _ui.SetManagers(_civilizationManager, _weatherSystem);
+            _ui.SetPlanetStabilizer(_planetStabilizer);
             _minimap3D.Dispose();
             _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
             _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
@@ -580,6 +592,7 @@ public class SimPlanetGame : Game
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
+        _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -591,6 +604,8 @@ public class SimPlanetGame : Game
 
         // Update UI
         _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
+        _ui.SetManagers(_civilizationManager, _weatherSystem);
+        _ui.SetPlanetStabilizer(_planetStabilizer);
         _minimap3D.Dispose();
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);

@@ -16,6 +16,7 @@ public class GameUI
     private CivilizationManager? _civilizationManager;
     private WeatherSystem? _weatherSystem;
     private AnimalEvolutionSimulator? _animalEvolutionSimulator;
+    private PlanetStabilizer? _planetStabilizer;
 
     public bool ShowHelp { get; set; } = true;
 
@@ -38,6 +39,11 @@ public class GameUI
     public void SetAnimalEvolutionSimulator(AnimalEvolutionSimulator animalEvolutionSimulator)
     {
         _animalEvolutionSimulator = animalEvolutionSimulator;
+    }
+
+    public void SetPlanetStabilizer(PlanetStabilizer planetStabilizer)
+    {
+        _planetStabilizer = planetStabilizer;
     }
 
     public void Draw(GameState state, RenderMode renderMode)
@@ -192,6 +198,24 @@ public class GameUI
             }
         }
 
+        // Planet Stabilizer status
+        if (_planetStabilizer != null)
+        {
+            if (_planetStabilizer.IsActive)
+            {
+                DrawText("=== AUTO-STABILIZER ===", Color.Cyan);
+                DrawText("[ACTIVE] Maintaining equilibrium", Color.LightGreen);
+                DrawText($"Adjustments: {_planetStabilizer.AdjustmentsMade}", Color.White);
+                DrawText($"Last: {_planetStabilizer.LastAction}", Color.Gray);
+                DrawText("Press Y to disable", Color.DarkGray);
+            }
+            else
+            {
+                DrawText("Auto-Stabilizer: OFF (Press Y)", Color.DarkGray);
+            }
+            textY += 5;
+        }
+
         DrawText($"View Mode: {renderMode}", Color.Magenta);
     }
 
@@ -229,6 +253,8 @@ public class GameUI
         DrawText("P: 3D Minimap  M: Map options", Color.White);
         DrawText("V/B/N: Volc/Rivers/Plates", Color.White);
         DrawText("R: Regenerate  H: Help", Color.White);
+        DrawText("D: Disasters  T: Manual planting", Color.White);
+        DrawText("G: Control civ  Y: Auto-stabilizer", Color.Cyan);
         DrawText("F5: Quick Save  F9: Quick Load", Color.Cyan);
         DrawText("ESC: Pause/Menu", Color.White);
         textY += 5;

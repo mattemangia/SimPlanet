@@ -102,12 +102,12 @@ public class ForestFireManager
         var cell = _map.Cells[fire.OriginX, fire.OriginY];
         var meteor = cell.GetMeteorology();
 
-        if (meteor.CurrentRainfall > 0.5f) // Heavy rain
+        if (meteor.Precipitation > 0.5f) // Heavy rain
         {
             fire.Intensity -= deltaTime * 0.3f; // Rain puts out fire
             return;
         }
-        else if (meteor.CurrentRainfall > 0.2f) // Light rain
+        else if (meteor.Precipitation > 0.2f) // Light rain
         {
             fire.Intensity -= deltaTime * 0.1f; // Slower extinguishing
             return;
