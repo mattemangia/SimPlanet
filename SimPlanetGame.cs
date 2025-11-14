@@ -350,9 +350,9 @@ public class SimPlanetGame : Game
             }
 
             // Update UI systems
-            _minimap3D.Update(deltaTime);
+            _minimap3D.Update(realDeltaTime);
             _eventsUI.Update(_gameState.Year);
-            _interactiveControls.Update(deltaTime);
+            _interactiveControls.Update(realDeltaTime);
             _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
             _playerCivControl.Update(Mouse.GetState());
@@ -364,7 +364,7 @@ public class SimPlanetGame : Game
                 _civilizationManager, _gameState.Year);
 
             // Update day/night cycle (24 hours = 1 day)
-            _terrainRenderer.DayNightTime += deltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
+            _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
             if (_terrainRenderer.DayNightTime >= 24.0f)
             {
                 _terrainRenderer.DayNightTime -= 24.0f;
