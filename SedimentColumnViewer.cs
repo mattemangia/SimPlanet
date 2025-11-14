@@ -459,7 +459,7 @@ public class SedimentColumnViewer
         return Color.Red;
     }
 
-    private string GetBiomeType(PlanetCell cell)
+    private string GetBiomeType(TerrainCell cell)
     {
         if (cell.Elevation < 0.0f) return "Ocean";
         if (cell.Elevation < 0.05f) return "Coastal";
@@ -477,7 +477,7 @@ public class SedimentColumnViewer
         return "Plains";
     }
 
-    private Color GetBiomeColor(PlanetCell cell)
+    private Color GetBiomeColor(TerrainCell cell)
     {
         if (cell.Elevation < 0.0f) return new Color(50, 100, 200); // Ocean
         if (cell.Temperature < -20f) return Color.White; // Ice
