@@ -507,7 +507,23 @@ public class LifeSimulator
         // Storms damage life
         foreach (var storm in weatherSys.ActiveStorms)
         {
-            int radius = storm.Type == StormType.Hurricane ? 15 : 8;
+            // Check if storm is a hurricane (any category)
+            bool isHurricane = storm.Type >= StormType.HurricaneCategory1 &&
+                              storm.Type <= StormType.HurricaneCategory5;
+
+            // Determine radius based on storm type
+            int radius = storm.Type switch
+            {
+                StormType.TropicalDepression => 10,
+                StormType.TropicalStorm => 12,
+                StormType.HurricaneCategory1 => 15,
+                StormType.HurricaneCategory2 => 18,
+                StormType.HurricaneCategory3 => 20,
+                StormType.HurricaneCategory4 => 22,
+                StormType.HurricaneCategory5 => 25,
+                StormType.Blizzard => 12,
+                _ => 8  // Thunderstorm, Tornado
+            };
 
             for (int dx = -radius; dx <= radius; dx++)
             {
@@ -523,8 +539,8 @@ public class LifeSimulator
                     var cell = _map.Cells[x, y];
                     float effectStrength = storm.Intensity * (1 - dist / radius);
 
-                    // Storm damage to biomass
-                    if (storm.Type == StormType.Hurricane && effectStrength > 0.5f)
+                    // Storm damage to biomass (already handled in WeatherSystem, but keep for extra damage)
+                    if (isHurricane && effectStrength > 0.5f)
                     {
                         cell.Biomass *= (1 - effectStrength * 0.3f);
                     }
