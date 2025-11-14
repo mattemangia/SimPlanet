@@ -562,7 +562,41 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Enhanced Sedimentary System & Coordinate Fixes
+### Latest Update - Atmospheric Circulation & Weather System Overhaul
+
+**NEW - Wind-Driven Atmospheric Gas Transport:**
+- ✅ **Global CO2 Circulation** - CO2 now spreads globally through wind patterns
+- ✅ **Global O2 Circulation** - Oxygen produced by forests/algae spreads worldwide
+- ✅ **Diffusion Mixing** - 15% gas mixing with neighbors per timestep
+- ✅ **Wind Advection** - Trade winds, westerlies, and polar easterlies transport gases
+- ✅ **Cyanobacteria O2 Production** - Bacteria (cyanobacteria) now produce oxygen and consume CO2
+- ✅ **Realistic Gas Distribution** - No more isolated pockets of high/low gas concentrations
+
+**NEW - Coriolis Forces Implementation:**
+- ✅ **Latitude-Based Wind Deflection** - Winds deflect right in northern hemisphere, left in southern
+- ✅ **Geostrophic Wind** - Pressure gradient winds affected by Coriolis effect
+- ✅ **Realistic Circulation Cells** - Proper Hadley, Ferrel, and Polar cells
+- ✅ **ITCZ Convergence** - Intertropical Convergence Zone at equator
+- ✅ **Zero at Equator** - No Coriolis deflection at equator, maximum at poles
+
+**FIXED - Thematic Map Color Accuracy:**
+- ✅ **Wind View** - Now properly shows calm (green) to extreme (red) based on actual wind speed (0-15 range)
+- ✅ **Pressure View** - Fixed units (millibars 950-1050), shows blue (low) to red (high)
+- ✅ **Storm View** - Clear gradient from light blue (clear) to purple (severe storms)
+- ✅ **Cloud View** - Pure white clouds, satellite imagery style with terrain underneath
+- ✅ **CO2 View** - Fixed color gradient to match legend (blue to yellow)
+- ✅ **All Colors Match Legends** - Every thematic view now accurately represents data
+
+**FIXED - Day/Night Cycle Behavior:**
+- ✅ **Auto-Enable at Slow Speed** - Day/night cycle shows when speed ≤ 0.5x
+- ✅ **Auto-Disable at Fast Speed** - Day/night cycle hides when speed > 1.0x
+- ✅ **Manual Toggle** - Press C to manually toggle at any speed
+
+**UI Improvements:**
+- ✅ **Compact Info Panel** - Reduced from 400px to 280px width for more map space
+- ✅ **Better Screen Layout** - 120 extra pixels for map rendering
+
+### Previous Update - Enhanced Sedimentary System & Coordinate Fixes
 
 **NEW - Comprehensive Sedimentary Environments:**
 - ✅ **Delta Systems** - River sediment deposition at coastal areas with high rainfall (silt, sand, clay, organic marsh deposits)

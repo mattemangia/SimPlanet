@@ -31,7 +31,12 @@ public class AtmosphereSimulator
                 float oxygenChange = 0;
 
                 // Photosynthesis produces oxygen
-                if (cell.LifeType == LifeForm.Algae)
+                if (cell.LifeType == LifeForm.Bacteria)
+                {
+                    // Cyanobacteria - early photosynthetic oxygen producers
+                    oxygenChange += cell.Biomass * 0.3f * deltaTime;
+                }
+                else if (cell.LifeType == LifeForm.Algae)
                 {
                     oxygenChange += cell.Biomass * 0.5f * deltaTime;
                 }
@@ -74,7 +79,12 @@ public class AtmosphereSimulator
                 float co2Change = 0;
 
                 // Photosynthesis consumes CO2
-                if (cell.LifeType == LifeForm.Algae)
+                if (cell.LifeType == LifeForm.Bacteria)
+                {
+                    // Cyanobacteria - early photosynthetic CO2 consumers
+                    co2Change -= cell.Biomass * 0.2f * deltaTime;
+                }
+                else if (cell.LifeType == LifeForm.Algae)
                 {
                     co2Change -= cell.Biomass * 0.3f * deltaTime;
                 }
