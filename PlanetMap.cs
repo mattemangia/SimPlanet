@@ -84,14 +84,9 @@ public class PlanetMap
                 // Map to -1 to 1 range
                 elevation = elevation * 2 - 1;
 
-                // Apply land ratio by shifting sea level
-                // LandRatio 0.3 means 30% should be land (above 0)
-                // So we shift down to make 70% below 0
-                float seaLevel = -1.0f + (Options.LandRatio * 2.0f);
-                elevation -= seaLevel;
-
-                // Add sharp mountain peaks to elevated areas
-                if (elevation > 0.15f)
+                // Add sharp mountain peaks to elevated areas BEFORE sea level shift
+                // This way mountains are added to naturally high areas (elevation > 0.2 in -1 to 1 range)
+                if (elevation > 0.2f)
                 {
                     float mountainNoise = noise.OctaveNoise(nx * 2.5f, ny * 2.5f, 4, 0.65f, 2.2f);
 
@@ -99,9 +94,16 @@ public class PlanetMap
                     mountainNoise = mountainNoise * mountainNoise;
 
                     // Mountain height scales with MountainLevel slider and base elevation
-                    float mountainHeight = mountainNoise * Options.MountainLevel * elevation * 2.0f;
+                    // Use the unshifted elevation for scaling to avoid over-amplification
+                    float mountainHeight = mountainNoise * Options.MountainLevel * (elevation + 1.0f) * 0.8f;
                     elevation += mountainHeight;
                 }
+
+                // Apply land ratio by shifting sea level
+                // LandRatio 0.3 means 30% should be land (above 0)
+                // So we shift down to make 70% below 0
+                float seaLevel = -1.0f + (Options.LandRatio * 2.0f);
+                elevation -= seaLevel;
 
                 // Apply water level offset (fine-tuning)
                 // Positive WaterLevel = raise sea level (more water)
