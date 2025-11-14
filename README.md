@@ -568,7 +568,7 @@ Potential additions (not yet implemented):
 - ✅ **Auto-Generated Legends** - Each view mode now displays a color legend (Temperature, Rainfall, Life, etc.)
 - ✅ **Color Gradients** - Visual color gradient bar shows the full range of values
 - ✅ **Clear Labels** - Min/max values or category names displayed for each mode
-- ✅ **Smart Positioning** - Legend appears in bottom-left, doesn't obstruct gameplay
+- ✅ **Smart Positioning** - Legend appears in bottom-right corner, doesn't obstruct gameplay
 - ✅ **14+ View Modes Supported** - Legends for all visualization modes except Terrain
 
 **Enhanced Parameter Indicators:**
@@ -577,6 +577,13 @@ Potential additions (not yet implemented):
 - ✅ **View Mode** - Current visualization mode clearly displayed
 - ✅ **Time Speed** - Simulation speed indicator with pause status
 - ✅ **Complete Visibility** - All interactive parameters now have visual indicators
+
+**UI Layout Improvements:**
+- ✅ **Clean Layout** - Removed redundant overlay legend (status now in info panel)
+- ✅ **No Overlapping** - All UI elements positioned to avoid covering each other
+- ✅ **Dynamic Positioning** - Minimap and legend scale with window size
+- ✅ **Updated Help Menu** - All current commands documented (H key to view)
+- ✅ **Better Organization** - Legend in bottom-right, minimap in bottom-left
 
 **Previous Update - Click Detection & Map Editor Fixes**
 

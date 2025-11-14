@@ -337,8 +337,9 @@ public class GameUI
         DrawTextAt("=== MOUSE CONTROLS ===", Color.Yellow, rightColX, rightY);
         rightY += lineHeight + 3;
         DrawTextAt("Mouse Wheel: Zoom in/out", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("Left Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Middle Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("Bottom Buttons: Interactive tools", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("Click Tile: View detailed info", Color.White, rightColX, rightY); rightY += lineHeight;
         rightY += 5;
 
         DrawTextAt("=== OVERLAYS & FEATURES ===", Color.Yellow, rightColX, rightY);
@@ -347,8 +348,14 @@ public class GameUI
         DrawTextAt("B: Toggle rivers", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("N: Toggle plate boundaries", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("P: Toggle 3D minimap", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("M: Map options", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("C: Day/Night cycle", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        rightY += 5;
+
+        DrawTextAt("=== MAP EDITOR (M key) ===", Color.Yellow, rightColX, rightY);
+        rightY += lineHeight + 3;
+        DrawTextAt("F6: Earth preset", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("F7: Mars preset", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("F8: Water World preset", Color.White, rightColX, rightY); rightY += lineHeight;
         rightY += 5;
 
         DrawTextAt("=== ADVANCED TOOLS ===", Color.Yellow, rightColX, rightY);
