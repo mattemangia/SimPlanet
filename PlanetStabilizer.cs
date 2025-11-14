@@ -15,8 +15,9 @@ public class PlanetStabilizer
 
     // Stabilization targets (Earth-like conditions)
     private const float TargetGlobalTemp = 15.0f; // 15°C average
-    private const float TargetOxygen = 21.0f; // 21% oxygen
-    private const float TargetCO2 = 0.04f; // 0.04% CO2 (400 ppm)
+    private const float TargetOxygen = 21.0f; // 21% oxygen (modern Earth)
+    private const float MinCO2 = 0.01f; // Minimum CO2 for photosynthesis
+    private const float MaxCO2 = 5.0f; // Maximum safe CO2 (allows early planet high CO2)
     private const float TargetLandRatio = 0.29f; // 29% land
     private const float TargetMagneticField = 1.0f; // Earth-like
     private const float TargetCoreTemp = 5000f; // Active core
@@ -108,20 +109,20 @@ public class PlanetStabilizer
         if (tempDeviation < -5f)
         {
             // Add CO2 to warm planet (but not too much)
-            if (avgCO2 < 0.1f)
+            if (avgCO2 < MaxCO2)
             {
                 AdjustCO2Globally(0.01f);
                 LastAction = $"Adding CO2 to warm planet (avg: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
         }
-        // Too hot - reduce greenhouse gases
-        else if (tempDeviation > 5f)
+        // Too hot - reduce greenhouse gases only if dangerously high
+        else if (tempDeviation > 10f)
         {
-            // Remove excess CO2
-            if (avgCO2 > TargetCO2)
+            // Remove excess CO2 only if it's contributing to extreme heat
+            if (avgCO2 > 0.5f)
             {
-                AdjustCO2Globally(-0.02f);
+                AdjustCO2Globally(-0.05f);
                 LastAction = $"Removing CO2 to cool planet (avg: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
@@ -144,35 +145,35 @@ public class PlanetStabilizer
 
     private void StabilizeAtmosphere(float avgOxygen, float avgCO2)
     {
-        // Maintain oxygen at breathable levels
-        if (avgOxygen < 18f)
+        // Maintain oxygen at breathable levels (but don't interfere with early evolution)
+        if (avgOxygen < 15f)
         {
             // Boost photosynthesis by enhancing plant growth
             BoostPlantGrowth();
             LastAction = $"Boosting O2 production (current: {avgOxygen:F1}%)";
             AdjustmentsMade++;
         }
-        else if (avgOxygen > 25f)
+        else if (avgOxygen > 30f)
         {
-            // Too much oxygen is dangerous (fire risk)
+            // Too much oxygen is dangerous (fire risk, toxicity)
             ReduceOxygenGlobally(0.5f);
             LastAction = $"Reducing excess O2 (current: {avgOxygen:F1}%)";
             AdjustmentsMade++;
         }
 
-        // Keep CO2 in safe range
-        if (avgCO2 > 1.0f)
+        // Keep CO2 in safe range for life
+        if (avgCO2 > MaxCO2)
         {
-            // Dangerous CO2 levels - remove excess
+            // Dangerously high CO2 - remove excess
             AdjustCO2Globally(-0.1f);
-            LastAction = $"Removing excess CO2 (current: {avgCO2:F2}%)";
+            LastAction = $"Removing dangerous CO2 (current: {avgCO2:F2}%)";
             AdjustmentsMade++;
         }
-        else if (avgCO2 < 0.01f)
+        else if (avgCO2 < MinCO2)
         {
-            // Too little CO2 - plants need it
-            AdjustCO2Globally(0.005f);
-            LastAction = $"Adding CO2 for plants (current: {avgCO2:F3}%)";
+            // Too little CO2 - plants need it for photosynthesis
+            AdjustCO2Globally(0.01f);
+            LastAction = $"Adding CO2 for photosynthesis (current: {avgCO2:F3}%)";
             AdjustmentsMade++;
         }
     }
