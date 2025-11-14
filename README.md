@@ -36,7 +36,10 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - 8 tectonic plates with continental drift
   - Plate boundaries (convergent, divergent, transform)
   - Mountain building and subduction zones
-  - Volcanic hotspots and eruption mechanics
+  - **Realistic volcano distribution** (rare but impactful)
+  - **Volcanic island formation** - underwater volcanoes build into islands
+  - Volcanic hotspots and eruption mechanics (effusive, explosive, phreatomagmatic)
+  - **Island arc systems** along oceanic-oceanic convergence zones
   - Earthquakes from tectonic stress
   - Erosion (rainfall, temperature, glacial)
   - Sediment transport and deposition
@@ -50,14 +53,17 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Climate System**:
   - Temperature gradients based on latitude, elevation, and solar energy
   - Rainfall patterns with realistic atmospheric circulation (Hadley, Ferrel, Polar cells)
+  - **Subtropical desert belts** form at 25-30° latitude (Sahara-like)
   - Humidity simulation with diffusion
+  - **Geographic variation** prevents artificial horizontal banding
   - Surface albedo effects (ice reflects 85%, ocean absorbs 94%)
 - **Ice Cycles**:
-  - Polar ice caps formation and expansion
+  - Polar ice caps formation and expansion with **smooth gradients**
   - Mountain glaciers and snow lines
-  - Ice-albedo feedback loops (ice reflects sunlight → stays cold → more ice)
+  - **Realistic ice-albedo feedback** (prevents runaway glaciation)
   - Glacier advance/retreat with elevation changes
   - Sea ice formation on frozen oceans
+  - **No horizontal ice stripes** - geographic variation creates natural patterns
   - Prevents snowball Earth and runaway ice ages
 - **Magnetosphere & Radiation**:
   - Planetary magnetic field simulation (Earth-like dynamo)
@@ -135,7 +141,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Full menu system with save slots and timestamps
   - Serializes entire game state (terrain, life, civilizations, weather, geology)
 - **Time Control**: Adjustable simulation speed (0.25x to 32x)
-- **3D Minimap**: Interactive rotating sphere with manual rotation and tilt controls (SimEarth-style!)
+- **3D Minimap**: Interactive rotating sphere with accurate spherical projection, realistic ice caps, and manual rotation/tilt controls (SimEarth-style!)
 
 ### Visualization Modes
 **Standard Views (1-0 keys):**
@@ -546,7 +552,34 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - True Multithreading & Complete UI Independence
+### Latest Update - Climate System Realism & 3D Minimap Fixes
+
+**Climate & Geography Improvements:**
+- ✅ **Eliminated Blue Horizontal Stripes** - Ice now forms naturally without artificial banding
+- ✅ **Geographic Variation** - Added sin/cos noise to temperature and ice formation patterns
+- ✅ **Realistic Desert Placement** - Deserts now form at subtropical latitudes (25-30°) like Sahara, not near poles
+- ✅ **Smooth Ice Gradients** - Polar regions transition gradually with 3D geographic variation
+- ✅ **Reduced Ice-Albedo Feedback** - Prevents runaway ice formation and unrealistic glaciation
+- ✅ **Better Rainfall Distribution** - Longitude variation breaks up perfect horizontal rain bands
+
+**3D Minimap Overhaul:**
+- ✅ **Fixed Spherical Projection** - Corrected coordinate mapping for accurate globe representation
+- ✅ **Proper Rotation** - Horizontal rotation now applies before tilt transformation
+- ✅ **Accurate Latitude Mapping** - Uses proper asin calculation for realistic pole/equator display
+- ✅ **Ice Caps Show Correctly** - Polar ice now displays in proper positions on the 3D globe
+
+**Volcano & Geology Realism:**
+- ✅ **Reduced Volcano Spam** - 95% reduction in volcano creation probability
+- ✅ **Volcanic Island Formation** - Underwater volcanoes now build into islands (Hawaii-style)
+- ✅ **Shield Volcano Building** - Submarine eruptions build 2.5x faster to create island chains
+- ✅ **Island Arc Systems** - Oceanic-oceanic convergence creates realistic island chains (Japan, Philippines)
+- ✅ **Mid-Ocean Ridges** - Rare volcanic islands form along divergent boundaries (Iceland-like)
+
+**Code Quality:**
+- ✅ **Fixed deltaTime Compilation Errors** - Resolved scope issues in UI update methods
+- ✅ **Merged Performance Fixes** - Integrated terrain slider lag improvements
+
+### Previous Update - True Multithreading & Complete UI Independence
 
 **TRUE MULTITHREADING - ZERO LAG:**
 - ✅ **Dedicated Simulation Thread** - All simulation runs on separate background thread
