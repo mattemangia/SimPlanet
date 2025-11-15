@@ -377,6 +377,7 @@ public class GameUI
         DrawTextAt("T: Terraforming (R=cycle)", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("M: Resource placement (R=cycle)", Color.Orange, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("G: Control civilization", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("H: Divine powers", Color.Gold, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Y: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
 
         // Footer

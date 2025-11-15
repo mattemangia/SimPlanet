@@ -9,8 +9,11 @@ public class CivilizationManager
     private readonly Random _random;
     private List<Civilization> _civilizations;
     private int _nextCivId = 1;
+    private DivinePowers _divinePowers;
+    private int _nextRulerId = 1;
 
     public List<Civilization> Civilizations => _civilizations;
+    public DivinePowers DivinePowers => _divinePowers;
 
     private static readonly string[] CivNames = new[]
     {
@@ -23,6 +26,7 @@ public class CivilizationManager
         _map = map;
         _random = new Random(seed + 4000);
         _civilizations = new List<Civilization>();
+        _divinePowers = new DivinePowers(_random);
     }
 
     public void Update(float deltaTime, int currentYear)
@@ -36,8 +40,17 @@ public class CivilizationManager
             UpdateCivilization(civ, deltaTime, currentYear);
         }
 
+        // Update governments and rulers
+        UpdateGovernments(currentYear);
+
         // Handle interactions between civilizations
-        HandleCivilizationInteractions();
+        HandleCivilizationInteractions(currentYear);
+
+        // Update diplomatic relations
+        UpdateDiplomacy(currentYear);
+
+        // Check disaster impacts
+        UpdateDisasterResponse(currentYear);
     }
 
     private void CheckForNewCivilizations(int currentYear)
@@ -61,7 +74,7 @@ public class CivilizationManager
         }
     }
 
-    private void CreateCivilization(int x, int y)
+    private void CreateCivilization(int x, int y, int currentYear = 0)
     {
         var cell = _map.Cells[x, y];
 
@@ -76,8 +89,17 @@ public class CivilizationManager
             CivType = CivType.Tribal,
             Aggression = (float)_random.NextDouble(),
             EcoFriendliness = (float)_random.NextDouble(),
-            Founded = 0
+            Founded = currentYear
         };
+
+        // Initialize government (Tribal starts as Chiefdom)
+        civ.Government = new Government(GovernmentType.Tribal, currentYear);
+
+        // Create first ruler
+        var ruler = _divinePowers.GenerateRandomRuler(civ, currentYear);
+        ruler.Id = _nextRulerId++;
+        civ.Government.CurrentRuler = ruler;
+        civ.AllRulers.Add(ruler);
 
         // Initial territory
         civ.Territory.Add((x, y));
@@ -89,6 +111,14 @@ public class CivilizationManager
         foreach (var (tx, ty) in civ.Territory)
         {
             _map.Cells[tx, ty].LifeType = LifeForm.Civilization;
+        }
+
+        // Initialize diplomatic relations with existing civilizations
+        foreach (var otherCiv in _civilizations.Where(c => c.Id != civ.Id))
+        {
+            var relation = new DiplomaticRelation(civ.Id, otherCiv.Id, currentYear);
+            civ.DiplomaticRelations[otherCiv.Id] = relation;
+            otherCiv.DiplomaticRelations[civ.Id] = relation;
         }
     }
 
@@ -623,7 +653,7 @@ public class CivilizationManager
         _civilizations.Remove(civ);
     }
 
-    private void HandleCivilizationInteractions()
+    private void HandleCivilizationInteractions(int currentYear)
     {
         // Check for border conflicts or cooperation
         for (int i = 0; i < _civilizations.Count; i++)
@@ -1327,6 +1357,419 @@ public class CivilizationManager
 
         _nextCivId = _civilizations.Any() ? _civilizations.Max(c => c.Id) + 1 : 1;
     }
+
+    /// <summary>
+    /// Update governments, rulers, and succession
+    /// </summary>
+    private void UpdateGovernments(int currentYear)
+    {
+        foreach (var civ in _civilizations)
+        {
+            if (civ.Government == null) continue;
+
+            // Age rulers and check for death
+            if (civ.Government.CurrentRuler != null && civ.Government.CurrentRuler.IsAlive)
+            {
+                if (civ.Government.CurrentRuler.AgeAndCheckDeath(currentYear, _random))
+                {
+                    // Ruler died - handle succession
+                    HandleSuccession(civ, currentYear);
+                }
+            }
+
+            // Update government stability based on various factors
+            UpdateGovernmentStability(civ);
+
+            // Check for government evolution based on tech level
+            CheckGovernmentEvolution(civ, currentYear);
+
+            // Check for revolution/collapse
+            if (civ.Government.ShouldCollapse(_random))
+            {
+                HandleRevolution(civ, currentYear);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handle succession when a ruler dies
+    /// </summary>
+    private void HandleSuccession(Civilization civ, int currentYear)
+    {
+        var deadRuler = civ.Government!.CurrentRuler!;
+
+        if (civ.Government.IsHereditary)
+        {
+            // Hereditary succession
+            var heir = FindHeir(civ, deadRuler);
+
+            if (heir != null)
+            {
+                // Smooth succession
+                civ.Government.CurrentRuler = heir;
+                civ.Government.Stability = Math.Min(civ.Government.Stability + 0.1f, 1.0f);
+            }
+            else
+            {
+                // No heir - succession crisis
+                civ.Government.Stability -= 0.3f;
+                var newRuler = _divinePowers.GenerateRandomRuler(civ, currentYear);
+                newRuler.Id = _nextRulerId++;
+                civ.Government.CurrentRuler = newRuler;
+                civ.AllRulers.Add(newRuler);
+
+                // New dynasty
+                if (civ.Government.Type == GovernmentType.Monarchy || civ.Government.Type == GovernmentType.Dynasty)
+                {
+                    var oldDynasty = civ.Dynasties.FirstOrDefault(d => d.Id == deadRuler.DynastyId);
+                    if (oldDynasty != null)
+                    {
+                        oldDynasty.IsExtinct = true;
+                    }
+
+                    var newDynasty = new Dynasty(
+                        civ.Dynasties.Count + 1,
+                        DivinePowers.GenerateDynastyName(_random),
+                        currentYear,
+                        newRuler.Id,
+                        civ.Id
+                    );
+                    civ.Dynasties.Add(newDynasty);
+                    newRuler.DynastyId = newDynasty.Id;
+                }
+            }
+        }
+        else if (civ.Government.IsElected)
+        {
+            // Election
+            var newRuler = _divinePowers.GenerateRandomRuler(civ, currentYear);
+            newRuler.Id = _nextRulerId++;
+            civ.Government.CurrentRuler = newRuler;
+            civ.AllRulers.Add(newRuler);
+        }
+        else
+        {
+            // Power struggle
+            civ.Government.Stability -= 0.2f;
+            var newRuler = _divinePowers.GenerateRandomRuler(civ, currentYear);
+            newRuler.Id = _nextRulerId++;
+            civ.Government.CurrentRuler = newRuler;
+            civ.AllRulers.Add(newRuler);
+        }
+    }
+
+    /// <summary>
+    /// Find the heir to a deceased ruler
+    /// </summary>
+    private Ruler? FindHeir(Civilization civ, Ruler deadRuler)
+    {
+        // Look for children
+        if (deadRuler.ChildrenIds.Count > 0)
+        {
+            var heirId = deadRuler.ChildrenIds.First();
+            var heir = civ.AllRulers.FirstOrDefault(r => r.Id == heirId && r.IsAlive);
+            if (heir != null) return heir;
+
+            // Create new heir if not yet generated
+            var newHeir = _divinePowers.GenerateRandomRuler(civ, 0);
+            newHeir.Id = _nextRulerId++;
+            newHeir.Age = 20 + _random.Next(20);
+            newHeir.ParentId = deadRuler.Id;
+            newHeir.DynastyId = deadRuler.DynastyId;
+            civ.AllRulers.Add(newHeir);
+            return newHeir;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Update government stability based on various factors
+    /// </summary>
+    private void UpdateGovernmentStability(Civilization civ)
+    {
+        if (civ.Government == null) return;
+
+        // Ruler charisma affects stability
+        if (civ.Government.CurrentRuler != null)
+        {
+            civ.Government.Stability += (civ.Government.CurrentRuler.Charisma - 0.5f) * 0.01f;
+        }
+
+        // Food shortage reduces stability
+        if (civ.Food < 10)
+        {
+            civ.Government.Stability -= 0.02f;
+        }
+
+        // War reduces stability
+        if (civ.AtWar)
+        {
+            civ.Government.Stability -= 0.01f;
+        }
+
+        // Peace increases stability
+        if (!civ.AtWar)
+        {
+            civ.Government.Stability += 0.005f;
+        }
+
+        // Clamp
+        civ.Government.Stability = Math.Clamp(civ.Government.Stability, 0.0f, 1.0f);
+    }
+
+    /// <summary>
+    /// Check if government should evolve to new type based on tech level
+    /// </summary>
+    private void CheckGovernmentEvolution(Civilization civ, int currentYear)
+    {
+        if (civ.Government == null) return;
+
+        // Tribal -> Monarchy at tech 10
+        if (civ.Government.Type == GovernmentType.Tribal && civ.TechLevel >= 10 && _random.NextDouble() < 0.05)
+        {
+            civ.Government = new Government(GovernmentType.Monarchy, currentYear);
+            var ruler = _divinePowers.GenerateRandomRuler(civ, currentYear);
+            ruler.Id = _nextRulerId++;
+            civ.Government.CurrentRuler = ruler;
+            civ.AllRulers.Add(ruler);
+
+            var dynasty = new Dynasty(1, DivinePowers.GenerateDynastyName(_random), currentYear, ruler.Id, civ.Id);
+            civ.Dynasties.Add(dynasty);
+            ruler.DynastyId = dynasty.Id;
+        }
+        // Monarchy -> Republic at tech 40 (if eco-friendly)
+        else if (civ.Government.Type == GovernmentType.Monarchy && civ.TechLevel >= 40 &&
+                 civ.EcoFriendliness > 0.6f && _random.NextDouble() < 0.03)
+        {
+            civ.Government = new Government(GovernmentType.Republic, currentYear);
+        }
+        // Republic -> Democracy at tech 60
+        else if (civ.Government.Type == GovernmentType.Republic && civ.TechLevel >= 60 && _random.NextDouble() < 0.03)
+        {
+            civ.Government = new Government(GovernmentType.Democracy, currentYear);
+        }
+        // Aggressive civs can become dictatorships
+        else if (civ.Aggression > 0.8f && civ.TechLevel >= 30 && _random.NextDouble() < 0.02)
+        {
+            civ.Government = new Government(GovernmentType.Dictatorship, currentYear);
+            var ruler = _divinePowers.GenerateRandomRuler(civ, currentYear);
+            ruler.Id = _nextRulerId++;
+            ruler.Brutality = 0.9f;
+            civ.Government.CurrentRuler = ruler;
+            civ.AllRulers.Add(ruler);
+        }
+    }
+
+    /// <summary>
+    /// Handle revolution/government collapse
+    /// </summary>
+    private void HandleRevolution(Civilization civ, int currentYear)
+    {
+        // Population losses from civil war
+        civ.Population = (int)(civ.Population * 0.85f);
+
+        // Determine new government type
+        GovernmentType newType;
+        if (civ.TechLevel < 10)
+            newType = GovernmentType.Tribal;
+        else if (civ.TechLevel < 30)
+            newType = _random.NextDouble() < 0.5 ? GovernmentType.Monarchy : GovernmentType.Theocracy;
+        else if (civ.TechLevel < 50)
+            newType = _random.NextDouble() < 0.5 ? GovernmentType.Republic : GovernmentType.Dictatorship;
+        else
+            newType = GovernmentType.Democracy;
+
+        civ.Government = new Government(newType, currentYear);
+
+        // New ruler
+        var ruler = _divinePowers.GenerateRandomRuler(civ, currentYear);
+        ruler.Id = _nextRulerId++;
+        civ.Government.CurrentRuler = ruler;
+        civ.AllRulers.Add(ruler);
+
+        if (civ.Government.IsHereditary)
+        {
+            var dynasty = new Dynasty(
+                civ.Dynasties.Count + 1,
+                DivinePowers.GenerateDynastyName(_random),
+                currentYear,
+                ruler.Id,
+                civ.Id
+            );
+            civ.Dynasties.Add(dynasty);
+            ruler.DynastyId = dynasty.Id;
+        }
+    }
+
+    /// <summary>
+    /// Update diplomatic relations over time
+    /// </summary>
+    private void UpdateDiplomacy(int currentYear)
+    {
+        foreach (var civ in _civilizations)
+        {
+            foreach (var relation in civ.DiplomaticRelations.Values)
+            {
+                // Update treaty expirations
+                foreach (var treaty in relation.Treaties.Where(t => t.IsActive).ToList())
+                {
+                    if (treaty.HasExpired(currentYear))
+                    {
+                        treaty.IsActive = false;
+                    }
+                }
+
+                // Peace increases opinion slowly
+                if (relation.Status != DiplomaticStatus.War)
+                {
+                    relation.YearsAtPeace++;
+                    relation.Opinion += 0.5f;
+                }
+                else
+                {
+                    relation.YearsAtWar++;
+                }
+
+                // Trust increases during peace
+                if (relation.Status == DiplomaticStatus.Friendly || relation.Status == DiplomaticStatus.Allied)
+                {
+                    relation.TrustLevel = Math.Min(relation.TrustLevel + 0.01f, 1.0f);
+                }
+
+                // Check for treaty proposals between friendly civilizations
+                if (relation.Status == DiplomaticStatus.Friendly && !relation.HasTreaty(TreatyType.TradePact) &&
+                    _random.NextDouble() < 0.05)
+                {
+                    // Propose trade pact
+                    var treaty = new Treaty(TreatyType.TradePact, currentYear);
+                    relation.AddTreaty(treaty);
+                }
+
+                // Check for royal marriages (hereditary governments only)
+                var civ1 = _civilizations.FirstOrDefault(c => c.Id == relation.CivilizationId1);
+                var civ2 = _civilizations.FirstOrDefault(c => c.Id == relation.CivilizationId2);
+
+                if (civ1 != null && civ2 != null &&
+                    relation.Status == DiplomaticStatus.Friendly &&
+                    civ1.Government?.IsHereditary == true &&
+                    civ2.Government?.IsHereditary == true &&
+                    !relation.HasTreaty(TreatyType.RoyalMarriage) &&
+                    _random.NextDouble() < 0.02)
+                {
+                    // Royal marriage
+                    ProposeRoyalMarriage(civ1, civ2, relation, currentYear);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Propose and create a royal marriage
+    /// </summary>
+    private void ProposeRoyalMarriage(Civilization civ1, Civilization civ2, DiplomaticRelation relation, int currentYear)
+    {
+        if (civ1.Government?.CurrentRuler == null || civ2.Government?.CurrentRuler == null)
+            return;
+
+        var ruler1 = civ1.Government.CurrentRuler;
+        var ruler2 = civ2.Government.CurrentRuler;
+
+        // Create marriage
+        var marriage = new RoyalMarriage(ruler1.Id, ruler2.Id, civ1.Id, civ2.Id, currentYear);
+        civ1.RoyalMarriages.Add(marriage);
+        civ2.RoyalMarriages.Add(marriage);
+
+        // Add marriage treaty
+        var treaty = new Treaty(TreatyType.RoyalMarriage, currentYear);
+        relation.AddTreaty(treaty);
+
+        // Major opinion boost
+        relation.Opinion += 30;
+        relation.Status = DiplomaticStatus.Allied;
+
+        // Potential for heir with mixed bloodline
+        if (_random.NextDouble() < 0.3)
+        {
+            var heir = _divinePowers.GenerateRandomRuler(civ1, currentYear);
+            heir.Id = _nextRulerId++;
+            heir.Age = 0;
+            heir.ParentId = ruler1.Id;
+            heir.DynastyId = ruler1.DynastyId;
+            civ1.AllRulers.Add(heir);
+            ruler1.ChildrenIds.Add(heir.Id);
+            marriage.ChildrenIds.Add(heir.Id);
+        }
+    }
+
+    /// <summary>
+    /// Update civilization response to disasters
+    /// </summary>
+    private void UpdateDisasterResponse(int currentYear)
+    {
+        foreach (var civ in _civilizations)
+        {
+            // Check territory for disasters
+            int disastersInTerritory = 0;
+            int totalDamage = 0;
+
+            foreach (var (x, y) in civ.Territory)
+            {
+                var cell = _map.Cells[x, y];
+
+                // Check for extreme temperature
+                if (cell.Temperature < -20 || cell.Temperature > 50)
+                {
+                    disastersInTerritory++;
+                    totalDamage += 100;
+                }
+
+                // Check for extreme CO2
+                if (cell.CO2 > 5.0f)
+                {
+                    disastersInTerritory++;
+                    totalDamage += 50;
+                }
+
+                // Check for drought (low rainfall in agricultural areas)
+                if (cell.Rainfall < 0.2f && civ.CivType >= CivType.Agricultural)
+                {
+                    disastersInTerritory++;
+                    totalDamage += 30;
+                }
+            }
+
+            if (disastersInTerritory > 0)
+            {
+                // Calculate casualties based on preparedness
+                float casualtyRate = 0.01f * disastersInTerritory * (1.0f - civ.DisasterPreparedness);
+                int casualties = (int)(civ.Population * casualtyRate);
+
+                civ.Population -= casualties;
+                civ.PopulationLostToDisasters += casualties;
+                civ.DisastersSurvived++;
+
+                // Improve preparedness over time
+                civ.DisasterPreparedness = Math.Min(civ.DisasterPreparedness + 0.05f, 0.9f);
+
+                // Disasters reduce stability
+                if (civ.Government != null)
+                {
+                    civ.Government.Stability -= 0.05f * disastersInTerritory;
+                }
+
+                // Resource losses
+                civ.Food *= (1.0f - 0.1f * disastersInTerritory);
+
+                // Advanced civilizations can evacuate/adapt better
+                if (civ.TechLevel >= 50)
+                {
+                    // Restore some population through disaster relief
+                    civ.Population += casualties / 3;
+                }
+            }
+        }
+    }
 }
 
 public class Civilization
@@ -1342,6 +1785,15 @@ public class Civilization
     public float Aggression { get; set; } // 0-1
     public float EcoFriendliness { get; set; } // 0-1
     public int Founded { get; set; }
+
+    // Government and Leadership
+    public Government? Government { get; set; }
+    public List<Ruler> AllRulers { get; set; } = new(); // Historical rulers
+    public List<Dynasty> Dynasties { get; set; } = new(); // Royal families
+    public List<RoyalMarriage> RoyalMarriages { get; set; } = new(); // Political marriages
+
+    // Diplomacy
+    public Dictionary<int, DiplomaticRelation> DiplomaticRelations { get; set; } = new();
 
     // Transportation
     public bool HasLandTransport { get; set; } = false; // Horses, cars
@@ -1387,6 +1839,11 @@ public class Civilization
     public float StoneProduction { get; set; } = 0.0f;   // Per year
     public float MetalProduction { get; set; } = 0.0f;   // Per year
     public float FoodConsumption { get; set; } = 0.0f;   // Per year (based on population)
+
+    // Disaster resilience
+    public float DisasterPreparedness { get; set; } = 0.0f; // 0-1, how prepared for disasters
+    public int DisastersSurvived { get; set; } = 0;
+    public int PopulationLostToDisasters { get; set; } = 0;
 }
 
 /// <summary>

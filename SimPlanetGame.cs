@@ -61,6 +61,7 @@ public class SimPlanetGame : Game
     private InteractiveControls _interactiveControls;
     private SedimentColumnViewer _sedimentViewer;
     private PlayerCivilizationControl _playerCivControl;
+    private DivinePowersUI _divinePowersUI;
     private DisasterControlUI _disasterControlUI;
     private ManualPlantingTool _plantingTool;
     private DiseaseControlUI _diseaseControlUI;
@@ -311,6 +312,7 @@ public class SimPlanetGame : Game
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
+        _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
         _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
@@ -429,6 +431,7 @@ public class SimPlanetGame : Game
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
                 _mapRenderOffsetX, _mapRenderOffsetY);
             _playerCivControl.Update(Mouse.GetState());
+            _divinePowersUI.Update(Mouse.GetState(), realDeltaTime);
             _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
                 _mapRenderOffsetX, _mapRenderOffsetY);
@@ -644,6 +647,12 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.G) && _previousKeyState.IsKeyUp(Keys.G))
         {
             _playerCivControl.OpenCivilizationSelector();
+        }
+
+        // Open divine powers (H key - "Heaven/Holy")
+        if (keyState.IsKeyDown(Keys.H) && _previousKeyState.IsKeyUp(Keys.H))
+        {
+            _divinePowersUI.IsOpen = !_divinePowersUI.IsOpen;
         }
 
         // Toggle disaster control (D key)
@@ -1094,6 +1103,9 @@ public class SimPlanetGame : Game
 
         // Draw player civilization control
         _playerCivControl.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw divine powers UI
+        _divinePowersUI.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         // Draw disaster control UI
         _disasterControlUI.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
