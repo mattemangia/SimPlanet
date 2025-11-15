@@ -65,6 +65,7 @@ public class SimPlanetGame : Game
     private DisasterControlUI _disasterControlUI;
     private ManualPlantingTool _plantingTool;
     private DiseaseControlUI _diseaseControlUI;
+    private ToolbarUI _toolbar;
     private FontRenderer _font;
     private LoadingScreen _loadingScreen;
 
@@ -320,6 +321,9 @@ public class SimPlanetGame : Game
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
         _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
 
+        // Create toolbar
+        _toolbar = new ToolbarUI(this, GraphicsDevice, _font);
+
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
 
@@ -427,6 +431,7 @@ public class SimPlanetGame : Game
             }
 
             // Update UI systems
+            _toolbar.Update(mouseState);
             _minimap3D.Update(realDeltaTime);
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(realDeltaTime);
@@ -900,17 +905,17 @@ public class SimPlanetGame : Game
         }
     }
 
-    private void QuickSave()
+    public void QuickSave()
     {
         SaveGame("QuickSave");
     }
 
-    private void QuickLoad()
+    public void QuickLoad()
     {
         LoadGame("QuickSave");
     }
 
-    private void RegeneratePlanet()
+    public void RegeneratePlanet()
     {
         // Use a new random seed
         _mapOptions.Seed = new Random().Next();
@@ -1034,6 +1039,12 @@ public class SimPlanetGame : Game
 
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
+        // Draw toolbar (shown in-game only)
+        if (_mainMenu.CurrentScreen == GameScreen.InGame)
+        {
+            _toolbar.Draw(_spriteBatch, GraphicsDevice.Viewport.Width);
+        }
+
         // Draw menu screens
         if (_mainMenu.CurrentScreen != GameScreen.InGame)
         {
@@ -1057,17 +1068,18 @@ public class SimPlanetGame : Game
         // Update terrain texture only when dirty (performance optimization)
         _terrainRenderer.UpdateTerrainTexture();
 
-        // Split screen layout: Info panel on left (280px), map on right
+        // Split screen layout: Toolbar at top (36px), Info panel on left (280px), map on right
+        int toolbarHeight = _toolbar.ToolbarHeight;
         int infoPanelWidth = 280;
         int mapAreaX = infoPanelWidth;
         int mapAreaWidth = GraphicsDevice.Viewport.Width - infoPanelWidth;
-        int mapAreaHeight = GraphicsDevice.Viewport.Height;
+        int mapAreaHeight = GraphicsDevice.Viewport.Height - toolbarHeight;
 
-        // Draw terrain (centered in right area)
+        // Draw terrain (centered in right area, below toolbar)
         int mapPixelWidth = _map.Width * _terrainRenderer.CellSize;
         int mapPixelHeight = _map.Height * _terrainRenderer.CellSize;
         int offsetX = mapAreaX + (mapAreaWidth - mapPixelWidth) / 2;
-        int offsetY = (mapAreaHeight - mapPixelHeight) / 2;
+        int offsetY = toolbarHeight + (mapAreaHeight - mapPixelHeight) / 2;
 
         // Store offsets for coordinate conversion in Update
         _mapRenderOffsetX = offsetX;
@@ -1390,6 +1402,102 @@ public class SimPlanetGame : Game
         _loadingScreen?.Dispose();
         _spriteBatch?.Dispose();
         _graphics?.Dispose();
+    }
+
+    // Public methods for toolbar
+    public void SetRenderMode(RenderMode mode)
+    {
+        _currentRenderMode = mode;
+        _terrainRenderer.Mode = mode;
+    }
+
+    public void TogglePause()
+    {
+        _gameState.IsPaused = !_gameState.IsPaused;
+    }
+
+    public void IncreaseTimeSpeed()
+    {
+        _gameState.TimeSpeed = Math.Min(_gameState.TimeSpeed * 2.0f, 32.0f);
+    }
+
+    public void DecreaseTimeSpeed()
+    {
+        _gameState.TimeSpeed = Math.Max(_gameState.TimeSpeed / 2.0f, 0.25f);
+    }
+
+    public void ToggleHelp()
+    {
+        _ui.ShowHelp = !_ui.ShowHelp;
+    }
+
+    public void ToggleMapOptions()
+    {
+        _mapOptionsUI.IsVisible = !_mapOptionsUI.IsVisible;
+        if (_mapOptionsUI.IsVisible)
+        {
+            _mapOptionsUI.NeedsPreviewUpdate = true;
+        }
+    }
+
+    public void ToggleMinimap()
+    {
+        _minimap3D.IsVisible = !_minimap3D.IsVisible;
+    }
+
+    public void ToggleDayNight()
+    {
+        _terrainRenderer.ShowDayNight = !_terrainRenderer.ShowDayNight;
+    }
+
+    public void ToggleVolcanoes()
+    {
+        _eventsUI.ShowVolcanoes = !_eventsUI.ShowVolcanoes;
+    }
+
+    public void ToggleRivers()
+    {
+        _eventsUI.ShowRivers = !_eventsUI.ShowRivers;
+    }
+
+    public void TogglePlates()
+    {
+        _eventsUI.ShowPlates = !_eventsUI.ShowPlates;
+    }
+
+    public void SeedLife()
+    {
+        _lifeSimulator.SeedInitialLife();
+    }
+
+    public void ToggleCivilization()
+    {
+        _playerCivControl.OpenCivilizationSelector();
+    }
+
+    public void ToggleDivinePowers()
+    {
+        _divinePowersUI.IsOpen = !_divinePowersUI.IsOpen;
+    }
+
+    public void ToggleDisasters()
+    {
+        _disasterControlUI.IsVisible = !_disasterControlUI.IsVisible;
+    }
+
+    public void ToggleDiseases()
+    {
+        _diseaseControlUI.IsVisible = !_diseaseControlUI.IsVisible;
+    }
+
+    public void TogglePlantTool()
+    {
+        _plantingTool.IsActive = !_plantingTool.IsActive;
+    }
+
+    public void ToggleStabilizer()
+    {
+        _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
     }
 
     public new void Exit()
