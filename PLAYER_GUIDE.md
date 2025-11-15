@@ -1374,5 +1374,5 @@ SimPlanet is a complex, interconnected simulation of planetary evolution. Every 
 ---
 
 *Last Updated: November 2025*
-*SimPlanet Version: Latest*
+*SimPlanet Version: 1.0*
 *Guide Version: 1.0*
