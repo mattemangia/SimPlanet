@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System.Reflection;
 
 namespace SimPlanet;
 
@@ -22,6 +23,7 @@ public class MainMenu
     private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
     private Texture2D _pixelTexture;
+    private Texture2D _splashBackground;
 
     public GameScreen CurrentScreen { get; set; } = GameScreen.MainMenu;
 
@@ -44,6 +46,28 @@ public class MainMenu
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
         _previousMouseState = Mouse.GetState();
+
+        // Load splash background from embedded resource
+        LoadSplashBackground();
+    }
+
+    private void LoadSplashBackground()
+    {
+        try
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using (var stream = assembly.GetManifestResourceStream("SimPlanet.splash.png"))
+            {
+                if (stream != null)
+                {
+                    _splashBackground = Texture2D.FromStream(_graphicsDevice, stream);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load splash background: {ex.Message}");
+        }
     }
 
     public MenuAction HandleInput(KeyboardState keyState, KeyboardState previousKeyState, MouseState mouseState)
@@ -206,8 +230,26 @@ public class MainMenu
     {
         _menuItemBounds.Clear();
 
-        // Gradient background
-        DrawGradientBackground(spriteBatch, screenWidth, screenHeight, new Color(5, 10, 30), new Color(20, 40, 80));
+        // Draw black background first
+        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), Color.Black);
+
+        // Draw splash background with low alpha for subtle effect
+        if (_splashBackground != null)
+        {
+            // Scale splash to fit screen while maintaining aspect ratio
+            float scaleX = (float)screenWidth / _splashBackground.Width;
+            float scaleY = (float)screenHeight / _splashBackground.Height;
+            float scale = Math.Max(scaleX, scaleY);
+
+            int displayWidth = (int)(_splashBackground.Width * scale);
+            int displayHeight = (int)(_splashBackground.Height * scale);
+            int x = (screenWidth - displayWidth) / 2;
+            int y = (screenHeight - displayHeight) / 2;
+
+            spriteBatch.Draw(_splashBackground,
+                new Rectangle(x, y, displayWidth, displayHeight),
+                Color.White * 0.15f); // Very subtle transparency
+        }
 
         // Title with glow effect
         DrawCenteredText(spriteBatch, "SIMPLANET", screenHeight / 3 - 10, new Color(255, 200, 50), 1.8f);
@@ -249,19 +291,6 @@ public class MainMenu
             screenHeight - 50, new Color(150, 150, 150), 0.7f);
     }
 
-    private void DrawGradientBackground(SpriteBatch spriteBatch, int width, int height, Color top, Color bottom)
-    {
-        int steps = 100;
-        for (int i = 0; i < steps; i++)
-        {
-            float t = i / (float)steps;
-            Color color = Color.Lerp(top, bottom, t);
-            int y = (int)(height * t);
-            int h = (int)(height / (float)steps) + 1;
-            spriteBatch.Draw(_pixelTexture, new Rectangle(0, y, width, h), color);
-        }
-    }
-
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
     {
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
@@ -274,8 +303,26 @@ public class MainMenu
     {
         _menuItemBounds.Clear();
 
-        // Gradient background
-        DrawGradientBackground(spriteBatch, screenWidth, screenHeight, new Color(5, 10, 30), new Color(20, 40, 80));
+        // Draw black background first
+        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), Color.Black);
+
+        // Draw splash background with low alpha for subtle effect
+        if (_splashBackground != null)
+        {
+            // Scale splash to fit screen while maintaining aspect ratio
+            float scaleX = (float)screenWidth / _splashBackground.Width;
+            float scaleY = (float)screenHeight / _splashBackground.Height;
+            float scale = Math.Max(scaleX, scaleY);
+
+            int displayWidth = (int)(_splashBackground.Width * scale);
+            int displayHeight = (int)(_splashBackground.Height * scale);
+            int x = (screenWidth - displayWidth) / 2;
+            int y = (screenHeight - displayHeight) / 2;
+
+            spriteBatch.Draw(_splashBackground,
+                new Rectangle(x, y, displayWidth, displayHeight),
+                Color.White * 0.15f); // Very subtle transparency
+        }
 
         // Title
         DrawCenteredText(spriteBatch, "LOAD GAME", 80, new Color(255, 200, 50), 1.5f);

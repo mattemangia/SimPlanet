@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Reflection;
 
 namespace SimPlanet;
 
@@ -12,6 +13,7 @@ public class LoadingScreen
     private readonly FontRenderer _font;
     private readonly GraphicsDevice _graphics;
     private Texture2D _pixel;
+    private Texture2D _splashBackground;
 
     public float Progress { get; set; } = 0f; // 0.0 to 1.0
     public string CurrentTask { get; set; } = "Loading...";
@@ -26,6 +28,28 @@ public class LoadingScreen
         // Create a 1x1 white pixel texture for drawing rectangles
         _pixel = new Texture2D(graphics, 1, 1);
         _pixel.SetData(new[] { Color.White });
+
+        // Load splash background from embedded resource
+        LoadSplashBackground();
+    }
+
+    private void LoadSplashBackground()
+    {
+        try
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using (var stream = assembly.GetManifestResourceStream("SimPlanet.splash.png"))
+            {
+                if (stream != null)
+                {
+                    _splashBackground = Texture2D.FromStream(_graphics, stream);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load splash background: {ex.Message}");
+        }
     }
 
     public void Draw()
@@ -35,10 +59,28 @@ public class LoadingScreen
         int screenWidth = _graphics.Viewport.Width;
         int screenHeight = _graphics.Viewport.Height;
 
-        // Draw semi-transparent background
+        // Draw black background first
         _spriteBatch.Draw(_pixel,
             new Rectangle(0, 0, screenWidth, screenHeight),
-            Color.Black * 0.8f);
+            Color.Black);
+
+        // Draw splash background with low alpha for subtle effect
+        if (_splashBackground != null)
+        {
+            // Scale splash to fit screen while maintaining aspect ratio
+            float scaleX = (float)screenWidth / _splashBackground.Width;
+            float scaleY = (float)screenHeight / _splashBackground.Height;
+            float scale = Math.Max(scaleX, scaleY);
+
+            int displayWidth = (int)(_splashBackground.Width * scale);
+            int displayHeight = (int)(_splashBackground.Height * scale);
+            int x = (screenWidth - displayWidth) / 2;
+            int y = (screenHeight - displayHeight) / 2;
+
+            _spriteBatch.Draw(_splashBackground,
+                new Rectangle(x, y, displayWidth, displayHeight),
+                Color.White * 0.15f); // Very subtle transparency
+        }
 
         // Calculate dimensions
         int barWidth = 600;
@@ -109,5 +151,6 @@ public class LoadingScreen
     public void Dispose()
     {
         _pixel?.Dispose();
+        _splashBackground?.Dispose();
     }
 }
