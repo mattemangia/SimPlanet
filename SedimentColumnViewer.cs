@@ -44,7 +44,7 @@ public class SedimentColumnViewer
         int screenWidth = _graphicsDevice.Viewport.Width;
         int panelWidth = 400;
         int panelX = screenWidth - panelWidth - 10;
-        int panelY = 10;
+        int panelY = 40; // Below toolbar (36px high)
 
         // Check for close button click (X in top right)
         if (IsVisible && mouseState.LeftButton == ButtonState.Released &&
@@ -171,9 +171,9 @@ public class SedimentColumnViewer
 
         // Panel dimensions - use almost full screen height
         int panelWidth = 400;
-        int panelHeight = screenHeight - 20; // Leave small margin at top and bottom
+        int panelHeight = screenHeight - 50; // Account for toolbar (36px) + margins
         int panelX = screenWidth - panelWidth - 10;
-        int panelY = 10;
+        int panelY = 40; // Below toolbar (36px high)
 
         // Draw background
         spriteBatch.Draw(_pixelTexture,

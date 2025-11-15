@@ -12,6 +12,11 @@ public class GeologicalSimulator
     private const int NumPlates = 8;
     private float _geologicalTime = 0;
 
+    // Control parameters for planetary controls UI
+    public float TectonicActivityLevel { get; set; } = 1.0f;
+    public float VolcanicActivityLevel { get; set; } = 1.0f;
+    public float ErosionRate { get; set; } = 1.0f;
+
     public List<(int x, int y, int year)> RecentEruptions { get; } = new();
     public List<(int x, int y, float magnitude)> Earthquakes { get; } = new();
 

@@ -66,6 +66,7 @@ public class SimPlanetGame : Game
     private ManualPlantingTool _plantingTool;
     private DiseaseControlUI _diseaseControlUI;
     private ToolbarUI _toolbar;
+    private PlanetaryControlsUI _planetaryControlsUI;
     private FontRenderer _font;
     private LoadingScreen _loadingScreen;
 
@@ -325,6 +326,10 @@ public class SimPlanetGame : Game
         // Create toolbar
         _toolbar = new ToolbarUI(this, GraphicsDevice, _font);
 
+        // Create planetary controls UI
+        _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphere, _planetStabilizer);
+        _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
+
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
 
@@ -448,6 +453,7 @@ public class SimPlanetGame : Game
             _plantingTool.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
                 _civilizationManager, _gameState.Year, _mapRenderOffsetX, _mapRenderOffsetY);
+            _planetaryControlsUI.Update(Mouse.GetState());
 
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
@@ -690,6 +696,12 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.Y) && _previousKeyState.IsKeyUp(Keys.Y))
         {
             _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
+        }
+
+        // Toggle planet controls (X key)
+        if (keyState.IsKeyDown(Keys.X) && _previousKeyState.IsKeyUp(Keys.X))
+        {
+            _planetaryControlsUI.IsVisible = !_planetaryControlsUI.IsVisible;
         }
 
         // Quick save (F5)
@@ -999,6 +1011,8 @@ public class SimPlanetGame : Game
         // Update other interactive tools with new map
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
+        _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphere, _planetStabilizer);
+        _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
 
         // Reset game state
         _gameState.Year = 0;
@@ -1135,6 +1149,9 @@ public class SimPlanetGame : Game
 
         // Draw disease control UI
         _diseaseControlUI.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw planetary controls UI
+        _planetaryControlsUI.Draw(_spriteBatch);
 
         // Draw manual planting tool
         _plantingTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
@@ -1499,6 +1516,11 @@ public class SimPlanetGame : Game
     public void ToggleStabilizer()
     {
         _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
+    }
+
+    public void TogglePlanetControls()
+    {
+        _planetaryControlsUI.IsVisible = !_planetaryControlsUI.IsVisible;
     }
 
     public new void Exit()
