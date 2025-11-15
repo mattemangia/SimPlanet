@@ -439,9 +439,13 @@ public class SimPlanetGame : Game
             _minimap3D.Update(realDeltaTime);
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(realDeltaTime);
+            // Check if any tools are active that need map clicks
+            bool toolsActive = _plantingTool.IsActive || _disasterControlUI.IsVisible ||
+                              _divinePowersUI.IsVisible || _diseaseControlUI.IsVisible ||
+                              _planetaryControlsUI.IsVisible;
             _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
-                _mapRenderOffsetX, _mapRenderOffsetY);
+                _mapRenderOffsetX, _mapRenderOffsetY, toolsActive);
             _playerCivControl.Update(Mouse.GetState());
             _divinePowersUI.Update(Mouse.GetState(), realDeltaTime);
             _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
