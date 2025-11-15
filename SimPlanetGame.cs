@@ -2,8 +2,26 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace SimPlanet;
+
+/// <summary>
+/// SDL2 P/Invoke declarations for window icon
+/// </summary>
+internal static class SDL
+{
+    [DllImport("SDL2", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr SDL_CreateRGBSurfaceFrom(
+        IntPtr pixels, int width, int height, int depth, int pitch,
+        uint Rmask, uint Gmask, uint Bmask, uint Amask);
+
+    [DllImport("SDL2", CallingConvention = CallingConvention.Cdecl)]
+    public static extern void SDL_SetWindowIcon(IntPtr window, IntPtr icon);
+
+    [DllImport("SDL2", CallingConvention = CallingConvention.Cdecl)]
+    public static extern void SDL_FreeSurface(IntPtr surface);
+}
 
 /// <summary>
 /// Main game class - SimEarth-like planetary simulation
@@ -1176,7 +1194,7 @@ public class SimPlanetGame : Game
             {
                 fixed (byte* pixels = iconData)
                 {
-                    IntPtr surface = SDL2.SDL.SDL_CreateRGBSurfaceFrom(
+                    IntPtr surface = SDL.SDL_CreateRGBSurfaceFrom(
                         (IntPtr)pixels,
                         iconSize,
                         iconSize,
@@ -1190,8 +1208,8 @@ public class SimPlanetGame : Game
 
                     if (surface != IntPtr.Zero)
                     {
-                        SDL2.SDL.SDL_SetWindowIcon(Window.Handle, surface);
-                        SDL2.SDL.SDL_FreeSurface(surface);
+                        SDL.SDL_SetWindowIcon(Window.Handle, surface);
+                        SDL.SDL_FreeSurface(surface);
                     }
                 }
             }
