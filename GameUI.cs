@@ -53,17 +53,17 @@ public class GameUI
         _planetStabilizer = planetStabilizer;
     }
 
-    public void Draw(GameState state, RenderMode renderMode, float zoomLevel = 1.0f, bool showVolcanoes = false, bool showRivers = false, bool showPlates = false)
+    public void Draw(GameState state, RenderMode renderMode, float zoomLevel = 1.0f, bool showVolcanoes = false, bool showRivers = false, bool showPlates = false, int toolbarHeight = 0)
     {
-        DrawInfoPanel(state, renderMode, zoomLevel, showVolcanoes, showRivers, showPlates);
+        DrawInfoPanel(state, renderMode, zoomLevel, showVolcanoes, showRivers, showPlates, toolbarHeight);
 
         if (ShowHelp)
         {
-            DrawHelpPanel();
+            DrawHelpPanel(toolbarHeight);
         }
     }
 
-    private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates)
+    private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates, int toolbarHeight)
     {
         // Update cached stats if needed (throttled to prevent lag)
         var timeSinceUpdate = (DateTime.Now - _lastStatsUpdate).TotalMilliseconds;
@@ -73,11 +73,11 @@ public class GameUI
             _lastStatsUpdate = DateTime.Now;
         }
 
-        // Use full left side of screen
+        // Use full left side of screen, below toolbar
         int panelX = 0;
-        int panelY = 0;
+        int panelY = toolbarHeight;
         int panelWidth = 400;
-        int panelHeight = _graphicsDevice.Viewport.Height;
+        int panelHeight = _graphicsDevice.Viewport.Height - toolbarHeight;
 
         // Draw background with border
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(10, 15, 30, 230));
@@ -276,14 +276,14 @@ public class GameUI
         }
     }
 
-    private void DrawHelpPanel()
+    private void DrawHelpPanel(int toolbarHeight)
     {
         // Position help panel in the map area (centered with 2 columns)
         int infoPanelWidth = 280;
         int panelX = infoPanelWidth + 20;
-        int panelY = 20;
+        int panelY = toolbarHeight + 20;
         int panelWidth = 780;
-        int panelHeight = Math.Min(680, _graphicsDevice.Viewport.Height - 40);
+        int panelHeight = Math.Min(680, _graphicsDevice.Viewport.Height - toolbarHeight - 40);
 
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 240));
         DrawBorder(panelX, panelY, panelWidth, panelHeight, Color.Yellow, 2);

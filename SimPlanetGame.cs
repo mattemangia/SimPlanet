@@ -1105,15 +1105,15 @@ public class SimPlanetGame : Game
         // Draw view mode legend
         _terrainRenderer.DrawLegend(_spriteBatch, _font, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
-        // Draw UI with current zoom and overlay states
+        // Draw UI with current zoom and overlay states (below toolbar)
         _ui.Draw(_gameState, _currentRenderMode, _terrainRenderer.ZoomLevel,
-            _eventsUI.ShowVolcanoes, _eventsUI.ShowRivers, _eventsUI.ShowPlates);
+            _eventsUI.ShowVolcanoes, _eventsUI.ShowRivers, _eventsUI.ShowPlates, toolbarHeight);
 
         // Draw map options menu (if visible)
         _mapOptionsUI.Draw(_mapOptions);
 
-        // Draw geological events log
-        _eventsUI.DrawEventLog(GraphicsDevice.Viewport.Width);
+        // Draw geological events log (below toolbar)
+        _eventsUI.DrawEventLog(GraphicsDevice.Viewport.Width, toolbarHeight);
 
         // Note: Removed old overlay legend - overlay status now shown in info panel
         // and symbols are visible directly on map when enabled

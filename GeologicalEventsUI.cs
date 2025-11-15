@@ -405,14 +405,14 @@ public class GeologicalEventsUI
         }
     }
 
-    public void DrawEventLog(int screenWidth)
+    public void DrawEventLog(int screenWidth, int toolbarHeight = 0)
     {
         if (!ShowEvents || _eventLog.Count == 0) return;
 
         int panelWidth = 340;
         int panelHeight = 160;
         int panelX = screenWidth - panelWidth - 10;
-        int panelY = 10;
+        int panelY = toolbarHeight + 10;
 
         // Background
         _spriteBatch.Draw(_pixelTexture,

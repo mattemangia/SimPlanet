@@ -1088,30 +1088,36 @@ namespace SimPlanet
 
         private void DrawTooltip(SpriteBatch spriteBatch, ToolbarButton button)
         {
-            // Measure text (approximate)
-            int textWidth = button.Tooltip.Length * 7;
-            int textHeight = 20;
-            int padding = 6;
+            // Measure text (more accurate sizing)
+            int textWidth = button.Tooltip.Length * 8;
+            int textHeight = 18;
+            int padding = 8;
 
-            // Position tooltip below button
-            int tooltipX = button.Bounds.X;
-            int tooltipY = button.Bounds.Y + button.Bounds.Height + 2;
+            // Position tooltip ABOVE button to avoid overlapping panels
             int tooltipWidth = textWidth + padding * 2;
             int tooltipHeight = textHeight + padding * 2;
+            int tooltipX = button.Bounds.X;
+            int tooltipY = button.Bounds.Y - tooltipHeight - 4;
+
+            // Keep tooltip on screen
+            if (tooltipX + tooltipWidth > graphicsDevice.Viewport.Width)
+            {
+                tooltipX = graphicsDevice.Viewport.Width - tooltipWidth - 5;
+            }
 
             // Draw tooltip background
             spriteBatch.Draw(pixelTexture,
                 new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
-                new Color(20, 20, 20, 240));
+                new Color(20, 20, 20, 250));
 
             // Draw tooltip border
             DrawBorder(spriteBatch, new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
-                Color.White);
+                new Color(255, 200, 0));
 
-            // Draw tooltip text
+            // Draw tooltip text with better visibility
             fontRenderer.DrawString(spriteBatch, button.Tooltip,
                 new Vector2(tooltipX + padding, tooltipY + padding),
-                Color.White, 0.8f);
+                Color.White, 14);
         }
     }
 }
