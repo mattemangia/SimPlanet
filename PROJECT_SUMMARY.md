@@ -1006,4 +1006,4 @@ This is an original implementation inspired by SimEarth. All code is newly writt
 **Weather Visualization**: Animated clouds and cyclone vortices on 3D and 2D maps
 **Performance**: 5-10× faster than original implementation
 **Platform Support**: Mac M1/Intel, Linux, Windows (100% compatible)
-**Status**: ✅ Fully functional, feature-complete, optimized, polished, and ready to play!
+**Status**: ✅ Fully functional, feature-complete, optimized, polished, and ready to play/simulate!
