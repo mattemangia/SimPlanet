@@ -107,6 +107,9 @@ public class ManualPlantingTool
                     case PlantingType.Mountain:
                         CreateMountain(cell);
                         break;
+                    case PlantingType.Fault:
+                        CreateFault(cell, nx, ny);
+                        break;
                     case PlantingType.Civilization:
                         if (dx == 0 && dy == 0) // Only center cell for civilization
                             PlantCivilization(cell, nx, ny, civManager, currentYear);
@@ -198,6 +201,36 @@ public class ManualPlantingTool
         }
     }
 
+    private void CreateFault(TerrainCell cell, int x, int y)
+    {
+        var geo = cell.GetGeology();
+
+        // Create a fault line at this location
+        geo.IsFault = true;
+
+        // Randomly assign fault type (or use a pattern based on elevation)
+        var random = new Random((x * _map.Height + y) * 137); // Deterministic random based on position
+        geo.FaultType = (FaultType)random.Next(1, 6); // Skip None (0)
+
+        // Set fault activity
+        geo.FaultActivity = 0.5f + (float)random.NextDouble() * 0.5f; // 0.5-1.0
+
+        // Increase seismic stress at fault locations
+        geo.SeismicStress = 0.3f + (float)random.NextDouble() * 0.4f; // Start with some stress
+
+        // Optionally set plate boundary type to match fault
+        if (geo.BoundaryType == PlateBoundaryType.None)
+        {
+            geo.BoundaryType = geo.FaultType switch
+            {
+                FaultType.Strike_Slip => PlateBoundaryType.Transform,
+                FaultType.Normal => PlateBoundaryType.Divergent,
+                FaultType.Reverse or FaultType.Thrust => PlateBoundaryType.Convergent,
+                _ => PlateBoundaryType.None
+            };
+        }
+    }
+
     private void PlantCivilization(TerrainCell cell, int x, int y, CivilizationManager civManager, int currentYear)
     {
         if (!cell.IsLand) return;
@@ -268,7 +301,7 @@ public class ManualPlantingTool
             new Vector2(panelX + 10, textY), Color.Yellow);
         textY += lineHeight;
 
-        string[] types = new[] { "Forest", "Grass", "Desert", "Tundra", "Ocean", "Mountain", "Civilization" };
+        string[] types = new[] { "Forest", "Grass", "Desert", "Tundra", "Ocean", "Mountain", "Fault", "Civilization" };
         foreach (var type in types)
         {
             Color color = type == CurrentType.ToString() ? Color.LightGreen : Color.Gray;
@@ -299,7 +332,8 @@ public class ManualPlantingTool
             PlantingType.Desert => PlantingType.Tundra,
             PlantingType.Tundra => PlantingType.Ocean,
             PlantingType.Ocean => PlantingType.Mountain,
-            PlantingType.Mountain => PlantingType.Civilization,
+            PlantingType.Mountain => PlantingType.Fault,
+            PlantingType.Fault => PlantingType.Civilization,
             PlantingType.Civilization => PlantingType.Forest,
             _ => PlantingType.Forest
         };
@@ -314,5 +348,6 @@ public enum PlantingType
     Tundra,
     Ocean,
     Mountain,
+    Fault,
     Civilization
 }

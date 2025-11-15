@@ -106,11 +106,11 @@ public class CivilizationManager
         int expectedCities = Math.Max(1, civ.Population / 10000); // 1 city per 10,000 people
         if (civ.Cities.Count < expectedCities && civ.TechLevel >= 3)
         {
-            // Find a good location for a new city
+            // Find strategically optimal location for a new city
             if (civ.Territory.Count > 0)
             {
-                var location = civ.Territory.ElementAt(_random.Next(civ.Territory.Count));
-                CreateCity(civ, location.x, location.y);
+                var (x, y, score) = FindBestCityLocation(civ);
+                CreateCity(civ, x, y);
             }
         }
 
@@ -141,10 +141,19 @@ public class CivilizationManager
             if (civ.TechLevel >= 5 && !civ.HasLandTransport)
             {
                 civ.HasLandTransport = true; // Horses/domestication
+                BuildRoads(civ, currentYear); // Build basic dirt paths
+            }
+            if (civ.TechLevel == 10 && civ.Cities.Count > 0)
+            {
+                BuildRoads(civ, currentYear); // Upgrade to paved roads
             }
             if (civ.TechLevel >= 15 && !civ.HasSeaTransport)
             {
                 civ.HasSeaTransport = true; // Ships
+            }
+            if (civ.TechLevel == 20 && civ.Cities.Count > 0)
+            {
+                BuildRoads(civ, currentYear); // Upgrade to highways
             }
             if (civ.TechLevel >= 25 && !civ.HasRailTransport)
             {
@@ -376,6 +385,9 @@ public class CivilizationManager
                 }
                 civ.AnnualProduction[deposit.Type] += extracted / deltaTime;
             }
+
+            // Check for induced seismicity from resource extraction
+            CheckInducedSeismicityAtCell(civ, cell, x, y);
         }
 
         // Calculate production bonus from strategic resources
@@ -411,6 +423,30 @@ public class CivilizationManager
         foreach (var key in civ.ResourceStockpile.Keys.ToList())
         {
             civ.ResourceStockpile[key] = Math.Min(civ.ResourceStockpile[key], 100f);
+        }
+    }
+
+    /// <summary>
+    /// Check for civilization-induced seismicity from resource extraction
+    /// </summary>
+    private void CheckInducedSeismicityAtCell(Civilization civ, TerrainCell cell, int x, int y)
+    {
+        // Check if this cell has active resource extraction
+        var activeMine = civ.ActiveMines.FirstOrDefault(m => m.x == x && m.y == y);
+        if (activeMine == default) return;
+
+        // Determine what type of extraction is happening
+        bool hasOilExtraction = activeMine.type == ResourceType.Oil || activeMine.type == ResourceType.NaturalGas;
+        bool hasFracking = civ.CivType >= CivType.Industrial &&
+                          (activeMine.type == ResourceType.Oil || activeMine.type == ResourceType.NaturalGas);
+        bool hasGeothermal = civ.CivType >= CivType.Scientific &&
+                            cell.GetGeology().VolcanicActivity > 0.3f &&
+                            cell.GetGeology().MagmaPressure > 0.5f; // Geothermal in volcanic areas
+
+        // Only check if there's a risky activity
+        if (hasOilExtraction || hasFracking || hasGeothermal)
+        {
+            EarthquakeSystem.CheckInducedSeismicity(_map, x, y, hasOilExtraction, hasFracking, hasGeothermal);
         }
     }
 
@@ -812,6 +848,129 @@ public class CivilizationManager
 
     public List<Civilization> GetAllCivilizations() => _civilizations;
 
+    /// <summary>
+    /// Build roads connecting cities and resources
+    /// </summary>
+    private void BuildRoads(Civilization civ, int currentYear)
+    {
+        if (civ.Cities.Count == 0) return;
+
+        // Determine road type based on tech level
+        RoadType roadType = civ.TechLevel switch
+        {
+            >= 20 => RoadType.Highway,   // Modern highways
+            >= 10 => RoadType.Road,      // Paved roads
+            _ => RoadType.DirtPath       // Basic dirt paths
+        };
+
+        // Connect cities to each other
+        foreach (var city in civ.Cities)
+        {
+            // Connect to nearest city
+            City? nearestCity = null;
+            float minDist = float.MaxValue;
+
+            foreach (var other in civ.Cities)
+            {
+                if (city.Id == other.Id) continue;
+                float dist = MathF.Sqrt((city.X - other.X) * (city.X - other.X) +
+                                       (city.Y - other.Y) * (city.Y - other.Y));
+                if (dist < minDist && dist < 50) // Only connect if within 50 cells
+                {
+                    minDist = dist;
+                    nearestCity = other;
+                }
+            }
+
+            if (nearestCity != null)
+            {
+                BuildRoadPath(civ, city.X, city.Y, nearestCity.X, nearestCity.Y, roadType, currentYear);
+            }
+        }
+
+        // Connect cities to nearby resources
+        foreach (var city in civ.Cities)
+        {
+            // Find resources within 20 cells
+            for (int dx = -20; dx <= 20; dx++)
+            {
+                for (int dy = -20; dy <= 20; dy++)
+                {
+                    int rx = (city.X + dx + _map.Width) % _map.Width;
+                    int ry = Math.Clamp(city.Y + dy, 0, _map.Height - 1);
+
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+                    if (dist > 20) continue;
+
+                    // Check if this is a mine/resource extraction site
+                    if (civ.ActiveMines.Any(m => m.x == rx && m.y == ry))
+                    {
+                        BuildRoadPath(civ, city.X, city.Y, rx, ry, roadType, currentYear);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Build a road path between two points using simple line algorithm
+    /// </summary>
+    private void BuildRoadPath(Civilization civ, int x1, int y1, int x2, int y2, RoadType roadType, int currentYear)
+    {
+        // Bresenham-like line algorithm to trace road
+        int dx = Math.Abs(x2 - x1);
+        int dy = Math.Abs(y2 - y1);
+        int sx = x1 < x2 ? 1 : -1;
+        int sy = y1 < y2 ? 1 : -1;
+        int err = dx - dy;
+
+        int x = x1, y = y1;
+        int steps = 0;
+        int maxSteps = 1000; // Prevent infinite loops
+
+        while (steps < maxSteps)
+        {
+            // Build road at this cell if it's land and in territory
+            if (x >= 0 && x < _map.Width && y >= 0 && y < _map.Height)
+            {
+                var cell = _map.Cells[x, y];
+                if (cell.IsLand && civ.Territory.Contains((x, y)))
+                {
+                    // Add to civilization's road network
+                    civ.Roads.Add((x, y));
+
+                    // Mark cell as having a road
+                    var geo = cell.GetGeology();
+                    if (!geo.HasRoad || geo.RoadType < roadType) // Upgrade if better road type
+                    {
+                        geo.HasRoad = true;
+                        geo.RoadType = roadType;
+                        geo.RoadBuiltYear = currentYear;
+                    }
+                }
+            }
+
+            // Check if we've reached the destination
+            if (x == x2 && y == y2) break;
+
+            int e2 = 2 * err;
+            if (e2 > -dy)
+            {
+                err -= dy;
+                x += sx;
+                // Handle wrapping for x coordinate
+                x = (x + _map.Width) % _map.Width;
+            }
+            if (e2 < dx)
+            {
+                err += dx;
+                y += sy;
+            }
+
+            steps++;
+        }
+    }
+
     private void BuildRailroads(Civilization civ)
     {
         // Build railroads connecting major cities
@@ -847,8 +1006,250 @@ public class CivilizationManager
         }
     }
 
+    /// <summary>
+    /// Find the best location for a new city based on strategic factors
+    /// </summary>
+    private (int x, int y, float score) FindBestCityLocation(Civilization civ)
+    {
+        var candidates = new List<(int x, int y, float score)>();
+
+        // Evaluate each territory cell for city placement
+        foreach (var (x, y) in civ.Territory)
+        {
+            var cell = _map.Cells[x, y];
+
+            // Cities must be on land
+            if (!cell.IsLand) continue;
+
+            // Don't place cities too close to existing cities
+            bool tooClose = civ.Cities.Any(c =>
+            {
+                int dx = Math.Abs(c.X - x);
+                int dy = Math.Abs(c.Y - y);
+                return Math.Sqrt(dx * dx + dy * dy) < 10; // Minimum 10 cells apart
+            });
+            if (tooClose) continue;
+
+            // Calculate strategic scores
+            float resourceScore = CalculateResourceScore(x, y);
+            float defenseScore = CalculateDefenseScore(x, y);
+            float commerceScore = CalculateCommerceScore(x, y);
+
+            // Combined score with weights
+            float totalScore = (resourceScore * 0.4f) + (defenseScore * 0.3f) + (commerceScore * 0.3f);
+
+            candidates.Add((x, y, totalScore));
+        }
+
+        // Return best location
+        if (candidates.Count == 0)
+        {
+            // Fallback to random if no good candidates
+            var location = civ.Territory.ElementAt(_random.Next(civ.Territory.Count));
+            return (location.x, location.y, 0f);
+        }
+
+        // Pick from top 5 candidates to add variety
+        var topCandidates = candidates.OrderByDescending(c => c.score).Take(5).ToList();
+        return topCandidates[_random.Next(topCandidates.Count)];
+    }
+
+    /// <summary>
+    /// Calculate resource proximity score (0-1)
+    /// </summary>
+    private float CalculateResourceScore(int x, int y)
+    {
+        float score = 0f;
+        int resourcesFound = 0;
+
+        // Scan 10 cell radius for resources
+        for (int dx = -10; dx <= 10; dx++)
+        {
+            for (int dy = -10; dy <= 10; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = Math.Clamp(y + dy, 0, _map.Height - 1);
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > 10) continue;
+
+                var cell = _map.Cells[nx, ny];
+                var resources = cell.GetResources();
+
+                if (resources.Count > 0)
+                {
+                    // Closer resources are more valuable
+                    float distanceFactor = 1.0f - (distance / 10f);
+                    score += distanceFactor * resources.Count * 0.2f;
+                    resourcesFound += resources.Count;
+                }
+
+                // Forests for wood (basic resource)
+                var biome = cell.GetBiomeData().CurrentBiome;
+                if (biome == Biome.TemperateForest || biome == Biome.TropicalRainforest)
+                {
+                    score += 0.05f * (1.0f - distance / 10f);
+                }
+            }
+        }
+
+        return MathF.Min(1.0f, score);
+    }
+
+    /// <summary>
+    /// Calculate defensive advantage score (0-1)
+    /// </summary>
+    private float CalculateDefenseScore(int x, int y)
+    {
+        float score = 0f;
+        var cell = _map.Cells[x, y];
+
+        // High ground is defensible
+        if (cell.Elevation > 0.3f && cell.Elevation < 0.7f) // Not too high (mountains)
+        {
+            score += 0.4f;
+        }
+
+        // Near mountains for protection
+        bool nearMountains = false;
+        int waterNeighbors = 0;
+
+        for (int dx = -3; dx <= 3; dx++)
+        {
+            for (int dy = -3; dy <= 3; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = Math.Clamp(y + dy, 0, _map.Height - 1);
+
+                var neighbor = _map.Cells[nx, ny];
+                if (neighbor.Elevation > 0.7f) // Mountain
+                {
+                    nearMountains = true;
+                }
+
+                // Count water neighbors (for defensive moat)
+                if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 && neighbor.IsWater)
+                {
+                    waterNeighbors++;
+                }
+            }
+        }
+
+        if (nearMountains) score += 0.3f;
+
+        // Peninsula/island locations are defensible (some water, but not surrounded)
+        if (waterNeighbors > 0 && waterNeighbors < 8)
+        {
+            score += 0.3f;
+        }
+
+        return MathF.Min(1.0f, score);
+    }
+
+    /// <summary>
+    /// Calculate commerce advantage score (0-1)
+    /// </summary>
+    private float CalculateCommerceScore(int x, int y)
+    {
+        float score = 0f;
+        var cell = _map.Cells[x, y];
+        var geo = cell.GetGeology();
+
+        // Coastal cities are excellent for trade
+        bool hasWaterNeighbor = false;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = Math.Clamp(y + dy, 0, _map.Height - 1);
+
+                var neighbor = _map.Cells[nx, ny];
+                if (neighbor.IsWater)
+                {
+                    hasWaterNeighbor = true;
+                    break;
+                }
+            }
+            if (hasWaterNeighbor) break;
+        }
+
+        if (hasWaterNeighbor)
+        {
+            score += 0.5f; // Major bonus for coastal
+        }
+
+        // Near rivers for trade and water
+        if (geo.RiverId > 0 || geo.WaterFlow > 0.5f)
+        {
+            score += 0.4f;
+        }
+
+        // Good climate for agriculture (attracts trade)
+        if (cell.Temperature > 10 && cell.Temperature < 30 && cell.Rainfall > 0.4f)
+        {
+            score += 0.2f;
+        }
+
+        return MathF.Min(1.0f, score);
+    }
+
     private void CreateCity(Civilization civ, int x, int y)
     {
+        var cell = _map.Cells[x, y];
+        var geo = cell.GetGeology();
+
+        // Calculate strategic scores for this location
+        float resourceScore = CalculateResourceScore(x, y);
+        float defenseScore = CalculateDefenseScore(x, y);
+        float commerceScore = CalculateCommerceScore(x, y);
+
+        // Check location features
+        bool coastal = false;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = Math.Clamp(y + dy, 0, _map.Height - 1);
+                if (_map.Cells[nx, ny].IsWater)
+                {
+                    coastal = true;
+                    break;
+                }
+            }
+            if (coastal) break;
+        }
+
+        bool nearRiver = geo.RiverId > 0 || geo.WaterFlow > 0.5f;
+        bool onHighGround = cell.Elevation > 0.3f && cell.Elevation < 0.7f;
+
+        // Collect nearby resources (within 5 cells)
+        var nearbyResources = new List<ResourceType>();
+        for (int dx = -5; dx <= 5; dx++)
+        {
+            for (int dy = -5; dy <= 5; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = Math.Clamp(y + dy, 0, _map.Height - 1);
+
+                var neighborCell = _map.Cells[nx, ny];
+                var resources = neighborCell.GetResources();
+                foreach (var res in resources)
+                {
+                    if (!nearbyResources.Contains(res.Type))
+                    {
+                        nearbyResources.Add(res.Type);
+                    }
+                }
+            }
+        }
+
         var city = new City
         {
             Id = civ.Cities.Count + 1,
@@ -857,7 +1258,15 @@ public class CivilizationManager
             Y = y,
             Population = 1000 + _random.Next(5000),
             CivilizationId = civ.Id,
-            Founded = 0 // Set by caller
+            Founded = 0, // Set by caller
+            // Strategic placement data
+            ResourceScore = resourceScore,
+            DefenseScore = defenseScore,
+            CommerceScore = commerceScore,
+            NearRiver = nearRiver,
+            Coastal = coastal,
+            OnHighGround = onHighGround,
+            NearbyResources = nearbyResources
         };
 
         civ.Cities.Add(city);
@@ -941,6 +1350,7 @@ public class Civilization
     public bool HasAirTransport { get; set; } = false; // Planes
     public List<(int x, int y)> TradeRoutes { get; set; } = new();
     public List<(int x1, int y1, int x2, int y2)> Railroads { get; set; } = new(); // Railroad lines
+    public HashSet<(int x, int y)> Roads { get; set; } = new(); // Road cells (local infrastructure)
 
     // Commerce
     public List<City> Cities { get; set; } = new();
@@ -1002,6 +1412,15 @@ public class City
     // Commerce
     public List<int> TradingWith { get; set; } = new(); // IDs of other cities
     public float TradeVolume { get; set; } = 0.0f;
+
+    // Strategic placement factors (why this location was chosen)
+    public float ResourceScore { get; set; } = 0.0f; // Proximity to resources
+    public float DefenseScore { get; set; } = 0.0f; // Defensive advantages (high ground, etc.)
+    public float CommerceScore { get; set; } = 0.0f; // Near rivers/coast for trade
+    public bool NearRiver { get; set; } = false;
+    public bool Coastal { get; set; } = false;
+    public bool OnHighGround { get; set; } = false;
+    public List<ResourceType> NearbyResources { get; set; } = new(); // Resources within 5 cells
 }
 
 public enum CityType

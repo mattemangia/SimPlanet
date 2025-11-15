@@ -75,6 +75,14 @@ public enum RockType
     Metamorphic    // Transformed rock
 }
 
+public enum RoadType
+{
+    None,          // No road
+    DirtPath,      // Basic path
+    Road,          // Paved road
+    Highway        // Major highway
+}
+
 /// <summary>
 /// Extended terrain cell with geological properties (now uses embedded data for performance)
 /// </summary>
@@ -150,6 +158,11 @@ public class GeologicalData
     public (int x, int y) FlowDirection { get; set; }
     public float FloodLevel { get; set; }  // Current flood water level
     public float TideLevel { get; set; }  // Tidal variation
+
+    // Infrastructure (built by civilizations)
+    public bool HasRoad { get; set; } = false;
+    public RoadType RoadType { get; set; } = RoadType.None;
+    public int RoadBuiltYear { get; set; } = 0;
 
     // Age and composition
     public int CrustAge { get; set; }  // Millions of years
