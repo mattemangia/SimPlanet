@@ -15,6 +15,7 @@ public class TerrainCell
     public float Oxygen { get; set; }           // Percentage
     public float CO2 { get; set; }              // Percentage
     public float Greenhouse { get; set; }       // Greenhouse effect strength
+    public float Albedo { get; set; } = 0.3f;   // Surface reflectivity (0.0 to 1.0)
 
     // Life
     public LifeForm LifeType { get; set; }

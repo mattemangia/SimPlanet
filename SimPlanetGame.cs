@@ -327,7 +327,7 @@ public class SimPlanetGame : Game
         _toolbar = new ToolbarUI(this, GraphicsDevice, _font);
 
         // Create planetary controls UI
-        _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphere, _planetStabilizer);
+        _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphereSimulator, _planetStabilizer);
         _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
 
         // Create main menu
@@ -1011,7 +1011,7 @@ public class SimPlanetGame : Game
         // Update other interactive tools with new map
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
-        _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphere, _planetStabilizer);
+        _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphereSimulator, _planetStabilizer);
         _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
 
         // Reset game state

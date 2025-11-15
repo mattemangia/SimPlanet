@@ -38,6 +38,20 @@ SimPlanet is a complete SimEarth-like planetary evolution simulator built from s
 - ✅ **Geological Hazard Views**: Earthquakes (seismic activity), Faults (fault lines), Tsunamis (wave propagation)
 
 ### User Interface
+- ✅ **Interactive Toolbar**: Comprehensive top-screen toolbar with 50+ clickable buttons for all game functions
+  - Custom runtime-generated icons for each button type
+  - Tooltips on hover showing function and keyboard shortcut
+  - Smart organization by category (View Modes, Game Controls, UI Toggles, Features)
+  - 28x28px compact buttons with visual feedback on hover
+- ✅ **Splash Screen**: Beautiful MonoGame-based animated intro with fade effects
+  - 3-second display duration with smooth 300ms fade in/out
+  - Cross-platform compatible (Mac, Linux, Windows)
+  - Splash image used as subtle 15% opacity background in all menu screens
+- ✅ **Planetary Controls UI (X key)**: SimEarth-style parameter control panel
+  - 15 control sliders for climate, atmosphere, geology, surface, and magnetosphere
+  - AI stabilizer integration (Restore/Destabilize planet)
+  - Manual terraforming brush (8 tile types, adjustable brush size 1-15)
+  - Real-time parameter adjustments with immediate simulation updates
 - ✅ **Information Panel**: Live statistics (oxygen, CO2, temperature, life counts, magnetosphere, stabilizer)
 - ✅ **Help System**: Toggle-able in-game help with comprehensive controls
 - ✅ **Map Options Menu**: Interactive planet customization with real-time preview
@@ -537,10 +551,10 @@ Each life form has specific requirements:
 
 ## Files Created
 
-### Source Code (19 files)
-1. `SimPlanet/Program.cs` - Entry point
+### Source Code (26+ files)
+1. `SimPlanet/Program.cs` - Entry point with splash screen initialization
 2. `SimPlanet/SimPlanetGame.cs` - Main game class with all system orchestration
-3. `SimPlanet/TerrainCell.cs` - Cell data model with all properties
+3. `SimPlanet/TerrainCell.cs` - Cell data model with all properties (including Albedo)
 4. `SimPlanet/PlanetMap.cs` - Map management and grid system
 5. `SimPlanet/PerlinNoise.cs` - Procedural noise generation
 6. `SimPlanet/ClimateSimulator.cs` - Climate system with ice cycles and albedo
@@ -550,14 +564,23 @@ Each life form has specific requirements:
 10. `SimPlanet/PlanetStabilizer.cs` - Auto-stabilization system
 11. `SimPlanet/ForestFireManager.cs` - Wildfire simulation and spread
 12. `SimPlanet/DisasterSystem.cs` - Natural disasters (meteors, volcanoes, etc.)
-13. `SimPlanet/CivilizationManager.cs` - Cities, railroads, commerce
-14. `SimPlanet/TerrainGenerator.cs` - Enhanced terrain generation with presets
-15. `SimPlanet/PlanetPresets.cs` - Pre-configured planet types (Earth, Mars, etc.)
-16. `SimPlanet/TerrainRenderer.cs` - Graphics rendering (all procedural)
-17. `SimPlanet/GameUI.cs` - Main UI with comprehensive status displays
-18. `SimPlanet/MapOptionsUI.cs` - Map options UI with live preview
-19. `SimPlanet/SimpleFont.cs` - Procedural font system
-20. `SimPlanet/SimPlanet.csproj` - Project configuration file
+13. `SimPlanet/CivilizationManager.cs` - Cities, railroads, commerce, governments, diplomacy
+14. `SimPlanet/Government.cs` - Government systems, rulers, dynasties, succession
+15. `SimPlanet/DiplomaticRelation.cs` - Diplomatic relations, treaties, royal marriages
+16. `SimPlanet/DivinePowers.cs` - God-mode powers for player intervention
+17. `SimPlanet/DivinePowersUI.cs` - UI for divine powers menu
+18. `SimPlanet/TerrainGenerator.cs` - Enhanced terrain generation with presets
+19. `SimPlanet/PlanetPresets.cs` - Pre-configured planet types (Earth, Mars, etc.)
+20. `SimPlanet/TerrainRenderer.cs` - Graphics rendering (all procedural)
+21. `SimPlanet/GameUI.cs` - Main UI with comprehensive status displays
+22. `SimPlanet/ToolbarUI.cs` - Interactive toolbar with 50+ buttons and tooltips
+23. `SimPlanet/PlanetaryControlsUI.cs` - SimEarth-style parameter control panel
+24. `SimPlanet/SplashScreen.cs` - Cross-platform splash screen with fade effects
+25. `SimPlanet/MapOptionsUI.cs` - Map options UI with live preview
+26. `SimPlanet/DiseaseControlUI.cs` - Disease/pandemic control center UI
+27. `SimPlanet/FontRenderer.cs` - TrueType font rendering (FontStashSharp)
+28. `SimPlanet/SimpleFont.cs` - Legacy procedural font system
+29. `SimPlanet/SimPlanet.csproj` - Project configuration file (includes splash.png as embedded resource)
 
 ### Documentation & Build Scripts
 21. `README.md` - Comprehensive user documentation with all features
@@ -654,6 +677,10 @@ dotnet run
 
 ## Unique Features Beyond SimEarth
 
+🆕 **Interactive Toolbar**: 50+ clickable buttons with custom icons and tooltips for all game functions
+🆕 **Splash Screen**: Beautiful animated intro with cross-platform MonoGame implementation
+🆕 **Planetary Controls UI**: SimEarth-style parameter control panel with 15 adjustable sliders
+🆕 **Complete Manual Control**: Adjust climate, atmosphere, geology, surface, and magnetosphere in real-time
 🆕 **Real-time Map Customization**: Adjust parameters with live, accurate preview before generation
 🆕 **Planet Presets**: One-key generation of Earth, Mars, Water World, Desert planets
 🆕 **Realistic Tropical Cyclones**: Saffir-Simpson scale hurricanes with Coriolis trajectories
@@ -671,19 +698,73 @@ dotnet run
 🆕 **Royal Marriages**: Political marriages between civilizations creating alliances and heirs
 🆕 **Weather Visualization**: Animated clouds and cyclone vortices on 3D minimap and 2D weather maps
 🆕 **Cyclone Climate Impact**: Sea surface cooling, ocean current disruption, political instability from disasters
-🆕 **Advanced Visualization**: 21 view modes including Albedo, Radiation, Biomes, Storms, Earthquakes, Faults, Tsunamis
+🆕 **Advanced Visualization**: 22 view modes including Albedo, Radiation, Biomes, Storms, Earthquakes, Faults, Tsunamis, Infrastructure
 🆕 **Gradual Biome Transitions**: Realistic ecosystem boundaries
 🆕 **Enhanced Climate**: Hadley cells, ITCZ, realistic atmospheric circulation
 🆕 **Animal Evolution**: Dinosaurs and mammals with different characteristics
 🆕 **5-10× Performance Boost**: Optimized architecture runs faster with more detail
 🆕 **Modern Graphics**: Clean, procedural rendering with realistic colors
 🆕 **100% Cross-Platform**: Mac M1/Intel, Linux, Windows guaranteed compatibility
-🆕 **No External Assets**: Completely self-contained, all procedural
+🆕 **No External Assets**: Completely self-contained, all procedural (except embedded splash.png)
 🆕 **Open Source**: Full access to all simulation code
 
 ## Recent Updates
 
-### Government Systems, Diplomacy & Divine Powers (Latest)
+### Interactive Toolbar, Splash Screen & Planetary Controls (Latest)
+
+**Interactive Toolbar:**
+- ✅ **50+ Clickable Buttons**: Access all 22 view modes, game controls, UI toggles, and features without remembering keybindings
+- ✅ **Runtime-Generated Icons**: Custom procedural icons for each button type (Terrain, Weather, Hazards, Features, etc.)
+- ✅ **Tooltips on Hover**: Shows function description and keyboard shortcut for every button
+- ✅ **Smart Organization**: Buttons grouped by category with visual spacing for easy navigation
+- ✅ **Top-Screen Layout**: 36px toolbar at top, all panels adjusted to render below
+- ✅ **Compact Design**: 28x28px buttons with 2px spacing maximizes screen space
+- ✅ **Visual Feedback**: White border highlights on hover
+- ✅ **Keyboard Shortcuts Preserved**: All existing keybindings work alongside toolbar
+
+**Splash Screen:**
+- ✅ **Animated Intro**: Beautiful logo display with fade-in/fade-out effects before game starts
+- ✅ **Cross-Platform MonoGame**: Mac M1/Intel, Linux, Windows compatible (no Windows Forms)
+- ✅ **Professional Presentation**: Borderless centered window, 3-second duration
+- ✅ **Smooth Animations**: 300ms fade in, 2.4s display, 300ms fade out
+- ✅ **Menu Integration**: Splash image used as 15% opacity background in all menus
+- ✅ **Embedded Resource**: Splash.png built into executable, no external files needed
+
+**Planetary Controls UI (Press X):**
+- ✅ **SimEarth-Style Control Panel**: Complete manual control over ALL planetary parameters
+- ✅ **15 Control Sliders**:
+  - **Climate**: Solar Energy (0.5x-1.5x), Global Temperature Offset (-20°C to +20°C)
+  - **Atmosphere**: Rainfall Multiplier (0.1x-3.0x), Wind Speed (0.1x-3.0x), Oxygen (0-50%), CO2 (0-10%), Atmospheric Pressure (500-1500 mb)
+  - **Geology**: Tectonic Activity (0.1x-3.0x), Volcanic Activity (0.1x-3.0x), Erosion Rate (0.1x-3.0x)
+  - **Surface**: Ice Coverage (0-100%), Ocean Level (-1.0 to +1.0), Albedo/Reflectivity (0.1-0.9)
+  - **Magnetosphere**: Magnetic Field Strength (0.0-2.0), Core Temperature (1000-8000K)
+- ✅ **AI Stabilizer Integration**:
+  - **Restore Planet Button**: AI automatically adjusts all parameters to Earth-like habitable conditions
+  - **Destabilize Button**: Disable AI and allow natural chaos (ice ages, runaway greenhouse)
+  - **Toggle Auto-Stabilization**: Enable/disable automatic planet balancing (Y key)
+- ✅ **Manual Terraforming Brush**: Paint tiles directly on the map
+  - 8 tile types: Forest, Grassland, Desert, Tundra, Ocean, Mountain, Fault Lines, Civilization
+  - Adjustable brush size (1-15 cell radius) via scroll wheel
+  - Respects terrain constraints for realistic results
+- ✅ **Real-Time Updates**: All parameter changes apply immediately to running simulation
+- ✅ **Professional UI**: Organized sliders with clear labels, value indicators, and responsive mouse controls
+- ✅ **Experiment-Friendly**: Perfect for testing planetary conditions and terraforming scenarios
+
+**New Files Created:**
+- `ToolbarUI.cs` (1128 lines) - Complete toolbar system with button infrastructure and icon generation
+- `SplashScreen.cs` (154 lines) - MonoGame-based splash screen with fade effects
+- `PlanetaryControlsUI.cs` (665 lines) - SimEarth-style parameter control panel with 15 sliders
+- `TerrainCell.cs` - Added Albedo property for surface reflectivity control
+
+**Updated Files:**
+- `MainMenu.cs`, `LoadingScreen.cs` - Splash background at 15% opacity
+- `GameUI.cs`, `GeologicalEventsUI.cs` - Adjusted to render below toolbar
+- `SedimentColumnViewer.cs`, `DisasterControlUI.cs` - Panel positioning fixes
+- `SimPlanetGame.cs` - Integrated toolbar, planetary controls, and layout adjustments
+- `Program.cs` - Shows splash screen before game initialization
+- `SimPlanet.csproj` - Added splash.png as embedded resource
+
+### Government Systems, Diplomacy & Divine Powers
 
 **Complete Government System:**
 - ✅ **9 Government Types**: Tribal, Monarchy, Dynasty, Theocracy, Republic, Democracy, Oligarchy, Dictatorship, Federation
@@ -913,14 +994,16 @@ This is an original implementation inspired by SimEarth. All code is newly writt
 ---
 
 **Total Development**: Complete implementation of a comprehensive SimEarth-like planetary evolution simulator
-**Lines of Code**: ~8,500+ across 26+ C# files
-**Features**: 52+ major systems and features
-**View Modes**: 21 different visualization modes
+**Lines of Code**: ~10,000+ across 29+ C# files
+**Features**: 55+ major systems and features
+**View Modes**: 22 different visualization modes
+**Interactive UI**: 50+ toolbar buttons with tooltips + planetary controls panel
 **Government Types**: 9 government systems with succession and diplomacy
 **Divine Powers**: 7 god-mode powers with full espionage system
 **Treaty Types**: 9 diplomatic treaty types with royal marriages
+**Planetary Controls**: 15 adjustable sliders for climate, atmosphere, geology, surface, and magnetosphere
 **Geological Systems**: Earthquakes, faults (5 types), tsunamis, hot spot volcanoes
 **Weather Visualization**: Animated clouds and cyclone vortices on 3D and 2D maps
 **Performance**: 5-10× faster than original implementation
 **Platform Support**: Mac M1/Intel, Linux, Windows (100% compatible)
-**Status**: ✅ Fully functional, feature-complete, optimized, and ready to play!
+**Status**: ✅ Fully functional, feature-complete, optimized, polished, and ready to play!
