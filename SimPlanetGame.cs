@@ -270,6 +270,9 @@ public class SimPlanetGame : Game
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
+        // Set custom window icon (procedurally generated planet)
+        SetCustomIcon();
+
         // Create font
         _font = new FontRenderer(GraphicsDevice, 16);
 
@@ -1098,6 +1101,76 @@ public class SimPlanetGame : Game
         _spriteBatch.End();
 
         base.Draw(gameTime);
+    }
+
+    private void SetCustomIcon()
+    {
+        // Create a procedurally generated planet icon (32x32)
+        const int iconSize = 32;
+        var iconTexture = new Texture2D(GraphicsDevice, iconSize, iconSize);
+        var iconData = new Color[iconSize * iconSize];
+
+        int centerX = iconSize / 2;
+        int centerY = iconSize / 2;
+        float radius = iconSize / 2.0f - 1;
+
+        // Create a simple planet with ocean, land, and polar cap
+        var random = new Random(42); // Fixed seed for consistent icon
+
+        for (int y = 0; y < iconSize; y++)
+        {
+            for (int x = 0; x < iconSize; x++)
+            {
+                int index = y * iconSize + x;
+                float dx = x - centerX;
+                float dy = y - centerY;
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+
+                if (distance <= radius)
+                {
+                    // Inside planet sphere
+                    // Add simple shading based on distance from edge
+                    float edgeFactor = 1.0f - (distance / radius);
+                    float shade = 0.6f + edgeFactor * 0.4f;
+
+                    // Polar cap (top)
+                    if (y < iconSize * 0.2f)
+                    {
+                        iconData[index] = new Color(
+                            (byte)(240 * shade),
+                            (byte)(245 * shade),
+                            (byte)(250 * shade)
+                        ); // White/ice
+                    }
+                    // Land masses (simple noise pattern)
+                    else if ((x + y * 3) % 7 < 3 && y < iconSize * 0.7f)
+                    {
+                        iconData[index] = new Color(
+                            (byte)(60 * shade),
+                            (byte)(160 * shade),
+                            (byte)(80 * shade)
+                        ); // Green land
+                    }
+                    // Ocean
+                    else
+                    {
+                        iconData[index] = new Color(
+                            (byte)(30 * shade),
+                            (byte)(90 * shade),
+                            (byte)(180 * shade)
+                        ); // Blue ocean
+                    }
+                }
+                else
+                {
+                    // Outside planet - transparent
+                    iconData[index] = Color.Transparent;
+                }
+            }
+        }
+
+        iconTexture.SetData(iconData);
+        Window.SetIcon(iconTexture);
     }
 
     private void OnClientSizeChanged(object sender, EventArgs e)
