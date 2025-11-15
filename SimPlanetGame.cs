@@ -250,6 +250,7 @@ public class SimPlanetGame : Game
         _civilizationManager.SetWeatherSystem(_weatherSystem); // Connect weather system for cyclone response
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
+        _civilizationManager.SetDisasterManager(_disasterManager); // Connect disaster manager for nuclear accidents
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);

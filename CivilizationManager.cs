@@ -12,6 +12,7 @@ public class CivilizationManager
     private DivinePowers _divinePowers;
     private int _nextRulerId = 1;
     private WeatherSystem? _weatherSystem;
+    private DisasterManager? _disasterManager;
 
     public List<Civilization> Civilizations => _civilizations;
     public DivinePowers DivinePowers => _divinePowers;
@@ -19,6 +20,11 @@ public class CivilizationManager
     public void SetWeatherSystem(WeatherSystem weatherSystem)
     {
         _weatherSystem = weatherSystem;
+    }
+
+    public void SetDisasterManager(DisasterManager disasterManager)
+    {
+        _disasterManager = disasterManager;
     }
 
     private static readonly string[] CivNames = new[]
@@ -231,7 +237,7 @@ public class CivilizationManager
         }
 
         // Update nuclear plant meltdown risk
-        UpdateNuclearPlantRisk(civ, deltaTime);
+        UpdateNuclearPlantRisk(civ, deltaTime, currentYear);
 
         // Update military strength based on population and tech
         civ.MilitaryStrength = (civ.Population / 1000) + (civ.TechLevel * 10);
@@ -2029,7 +2035,7 @@ public class CivilizationManager
     /// <summary>
     /// Update nuclear plant meltdown risk based on various factors
     /// </summary>
-    private void UpdateNuclearPlantRisk(Civilization civ, float deltaTime)
+    private void UpdateNuclearPlantRisk(Civilization civ, float deltaTime, int currentYear)
     {
         foreach (var (x, y) in civ.Territory)
         {
@@ -2039,7 +2045,7 @@ public class CivilizationManager
             if (geo.HasNuclearPlant)
             {
                 // Base risk increases over time (aging)
-                int plantAge = _map.CurrentYear - geo.EnergyInfraBuiltYear;
+                int plantAge = currentYear - geo.EnergyInfraBuiltYear;
                 geo.MeltdownRisk = 0.01f + (plantAge / 1000f) * 0.05f; // +5% per 1000 years
 
                 // Earthquake zones increase risk
@@ -2061,7 +2067,7 @@ public class CivilizationManager
                 if (_random.NextDouble() < geo.MeltdownRisk * 0.0001f * deltaTime)
                 {
                     // Trigger meltdown!
-                    _disasterManager?.TriggerNuclearAccident(x, y, _map.CurrentYear);
+                    _disasterManager?.TriggerNuclearAccident(x, y, currentYear);
                     geo.HasNuclearPlant = false; // Plant destroyed
                     geo.MeltdownRisk = 0f;
                 }

@@ -137,11 +137,11 @@ public class MagnetosphereSimulator
                 // Natural radioactivity from uranium deposits
                 float naturalRadiation = 0.0f;
                 var geo = cell.GetGeology();
-                var resources = cell.GetResourceData();
-                if (resources.Uranium > 0.1f)
+                var uraniumDeposit = cell.GetResourceDeposit(ResourceType.Uranium);
+                if (uraniumDeposit != null && uraniumDeposit.Amount > 0.1f)
                 {
                     // Uranium deposits emit radiation (0.5-2.0 based on concentration)
-                    naturalRadiation = resources.Uranium * 2.0f;
+                    naturalRadiation = uraniumDeposit.Amount * 2.0f;
                 }
 
                 // Nuclear power plants emit radiation
