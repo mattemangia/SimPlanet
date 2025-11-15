@@ -141,7 +141,7 @@ namespace SimPlanet
             x += buttonSize + buttonSpacing;
         }
 
-        private void SetViewMode(TerrainRenderer.RenderMode mode)
+        private void SetViewMode(RenderMode mode)
         {
             game.SetRenderMode(mode);
         }
