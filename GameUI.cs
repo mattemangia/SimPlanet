@@ -373,10 +373,10 @@ public class GameUI
         DrawTextAt("=== CIVILIZATION TOOLS ===", Color.Yellow, rightColX, rightY);
         rightY += lineHeight + 3;
         DrawTextAt("G: Control civilization", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("H: Divine powers menu", Color.Gold, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("I: Divine powers menu", Color.Gold, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("  -Change governments", Color.LightGray, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("  -Send spies, force wars", Color.LightGray, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  -Bless/curse civilizations", Color.LightGray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  -Bless/curse/advance civs", Color.LightGray, rightColX, rightY); rightY += lineHeight;
         rightY += 3;
 
         DrawTextAt("=== OTHER TOOLS ===", Color.Yellow, rightColX, rightY);
