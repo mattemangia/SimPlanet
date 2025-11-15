@@ -363,9 +363,30 @@ public class MainMenu
     {
         _menuItemBounds.Clear();
 
-        // Semi-transparent overlay
+        // Draw black background first
+        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), Color.Black);
+
+        // Draw splash background with low alpha for subtle effect
+        if (_splashBackground != null)
+        {
+            // Scale splash to fit screen while maintaining aspect ratio
+            float scaleX = (float)screenWidth / _splashBackground.Width;
+            float scaleY = (float)screenHeight / _splashBackground.Height;
+            float scale = Math.Max(scaleX, scaleY);
+
+            int displayWidth = (int)(_splashBackground.Width * scale);
+            int displayHeight = (int)(_splashBackground.Height * scale);
+            int x = (screenWidth - displayWidth) / 2;
+            int y = (screenHeight - displayHeight) / 2;
+
+            spriteBatch.Draw(_splashBackground,
+                new Rectangle(x, y, displayWidth, displayHeight),
+                Color.White * 0.15f); // Very subtle transparency
+        }
+
+        // Semi-transparent overlay for contrast
         spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(0, 0, 0, 200));
+            new Color(0, 0, 0, 150));
 
         // Title
         DrawCenteredText(spriteBatch, "PAUSED", screenHeight / 3, new Color(255, 200, 50), 1.8f);
