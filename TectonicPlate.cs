@@ -159,6 +159,10 @@ public class GeologicalData
     public float FloodLevel { get; set; }  // Current flood water level
     public float TideLevel { get; set; }  // Tidal variation
 
+    // Ocean properties for thermohaline circulation
+    public float Salinity { get; set; } = 35.0f;  // Parts per thousand (ppt), typical ocean is 35 ppt
+    public float WaterDensity { get; set; } = 1.025f;  // g/cm³, calculated from temperature and salinity
+
     // Infrastructure (built by civilizations)
     public bool HasRoad { get; set; } = false;
     public RoadType RoadType { get; set; } = RoadType.None;

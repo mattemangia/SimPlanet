@@ -96,7 +96,15 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Water flow and valley carving
   - River freezing during ice ages (freeze when >50% covered by ice)
   - Dynamic river reformation when ice retreats
-  - Ocean currents with Coriolis effect
+  - **Advanced Ocean Circulation**:
+    - Wind-driven surface currents with Coriolis effect (gyres, trade winds, westerlies)
+    - **Thermohaline circulation** (density-driven deep ocean currents)
+    - Ocean salinity dynamics (evaporation, precipitation, river input, ice formation)
+    - Water density calculations based on temperature and salinity (UNESCO equation of state)
+    - Deep water formation at polar regions (downwelling)
+    - Equatorial upwelling of nutrient-rich deep water
+    - Western boundary current intensification (Gulf Stream-like)
+    - Global ocean "conveyor belt" circulation
   - Soil moisture dynamics
 - **Climate System**:
   - Temperature gradients based on latitude, elevation, and solar energy
@@ -127,10 +135,20 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Magnetic field reversals
   - Life damage from high radiation
 - **Atmosphere**:
-  - Oxygen and CO2 cycles
-  - Greenhouse effect modeling
+  - **Multi-gas atmospheric simulation**:
+    - Oxygen (O2) cycle with photosynthesis and respiration
+    - Carbon dioxide (CO2) cycle with biological and volcanic sources
+    - **Methane (CH4)** - wetlands, decomposition, agriculture, volcanic emissions (28x CO2 potency)
+    - **Nitrous oxide (N2O)** - soil microbes, fertilizers, ocean production (265x CO2 potency)
+    - Water vapor feedback (temperature-dependent humidity effects)
+  - **Enhanced greenhouse effect**:
+    - Multi-gas radiative forcing (CO2, CH4, N2O, H2O)
+    - Water vapor positive feedback amplification
+    - Cloud greenhouse effects
+    - Realistic climate sensitivity based on IPCC AR6 data
   - Photosynthesis and respiration
   - Volcanic emissions
+  - Atmospheric gas mixing and wind-driven transport
 - **Weather Systems**:
   - Dynamic meteorology with seasons (4 seasons per year, hemisphere-aware)
   - Wind patterns (trade winds, westerlies, polar easterlies)
@@ -574,11 +592,11 @@ Civilization (produces more CO2, can adapt to various climates)
 
 ### Simulation Systems
 - **ClimateSimulator.cs**: Temperature, rainfall, humidity, ice cycles, surface albedo
-- **AtmosphereSimulator.cs**: Atmospheric gas cycles (O2, CO2, greenhouse effect)
+- **AtmosphereSimulator.cs**: Multi-gas atmospheric cycles (O2, CO2, CH4, N2O), enhanced greenhouse effect with water vapor feedback
 - **LifeSimulator.cs**: Life evolution, biomass dynamics, and event reactivity
 - **AnimalEvolutionSimulator.cs**: Dinosaur and mammal evolution with mass extinction events
 - **GeologicalSimulator.cs**: Plate tectonics, volcanoes, erosion, sedimentation
-- **HydrologySimulator.cs**: Rivers, water flow, ocean currents, soil moisture
+- **HydrologySimulator.cs**: Rivers, water flow, wind-driven ocean currents, thermohaline circulation, salinity dynamics, soil moisture
 - **WeatherSystem.cs**: Seasons, storms, wind patterns, air pressure
 - **BiomeSimulator.cs**: Biome classification and transitions
 - **CivilizationManager.cs**: Civilization emergence, technology, expansion, interactions, cities, railroads
@@ -1474,11 +1492,40 @@ SimPlanet implements realistic planetary physics and Earth systems based on esta
 - **Volcanic Activity**: Concentrated at subduction zones, mid-ocean ridges, and hotspots
 - **Source**: *Plate Tectonics* (Turcotte & Schubert, 2014)
 
+### **Ocean Circulation & Thermohaline Dynamics**
+- **Surface Currents**: Wind-driven gyres from atmospheric circulation (Ekman transport)
+  - Subtropical gyres: Westward trade winds (0-30°), Eastward westerlies (30-60°)
+  - Western intensification: Stronger currents on western boundaries (Gulf Stream, Kuroshio)
+- **Thermohaline Circulation**: Density-driven deep ocean currents ("global conveyor belt")
+  - Cold, salty water sinks at high latitudes (North Atlantic Deep Water formation)
+  - Deep water flows equatorward along ocean floor
+  - Upwelling returns nutrients to surface at low latitudes and coastal zones
+  - Complete circulation cycle takes ~1000 years
+- **Seawater Density**: ρ(T, S) - Increases with salinity, decreases with temperature
+  - UNESCO equation of state: ρ = f(temperature, salinity, pressure)
+  - Typical ocean: 35 ppt salinity, 1.025 g/cm³ density
+- **Salinity Dynamics**:
+  - Evaporation increases salinity (water leaves, salt stays)
+  - Precipitation and river input decrease salinity (freshwater dilution)
+  - Sea ice formation: Brine rejection concentrates salt in unfrozen water
+  - Ice melting: Freshwater dilution decreases salinity
+- **Source**: *Descriptive Physical Oceanography* (Talley et al., 2011), "The Great Ocean Conveyor" (Broecker, 1991), UNESCO Technical Papers in Marine Science
+
 ### **Atmospheric Composition & Climate**
-- **Greenhouse Effect**: CO₂ and water vapor trap infrared radiation
+- **Greenhouse Effect**: Multi-gas radiative forcing with realistic potencies
+  - CO₂ (baseline greenhouse gas)
+  - CH₄ (methane): 28× more potent than CO₂ over 100-year timescale
+  - N₂O (nitrous oxide): 265× more potent than CO₂
+  - H₂O (water vapor): Primary greenhouse gas with temperature-dependent feedback
+- **Global Warming Potential (GWP)**: IPCC AR6 standardized values for greenhouse gas comparison
+- **Water Vapor Feedback**: Clausius-Clapeyron relation - 7% more water vapor per °C warming
+- **Methane Sources**: Wetlands (anaerobic decomposition), agriculture, permafrost thaw, ocean sediments
+- **Methane Sinks**: Atmospheric oxidation (~10 year lifetime), soil bacteria uptake
+- **N₂O Sources**: Soil nitrification/denitrification, agricultural fertilizers, ocean oxygen-minimum zones
+- **N₂O Sinks**: Stratospheric photolysis (~120 year lifetime)
 - **Albedo Effects**: Ice/snow (0.8-0.9), ocean (0.06), vegetation (0.15-0.25), desert (0.3-0.4)
 - **Oxygen Production**: Photosynthesis by plants and algae (6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂)
-- **Source**: *The Atmosphere* (Lutgens & Tarbuck, 2015), NASA climate models
+- **Source**: *Climate Change 2021: The Physical Science Basis* (IPCC AR6, 2021), *The Atmosphere* (Lutgens & Tarbuck, 2015), NASA climate models
 
 ### **Biological Processes**
 - **Biomass Growth**: Logistic growth model with carrying capacity
@@ -1495,11 +1542,11 @@ SimPlanet implements realistic planetary physics and Earth systems based on esta
 
 ### **Simulation Compromises**
 For gameplay and performance, some simplifications were made:
-- Simplified ocean currents (no thermohaline circulation depth)
 - 2D projection of 3D spherical planet
 - Accelerated timescales (years pass quickly)
-- Reduced grid resolution (90×60 cells vs Earth's complexity)
-- Simplified chemistry (O₂ and CO₂ only, no methane/nitrogen cycles)
+- Reduced grid resolution (240×120 cells vs Earth's complexity)
+- Simplified radiative transfer (no spectral bands or atmospheric layers)
+- No ocean stratification layers (mixed layer vs thermocline vs deep ocean)
 
 **All core physics use scientifically accurate formulas** - this is an educational simulation grounded in real Earth science!
 

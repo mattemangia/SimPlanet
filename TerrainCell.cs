@@ -13,7 +13,9 @@ public class TerrainCell
 
     // Atmospheric
     public float Oxygen { get; set; }           // Percentage
-    public float CO2 { get; set; }              // Percentage
+    public float CO2 { get; set; }              // Percentage (parts per million equivalent)
+    public float Methane { get; set; }          // CH4 - Methane concentration
+    public float NitrousOxide { get; set; }     // N2O - Nitrous oxide concentration
     public float Greenhouse { get; set; }       // Greenhouse effect strength
     public float Albedo { get; set; } = 0.3f;   // Surface reflectivity (0.0 to 1.0)
 

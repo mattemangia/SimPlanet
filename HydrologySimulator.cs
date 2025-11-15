@@ -27,7 +27,10 @@ public class HydrologySimulator
         UpdateWaterFlow();
         UpdateRiverFreezing(); // Check for frozen rivers
         FormRivers();
+        UpdateSalinity(deltaTime);
+        UpdateWaterDensity();
         UpdateOceanCurrents();
+        UpdateThermohalineCirculation(deltaTime);
         UpdateTides(deltaTime);
         UpdateFlooding(deltaTime);
     }
@@ -287,10 +290,112 @@ public class HydrologySimulator
         }
     }
 
-    private void UpdateOceanCurrents()
+    private void UpdateSalinity(float deltaTime)
     {
-        // Simplified ocean current simulation
-        // Based on temperature gradients and planet rotation
+        // Salinity affected by evaporation, precipitation, river input, and ice formation
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (!cell.IsWater) continue;
+
+                var geo = cell.GetGeology();
+                float salinityChange = 0;
+
+                // Evaporation increases salinity (water leaves, salt stays)
+                if (cell.Temperature > 15)
+                {
+                    float evaporationRate = (cell.Temperature - 15) * 0.001f;
+                    salinityChange += evaporationRate * deltaTime;
+                }
+
+                // Precipitation decreases salinity (dilution)
+                salinityChange -= cell.Rainfall * 0.5f * deltaTime;
+
+                // River input decreases salinity (freshwater input)
+                if (geo.RiverId > 0)
+                {
+                    var river = _rivers.FirstOrDefault(r => r.Id == geo.RiverId);
+                    if (river != null && river.MouthX == x && river.MouthY == y)
+                    {
+                        salinityChange -= 2.0f * deltaTime; // Strong freshwater input at river mouths
+                    }
+                }
+
+                // Ice formation concentrates salt in remaining water (brine rejection)
+                if (cell.Temperature < -1.8f) // Seawater freezing point
+                {
+                    salinityChange += 0.3f * deltaTime;
+                }
+
+                // Ice melting dilutes salinity
+                if (cell.IsIce && cell.Temperature > 0)
+                {
+                    salinityChange -= 0.2f * deltaTime;
+                }
+
+                geo.Salinity = Math.Clamp(geo.Salinity + salinityChange, 0, 42); // 0-42 ppt range
+            }
+        }
+
+        // Salinity mixing through diffusion
+        var newSalinity = new float[_map.Width, _map.Height];
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (!cell.IsWater)
+                {
+                    newSalinity[x, y] = cell.GetGeology().Salinity;
+                    continue;
+                }
+
+                float neighborSalinity = 0;
+                int waterNeighbors = 0;
+
+                foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                {
+                    if (neighbor.IsWater)
+                    {
+                        neighborSalinity += neighbor.GetGeology().Salinity;
+                        waterNeighbors++;
+                    }
+                }
+
+                if (waterNeighbors > 0)
+                {
+                    neighborSalinity /= waterNeighbors;
+                    float currentSalinity = cell.GetGeology().Salinity;
+                    newSalinity[x, y] = currentSalinity + (neighborSalinity - currentSalinity) * 0.1f * deltaTime;
+                }
+                else
+                {
+                    newSalinity[x, y] = cell.GetGeology().Salinity;
+                }
+            }
+        }
+
+        // Apply new salinity
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                if (_map.Cells[x, y].IsWater)
+                {
+                    _map.Cells[x, y].GetGeology().Salinity = newSalinity[x, y];
+                }
+            }
+        }
+    }
+
+    private void UpdateWaterDensity()
+    {
+        // Water density calculation based on temperature and salinity
+        // Density = ρ(T, S) where T = temperature, S = salinity
+        // Approximate equation of state for seawater
+        // Source: UNESCO equation of state (simplified)
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -301,36 +406,205 @@ public class HydrologySimulator
 
                 var geo = cell.GetGeology();
 
-                // Latitude-based currents (Coriolis effect)
+                // Base density at 0°C, 0 ppt = 999.8 kg/m³ = 0.9998 g/cm³
+                float baseDensity = 0.9998f;
+
+                // Temperature effect: density decreases with temperature
+                // ΔρT ≈ -0.0002 g/cm³ per °C (simplified)
+                float tempEffect = -0.0002f * cell.Temperature;
+
+                // Salinity effect: density increases with salinity
+                // Δρs ≈ 0.0008 g/cm³ per ppt (simplified)
+                float salinityEffect = 0.0008f * (geo.Salinity - 35);
+
+                // Total density
+                geo.WaterDensity = baseDensity + tempEffect + salinityEffect;
+                geo.WaterDensity = Math.Clamp(geo.WaterDensity, 0.95f, 1.05f);
+            }
+        }
+    }
+
+    private void UpdateOceanCurrents()
+    {
+        // Wind-driven surface ocean currents
+        // Based on atmospheric circulation and Coriolis effect
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (!cell.IsWater) continue;
+
+                var geo = cell.GetGeology();
+
+                // Only affect surface waters (shallow depths)
+                if (cell.Elevation > -0.5f)
+                {
+                    // Latitude-based currents (Coriolis effect)
+                    float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+
+                    // Gyres: Trade winds near equator, westerlies at mid-latitudes
+                    if (latitude < 0.3f)
+                    {
+                        // Equatorial currents - westward (trade winds)
+                        geo.FlowDirection = (-1, 0);
+                    }
+                    else if (latitude < 0.6f)
+                    {
+                        // Subtropical and mid-latitude - eastward (westerlies)
+                        geo.FlowDirection = (1, 0);
+                    }
+                    else
+                    {
+                        // Polar currents - eastward
+                        geo.FlowDirection = (1, 0);
+                    }
+
+                    // Western intensification (stronger currents on western boundaries)
+                    // Check if near a continental boundary
+                    bool hasLandToWest = false;
+                    for (int dx = -2; dx <= 0; dx++)
+                    {
+                        int checkX = (x + dx + _map.Width) % _map.Width;
+                        if (_map.Cells[checkX, y].IsLand)
+                        {
+                            hasLandToWest = true;
+                            break;
+                        }
+                    }
+
+                    float currentStrength = hasLandToWest ? 0.25f : 0.1f;
+
+                    // Heat transport by surface currents
+                    var (fx, fy) = geo.FlowDirection;
+                    int targetX = (x + fx + _map.Width) % _map.Width;
+                    int targetY = Math.Clamp(y + fy, 0, _map.Height - 1);
+
+                    var targetCell = _map.Cells[targetX, targetY];
+                    if (targetCell.IsWater)
+                    {
+                        // Heat and salt transport
+                        float tempDiff = cell.Temperature - targetCell.Temperature;
+                        cell.Temperature -= tempDiff * currentStrength * 0.05f;
+                        targetCell.Temperature += tempDiff * currentStrength * 0.05f;
+
+                        float saltDiff = geo.Salinity - targetCell.GetGeology().Salinity;
+                        geo.Salinity -= saltDiff * currentStrength * 0.03f;
+                        targetCell.GetGeology().Salinity += saltDiff * currentStrength * 0.03f;
+                    }
+                }
+            }
+        }
+    }
+
+    private void UpdateThermohalineCirculation(float deltaTime)
+    {
+        // Thermohaline circulation: density-driven deep ocean currents
+        // Dense water sinks at high latitudes (North Atlantic, Antarctica)
+        // Forms global "conveyor belt" circulation
+        // Source: Broecker (1991), The Great Ocean Conveyor
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (!cell.IsWater) continue;
+
+                var geo = cell.GetGeology();
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
-                // Trade winds near equator, westerlies at mid-latitudes
-                if (latitude < 0.3f)
+                // Deep water formation at high latitudes (polar regions)
+                if (latitude > 0.7f && cell.Elevation < -0.3f)
                 {
-                    geo.FlowDirection = (1, 0); // Eastward
-                }
-                else if (latitude < 0.6f)
-                {
-                    geo.FlowDirection = (-1, 0); // Westward
-                }
-                else
-                {
-                    geo.FlowDirection = (1, 0); // Eastward at poles
+                    // Cold, salty water is dense and sinks
+                    if (cell.Temperature < 5 && geo.Salinity > 34)
+                    {
+                        // Downwelling region - deep water formation
+                        // Find neighbors at lower depths to transport heat and salt
+                        foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                        {
+                            if (neighbor.IsWater && neighbor.Elevation < cell.Elevation)
+                            {
+                                var nGeo = neighbor.GetGeology();
+
+                                // Transport cold, salty water downward
+                                float densityDiff = geo.WaterDensity - nGeo.WaterDensity;
+
+                                if (densityDiff > 0) // Current cell is denser
+                                {
+                                    float sinkingRate = densityDiff * 0.5f * deltaTime;
+
+                                    // Cool the deeper water
+                                    neighbor.Temperature -= sinkingRate * 2.0f;
+
+                                    // Increase salinity in deeper water
+                                    nGeo.Salinity += sinkingRate * 0.5f;
+                                }
+                            }
+                        }
+                    }
                 }
 
-                // Current strength affects temperature distribution
-                float currentStrength = 0.1f;
-                var (fx, fy) = geo.FlowDirection;
-                int targetX = (x + fx + _map.Width) % _map.Width;
-                int targetY = Math.Clamp(y + fy, 0, _map.Height - 1);
-
-                var targetCell = _map.Cells[targetX, targetY];
-                if (targetCell.IsWater)
+                // Deep ocean currents (slow, density-driven)
+                if (cell.Elevation < -0.5f)
                 {
-                    // Heat transport by currents
-                    float tempDiff = cell.Temperature - targetCell.Temperature;
-                    cell.Temperature -= tempDiff * currentStrength * 0.1f;
-                    targetCell.Temperature += tempDiff * currentStrength * 0.1f;
+                    // Find direction of highest density gradient
+                    float maxDensityGradient = 0;
+                    (int x, int y) flowDir = (0, 0);
+
+                    foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                    {
+                        if (neighbor.IsWater)
+                        {
+                            float densityGradient = geo.WaterDensity - neighbor.GetGeology().WaterDensity;
+
+                            // Dense water flows toward less dense water
+                            if (densityGradient > maxDensityGradient)
+                            {
+                                maxDensityGradient = densityGradient;
+                                flowDir = (nx - x, ny - y);
+                            }
+                        }
+                    }
+
+                    // Deep current transport (very slow)
+                    if (flowDir != (0, 0))
+                    {
+                        int targetX = (x + flowDir.x + _map.Width) % _map.Width;
+                        int targetY = Math.Clamp(y + flowDir.y, 0, _map.Height - 1);
+
+                        var targetCell = _map.Cells[targetX, targetY];
+                        if (targetCell.IsWater)
+                        {
+                            float deepCurrentStrength = 0.02f * maxDensityGradient * deltaTime;
+
+                            // Transport heat and salt
+                            float tempDiff = cell.Temperature - targetCell.Temperature;
+                            cell.Temperature -= tempDiff * deepCurrentStrength;
+                            targetCell.Temperature += tempDiff * deepCurrentStrength;
+
+                            float saltDiff = geo.Salinity - targetCell.GetGeology().Salinity;
+                            geo.Salinity -= saltDiff * deepCurrentStrength;
+                            targetCell.GetGeology().Salinity += saltDiff * deepCurrentStrength;
+                        }
+                    }
+                }
+
+                // Upwelling regions (low latitudes, coastal areas)
+                if (latitude < 0.3f && cell.Elevation > -0.3f && cell.Elevation < 0)
+                {
+                    // Nutrient-rich deep water rises to surface
+                    foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                    {
+                        if (neighbor.IsWater && neighbor.Elevation < cell.Elevation)
+                        {
+                            // Bring up cooler, nutrient-rich water
+                            float upwellingRate = 0.01f * deltaTime;
+                            cell.Temperature -= upwellingRate * 0.5f;
+                        }
+                    }
                 }
             }
         }
