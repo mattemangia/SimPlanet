@@ -155,21 +155,58 @@ public class PlanetMinimap3D
 
     private Color GetCellColor(TerrainCell cell)
     {
-        // Simple color based on terrain type
-        if (cell.IsIce) return new Color(240, 250, 255);
-        if (cell.IsWater)
+        // Get base terrain color
+        Color terrainColor;
+
+        if (cell.IsIce)
+            terrainColor = new Color(240, 250, 255);
+        else if (cell.IsWater)
         {
             if (cell.Elevation < -0.5f)
-                return new Color(0, 50, 120);
-            return new Color(20, 100, 180);
+                terrainColor = new Color(0, 50, 120);
+            else
+                terrainColor = new Color(20, 100, 180);
+        }
+        else if (cell.Elevation > 0.7f)
+            terrainColor = new Color(140, 130, 120); // Mountains
+        else if (cell.IsForest)
+            terrainColor = new Color(34, 139, 34);
+        else if (cell.IsDesert)
+            terrainColor = new Color(230, 200, 140);
+        else if (cell.Rainfall > 0.4f)
+            terrainColor = new Color(100, 160, 80); // Grassland
+        else
+            terrainColor = new Color(180, 160, 100); // Plains
+
+        // Apply cloud cover overlay if enabled
+        if (ShowClouds && _weatherSystem != null)
+        {
+            var met = cell.GetMeteorology();
+            float cloudCover = met.CloudCover;
+
+            if (cloudCover > 0.1f)
+            {
+                // White clouds with transparency based on cloud density
+                Color cloudColor = new Color(255, 255, 255, (byte)(cloudCover * 200)); // Max alpha 200
+
+                // Blend clouds with terrain
+                float cloudAlpha = cloudCover * 0.8f; // Max 80% cloud coverage visible
+                terrainColor = Color.Lerp(terrainColor, cloudColor, cloudAlpha);
+            }
         }
 
-        if (cell.Elevation > 0.7f) return new Color(140, 130, 120); // Mountains
-        if (cell.IsForest) return new Color(34, 139, 34);
-        if (cell.IsDesert) return new Color(230, 200, 140);
-        if (cell.Rainfall > 0.4f) return new Color(100, 160, 80); // Grassland
+        // Show storms as darker clouds
+        if (ShowStorms && _weatherSystem != null)
+        {
+            var met = cell.GetMeteorology();
+            if (met.InStorm || met.Precipitation > 0.5f)
+            {
+                // Darken for storm clouds
+                terrainColor = Color.Lerp(terrainColor, new Color(80, 80, 100), 0.4f);
+            }
+        }
 
-        return new Color(180, 160, 100); // Plains
+        return terrainColor;
     }
 
     private void Render3DSphere()

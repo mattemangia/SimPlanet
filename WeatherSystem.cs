@@ -54,9 +54,10 @@ public class WeatherSystem
         UpdateSeasons(deltaTime, currentYear);
         UpdateWindPatterns();
         UpdateAirPressure();
+        UpdateEvaporation(deltaTime); // NEW: Continuous water evaporation
+        UpdateCloudCover();
         UpdateStorms(deltaTime, currentYear);
         UpdatePrecipitation();
-        UpdateCloudCover();
     }
 
     private void UpdateSeasons(float deltaTime, int currentYear)
@@ -262,10 +263,16 @@ public class WeatherSystem
 
     private void UpdateStorms(float deltaTime, int currentYear)
     {
-        // Generate new tropical cyclones (less frequently, more realistic)
-        if (_random.NextDouble() < 0.005 * deltaTime)
+        // CONTINUOUS storm generation based on weather conditions (not random!)
+        // Check multiple locations per update for storm formation potential
+        int checksPerUpdate = (int)(30 * deltaTime); // Check 30 locations per frame
+
+        for (int check = 0; check < checksPerUpdate; check++)
         {
-            GenerateStorm();
+            int x = _random.Next(_map.Width);
+            int y = _random.Next(_map.Height);
+
+            CheckAndGenerateStorm(x, y);
         }
 
         // Update existing storms
@@ -391,11 +398,8 @@ public class WeatherSystem
             storm.Type = StormType.HurricaneCategory5;
     }
 
-    private void GenerateStorm()
+    private void CheckAndGenerateStorm(int x, int y)
     {
-        int x = _random.Next(_map.Width);
-        int y = _random.Next(_map.Height);
-
         var cell = _map.Cells[x, y];
         var met = cell.GetMeteorology();
 
@@ -406,12 +410,8 @@ public class WeatherSystem
         // Calculate wind convergence (check if winds are converging)
         float windConvergence = CalculateWindConvergence(x, y);
 
-        // Tropical cyclones require:
-        // 1. Warm ocean (>26°C)
-        // 2. High cloud cover and humidity
-        // 3. Low pressure
-        // 4. Away from equator (need Coriolis: 5-30° latitude)
-        // 5. Wind convergence
+        // TROPICAL CYCLONE FORMATION (continuous process, not random!)
+        // Requires specific conditions to form
         bool canFormTropical = cell.IsWater &&
                               cell.Temperature > 26 &&
                               met.CloudCover > 0.7f &&
@@ -423,62 +423,97 @@ public class WeatherSystem
 
         if (canFormTropical)
         {
-            // Start as tropical depression
-            var storm = new Storm
+            // Check if there's already a storm nearby
+            bool hasNearbyStorm = _storms.Any(s =>
             {
-                CenterX = x,
-                CenterY = y,
-                Intensity = 0.3f + (float)_random.NextDouble() * 0.2f,
-                Type = StormType.TropicalDepression,
-                VelocityX = met.WindSpeedX * 0.15f + (latitude > 0 ? 0.5f : -0.5f),  // Westward drift in tropics
-                VelocityY = met.WindSpeedY * 0.15f + (latitude > 0 ? 0.2f : -0.2f),  // Poleward drift
-                CentralPressure = 1005f - (float)_random.NextDouble() * 10f,
-                MaxWindSpeed = 10f + (float)_random.NextDouble() * 5f,  // Start weak
-                SeaSurfaceTemp = cell.Temperature,
-                OverLand = false,
-                RotationDirection = latitude > 0 ? 1f : -1f  // Counterclockwise NH, clockwise SH
-            };
+                int dx = Math.Abs(s.CenterX - x);
+                int dy = Math.Abs(s.CenterY - y);
+                return dx < 30 && dy < 30;
+            });
 
-            _storms.Add(storm);
+            if (!hasNearbyStorm && _random.NextDouble() < 0.001) // 0.1% chance when conditions perfect
+            {
+                // Start as tropical depression
+                var storm = new Storm
+                {
+                    CenterX = x,
+                    CenterY = y,
+                    Intensity = 0.3f + (float)_random.NextDouble() * 0.2f,
+                    Type = StormType.TropicalDepression,
+                    VelocityX = met.WindSpeedX * 0.15f + (latitude > 0 ? 0.5f : -0.5f),
+                    VelocityY = met.WindSpeedY * 0.15f + (latitude > 0 ? 0.2f : -0.2f),
+                    CentralPressure = 1005f - (float)_random.NextDouble() * 10f,
+                    MaxWindSpeed = 10f + (float)_random.NextDouble() * 5f,
+                    SeaSurfaceTemp = cell.Temperature,
+                    OverLand = false,
+                    RotationDirection = latitude > 0 ? 1f : -1f
+                };
+                _storms.Add(storm);
+            }
         }
-        // Regular thunderstorms
+        // THUNDERSTORM FORMATION (continuous process)
         else if (met.AirPressure < 1000 && cell.Humidity > 0.6f && met.CloudCover > 0.6f)
         {
-            var storm = new Storm
+            bool hasNearbyStorm = _storms.Any(s =>
             {
-                CenterX = x,
-                CenterY = y,
-                Intensity = 0.4f + (float)_random.NextDouble() * 0.3f,
-                Type = StormType.Thunderstorm,
-                VelocityX = met.WindSpeedX * 0.12f,
-                VelocityY = met.WindSpeedY * 0.12f,
-                CentralPressure = 995f,
-                MaxWindSpeed = 15f,
-                SeaSurfaceTemp = cell.Temperature,
-                OverLand = cell.IsLand
-            };
+                int dx = Math.Abs(s.CenterX - x);
+                int dy = Math.Abs(s.CenterY - y);
+                return dx < 15 && dy < 15;
+            });
 
-            _storms.Add(storm);
+            if (!hasNearbyStorm && _random.NextDouble() < 0.002) // 0.2% chance when conditions right
+            {
+                var storm = new Storm
+                {
+                    CenterX = x,
+                    CenterY = y,
+                    Intensity = 0.4f + (float)_random.NextDouble() * 0.3f,
+                    Type = StormType.Thunderstorm,
+                    VelocityX = met.WindSpeedX * 0.12f,
+                    VelocityY = met.WindSpeedY * 0.12f,
+                    CentralPressure = 995f,
+                    MaxWindSpeed = 15f,
+                    SeaSurfaceTemp = cell.Temperature,
+                    OverLand = cell.IsLand
+                };
+                _storms.Add(storm);
+            }
         }
-        // Blizzards in cold areas
+        // BLIZZARD FORMATION (continuous process)
         else if (cell.Temperature < 0 && cell.Humidity > 0.5f && met.CloudCover > 0.7f)
         {
-            var storm = new Storm
+            bool hasNearbyStorm = _storms.Any(s =>
             {
-                CenterX = x,
-                CenterY = y,
-                Intensity = 0.5f + (float)_random.NextDouble() * 0.3f,
-                Type = StormType.Blizzard,
-                VelocityX = met.WindSpeedX * 0.15f,
-                VelocityY = met.WindSpeedY * 0.15f,
-                CentralPressure = 980f,
-                MaxWindSpeed = 20f,
-                SeaSurfaceTemp = cell.Temperature,
-                OverLand = cell.IsLand
-            };
+                int dx = Math.Abs(s.CenterX - x);
+                int dy = Math.Abs(s.CenterY - y);
+                return dx < 15 && dy < 15;
+            });
 
-            _storms.Add(storm);
+            if (!hasNearbyStorm && _random.NextDouble() < 0.002) // 0.2% chance when conditions right
+            {
+                var storm = new Storm
+                {
+                    CenterX = x,
+                    CenterY = y,
+                    Intensity = 0.5f + (float)_random.NextDouble() * 0.3f,
+                    Type = StormType.Blizzard,
+                    VelocityX = met.WindSpeedX * 0.15f,
+                    VelocityY = met.WindSpeedY * 0.15f,
+                    CentralPressure = 980f,
+                    MaxWindSpeed = 20f,
+                    SeaSurfaceTemp = cell.Temperature,
+                    OverLand = cell.IsLand
+                };
+                _storms.Add(storm);
+            }
         }
+    }
+
+    private void GenerateStorm()
+    {
+        int x = _random.Next(_map.Width);
+        int y = _random.Next(_map.Height);
+        CheckAndGenerateStorm(x, y);
     }
 
     private float CalculateWindConvergence(int x, int y)
@@ -679,8 +714,10 @@ public class WeatherSystem
         }
     }
 
-    private void UpdateCloudCover()
+    private void UpdateEvaporation(float deltaTime)
     {
+        // CONTINUOUS WATER EVAPORATION PROCESS
+        // This is critical for the water cycle: evaporation → clouds → rain → runoff → ocean
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -688,13 +725,99 @@ public class WeatherSystem
                 var cell = _map.Cells[x, y];
                 var met = cell.GetMeteorology();
 
-                // Clouds form from humidity
-                float targetClouds = cell.Humidity * 0.8f;
+                // Water bodies evaporate continuously
+                if (cell.IsWater && !cell.IsIce)
+                {
+                    // Evaporation rate increases with:
+                    // 1. Temperature (warmer water = more evaporation)
+                    // 2. Wind speed (wind carries moisture away)
+                    // 3. Low humidity (dry air can hold more moisture)
 
-                // Low pressure increases clouds
+                    float tempFactor = Math.Clamp((cell.Temperature + 10) / 40f, 0, 2); // Peak at 30°C
+                    float windFactor = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY) * 0.05f;
+                    float humidityFactor = (1.0f - cell.Humidity); // More evap when dry
+
+                    // Base evaporation rate (continuous process!)
+                    float evaporationRate = 0.02f * tempFactor * (1.0f + windFactor) * (0.5f + humidityFactor) * deltaTime;
+
+                    // Oceans evaporate more than lakes (more surface area)
+                    if (cell.Elevation < -0.1f) // Deep ocean
+                    {
+                        evaporationRate *= 1.5f;
+                    }
+
+                    // Add moisture to air (increases humidity)
+                    cell.Humidity = Math.Min(1.0f, cell.Humidity + evaporationRate);
+
+                    // Evaporation cools water surface slightly
+                    cell.Temperature -= evaporationRate * 0.1f;
+                }
+                // Land also evaporates water (from soil moisture, vegetation)
+                else if (cell.IsLand && !cell.IsIce && cell.Rainfall > 0.1f)
+                {
+                    // Evapotranspiration from plants and soil
+                    float moistureFactor = cell.Rainfall;
+                    float tempFactor = Math.Clamp((cell.Temperature + 5) / 35f, 0, 1.5f);
+                    float biomassFactor = cell.Biomass * 0.5f; // Plants increase evapotranspiration
+
+                    float evapotranspiration = 0.01f * tempFactor * moistureFactor * (1.0f + biomassFactor) * deltaTime;
+
+                    cell.Humidity = Math.Min(1.0f, cell.Humidity + evapotranspiration);
+                }
+
+                // Wind transports moisture horizontally
+                if (met.WindSpeedX != 0 || met.WindSpeedY != 0)
+                {
+                    // Calculate target cell based on wind direction
+                    int targetX = x + (int)Math.Sign(met.WindSpeedX);
+                    int targetY = y + (int)Math.Sign(met.WindSpeedY);
+
+                    targetX = (targetX + _map.Width) % _map.Width; // Wrap horizontally
+                    if (targetY >= 0 && targetY < _map.Height)
+                    {
+                        var targetCell = _map.Cells[targetX, targetY];
+                        float windStrength = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
+
+                        // Transport moisture downwind
+                        float moistureTransport = cell.Humidity * windStrength * 0.005f * deltaTime;
+                        cell.Humidity = Math.Max(0, cell.Humidity - moistureTransport);
+                        targetCell.Humidity = Math.Min(1.0f, targetCell.Humidity + moistureTransport);
+                    }
+                }
+            }
+        }
+    }
+
+    private void UpdateCloudCover()
+    {
+        // CONTINUOUS CLOUD FORMATION from humidity (from evaporation!)
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var met = cell.GetMeteorology();
+
+                // Clouds form when humidity is high
+                float targetClouds = 0;
+
+                // High humidity = cloud formation
+                if (cell.Humidity > 0.6f)
+                {
+                    targetClouds = (cell.Humidity - 0.5f) * 2.0f; // Scale from 0.6-1.0 → 0.2-1.0
+                }
+
+                // Low pressure enhances cloud formation (rising air)
                 if (met.AirPressure < 1010)
                 {
-                    targetClouds += 0.2f;
+                    float pressureEffect = (1010 - met.AirPressure) / 60f; // 0-1 scale
+                    targetClouds += pressureEffect * 0.3f;
+                }
+
+                // Mountains force air to rise, creating orographic clouds
+                if (cell.Elevation > 0.4f && cell.Humidity > 0.5f)
+                {
+                    targetClouds += 0.3f;
                 }
 
                 // Storms have full cloud cover
@@ -703,6 +826,7 @@ public class WeatherSystem
                     targetClouds = 1.0f;
                 }
 
+                // Gradual cloud formation/dissipation
                 met.CloudCover += (targetClouds - met.CloudCover) * 0.1f;
                 met.CloudCover = Math.Clamp(met.CloudCover, 0, 1);
 
