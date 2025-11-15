@@ -28,6 +28,10 @@ public class MeteorologicalData
     public float Precipitation { get; set; } // Current rainfall/snowfall
     public int Season { get; set; } // 0=Spring, 1=Summer, 2=Fall, 3=Winter
 
+    // Atmospheric vorticity (rotation/spin) for cyclone formation
+    public float Vorticity { get; set; } // Positive = counterclockwise, Negative = clockwise
+    public float PressureTendency { get; set; } // Rate of pressure change (for identifying developing systems)
+
     // Multi-layer atmospheric structure for radiative transfer
     public AtmosphericColumn Column { get; set; } = new();
 }
@@ -82,9 +86,12 @@ public class WeatherSystem
     public void Update(float deltaTime, int currentYear)
     {
         UpdateSeasons(deltaTime, currentYear);
-        UpdateWindPatterns();
         UpdateAirPressure();
-        UpdateEvaporation(deltaTime); // NEW: Continuous water evaporation
+        UpdatePressureCells(deltaTime); // Create rotating pressure systems
+        UpdateWindPatterns();
+        UpdateVorticity(deltaTime); // Calculate atmospheric rotation
+        UpdateBaroclinicInstability(deltaTime); // Mid-latitude eddy formation
+        UpdateEvaporation(deltaTime); // Continuous water evaporation
         UpdateCloudCover();
         UpdateStorms(deltaTime, currentYear);
         UpdatePrecipitation();
@@ -222,6 +229,7 @@ public class WeatherSystem
     private void UpdateWindPatterns()
     {
         // Global wind patterns with Coriolis effect
+        // ENHANCED: Now with turbulence and pressure-driven flow to break up banding
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -233,31 +241,38 @@ public class WeatherSystem
                 float signedLatitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
                 float absLatitude = Math.Abs(signedLatitude);
 
-                // Base wind patterns by latitude zone
+                // Base wind patterns by latitude zone (REDUCED strength to allow local systems)
                 float baseWindX = 0;
                 float baseWindY = 0;
 
                 // Trade winds (0-30° latitude) - easterlies
                 if (absLatitude < 0.3f)
                 {
-                    baseWindX = 5.0f; // Eastward
+                    baseWindX = 3.0f; // Reduced from 5.0f
                     // Converge toward equator (ITCZ - Intertropical Convergence Zone)
-                    baseWindY = -Math.Sign(signedLatitude) * 2.0f;
+                    baseWindY = -Math.Sign(signedLatitude) * 1.5f; // Reduced from 2.0f
                 }
                 // Westerlies (30-60° latitude)
                 else if (absLatitude < 0.6f)
                 {
-                    baseWindX = -7.0f; // Westward
+                    baseWindX = -4.0f; // Reduced from -7.0f
                     // Diverge from mid-latitudes
-                    baseWindY = Math.Sign(signedLatitude) * 1.5f;
+                    baseWindY = Math.Sign(signedLatitude) * 1.0f; // Reduced from 1.5f
                 }
                 // Polar easterlies (60-90° latitude)
                 else
                 {
-                    baseWindX = 3.0f; // Eastward
+                    baseWindX = 2.0f; // Reduced from 3.0f
                     // Converge at poles
-                    baseWindY = -Math.Sign(signedLatitude) * 1.0f;
+                    baseWindY = -Math.Sign(signedLatitude) * 0.7f; // Reduced from 1.0f
                 }
+
+                // *** NEW: ADD TURBULENCE TO BREAK UP BANDING ***
+                // Small-scale eddies and local variations
+                float turbulenceX = (float)(Math.Sin(x * 0.5f + y * 0.3f) * 0.8f);
+                float turbulenceY = (float)(Math.Cos(x * 0.3f + y * 0.5f) * 0.8f);
+                baseWindX += turbulenceX;
+                baseWindY += turbulenceY;
 
                 // Apply Coriolis effect (deflects winds based on latitude and hemisphere)
                 // Coriolis parameter: f = 2 * Ω * sin(latitude)
@@ -273,16 +288,39 @@ public class WeatherSystem
                 float windX = baseWindX + coriolisDeflectionX;
                 float windY = baseWindY + coriolisDeflectionY;
 
-                // Local wind from pressure differences (geostrophic wind)
+                // *** ENHANCED: STRONGER PRESSURE GRADIENT WINDS ***
+                // This is the key to creating cellular patterns!
                 var neighbors = _map.GetNeighbors(x, y).ToList();
                 if (neighbors.Count > 0)
                 {
-                    float avgPressure = neighbors.Average(n => n.cell.GetMeteorology().AirPressure);
-                    float pressureDiff = avgPressure - met.AirPressure;
+                    // Calculate pressure gradient in each direction
+                    float pressureGradX = 0;
+                    float pressureGradY = 0;
+                    int countX = 0, countY = 0;
 
-                    // Wind flows from high to low pressure, also affected by Coriolis
-                    float pressureWindX = pressureDiff * 0.1f;
-                    float pressureWindY = pressureDiff * 0.05f;
+                    foreach (var (nx, ny, neighbor) in neighbors)
+                    {
+                        var neighborMet = neighbor.GetMeteorology();
+                        float pressureDiff = met.AirPressure - neighborMet.AirPressure;
+
+                        if (nx != x) // East-West gradient
+                        {
+                            pressureGradX += pressureDiff * Math.Sign(nx - x);
+                            countX++;
+                        }
+                        if (ny != y) // North-South gradient
+                        {
+                            pressureGradY += pressureDiff * Math.Sign(ny - y);
+                            countY++;
+                        }
+                    }
+
+                    if (countX > 0) pressureGradX /= countX;
+                    if (countY > 0) pressureGradY /= countY;
+
+                    // Geostrophic wind from pressure gradient (stronger effect)
+                    float pressureWindX = pressureGradX * 0.4f; // Increased from 0.1f
+                    float pressureWindY = pressureGradY * 0.4f; // Increased from 0.05f
 
                     // Apply Coriolis to pressure gradient wind
                     windX += pressureWindX - pressureWindY * coriolisStrength;
@@ -312,6 +350,9 @@ public class WeatherSystem
                 var cell = _map.Cells[x, y];
                 var met = cell.GetMeteorology();
 
+                // Store old pressure for tendency calculation
+                float oldPressure = met.AirPressure;
+
                 // Pressure affected by temperature (warm air rises = low pressure)
                 float tempEffect = (20 - cell.Temperature) * 0.5f;
 
@@ -323,6 +364,217 @@ public class WeatherSystem
 
                 met.AirPressure = 1013.25f + tempEffect + elevationEffect - humidityEffect;
                 met.AirPressure = Math.Clamp(met.AirPressure, 950, 1050);
+
+                // Calculate pressure tendency (change rate)
+                met.PressureTendency = met.AirPressure - oldPressure;
+            }
+        }
+    }
+
+    private void UpdatePressureCells(float deltaTime)
+    {
+        // Create semi-permanent rotating pressure systems (highs and lows)
+        // This breaks up zonal banding and creates cellular patterns
+
+        // Add random pressure perturbations to seed cyclone/anticyclone formation
+        for (int i = 0; i < 5; i++) // Create 5 pressure anomalies per update
+        {
+            int centerX = _random.Next(_map.Width);
+            int centerY = _random.Next(_map.Height);
+
+            var centerCell = _map.Cells[centerX, centerY];
+            float latitude = (centerY - _map.Height / 2.0f) / (_map.Height / 2.0f);
+            float absLatitude = Math.Abs(latitude);
+
+            // Pressure cells form mainly in mid-latitudes (30-60°)
+            if (absLatitude < 0.3f || absLatitude > 0.7f) continue;
+
+            // Randomly create high or low pressure cell
+            bool isHighPressure = _random.NextDouble() > 0.5;
+            float pressureAnomaly = isHighPressure ? 15f : -15f;
+
+            // Apply pressure anomaly in a circular pattern
+            int radius = 15 + _random.Next(10); // Varied size
+
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                for (int dy = -radius; dy <= radius; dy++)
+                {
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+                    if (dist > radius) continue;
+
+                    int x = (centerX + dx + _map.Width) % _map.Width;
+                    int y = centerY + dy;
+                    if (y < 0 || y >= _map.Height) continue;
+
+                    var cell = _map.Cells[x, y];
+                    var met = cell.GetMeteorology();
+
+                    // Gaussian pressure distribution
+                    float strength = MathF.Exp(-(dist * dist) / (radius * radius / 2f));
+                    met.AirPressure += pressureAnomaly * strength * deltaTime * 2f;
+                    met.AirPressure = Math.Clamp(met.AirPressure, 950, 1050);
+                }
+            }
+        }
+    }
+
+    private void UpdateVorticity(float deltaTime)
+    {
+        // Calculate atmospheric vorticity (rotation/spin)
+        // Positive vorticity = counterclockwise rotation (cyclones in NH)
+        // Negative vorticity = clockwise rotation (anticyclones in NH)
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var met = _map.Cells[x, y].GetMeteorology();
+
+                // Calculate wind shear (change in wind across space)
+                // Vorticity = ∂v/∂x - ∂u/∂y (v=east-west wind, u=north-south wind)
+
+                float dvdx = 0, dudy = 0;
+                int count = 0;
+
+                // Sample neighbors to calculate derivatives
+                var neighbors = _map.GetNeighbors(x, y).ToList();
+                foreach (var (nx, ny, neighbor) in neighbors)
+                {
+                    var neighborMet = neighbor.GetMeteorology();
+
+                    // East-west gradient
+                    if (nx != x)
+                    {
+                        float dx = nx - x;
+                        dvdx += (neighborMet.WindSpeedY - met.WindSpeedY) / dx;
+                        count++;
+                    }
+
+                    // North-south gradient
+                    if (ny != y)
+                    {
+                        float dy = ny - y;
+                        dudy += (neighborMet.WindSpeedX - met.WindSpeedX) / dy;
+                        count++;
+                    }
+                }
+
+                if (count > 0)
+                {
+                    dvdx /= count;
+                    dudy /= count;
+                }
+
+                // Calculate relative vorticity
+                float relativeVorticity = dvdx - dudy;
+
+                // Add planetary vorticity (Coriolis effect)
+                float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
+                float planetaryVorticity = latitude * 2f; // f = 2Ω sin(lat)
+
+                // Total vorticity
+                met.Vorticity = relativeVorticity + planetaryVorticity;
+
+                // Vorticity enhances rotation in existing systems
+                // Apply feedback: vorticity creates circular wind patterns
+                if (Math.Abs(met.Vorticity) > 0.5f)
+                {
+                    // Add rotational component to winds
+                    float rotationStrength = met.Vorticity * 0.1f * deltaTime;
+
+                    // Rotate wind vector
+                    float angle = rotationStrength;
+                    float cosA = MathF.Cos(angle);
+                    float sinA = MathF.Sin(angle);
+
+                    float newWindX = met.WindSpeedX * cosA - met.WindSpeedY * sinA;
+                    float newWindY = met.WindSpeedX * sinA + met.WindSpeedY * cosA;
+
+                    met.WindSpeedX = newWindX;
+                    met.WindSpeedY = newWindY;
+                }
+            }
+        }
+    }
+
+    private void UpdateBaroclinicInstability(float deltaTime)
+    {
+        // Baroclinic instability: Temperature gradients create rotating eddies
+        // This is the primary mechanism for mid-latitude cyclone formation
+        // Source: Holton "An Introduction to Dynamic Meteorology" (2004)
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
+                float absLatitude = Math.Abs(latitude);
+
+                // Baroclinic instability strongest in mid-latitudes (30-60°)
+                if (absLatitude < 0.3f || absLatitude > 0.7f) continue;
+
+                var met = cell.GetMeteorology();
+
+                // Calculate horizontal temperature gradient
+                float tempGradient = 0;
+                int count = 0;
+
+                foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                {
+                    float tempDiff = neighbor.Temperature - cell.Temperature;
+                    float dist = MathF.Sqrt((nx - x) * (nx - x) + (ny - y) * (ny - y));
+                    if (dist > 0)
+                    {
+                        tempGradient += Math.Abs(tempDiff) / dist;
+                        count++;
+                    }
+                }
+
+                if (count > 0)
+                    tempGradient /= count;
+
+                // Strong temperature gradients trigger eddy formation
+                if (tempGradient > 2.0f) // Significant gradient
+                {
+                    // Create rotating eddy (cyclonic or anticyclonic)
+                    // Direction depends on hemisphere and temperature contrast
+
+                    float eddyStrength = (tempGradient - 2.0f) * 0.5f * deltaTime;
+                    float rotationSign = Math.Sign(latitude); // NH: positive, SH: negative
+
+                    // Lower pressure in developing cyclone
+                    met.AirPressure -= eddyStrength * 3f;
+
+                    // Increase vorticity (spin up the eddy)
+                    met.Vorticity += eddyStrength * rotationSign;
+
+                    // Add circular wind component
+                    int radius = 10;
+                    for (int dx = -radius; dx <= radius; dx++)
+                    {
+                        for (int dy = -radius; dy <= radius; dy++)
+                        {
+                            float dist = MathF.Sqrt(dx * dx + dy * dy);
+                            if (dist > radius || dist < 1) continue;
+
+                            int nx = (x + dx + _map.Width) % _map.Width;
+                            int ny = y + dy;
+                            if (ny < 0 || ny >= _map.Height) continue;
+
+                            var neighborMet = _map.Cells[nx, ny].GetMeteorology();
+
+                            // Add tangential wind (circular flow)
+                            float angle = MathF.Atan2(dy, dx);
+                            float tangentialAngle = angle + (rotationSign * MathF.PI / 2f);
+
+                            float tangentialSpeed = eddyStrength * (1f - dist / radius);
+                            neighborMet.WindSpeedX += MathF.Cos(tangentialAngle) * tangentialSpeed;
+                            neighborMet.WindSpeedY += MathF.Sin(tangentialAngle) * tangentialSpeed;
+                        }
+                    }
+                }
             }
         }
     }
@@ -857,6 +1109,7 @@ public class WeatherSystem
     private void UpdateCloudCover()
     {
         // CONTINUOUS CLOUD FORMATION from humidity (from evaporation!)
+        // NOW WITH CYCLONIC SPIRAL PATTERNS!
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -880,6 +1133,42 @@ public class WeatherSystem
                     targetClouds += pressureEffect * 0.3f;
                 }
 
+                // *** NEW: VORTICITY CREATES SPIRAL CLOUD PATTERNS ***
+                // Strong rotation (cyclones) creates organized cloud bands
+                float absVorticity = Math.Abs(met.Vorticity);
+                if (absVorticity > 1.0f)
+                {
+                    // Cyclonic rotation enhances cloud formation
+                    float vorticityEffect = Math.Min(absVorticity / 3f, 0.5f);
+                    targetClouds += vorticityEffect;
+
+                    // Create spiral banding pattern around vorticity centers
+                    // Check neighbors for vorticity gradient (spiral arms)
+                    float maxNeighborVorticity = 0;
+                    foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                    {
+                        var neighborMet = neighbor.GetMeteorology();
+                        maxNeighborVorticity = Math.Max(maxNeighborVorticity, Math.Abs(neighborMet.Vorticity));
+                    }
+
+                    // Spiral arms: enhanced clouds where vorticity increases outward
+                    if (maxNeighborVorticity > absVorticity)
+                    {
+                        targetClouds += 0.2f; // Spiral arm enhancement
+                    }
+                }
+
+                // *** NEW: PRESSURE CELLS CREATE CLOUD PATTERNS ***
+                // Low pressure = cloudy (rising air), High pressure = clear (sinking air)
+                if (met.AirPressure < 1005) // Deep low pressure
+                {
+                    targetClouds += 0.3f; // Extra clouds in lows
+                }
+                else if (met.AirPressure > 1020) // High pressure
+                {
+                    targetClouds *= 0.5f; // Suppress clouds in highs (sinking air)
+                }
+
                 // Mountains force air to rise, creating orographic clouds
                 if (cell.Elevation > 0.4f && cell.Humidity > 0.5f)
                 {
@@ -892,8 +1181,16 @@ public class WeatherSystem
                     targetClouds = 1.0f;
                 }
 
-                // Gradual cloud formation/dissipation
-                met.CloudCover += (targetClouds - met.CloudCover) * 0.1f;
+                // *** NEW: WIND CONVERGENCE CREATES CLOUD LINES ***
+                // Where winds converge, air rises and forms clouds
+                float windConvergence = CalculateWindConvergence(x, y);
+                if (windConvergence > 0.02f)
+                {
+                    targetClouds += windConvergence * 2f; // Convergence zones = cloudy
+                }
+
+                // Gradual cloud formation/dissipation (faster response)
+                met.CloudCover += (targetClouds - met.CloudCover) * 0.15f;
                 met.CloudCover = Math.Clamp(met.CloudCover, 0, 1);
 
                 // Reset storm flag
