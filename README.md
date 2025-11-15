@@ -146,7 +146,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Respects terrain constraints for realistic results
   - Scroll wheel adjusts brush size
 - **Resource Placement Tool** (Press M):
-  - Place 10 resource types: Iron, Copper, Coal, Gold, Silver, Oil, Gas, Uranium, Rare Earths, Diamonds
+  - Place 10 resource types: Iron, Copper, Coal, Gold, Silver, Oil, Gas, Uranium, Platinum, Diamond
   - Adjustable deposit amounts (5-100 units)
   - Scroll wheel adjusts amount, R key cycles resource type
   - Resources auto-discovered and ready for civilization extraction
@@ -688,7 +688,7 @@ Potential additions (not yet implemented):
 
 **NEW - Resource Placement Tool:**
 - ✅ **Manual Resource Placement** - Place natural resources anywhere on map
-  - **10 Resource Types**: Iron, Copper, Coal, Gold, Silver, Oil, Natural Gas, Uranium, Rare Earths, Diamonds
+  - **10 Resource Types**: Iron, Copper, Coal, Gold, Silver, Oil, Natural Gas, Uranium, Platinum, Diamond
   - **Adjustable Amounts**: 5-100 units via scroll wheel
   - **Auto-Discovery**: Resources automatically discovered when manually placed
   - **Click to Place**: Simple mouse interface

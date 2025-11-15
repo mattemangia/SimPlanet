@@ -37,7 +37,7 @@ SimPlanet is a complete SimEarth-like planetary evolution simulator built from s
 - ✅ **Map Options Menu**: Interactive planet customization with real-time preview
 - ✅ **Time Control**: Variable simulation speed (0.25x to 32x)
 - ✅ **Manual Terraforming Tool**: Place plants, algae, bacteria, create fault lines with mouse click
-- ✅ **Resource Placement Tool**: Manually place 10 resource types (Iron, Copper, Coal, Gold, Silver, Oil, Gas, Uranium, Rare Earths, Diamonds)
+- ✅ **Resource Placement Tool**: Manually place 10 resource types (Iron, Copper, Coal, Gold, Silver, Oil, Gas, Uranium, Platinum, Diamond)
 - ✅ **Disaster Control**: Toggle disasters on/off with status display
 - ✅ **Civilization Control**: Toggle civilization growth and development
 - ✅ **Auto-Stabilizer Display**: Real-time stabilization status and adjustments made
@@ -444,7 +444,7 @@ dotnet run
   - Smaller magnitude earthquakes (M2.0-5.0) compared to natural quakes
   - Integrated with existing EarthquakeSystem via InducedSeismicity flag
 - ✅ **Resource Placement Tool**: Manual resource placement anywhere on map (M key)
-  - 10 resource types: Iron, Copper, Coal, Gold, Silver, Oil, Natural Gas, Uranium, Rare Earths, Diamonds
+  - 10 resource types: Iron, Copper, Coal, Gold, Silver, Oil, Natural Gas, Uranium, Platinum, Diamond
   - Adjustable deposit amounts: 5-100 units (scroll wheel)
   - R key cycles through resource types
   - Resources auto-discovered when manually placed

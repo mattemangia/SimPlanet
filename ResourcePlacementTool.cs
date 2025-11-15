@@ -82,11 +82,11 @@ public class ResourcePlacementTool
         else
         {
             // Create new resource deposit
-            var newDeposit = new ResourceDeposit
+            float depth = 0.3f + (float)new Random().NextDouble() * 0.4f; // Random depth 0.3-0.7
+            float concentration = 0.7f + (float)new Random().NextDouble() * 0.3f; // High quality 0.7-1.0
+
+            var newDeposit = new ResourceDeposit(CurrentResourceType, DepositAmount, concentration, depth)
             {
-                Type = CurrentResourceType,
-                Amount = DepositAmount,
-                Depth = 0.3f + (float)new Random().NextDouble() * 0.4f, // Random depth 0.3-0.7
                 RequiredTech = GetRequiredTechForResource(CurrentResourceType),
                 Discovered = true // Auto-discover when manually placed
             };
@@ -107,8 +107,8 @@ public class ResourcePlacementTool
             ResourceType.Oil => ExtractionTech.Industrial,
             ResourceType.NaturalGas => ExtractionTech.Industrial,
             ResourceType.Uranium => ExtractionTech.Modern,
-            ResourceType.RareEarths => ExtractionTech.Modern,
-            ResourceType.Diamonds => ExtractionTech.Industrial,
+            ResourceType.Platinum => ExtractionTech.Modern,
+            ResourceType.Diamond => ExtractionTech.Industrial,
             _ => ExtractionTech.Primitive
         };
     }
@@ -165,7 +165,7 @@ public class ResourcePlacementTool
             ResourceType.Iron, ResourceType.Copper, ResourceType.Coal,
             ResourceType.Gold, ResourceType.Silver, ResourceType.Oil,
             ResourceType.NaturalGas, ResourceType.Uranium,
-            ResourceType.RareEarths, ResourceType.Diamonds
+            ResourceType.Platinum, ResourceType.Diamond
         };
 
         foreach (var type in resourceTypes)
@@ -203,9 +203,9 @@ public class ResourcePlacementTool
             ResourceType.Silver => ResourceType.Oil,
             ResourceType.Oil => ResourceType.NaturalGas,
             ResourceType.NaturalGas => ResourceType.Uranium,
-            ResourceType.Uranium => ResourceType.RareEarths,
-            ResourceType.RareEarths => ResourceType.Diamonds,
-            ResourceType.Diamonds => ResourceType.Iron,
+            ResourceType.Uranium => ResourceType.Platinum,
+            ResourceType.Platinum => ResourceType.Diamond,
+            ResourceType.Diamond => ResourceType.Iron,
             _ => ResourceType.Iron
         };
     }
