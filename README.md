@@ -222,8 +222,28 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Restores magnetic field to protect from radiation
   - Balances land/ocean ratio (target 29%/71%)
   - Shows real-time status: adjustments made, last action
-  - Perfect for hands-free planetary management
+  - Perfect for hands-off planetary management
   - Press Y to toggle on/off during gameplay
+- **Planetary Controls UI** (Press X) - SimEarth-style Parameter Control:
+  - **Complete Manual Control** - Adjust every planetary parameter in real-time
+  - **15 Control Sliders**:
+    - **Climate**: Solar Energy (0.5x-1.5x), Global Temperature Offset (-20°C to +20°C)
+    - **Atmosphere**: Rainfall Multiplier (0.1x-3.0x), Wind Speed (0.1x-3.0x), Oxygen (0-50%), CO2 (0-10%), Atmospheric Pressure (500-1500 mb)
+    - **Geology**: Tectonic Activity (0.1x-3.0x), Volcanic Activity (0.1x-3.0x), Erosion Rate (0.1x-3.0x)
+    - **Surface**: Ice Coverage (0-100%), Ocean Level (-1.0 to +1.0), Albedo/Reflectivity (0.1-0.9)
+    - **Magnetosphere**: Magnetic Field Strength (0.0-2.0), Core Temperature (1000-8000K)
+  - **AI Stabilizer Controls**:
+    - **Restore Planet** - AI automatically adjusts all parameters to habitable Earth-like conditions
+    - **Destabilize Planet** - Disable AI and allow natural chaos (ice ages, runaway greenhouse, etc.)
+    - **Toggle Auto-Stabilization** - Enable/disable automatic planet balancing
+  - **Manual Terraforming Brush** - Paint tiles directly on the map:
+    - 8 Tile Types: Forest, Grassland, Desert, Tundra, Ocean, Mountain, Fault Lines, Civilization
+    - Adjustable brush size (1-15 cell radius)
+    - Scroll wheel to adjust brush size
+    - Respects terrain constraints for realistic results
+  - **Real-Time Updates** - All changes apply immediately to the simulation
+  - **Professional UI** - Organized sliders with clear labels and value indicators
+  - Perfect for experimenting with planetary conditions and terraforming
 - **Save/Load System**:
   - Quick save with F5, quick load with F9
   - Full menu system with save slots and timestamps
@@ -383,6 +403,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **G** | Open civilization control panel |
 | **H** | Toggle help panel |
 | **I** | Open divine powers menu (god mode - control civilizations) |
+| **X** | Open planetary controls (SimEarth-style parameter adjustment) |
 | **R** | Regenerate planet with current settings |
 | **F5** | Quick save game |
 | **F6** | Apply Earth preset (in map options) |
@@ -563,6 +584,7 @@ Civilization (produces more CO2, can adapt to various climates)
 
 ### Interactive Tools
 - **ManualPlantingTool.cs**: Terraforming tool for planting forests, creating oceans, seeding civilizations
+- **PlanetaryControlsUI.cs**: SimEarth-style parameter control panel with 15 sliders for climate, atmosphere, geology, surface, and magnetosphere
 - **PlayerCivilizationControl.cs**: Direct control of civilization development
 - **DisasterControlUI.cs**: Trigger and control natural disasters
 - **DiseaseControlUI.cs**: Create and evolve pandemics, track disease spread and cure research
@@ -571,11 +593,13 @@ Civilization (produces more CO2, can adapt to various climates)
 ### Rendering and UI
 - **TerrainRenderer.cs**: Rendering with 14+ view modes, day/night cycle, procedural colors
 - **GameUI.cs**: Information panels showing stats, civilizations, weather alerts, stabilizer status
+- **ToolbarUI.cs**: Comprehensive interactive toolbar with 50+ clickable buttons, tooltips, and runtime-generated icons
 - **MapOptionsUI.cs**: Map generation configuration with real-time preview and planet presets
 - **PlanetMinimap3D.cs**: Interactive 3D sphere with rotation and tilt controls
 - **GeologicalEventsUI.cs**: Event log and overlays (volcanoes, rivers, plate boundaries)
 - **SedimentColumnViewer.cs**: Geological sediment layer visualization
 - **SimpleFont.cs**: Procedural font rendering (no external assets needed)
+- **SplashScreen.cs**: Cross-platform MonoGame splash screen with fade effects
 
 ### Game Management
 - **SimPlanetGame.cs**: Main game loop and orchestration
@@ -675,7 +699,7 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Interactive Toolbar & Splash Screen
+### Latest Update - Interactive Toolbar, Splash Screen & Planetary Controls
 
 **NEW - Comprehensive Interactive Toolbar:**
 - ✅ **Clickable Buttons for All Functions** - No need to remember keybindings!
@@ -693,14 +717,34 @@ Potential additions (not yet implemented):
 - ✅ **Cross-Platform** - Uses MonoGame for Mac, Linux, and Windows compatibility
 - ✅ **Professional Presentation** - Borderless centered window with 3-second display duration
 - ✅ **Smooth Animations** - 300ms fade in, 2.4s display, 300ms fade out
+- ✅ **Menu Backgrounds** - Splash image used as subtle 15% opacity background in all menus
+
+**NEW - Planetary Controls UI (SimEarth-Style - Press X):**
+- ✅ **Complete Manual Control** - Adjust every planetary parameter in real-time just like SimEarth
+- ✅ **15 Control Sliders** - Full control over climate, atmosphere, geology, surface, and magnetosphere
+- ✅ **Climate Control**: Solar energy (0.5x-1.5x), temperature offset (-20°C to +20°C)
+- ✅ **Atmosphere Control**: Rainfall (0.1x-3.0x), wind speed (0.1x-3.0x), oxygen (0-50%), CO2 (0-10%), pressure (500-1500 mb)
+- ✅ **Geological Control**: Tectonic activity (0.1x-3.0x), volcanic activity (0.1x-3.0x), erosion rate (0.1x-3.0x)
+- ✅ **Surface Control**: Ice coverage (0-100%), ocean level (-1.0 to +1.0), albedo/reflectivity (0.1-0.9)
+- ✅ **Magnetosphere Control**: Magnetic field strength (0.0-2.0), core temperature (1000-8000K)
+- ✅ **AI Stabilizer Integration** - Restore planet to Earth-like conditions or destabilize for chaos
+- ✅ **Manual Terraforming Brush** - Paint tiles directly: Forest, Grassland, Desert, Tundra, Ocean, Mountain, Faults, Civilization
+- ✅ **Real-Time Updates** - All parameter changes apply immediately to the running simulation
+- ✅ **Professional UI** - Organized sliders with clear labels, value indicators, and responsive controls
 
 **UI Architecture Updates:**
-- **ToolbarUI.cs** - Complete toolbar system with button infrastructure and icon generation
-- **SplashScreen.cs** - MonoGame-based splash screen with fade effects
+- **ToolbarUI.cs** (NEW) - Complete toolbar system with button infrastructure and icon generation
+- **SplashScreen.cs** (NEW) - MonoGame-based splash screen with fade effects
+- **PlanetaryControlsUI.cs** (NEW) - SimEarth-style parameter control panel with 15 sliders
+- **MainMenu.cs** - Updated with splash background at 15% opacity on all menu screens
+- **LoadingScreen.cs** - Added splash background for consistency
 - **GameUI.cs** - Updated to render info panel below toolbar
 - **GeologicalEventsUI.cs** - Event log positioned below toolbar
-- **SimPlanetGame.cs** - Integrated toolbar rendering and layout adjustments
+- **SedimentColumnViewer.cs** - Adjusted panel position to avoid toolbar overlap
+- **DisasterControlUI.cs** - Adjusted panel position to avoid toolbar overlap
+- **SimPlanetGame.cs** - Integrated toolbar, planetary controls, and layout adjustments
 - **Program.cs** - Shows splash screen before game initialization
+- **TerrainCell.cs** - Added Albedo property for surface reflectivity control
 
 **Keyboard Shortcuts:**
 - All existing keyboard shortcuts work - toolbar is purely additive!
