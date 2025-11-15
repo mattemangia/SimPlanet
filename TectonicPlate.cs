@@ -27,6 +27,16 @@ public enum PlateBoundaryType
     Transform     // Plates sliding past (earthquakes)
 }
 
+public enum FaultType
+{
+    None,
+    Strike_Slip,   // Horizontal movement (Transform boundaries - San Andreas)
+    Normal,        // Extensional, plates pulling apart (Divergent - East African Rift)
+    Reverse,       // Compressional, plates pushing together (Convergent - Himalayas)
+    Thrust,        // Low-angle reverse fault (major mountain building)
+    Oblique        // Combined strike-slip and dip-slip
+}
+
 public enum SedimentType
 {
     Sand,
@@ -103,6 +113,24 @@ public class GeologicalData
     public int LastEruptionYear { get; set; }
     public EruptionType LastEruptionType { get; set; } = EruptionType.Effusive;
     public int EruptionIntensity { get; set; } = 1; // VEI 0-8 scale
+    public bool IsHotSpot { get; set; }  // Hot spot volcano (away from plate boundaries)
+
+    // Seismic activity (earthquakes and faults)
+    public bool IsFault { get; set; }  // Is this cell on a fault line?
+    public FaultType FaultType { get; set; } = FaultType.None;
+    public float FaultActivity { get; set; }  // 0-1, how active the fault is
+    public float EarthquakeMagnitude { get; set; }  // Current earthquake magnitude (0 if none)
+    public int LastEarthquakeYear { get; set; }
+    public float SeismicStress { get; set; }  // Accumulated stress (releases as earthquakes)
+    public bool IsEpicenter { get; set; }  // Is this the earthquake epicenter?
+    public float EarthquakeIntensity { get; set; }  // Intensity at this location (0-1)
+    public bool InducedSeismicity { get; set; }  // Human-induced earthquake (fracking, etc.)
+
+    // Tsunami
+    public float TsunamiWaveHeight { get; set; }  // Current tsunami wave height (0 if none)
+    public float TsunamiVelocity { get; set; }  // Wave propagation velocity
+    public (float x, float y) TsunamiDirection { get; set; }  // Wave direction
+    public int TsunamiSourceYear { get; set; }  // Year tsunami was generated
 
     // Erosion and Sedimentation
     public float SedimentLayer { get; set; }

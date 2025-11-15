@@ -110,6 +110,9 @@ public class TerrainRenderer
                     RenderMode.Resources => GetResourcesColor(cell),
                     RenderMode.Albedo => GetAlbedoColor(cell),
                     RenderMode.Radiation => GetRadiationColor(cell),
+                    RenderMode.Earthquakes => GetEarthquakesColor(cell),
+                    RenderMode.Faults => GetFaultsColor(cell),
+                    RenderMode.Tsunamis => GetTsunamisColor(cell),
                     _ => Color.Black
                 };
 
@@ -678,6 +681,137 @@ public class TerrainRenderer
         }
     }
 
+    private Color GetEarthquakesColor(TerrainCell cell)
+    {
+        var geo = cell.Geology;
+
+        // Epicenter (bright red/orange pulse)
+        if (geo.IsEpicenter)
+        {
+            // Magnitude-based brightness: M2.0 (dim) to M9.0+ (bright)
+            float magnitudeNormalized = Math.Clamp((geo.EarthquakeMagnitude - 2.0f) / 7.0f, 0, 1);
+            return Color.Lerp(new Color(255, 200, 100), new Color(255, 50, 0), magnitudeNormalized);
+        }
+
+        // Active earthquake intensity (seismic waves)
+        if (geo.EarthquakeIntensity > 0)
+        {
+            float intensity = Math.Clamp(geo.EarthquakeIntensity, 0, 1);
+            // Color gradient: Faint yellow → Orange → Red
+            if (intensity < 0.3f)
+            {
+                return Color.Lerp(new Color(100, 100, 60), new Color(200, 200, 100), intensity / 0.3f);
+            }
+            else if (intensity < 0.7f)
+            {
+                return Color.Lerp(new Color(200, 200, 100), new Color(255, 150, 50), (intensity - 0.3f) / 0.4f);
+            }
+            else
+            {
+                return Color.Lerp(new Color(255, 150, 50), new Color(255, 100, 0), (intensity - 0.7f) / 0.3f);
+            }
+        }
+
+        // Seismic stress buildup (cool colors for accumulating stress)
+        if (geo.SeismicStress > 0.3f)
+        {
+            float stress = Math.Clamp(geo.SeismicStress, 0.3f, 1.5f);
+            float t = (stress - 0.3f) / 1.2f; // Normalize 0.3-1.5 to 0-1
+            // Blue (low stress) → Purple (high stress, ready to rupture)
+            return Color.Lerp(new Color(80, 80, 150), new Color(150, 50, 150), t);
+        }
+
+        // Base color (dark)
+        return new Color(40, 40, 50);
+    }
+
+    private Color GetFaultsColor(TerrainCell cell)
+    {
+        var geo = cell.Geology;
+
+        if (!geo.IsFault)
+        {
+            // Non-fault areas: dark gray
+            return new Color(50, 50, 50);
+        }
+
+        // Fault color based on type and activity
+        Color baseColor = geo.FaultType switch
+        {
+            FaultType.Strike_Slip => new Color(255, 200, 50),    // Yellow-orange (San Andreas)
+            FaultType.Normal => new Color(100, 200, 255),        // Light blue (extension)
+            FaultType.Reverse => new Color(255, 100, 100),       // Red-pink (compression)
+            FaultType.Thrust => new Color(200, 50, 50),          // Dark red (major compression)
+            FaultType.Oblique => new Color(200, 150, 255),       // Purple (mixed)
+            _ => Color.Gray
+        };
+
+        // Brightness based on fault activity (0-1)
+        float activity = Math.Clamp(geo.FaultActivity, 0, 1);
+        baseColor = Color.Lerp(new Color(baseColor.R / 3, baseColor.G / 3, baseColor.B / 3), baseColor, activity);
+
+        // Brighten if stress is high (about to rupture)
+        if (geo.SeismicStress > 0.7f)
+        {
+            baseColor = Color.Lerp(baseColor, Color.White, (geo.SeismicStress - 0.7f) / 0.3f * 0.5f);
+        }
+
+        return baseColor;
+    }
+
+    private Color GetTsunamisColor(TerrainCell cell)
+    {
+        var geo = cell.Geology;
+
+        // Tsunami wave height visualization
+        if (geo.TsunamiWaveHeight > 0.1f)
+        {
+            // Wave height: 0m (calm) to 30m+ (catastrophic)
+            float height = Math.Clamp(geo.TsunamiWaveHeight, 0, 30);
+            float t = height / 30.0f;
+
+            // Color gradient: Light blue → Cyan → Aqua → White (massive wave)
+            if (t < 0.2f)
+            {
+                // Small wave: Light blue
+                return Color.Lerp(new Color(100, 150, 255), new Color(100, 200, 255), t * 5.0f);
+            }
+            else if (t < 0.5f)
+            {
+                // Medium wave: Cyan
+                return Color.Lerp(new Color(100, 200, 255), new Color(0, 255, 255), (t - 0.2f) / 0.3f);
+            }
+            else if (t < 0.8f)
+            {
+                // Large wave: Bright cyan/white
+                return Color.Lerp(new Color(0, 255, 255), new Color(200, 255, 255), (t - 0.5f) / 0.3f);
+            }
+            else
+            {
+                // Catastrophic wave: White
+                return Color.Lerp(new Color(200, 255, 255), Color.White, (t - 0.8f) / 0.2f);
+            }
+        }
+
+        // Coastal flooding (land areas with flood water)
+        if (cell.IsLand && geo.FloodLevel > 0)
+        {
+            float floodLevel = Math.Clamp(geo.FloodLevel, 0, 5);
+            float t = floodLevel / 5.0f;
+            // Muddy water color: Brown to dark blue
+            return Color.Lerp(new Color(120, 100, 60), new Color(80, 120, 150), t);
+        }
+
+        // Ocean color for reference
+        if (cell.IsWater)
+        {
+            return new Color(30, 50, 120); // Dark blue
+        }
+
+        // Land (no tsunami): Gray-green
+        return new Color(60, 80, 60);
+    }
+
     public void DrawLegend(SpriteBatch spriteBatch, FontRenderer font, int screenWidth, int screenHeight)
     {
         // Don't show legend for Terrain mode (it's self-explanatory)
@@ -923,5 +1057,8 @@ public enum RenderMode
     Biomes,
     Resources,
     Albedo,         // Surface reflectivity (ice-albedo feedback)
-    Radiation       // Cosmic rays and solar radiation
+    Radiation,      // Cosmic rays and solar radiation
+    Earthquakes,    // Seismic activity and epicenters
+    Faults,         // Fault lines and fault types
+    Tsunamis        // Tsunami waves and coastal flooding
 }

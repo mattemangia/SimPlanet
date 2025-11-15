@@ -150,9 +150,9 @@ public class GeologicalSimulator
 
     private void InitializeVolcanicHotspots()
     {
-        // Create volcanic hotspots (like Hawaii, Yellowstone)
-        // Reduced from 5-10 to 2-4 to prevent over-volcanism
-        int numHotspots = 2 + _random.Next(3);
+        // Create volcanic hotspots (like Hawaii, Yellowstone, Galapagos, Iceland)
+        // Hot spots are mantle plumes independent of plate boundaries
+        int numHotspots = 4 + _random.Next(5); // 4-8 hot spots
 
         for (int i = 0; i < numHotspots; i++)
         {
@@ -162,8 +162,36 @@ public class GeologicalSimulator
             var cell = _map.Cells[x, y];
             var geo = cell.GetGeology();
             geo.IsVolcano = true;
+            geo.IsHotSpot = true; // Mark as mantle plume hot spot
             geo.MagmaPressure = (float)_random.NextDouble() * 0.5f;
-            geo.VolcanicActivity = 0.3f;
+            geo.VolcanicActivity = 0.4f + (float)_random.NextDouble() * 0.3f; // Higher activity (0.4-0.7)
+
+            // Hot spots can create volcanic chains (like Hawaiian islands)
+            // Create 2-5 additional volcanoes in a line (plate motion over stationary hot spot)
+            if (_random.NextDouble() < 0.7) // 70% chance of volcanic chain
+            {
+                int chainLength = 2 + _random.Next(4); // 2-5 volcanoes in chain
+                int dirX = _random.Next(-1, 2); // -1, 0, or 1
+                int dirY = _random.Next(-1, 2);
+
+                if (dirX == 0 && dirY == 0) dirX = 1; // Ensure some direction
+
+                for (int j = 1; j <= chainLength; j++)
+                {
+                    int cx = (x + dirX * j * 3 + _map.Width) % _map.Width;
+                    int cy = y + dirY * j * 3;
+
+                    if (cy < 0 || cy >= _map.Height) continue;
+
+                    var chainCell = _map.Cells[cx, cy];
+                    var chainGeo = chainCell.GetGeology();
+                    chainGeo.IsVolcano = true;
+                    chainGeo.IsHotSpot = true;
+                    chainGeo.MagmaPressure = (float)_random.NextDouble() * 0.3f;
+                    // Older volcanoes in chain are less active
+                    chainGeo.VolcanicActivity = 0.5f / (j + 1);
+                }
+            }
         }
     }
 
