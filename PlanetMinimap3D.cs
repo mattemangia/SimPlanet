@@ -187,7 +187,8 @@ public class PlanetMinimap3D
             if (cloudCover > 0.1f)
             {
                 // White clouds with transparency based on cloud density
-                Color cloudColor = new Color(255, 255, 255, (byte)(cloudCover * 200)); // Max alpha 200
+                byte alpha = (byte)(cloudCover * 200); // Max alpha 200
+                Color cloudColor = new Color((byte)255, (byte)255, (byte)255, alpha);
 
                 // Blend clouds with terrain
                 float cloudAlpha = cloudCover * 0.8f; // Max 80% cloud coverage visible

@@ -62,10 +62,21 @@ public class WeatherSystem
 
     private void UpdateSeasons(float deltaTime, int currentYear)
     {
-        // Seasonal progression (years-based for simulation speed)
+        // REALISTIC SEASONAL PROGRESSION WITH PLANETARY AXIS TILT
+        // Axial tilt: 23.5° (like Earth) - causes seasons
+        // Season progress: 0-4 represents one full orbit (year)
         _seasonProgress += deltaTime * 0.1f;
         if (_seasonProgress >= 4.0f)
             _seasonProgress -= 4.0f;
+
+        // Convert season progress to orbital angle (0-2π)
+        float orbitalAngle = _seasonProgress * MathF.PI / 2f; // 0-2π over 4 seasons
+        const float axialTilt = 23.5f * (MathF.PI / 180f); // 23.5° in radians
+
+        // Solar declination varies with orbital position
+        // Declination: angle between equatorial plane and sun's rays
+        // Summer solstice: +23.5°, Winter solstice: -23.5°, Equinoxes: 0°
+        float solarDeclination = MathF.Sin(orbitalAngle) * axialTilt;
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -74,79 +85,104 @@ public class WeatherSystem
                 var cell = _map.Cells[x, y];
                 var met = cell.GetMeteorology();
 
-                // Calculate season based on hemisphere
+                // Calculate latitude (-1 to +1, where +1 is north pole)
                 float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
-                bool northernHemisphere = latitude > 0;
+                float latitudeRadians = latitude * MathF.PI / 2f;
 
-                // Seasons are opposite in hemispheres
-                float localSeason = _seasonProgress;
-                if (!northernHemisphere)
-                    localSeason = (_seasonProgress + 2.0f) % 4.0f;
+                // Determine local season based on hemisphere and orbital position
+                // Northern hemisphere: 0=Spring, 1=Summer, 2=Fall, 3=Winter
+                // Southern hemisphere: opposite (when NH has summer, SH has winter)
+                float localSeasonProgress = _seasonProgress;
+                if (latitude < 0) // Southern hemisphere
+                    localSeasonProgress = (_seasonProgress + 2.0f) % 4.0f;
 
-                met.Season = (int)localSeason;
+                met.Season = (int)localSeasonProgress;
 
-                // Apply seasonal temperature variations
-                float tempModifier = 0;
+                // CALCULATE SEASONAL SOLAR INTENSITY using spherical astronomy
+                // Maximum sun elevation at solar noon based on latitude and declination
+                float maxSunElevation = MathF.Sin(latitudeRadians) * MathF.Sin(solarDeclination) +
+                                       MathF.Cos(latitudeRadians) * MathF.Cos(solarDeclination);
+
+                // Convert to seasonal temperature effect
+                // Higher sun = more heating, lower sun = less heating
+                float seasonalHeating = maxSunElevation * 25f; // ±25°C seasonal variation
+
+                // Apply stronger seasonal effects at higher latitudes
+                float latitudeEffect = Math.Abs(latitude);
+                seasonalHeating *= (0.5f + latitudeEffect * 0.5f); // Poles vary more than equator
+
+                // Rainfall modifiers based on season and latitude
                 float rainfallModifier = 1.0f;
-
                 switch (met.Season)
                 {
                     case 0: // Spring
-                        tempModifier = 0;
-                        rainfallModifier = 1.2f; // Spring rains
+                        rainfallModifier = 1.2f; // Spring showers
                         break;
                     case 1: // Summer
-                        tempModifier = Math.Abs(latitude) * 15; // Hotter
-                        // Monsoons in tropics (latitude < 0.3), dry in mid-latitudes
+                        // Monsoons in tropics, dry in subtropics
                         rainfallModifier = Math.Abs(latitude) < 0.3f ? 1.5f : 0.8f;
                         break;
                     case 2: // Fall
-                        tempModifier = 0;
-                        rainfallModifier = 1.1f; // Moderate rains
+                        rainfallModifier = 1.1f; // Moderate precipitation
                         break;
                     case 3: // Winter
-                        tempModifier = -Math.Abs(latitude) * 15; // Colder
-                        // Dry season in tropics, wet in mid-latitudes (winter storms)
+                        // Tropical dry season, mid-latitude storms
                         rainfallModifier = Math.Abs(latitude) < 0.3f ? 0.7f : 1.3f;
                         break;
                 }
 
-                // Apply temperature effect gradually
-                cell.Temperature += (tempModifier - cell.Temperature * 0.1f) * deltaTime * 0.01f;
+                // Apply seasonal heating gradually (smooth transitions)
+                float targetTemp = cell.Temperature + seasonalHeating * deltaTime * 0.02f;
+                cell.Temperature += (targetTemp - cell.Temperature) * 0.05f;
 
                 // Apply seasonal rainfall variations
-                float baseRainfall = cell.Rainfall; // Preserve base climate rainfall
                 cell.Humidity = Math.Clamp(cell.Humidity * rainfallModifier, 0, 1);
 
-                // Seasonal ice formation/melting
-                // Ice can form on both water (sea ice) and land (ice sheets, glaciers)
-                if (cell.Temperature < -10)
+                // DYNAMIC ICE SHEET FORMATION AND MELTING
+                // Ice forms/melts based on sustained temperatures, not instant
+                float absLatitude = Math.Abs(latitude);
+
+                // Polar regions (|lat| > 0.7) - Permanent ice caps
+                if (absLatitude > 0.7f && cell.Temperature < -5f)
                 {
-                    // Permanent ice caps and glaciers (very cold)
-                    cell.IsIce = true;
+                    cell.IsIce = true; // Permanent polar ice
                 }
-                else if (cell.Temperature < 0 && cell.Temperature >= -10)
+                // High latitudes (0.5 < |lat| < 0.7) - Seasonal ice sheets
+                else if (absLatitude > 0.5f)
                 {
-                    // Seasonal ice formation
-                    // Sea ice forms easily, land ice (glaciers) only in very cold sustained conditions
-                    if (cell.IsWater && cell.Temperature < -2)
+                    if (met.Season == 3 && cell.Temperature < -5f) // Winter
                     {
-                        cell.IsIce = true;
+                        cell.IsIce = true; // Winter ice sheets expand
+                    }
+                    else if (met.Season == 1 && cell.Temperature > 5f) // Summer
+                    {
+                        if (cell.IsWater || cell.Elevation < 0.3f)
+                            cell.IsIce = false; // Summer ice sheets retreat
                     }
                 }
-                else if (cell.Temperature >= 0)
+                // Mid-latitudes - Sea ice forms in winter
+                else if (absLatitude > 0.3f && cell.IsWater)
                 {
-                    // Ice melts at or above freezing
-                    // Sea ice melts quickly, land ice (glaciers) persist a bit longer
-                    if (cell.IsWater)
+                    if (cell.Temperature < -2f)
                     {
-                        // Sea ice melts at 0°C
-                        cell.IsIce = false;
+                        cell.IsIce = true; // Winter sea ice
                     }
-                    else if (cell.Temperature > 2)
+                    else if (cell.Temperature > 2f)
                     {
-                        // Land ice melts above 2°C (gives glaciers some persistence)
-                        cell.IsIce = false;
+                        cell.IsIce = false; // Sea ice melts in spring
+                    }
+                }
+                // Temperate and tropical - Ice only on high mountains
+                else
+                {
+                    if (cell.Elevation > 0.7f && cell.Temperature < -10f)
+                    {
+                        cell.IsIce = true; // Mountain glaciers
+                    }
+                    else if (cell.Temperature > 0f)
+                    {
+                        if (cell.IsWater || cell.Elevation < 0.7f)
+                            cell.IsIce = false; // Only high peaks keep ice
                     }
                 }
             }
