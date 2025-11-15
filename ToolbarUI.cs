@@ -119,6 +119,7 @@ namespace SimPlanet
             AddButton(ref x, y, "K", "Diseases (K)", "Feature", () => game.ToggleDiseases());
             AddButton(ref x, y, "T", "Plant Tool (T)", "Feature", () => game.TogglePlantTool());
             AddButton(ref x, y, "Y", "Stabilizer (Y)", "Feature", () => game.ToggleStabilizer());
+            AddButton(ref x, y, "X", "Planet Controls (X)", "Feature", () => game.TogglePlanetControls());
 
             // Generate icons for all buttons
             foreach (var button in buttons)
