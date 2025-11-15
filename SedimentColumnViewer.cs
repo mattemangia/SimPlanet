@@ -12,6 +12,7 @@ public class SedimentColumnViewer
     private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
     private readonly PlanetMap _map;
+    private CivilizationManager? _civManager;
     private Texture2D _pixelTexture;
     private (int x, int y)? _selectedTile = null;
     private MouseState _previousMouseState;
@@ -31,6 +32,11 @@ public class SedimentColumnViewer
 
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
+    }
+
+    public void SetCivilizationManager(CivilizationManager civManager)
+    {
+        _civManager = civManager;
     }
 
     public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel, int mapRenderOffsetX, int mapRenderOffsetY)
@@ -240,6 +246,82 @@ public class SedimentColumnViewer
             _font.DrawString(spriteBatch, $"Biomass: {cell.Biomass:F2}",
                 new Vector2(panelX + 10, textY), Color.Green);
             textY += lineHeight + 3;
+        }
+
+        // === CIVILIZATION ===
+        if (_civManager != null)
+        {
+            // Find civilization that owns this tile
+            var owningCiv = _civManager.Civilizations.FirstOrDefault(c => c.Territory.Contains((x, y)));
+
+            // Also check if there's a city at this location
+            var cityAtTile = _civManager.Civilizations
+                .SelectMany(c => c.Cities)
+                .FirstOrDefault(city => city.X == x && city.Y == y);
+
+            if (owningCiv != null || cityAtTile != null)
+            {
+                var civ = owningCiv ?? _civManager.Civilizations.First(c => c.Id == cityAtTile!.CivilizationId);
+
+                _font.DrawString(spriteBatch, "=== CIVILIZATION ===",
+                    new Vector2(panelX + 10, textY), Color.Gold);
+                textY += lineHeight;
+
+                _font.DrawString(spriteBatch, $"Name: {civ.Name}",
+                    new Vector2(panelX + 10, textY), Color.Yellow);
+                textY += lineHeight;
+
+                _font.DrawString(spriteBatch, $"Population: {civ.Population / 1000}K",
+                    new Vector2(panelX + 10, textY), Color.White);
+                textY += lineHeight;
+
+                _font.DrawString(spriteBatch, $"Tech Level: {civ.TechLevel} ({civ.CivType})",
+                    new Vector2(panelX + 10, textY), Color.Cyan);
+                textY += lineHeight;
+
+                // Government info
+                if (civ.Government != null)
+                {
+                    _font.DrawString(spriteBatch, $"Government: {civ.Government.Type}",
+                        new Vector2(panelX + 10, textY), Color.LightGoldenrodYellow);
+                    textY += lineHeight;
+
+                    if (civ.Government.CurrentRuler != null)
+                    {
+                        var ruler = civ.Government.CurrentRuler;
+                        _font.DrawString(spriteBatch, $"Ruler: {ruler.Name}",
+                            new Vector2(panelX + 10, textY), Color.Violet);
+                        textY += lineHeight;
+
+                        _font.DrawString(spriteBatch, $"  {ruler.Title}, Age {ruler.Age}",
+                            new Vector2(panelX + 10, textY), Color.LightGray, 12);
+                        textY += lineHeight;
+                    }
+
+                    _font.DrawString(spriteBatch, $"Stability: {civ.Government.Stability:P0}",
+                        new Vector2(panelX + 10, textY),
+                        civ.Government.Stability > 0.7f ? Color.LimeGreen :
+                        civ.Government.Stability > 0.4f ? Color.Yellow : Color.OrangeRed);
+                    textY += lineHeight;
+                }
+
+                // City info if there's a city here
+                if (cityAtTile != null)
+                {
+                    _font.DrawString(spriteBatch, $"City: {cityAtTile.Name}",
+                        new Vector2(panelX + 10, textY), Color.Orange);
+                    textY += lineHeight;
+
+                    _font.DrawString(spriteBatch, $"  {cityAtTile.Type}, Pop: {cityAtTile.Population / 1000}K",
+                        new Vector2(panelX + 10, textY), Color.LightGray, 12);
+                    textY += lineHeight;
+                }
+
+                // Resources
+                _font.DrawString(spriteBatch, $"Food: {civ.Food:F0} | Metal: {civ.Metal:F0}",
+                    new Vector2(panelX + 10, textY), Color.Wheat, 12);
+                textY += lineHeight + 3;
+            }
         }
 
         // === VOLCANO ===

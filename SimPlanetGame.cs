@@ -313,6 +313,7 @@ public class SimPlanetGame : Game
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
+        _sedimentViewer.SetCivilizationManager(_civilizationManager);
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
@@ -983,6 +984,7 @@ public class SimPlanetGame : Game
 
         // Update sediment viewer with new map reference
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
+        _sedimentViewer.SetCivilizationManager(_civilizationManager);
 
         // Update other interactive tools with new map
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
