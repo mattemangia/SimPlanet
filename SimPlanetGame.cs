@@ -1040,12 +1040,6 @@ public class SimPlanetGame : Game
 
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
-        // Draw toolbar (shown in-game only)
-        if (_mainMenu.CurrentScreen == GameScreen.InGame)
-        {
-            _toolbar.Draw(_spriteBatch, GraphicsDevice.Viewport.Width);
-        }
-
         // Draw menu screens
         if (_mainMenu.CurrentScreen != GameScreen.InGame)
         {
@@ -1155,6 +1149,12 @@ public class SimPlanetGame : Game
         if (_loadingScreen.IsVisible)
         {
             _loadingScreen.Draw();
+        }
+
+        // Draw toolbar LAST (shown in-game only) so tooltips appear on top
+        if (_mainMenu.CurrentScreen == GameScreen.InGame)
+        {
+            _toolbar.Draw(_spriteBatch, GraphicsDevice.Viewport.Width);
         }
 
         _spriteBatch.End();

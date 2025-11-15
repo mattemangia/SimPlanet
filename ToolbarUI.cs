@@ -1090,19 +1090,24 @@ namespace SimPlanet
         {
             // Measure text (more accurate sizing)
             int textWidth = button.Tooltip.Length * 8;
-            int textHeight = 18;
+            int textHeight = 20;
             int padding = 8;
 
-            // Position tooltip ABOVE button to avoid overlapping panels
             int tooltipWidth = textWidth + padding * 2;
             int tooltipHeight = textHeight + padding * 2;
             int tooltipX = button.Bounds.X;
-            int tooltipY = button.Bounds.Y - tooltipHeight - 4;
 
-            // Keep tooltip on screen
+            // Position tooltip BELOW button (since buttons are at top of screen)
+            int tooltipY = button.Bounds.Y + button.Bounds.Height + 4;
+
+            // Keep tooltip on screen horizontally
             if (tooltipX + tooltipWidth > graphicsDevice.Viewport.Width)
             {
                 tooltipX = graphicsDevice.Viewport.Width - tooltipWidth - 5;
+            }
+            if (tooltipX < 0)
+            {
+                tooltipX = 5;
             }
 
             // Draw tooltip background
