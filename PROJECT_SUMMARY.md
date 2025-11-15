@@ -13,21 +13,23 @@ SimPlanet is a complete SimEarth-like planetary evolution simulator built from s
 - ✅ **Atmospheric Simulation**: Oxygen/CO2 cycles, greenhouse effects, and atmospheric composition
 - ✅ **Magnetosphere**: Planetary magnetic field simulation with radiation protection and solar wind interactions
 - ✅ **Weather Systems**: Dynamic meteorology with realistic tropical cyclones, Coriolis-based trajectories, and Saffir-Simpson scale
+- ✅ **Geological Hazards**: Earthquakes (M2.0-9.5), fault lines (5 types), and tsunamis with coastal flooding
 - ✅ **Life Evolution**: 7-stage evolution from bacteria to civilization with dinosaurs and mammals
 - ✅ **Biomass Dynamics**: Growth, death, spreading mechanics with gradual biome transitions
 - ✅ **Environmental Interactions**: Life affects atmosphere, climate affects life, feedback loops
 - ✅ **Forest Fire System**: Natural and meteor-induced wildfires with realistic spread mechanics
 - ✅ **Disease & Pandemic System**: 6 pathogen types with realistic spread and civilization responses
 - ✅ **Auto-Stabilization**: Automatic planetary condition maintenance for habitability
-- ✅ **Disaster System**: Meteors, volcanoes, ice ages, droughts, and plagues
+- ✅ **Disaster System**: Meteors, volcanoes (including hot spots), ice ages, droughts, and plagues
 - ✅ **Civilization Development**: Cities, railroads, commerce, and industrial development
 
 ### Rendering & Visualization
 - ✅ **Procedural Graphics**: All sprites generated programmatically (no external assets)
-- ✅ **18 View Modes**: Terrain, Temperature, Rainfall, Life, Oxygen, CO2, Elevation, Geology, Tectonic Plates, Volcanoes, Clouds, Wind, Pressure, Storms, Biomes, Albedo, Radiation, Resources
+- ✅ **21 View Modes**: Terrain, Temperature, Rainfall, Life, Oxygen, CO2, Elevation, Geology, Tectonic Plates, Volcanoes, Clouds, Wind, Pressure, Storms, Biomes, Albedo, Radiation, Resources, Earthquakes, Faults, Tsunamis
 - ✅ **Custom Font System**: Built-in font rendering (no external font files)
 - ✅ **Real-time Updates**: Dynamic texture generation each frame
 - ✅ **Advanced Thematic Views**: Albedo (surface reflectivity), Radiation (cosmic ray levels), Biomes (15 types)
+- ✅ **Geological Hazard Views**: Earthquakes (seismic activity), Faults (fault lines), Tsunamis (wave propagation)
 
 ### User Interface
 - ✅ **Information Panel**: Live statistics (oxygen, CO2, temperature, life counts, magnetosphere, stabilizer)
@@ -267,6 +269,11 @@ Each life form has specific requirements:
 17. **Radiation**: Cosmic ray and solar radiation levels
 18. **Resources**: Natural resource deposits
 
+**Geological Hazard Views (E, Q, U):**
+19. **Earthquakes**: Seismic activity, epicenters, stress buildup, wave propagation
+20. **Faults**: Fault lines color-coded by type (strike-slip, normal, reverse, thrust, oblique)
+21. **Tsunamis**: Wave height, coastal flooding, and tsunami propagation
+
 #### Manual Terraforming Tools
 - **Plant Placement (T key)**: Click to manually place life forms
   - **Bacteria**: Place anywhere to start basic life
@@ -416,7 +423,35 @@ dotnet run
 
 ## Recent Updates
 
-### Realistic Tropical Cyclones with Coriolis-Based Trajectories (Latest)
+### Comprehensive Geological Hazard System (Latest)
+- ✅ **Earthquake System**: Realistic seismic activity with magnitude 2.0-9.5 on Richter scale
+  - Stress accumulation at plate boundaries and faults
+  - Epicenter tracking with seismic wave propagation
+  - Large earthquakes (M>6.5) create new fault lines
+  - Biomass destruction and terrain damage
+  - View with E key: epicenters glow red/orange, waves propagate, stress shows as blue-purple
+- ✅ **Fault Line System**: 5 realistic fault types with activity tracking
+  - Strike-Slip (yellow-orange): San Andreas-style horizontal movement
+  - Normal (light blue): Extensional rifts like East African Rift
+  - Reverse (red-pink): Compressional zones
+  - Thrust (dark red): Major mountain-building zones like Himalayas
+  - Oblique (purple): Mixed movement
+  - View with Q key: color-coded by type, brightness = activity level
+  - Auto-generated at plate boundaries during world creation
+- ✅ **Tsunami System**: Ocean wave propagation from major earthquakes
+  - Triggered automatically by M7.0+ earthquakes in oceans (subduction zones)
+  - Wave heights up to 30m from mega-thrust events
+  - Wave amplification in shallow water and at coastlines
+  - Coastal flooding with biomass destruction
+  - Flood water drainage over time
+  - View with U key: cyan-white gradient shows wave height, brown = coastal flooding
+- ✅ **Enhanced Volcanoes**: Hot spot volcanic systems
+  - 4-8 mantle plume hotspots per world (Hawaii, Yellowstone, Galápagos)
+  - 70% create volcanic island chains (2-5 volcanoes in line)
+  - Higher activity than plate boundary volcanoes
+  - Simulates plate motion over stationary plumes
+
+### Realistic Tropical Cyclones with Coriolis-Based Trajectories
 - ✅ **Tropical Cyclone Formation**: Realistic conditions required (warm water >26°C, high humidity, wind convergence, away from equator)
 - ✅ **Saffir-Simpson Scale**: Progression from Tropical Depression → Tropical Storm → Hurricane Categories 1-5
 - ✅ **Coriolis-Based Movement**: Storms curve right in Northern Hemisphere, left in Southern Hemisphere
@@ -510,9 +545,10 @@ This is an original implementation inspired by SimEarth. All code is newly writt
 ---
 
 **Total Development**: Complete implementation of a comprehensive SimEarth-like planetary evolution simulator
-**Lines of Code**: ~6,500+ across 20+ C# files
-**Features**: 40+ major systems and features
-**View Modes**: 18 different visualization modes
+**Lines of Code**: ~7,500+ across 22+ C# files
+**Features**: 45+ major systems and features
+**View Modes**: 21 different visualization modes
+**Geological Systems**: Earthquakes, faults (5 types), tsunamis, hot spot volcanoes
 **Performance**: 5-10× faster than original implementation
 **Platform Support**: Mac M1/Intel, Linux, Windows (100% compatible)
 **Status**: ✅ Fully functional, feature-complete, optimized, and ready to play!

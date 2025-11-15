@@ -630,6 +630,68 @@ Potential additions (not yet implemented):
 - Realistic storm radii (10-25 cells based on category)
 - Ocean temperature feedback for intensification
 
+### Latest Update - Comprehensive Geological Hazard System
+
+**NEW - Earthquake System:**
+- ✅ **Realistic Seismic Activity** - Stress accumulation at plate boundaries and faults
+  - Magnitude 2.0-9.5 earthquakes (Richter scale)
+  - Epicenter tracking with seismic wave propagation
+  - Large earthquakes (M>6.5) create new fault lines
+  - Different earthquake rates based on plate boundary types
+- ✅ **Earthquake Visualization (E key)** - Monitor seismic activity in real-time
+  - Bright red/orange pulses at epicenters (brightness = magnitude)
+  - Seismic wave propagation shown as yellow-orange-red gradient
+  - Blue-purple stress buildup zones (indicates future earthquake risk)
+  - Biomass destruction and terrain damage from major quakes
+
+**NEW - Fault Line System:**
+- ✅ **5 Fault Types** - Realistic geological structures
+  - Strike-Slip (yellow-orange): Horizontal movement like San Andreas
+  - Normal (light blue): Extensional rifting zones
+  - Reverse (red-pink): Compressional mountain building
+  - Thrust (dark red): Major compression zones
+  - Oblique (purple): Mixed movement
+- ✅ **Fault Visualization (Q key)** - See all fault lines with activity levels
+  - Color-coded by fault type
+  - Brightness indicates fault activity (brighter = more active)
+  - White highlights = high stress, about to rupture
+  - Auto-generated at plate boundaries during world creation
+
+**NEW - Tsunami System:**
+- ✅ **Realistic Tsunami Mechanics** - Triggered by M7.0+ ocean earthquakes
+  - Wave propagation with height and velocity tracking
+  - Wave amplification in shallow water (30% increase)
+  - Massive amplification when hitting coastlines (2× wave height)
+  - Waves up to 30m from M9.0+ mega-thrust earthquakes
+- ✅ **Tsunami Visualization (U key)** - Track deadly ocean waves
+  - Light blue → cyan → white gradient (wave height)
+  - Coastal flooding shown in muddy brown colors
+  - Ocean reference in dark blue
+  - Real-time wave propagation visible
+- ✅ **Coastal Impact**:
+  - Biomass destruction (vegetation washed away)
+  - Temporary flooding of low-lying coastal areas
+  - Increased sedimentation from erosion
+  - Flood water drains gradually over time
+  - Future: City and infrastructure damage
+
+**NEW - Enhanced Volcanic System:**
+- ✅ **Hot Spot Volcanoes** - 4-8 mantle plume hotspots per world
+  - Independent of plate boundaries (Hawaii, Yellowstone, Galápagos style)
+  - 70% create volcanic island chains (2-5 volcanoes in line)
+  - Higher activity than boundary volcanoes (0.4-0.7 vs 0.3)
+  - Simulates plate motion over stationary mantle plumes
+- ✅ **More Volcanoes Overall** - Increased volcanic diversity
+  - Hot spots + boundary volcanoes = realistic volcanic distribution
+  - Island arc formation in oceanic-oceanic convergence
+  - Volcanic mountain chains at subduction zones
+  - Mid-ocean ridge volcanism
+
+**Keyboard Shortcuts:**
+- **E**: Earthquakes view
+- **Q**: Faults view
+- **U**: Tsunamis view
+
 ### Previous Update - Albedo & Radiation Visualization + Major Performance Boost
 
 **NEW - Advanced Thematic Views:**
