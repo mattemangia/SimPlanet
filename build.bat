@@ -43,9 +43,9 @@ if errorlevel 1 (
 )
 
 echo.
-echo =========================================
+echo ==========================================
 echo + Build successful!
-echo =========================================
+echo ==========================================
 echo.
 echo To run the game:
 echo   cd SimPlanet ^&^& dotnet run
