@@ -63,8 +63,8 @@ public class DiseaseControlUI
     {
         if (!_isVisible) return;
 
-        bool clicked = mouseState.LeftButton == ButtonState.Pressed &&
-                      previousMouseState.LeftButton == ButtonState.Released;
+        bool clicked = mouseState.LeftButton == ButtonState.Released &&
+                      previousMouseState.LeftButton == ButtonState.Pressed;
 
         // Close button
         if (_closeButton != null && clicked && _closeButton.Bounds.Contains(mouseState.Position))

@@ -47,6 +47,12 @@ public class PlanetaryControlsUI
 
         public float GetNormalizedValue() => (Value - Min) / (Max - Min);
         public void SetNormalizedValue(float normalized) => Value = Math.Clamp(Min + normalized * (Max - Min), Min, Max);
+
+        // Update slider value from external source without triggering OnValueChanged
+        public void UpdateFromValue(float value)
+        {
+            Value = Math.Clamp(value, Min, Max);
+        }
     }
 
     private List<Slider> _sliders = new();
@@ -139,6 +145,12 @@ public class PlanetaryControlsUI
         // Update slider positions
         PositionSliders();
 
+        // Auto-update sliders from map state when AI stabilizer is active
+        if (_stabilizer.IsActive)
+        {
+            UpdateSlidersFromMapState();
+        }
+
         // Handle slider interaction
         foreach (var slider in _sliders)
         {
@@ -175,21 +187,89 @@ public class PlanetaryControlsUI
         _previousMouseState = mouseState;
     }
 
+    private void UpdateSlidersFromMapState()
+    {
+        // Only update sliders that aren't currently being dragged by the user
+        for (int i = 0; i < _sliders.Count; i++)
+        {
+            if (_sliders[i].IsDragging) continue; // Don't update if user is actively dragging
+
+            // Update slider value from current map state
+            // Only update sliders where we can read the current value back
+            switch (i)
+            {
+                case 0: // Solar Energy
+                    _sliders[i].UpdateFromValue(_map.SolarEnergy);
+                    break;
+                case 4: // Oxygen Level (read-only display)
+                    // Calculate average oxygen from map
+                    float avgOxygen = CalculateAverageOxygen();
+                    _sliders[i].UpdateFromValue(avgOxygen);
+                    break;
+                case 5: // CO2 Level (read-only display)
+                    float avgCO2 = CalculateAverageCO2();
+                    _sliders[i].UpdateFromValue(avgCO2);
+                    break;
+                case 11: // Ice Coverage
+                    _sliders[i].UpdateFromValue(GetIceCoverage());
+                    break;
+                case 13: // Magnetic Field Strength
+                    _sliders[i].UpdateFromValue(_magnetosphere.MagneticFieldStrength);
+                    break;
+                case 14: // Core Temperature
+                    _sliders[i].UpdateFromValue(_magnetosphere.CoreTemperature);
+                    break;
+                // Note: Temperature Offset, Rainfall Multiplier, Wind Speed, and Atmospheric Pressure
+                // are applied via methods and don't have stored properties to read back
+            }
+        }
+    }
+
+    private float CalculateAverageOxygen()
+    {
+        float total = 0f;
+        int count = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                total += _map.Cells[x, y].Oxygen;
+                count++;
+            }
+        }
+        return count > 0 ? total / count : 0f;
+    }
+
+    private float CalculateAverageCO2()
+    {
+        float total = 0f;
+        int count = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                total += _map.Cells[x, y].CO2;
+                count++;
+            }
+        }
+        return count > 0 ? total / count : 0f;
+    }
+
     private void PositionSliders()
     {
         int screenWidth = _graphicsDevice.Viewport.Width;
         int screenHeight = _graphicsDevice.Viewport.Height;
 
-        int panelWidth = 900;
+        int panelWidth = 1000;  // Increased to fit all controls comfortably
         int panelHeight = screenHeight - 100;
         int panelX = (screenWidth - panelWidth) / 2;
         int panelY = 50;
 
-        int sliderWidth = 250;
+        int sliderWidth = 180;  // Reduced from 250
         int sliderHeight = 20;
-        int labelWidth = 200;
+        int labelWidth = 180;   // Reduced from 200
         int spacing = 35;
-        int columnSpacing = 320;
+        int columnSpacing = 280; // Reduced from 320 to fit within panel
 
         int leftColumnX = panelX + 20;
         int middleColumnX = leftColumnX + columnSpacing;
@@ -243,7 +323,7 @@ public class PlanetaryControlsUI
         int screenWidth = _graphicsDevice.Viewport.Width;
         int screenHeight = _graphicsDevice.Viewport.Height;
 
-        int panelWidth = 900;
+        int panelWidth = 1000;  // Increased to fit all controls comfortably
         int panelHeight = screenHeight - 100;
         int panelX = (screenWidth - panelWidth) / 2;
         int panelY = 50;

@@ -73,6 +73,7 @@ public class SimPlanetGame : Game
     // Game state
     private GameState _gameState;
     private RenderMode _currentRenderMode = RenderMode.Terrain;
+    private LifeForm _selectedLifeFormForSeeding = LifeForm.Bacteria;
 
     // Map rendering offsets (for coordinate conversion)
     private int _mapRenderOffsetX = 0;
@@ -402,8 +403,6 @@ public class SimPlanetGame : Game
             return;
         }
 
-        _mapOptionsUI.IsVisible = false;
-
         // Handle in-game input
         HandleInput(keyState);
 
@@ -441,9 +440,13 @@ public class SimPlanetGame : Game
             _minimap3D.Update(realDeltaTime);
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(realDeltaTime);
+            // Check if any tools are active that need map clicks
+            bool toolsActive = _plantingTool.IsActive || _disasterControlUI.IsVisible ||
+                              _divinePowersUI.IsOpen || _diseaseControlUI.IsVisible ||
+                              _planetaryControlsUI.IsVisible;
             _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
-                _mapRenderOffsetX, _mapRenderOffsetY);
+                _mapRenderOffsetX, _mapRenderOffsetY, toolsActive);
             _playerCivControl.Update(Mouse.GetState());
             _divinePowersUI.Update(Mouse.GetState(), realDeltaTime);
             _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
@@ -607,10 +610,30 @@ public class SimPlanetGame : Game
             _terrainRenderer.ShowDayNight = !_terrainRenderer.ShowDayNight;
         }
 
-        // Seed life
+        // Seed life (Shift+L cycles through life forms, L seeds selected form)
         if (keyState.IsKeyDown(Keys.L) && _previousKeyState.IsKeyUp(Keys.L))
         {
-            _lifeSimulator.SeedInitialLife();
+            if (keyState.IsKeyDown(Keys.LeftShift) || keyState.IsKeyDown(Keys.RightShift))
+            {
+                // Cycle through life forms
+                _selectedLifeFormForSeeding = _selectedLifeFormForSeeding switch
+                {
+                    LifeForm.Bacteria => LifeForm.Algae,
+                    LifeForm.Algae => LifeForm.PlantLife,
+                    LifeForm.PlantLife => LifeForm.SimpleAnimals,
+                    LifeForm.SimpleAnimals => LifeForm.ComplexAnimals,
+                    LifeForm.ComplexAnimals => LifeForm.Dinosaurs,
+                    LifeForm.Dinosaurs => LifeForm.Mammals,
+                    LifeForm.Mammals => LifeForm.Intelligence,
+                    LifeForm.Intelligence => LifeForm.Bacteria,
+                    _ => LifeForm.Bacteria
+                };
+            }
+            else
+            {
+                // Seed the selected life form
+                _lifeSimulator.SeedSpecificLife(_selectedLifeFormForSeeding);
+            }
         }
 
         // Regenerate planet

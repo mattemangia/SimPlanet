@@ -69,6 +69,9 @@ public class PlanetStabilizer
 
         // Priority 5: Prevent runaway ice ages or greenhouse effects
         PreventExtremeFeedbacks();
+
+        // Priority 6: ACTIVELY PROTECT LIFE from disasters and harsh conditions
+        ProtectAndNurtureLife();
     }
 
     private void StabilizeMagnetosphere()
@@ -387,6 +390,102 @@ public class PlanetStabilizer
                 {
                     cell.Rainfall += 0.05f;
                     cell.Humidity += 0.05f;
+                }
+            }
+        }
+    }
+
+    private void ProtectAndNurtureLife()
+    {
+        // Count life cells and find areas needing help
+        int lifeCells = 0;
+        int criticalCells = 0; // Life with very low biomass
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+
+                if (cell.LifeType != LifeForm.None)
+                {
+                    lifeCells++;
+
+                    // Boost struggling life (low biomass but good conditions)
+                    if (cell.Biomass < 0.2f && cell.Biomass > 0.01f)
+                    {
+                        criticalCells++;
+
+                        // Check if conditions are actually good for this life
+                        bool goodConditions = cell.LifeType switch
+                        {
+                            LifeForm.Bacteria => cell.Temperature > -20 && cell.Temperature < 80,
+                            LifeForm.Algae => cell.IsWater && cell.Temperature > 0 && cell.Oxygen > 5,
+                            LifeForm.PlantLife => cell.IsLand && cell.Temperature > 0 && cell.Rainfall > 0.2f && cell.Oxygen > 10,
+                            _ => cell.Temperature > -10 && cell.Temperature < 40 && cell.Oxygen > 15
+                        };
+
+                        if (goodConditions)
+                        {
+                            // Give life a boost to help it recover
+                            cell.Biomass = Math.Min(cell.Biomass + 0.1f, 0.5f);
+                        }
+                    }
+
+                    // Prevent catastrophic die-off from temperature extremes
+                    if (cell.LifeType != LifeForm.Bacteria && cell.LifeType != LifeForm.None)
+                    {
+                        // Moderate extreme temperatures where life exists
+                        if (cell.Temperature > 50f)
+                        {
+                            cell.Temperature = Math.Max(cell.Temperature - 2f, 45f);
+                        }
+                        else if (cell.Temperature < -25f)
+                        {
+                            cell.Temperature = Math.Min(cell.Temperature + 2f, -20f);
+                        }
+                    }
+
+                    // Ensure life has minimum oxygen (except bacteria/algae)
+                    if (cell.LifeType != LifeForm.Bacteria && cell.LifeType != LifeForm.Algae)
+                    {
+                        if (cell.Oxygen < 12f)
+                        {
+                            cell.Oxygen = Math.Min(cell.Oxygen + 1f, 15f);
+                        }
+                    }
+
+                    // Reduce toxic CO2 where life exists
+                    if (cell.CO2 > 10f && cell.LifeType != LifeForm.Bacteria)
+                    {
+                        cell.CO2 = Math.Max(cell.CO2 - 0.5f, 8f);
+                    }
+                }
+            }
+        }
+
+        if (criticalCells > 100)
+        {
+            LastAction = $"Nurturing {criticalCells} struggling life populations";
+            AdjustmentsMade++;
+        }
+
+        // If life is critically low globally, take emergency action
+        if (lifeCells < 500) // Less than 500 cells with life (about 17% of default map)
+        {
+            LastAction = $"EMERGENCY: Life critically low ({lifeCells} cells) - boosting survival";
+            AdjustmentsMade++;
+
+            // Emergency boost to all surviving life
+            for (int x = 0; x < _map.Width; x++)
+            {
+                for (int y = 0; y < _map.Height; y++)
+                {
+                    var cell = _map.Cells[x, y];
+                    if (cell.LifeType != LifeForm.None && cell.Biomass > 0)
+                    {
+                        cell.Biomass = Math.Min(cell.Biomass + 0.15f, 0.8f); // Major boost
+                    }
                 }
             }
         }

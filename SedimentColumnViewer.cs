@@ -39,7 +39,7 @@ public class SedimentColumnViewer
         _civManager = civManager;
     }
 
-    public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel, int mapRenderOffsetX, int mapRenderOffsetY)
+    public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel, int mapRenderOffsetX, int mapRenderOffsetY, bool toolsActive = false)
     {
         int screenWidth = _graphicsDevice.Viewport.Width;
         int panelWidth = 400;
@@ -122,7 +122,8 @@ public class SedimentColumnViewer
                     int tileY = (int)(mapRelativeY / (cellSize * zoomLevel));
 
                     // Check if tile is within bounds
-                    if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
+                    // Don't open tile info panel when tools are active (they need map clicks)
+                    if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height && !toolsActive)
                     {
                         _selectedTile = (tileX, tileY);
                         IsVisible = true;

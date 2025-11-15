@@ -215,14 +215,20 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Scroll wheel adjusts amount, R key cycles resource type
   - Resources auto-discovered and ready for civilization extraction
 - **Auto-Stabilization System** (Press Y):
-  - **ENABLED BY DEFAULT** to prevent runaway climate disasters
+  - **ENABLED BY DEFAULT** to prevent runaway climate disasters and life extinction
   - Automatically maintains Earth-like habitable conditions
   - Monitors and adjusts: temperature (target 15°C), oxygen (21%), CO2 (0.04%)
   - Prevents snowball Earth and runaway greenhouse effects
   - Restores magnetic field to protect from radiation
   - Balances land/ocean ratio (target 29%/71%)
+  - **ACTIVELY PROTECTS LIFE** - NEW!:
+    - Boosts struggling life populations (biomass <20%) in good conditions
+    - Moderates extreme temperatures where life exists
+    - Ensures minimum oxygen levels for aerobic life
+    - Reduces toxic CO2 levels where life is present
+    - EMERGENCY MODE: Major biomass boost when life drops below 500 cells
   - Shows real-time status: adjustments made, last action
-  - Perfect for hands-off planetary management
+  - Perfect for hands-off planetary management while nurturing life evolution
   - Press Y to toggle on/off during gameplay
 - **Planetary Controls UI** (Press X) - SimEarth-style Parameter Control:
   - **Complete Manual Control** - Adjust every planetary parameter in real-time
@@ -984,17 +990,26 @@ Potential additions (not yet implemented):
 
 ### Previous Update - Comprehensive Geological Hazard System
 
-**NEW - Earthquake System:**
-- ✅ **Realistic Seismic Activity** - Stress accumulation at plate boundaries and faults
-  - Magnitude 2.0-9.5 earthquakes (Richter scale)
-  - Epicenter tracking with seismic wave propagation
-  - Large earthquakes (M>6.5) create new fault lines
-  - Different earthquake rates based on plate boundary types
+**NEW - Earthquake System (FIXED - Realistic Distribution):**
+- ✅ **Gutenberg-Richter Law** - Realistic earthquake frequency distribution:
+  - 70% Minor (M2.0-4.0) - Frequent, harmless to life
+  - 20% Light-Moderate (M4.0-5.5) - Common, minimal damage
+  - 7% Moderate-Strong (M5.5-6.5) - Occasional, some damage
+  - 2.5% Major (M6.5-7.5) - Rare, significant damage
+  - 0.5% Great (M7.5-9.0) - Very rare, catastrophic
+- ✅ **Concentrated at Plate Boundaries** - 3x more earthquakes at:
+  - Convergent zones (subduction) - Highest activity
+  - Transform faults (strike-slip) - Very high activity
+  - Divergent zones (rifts) - Moderate activity
+  - Faults: 5% trigger chance (vs 2% elsewhere)
+- ✅ **Magnitude-Based Damage** - Only M6.0+ damages life:
+  - M6 = 5% biomass loss, M7 = 10%, M8 = 15%, M9 = 20%
+  - Small earthquakes (M2-5.9) are harmless to life
 - ✅ **Earthquake Visualization (E key)** - Monitor seismic activity in real-time
   - Bright red/orange pulses at epicenters (brightness = magnitude)
   - Seismic wave propagation shown as yellow-orange-red gradient
   - Blue-purple stress buildup zones (indicates future earthquake risk)
-  - Biomass destruction and terrain damage from major quakes
+  - Realistic seismic patterns: many small quakes, few large ones
 
 **NEW - Fault Line System:**
 - ✅ **5 Fault Types** - Realistic geological structures

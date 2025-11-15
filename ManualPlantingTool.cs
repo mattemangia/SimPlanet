@@ -39,27 +39,70 @@ public class ManualPlantingTool
             return;
         }
 
-        bool clicked = mouseState.LeftButton == ButtonState.Pressed &&
-                      _previousMouseState.LeftButton == ButtonState.Released;
+        bool clicked = mouseState.LeftButton == ButtonState.Released &&
+                      _previousMouseState.LeftButton == ButtonState.Pressed;
 
-        // Adjust brush size with mouse wheel
-        int scrollDelta = mouseState.ScrollWheelValue - _previousMouseState.ScrollWheelValue;
-        if (scrollDelta > 0)
-            BrushSize = Math.Min(BrushSize + 1, 15);
-        else if (scrollDelta < 0)
-            BrushSize = Math.Max(BrushSize - 1, 1);
+        // Check UI button clicks first (panel on left side)
+        int screenWidth = _graphicsDevice.Viewport.Width;
+        int screenHeight = _graphicsDevice.Viewport.Height;
+        int panelX = 10;
+        int panelY = screenHeight / 2 - 200;
 
         if (clicked)
         {
-            // Convert screen coordinates to map coordinates
-            float mapRelativeX = (mouseState.X - mapRenderOffsetX) + cameraX;
-            float mapRelativeY = (mouseState.Y - mapRenderOffsetY) + cameraY;
-            int tileX = (int)(mapRelativeX / (cellSize * zoomLevel));
-            int tileY = (int)(mapRelativeY / (cellSize * zoomLevel));
+            // Type selection buttons (8 buttons)
+            int buttonY = panelY + 65;
+            int buttonHeight = 22;
+            int buttonWidth = 180;
+            int buttonSpacing = 2;
 
-            if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
+            PlantingType[] types = new[] { PlantingType.Forest, PlantingType.Grass, PlantingType.Desert,
+                                          PlantingType.Tundra, PlantingType.Ocean, PlantingType.Mountain,
+                                          PlantingType.Fault, PlantingType.Civilization };
+
+            for (int i = 0; i < types.Length; i++)
             {
-                PlantAt(tileX, tileY, civManager, currentYear);
+                Rectangle buttonRect = new Rectangle(panelX + 10, buttonY + i * (buttonHeight + buttonSpacing), buttonWidth, buttonHeight);
+                if (buttonRect.Contains(mouseState.Position))
+                {
+                    CurrentType = types[i];
+                    _previousMouseState = mouseState;
+                    return; // Don't plant when clicking UI
+                }
+            }
+
+            // Brush size buttons
+            int brushButtonY = panelY + 45;
+            Rectangle minusButton = new Rectangle(panelX + 95, brushButtonY, 25, 20);
+            Rectangle plusButton = new Rectangle(panelX + 165, brushButtonY, 25, 20);
+
+            if (minusButton.Contains(mouseState.Position))
+            {
+                BrushSize = Math.Max(BrushSize - 1, 1);
+                _previousMouseState = mouseState;
+                return;
+            }
+            else if (plusButton.Contains(mouseState.Position))
+            {
+                BrushSize = Math.Min(BrushSize + 1, 15);
+                _previousMouseState = mouseState;
+                return;
+            }
+
+            // Only plant if not clicking UI panel area
+            Rectangle panelRect = new Rectangle(panelX, panelY, 200, 265);
+            if (!panelRect.Contains(mouseState.Position))
+            {
+                // Convert screen coordinates to map coordinates
+                float mapRelativeX = (mouseState.X - mapRenderOffsetX) + cameraX;
+                float mapRelativeY = (mouseState.Y - mapRenderOffsetY) + cameraY;
+                int tileX = (int)(mapRelativeX / (cellSize * zoomLevel));
+                int tileY = (int)(mapRelativeY / (cellSize * zoomLevel));
+
+                if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
+                {
+                    PlantAt(tileX, tileY, civManager, currentYear);
+                }
             }
         }
 
@@ -258,10 +301,10 @@ public class ManualPlantingTool
     {
         if (!IsActive) return;
 
-        int panelX = screenWidth - 220;
-        int panelY = screenHeight - 280;
-        int panelWidth = 210;
-        int panelHeight = 270;
+        int panelX = 10;  // Left side
+        int panelY = screenHeight / 2 - 200;  // Vertically centered
+        int panelWidth = 200;
+        int panelHeight = 265; // 8 buttons * 24px + margins
 
         // Background
         spriteBatch.Draw(_pixelTexture,
@@ -278,36 +321,59 @@ public class ManualPlantingTool
         int textY = panelY + 30;
         int lineHeight = 20;
 
-        // Current type
-        _font.DrawString(spriteBatch, $"Type: {CurrentType}",
+        // Brush size with +/- buttons
+        _font.DrawString(spriteBatch, $"Brush: ",
             new Vector2(panelX + 10, textY), Color.White);
-        textY += lineHeight;
 
-        _font.DrawString(spriteBatch, "(T to cycle)",
-            new Vector2(panelX + 10, textY), Color.Gray);
-        textY += lineHeight + 5;
+        // - button
+        Rectangle minusBtn = new Rectangle(panelX + 95, textY, 25, 20);
+        spriteBatch.Draw(_pixelTexture, minusBtn, new Color(80, 80, 80));
+        DrawBorder(spriteBatch, minusBtn.X, minusBtn.Y, minusBtn.Width, minusBtn.Height, Color.White, 1);
+        _font.DrawString(spriteBatch, "-", new Vector2(minusBtn.X + 8, minusBtn.Y + 2), Color.White);
 
-        // Brush size
-        _font.DrawString(spriteBatch, $"Brush: {BrushSize}",
-            new Vector2(panelX + 10, textY), Color.White);
-        textY += lineHeight;
+        // Size display
+        _font.DrawString(spriteBatch, $"{BrushSize}",
+            new Vector2(panelX + 125, textY), Color.Yellow);
 
-        _font.DrawString(spriteBatch, "(Scroll wheel)",
-            new Vector2(panelX + 10, textY), Color.Gray);
+        // + button
+        Rectangle plusBtn = new Rectangle(panelX + 165, textY, 25, 20);
+        spriteBatch.Draw(_pixelTexture, plusBtn, new Color(80, 80, 80));
+        DrawBorder(spriteBatch, plusBtn.X, plusBtn.Y, plusBtn.Width, plusBtn.Height, Color.White, 1);
+        _font.DrawString(spriteBatch, "+", new Vector2(plusBtn.X + 7, plusBtn.Y + 2), Color.White);
+
         textY += lineHeight + 10;
 
         // Instructions
-        _font.DrawString(spriteBatch, "TYPES:",
+        _font.DrawString(spriteBatch, "SELECT TYPE:",
             new Vector2(panelX + 10, textY), Color.Yellow);
         textY += lineHeight;
 
-        string[] types = new[] { "Forest", "Grass", "Desert", "Tundra", "Ocean", "Mountain", "Fault", "Civilization" };
-        foreach (var type in types)
+        // Type selection buttons
+        PlantingType[] types = new[] { PlantingType.Forest, PlantingType.Grass, PlantingType.Desert,
+                                      PlantingType.Tundra, PlantingType.Ocean, PlantingType.Mountain,
+                                      PlantingType.Fault, PlantingType.Civilization };
+        int buttonHeight = 22;
+        int buttonWidth = 180;
+        int buttonSpacing = 2;
+
+        for (int i = 0; i < types.Length; i++)
         {
-            Color color = type == CurrentType.ToString() ? Color.LightGreen : Color.Gray;
-            _font.DrawString(spriteBatch, $"- {type}",
-                new Vector2(panelX + 15, textY), color);
-            textY += 16;
+            Rectangle buttonRect = new Rectangle(panelX + 10, textY, buttonWidth, buttonHeight);
+
+            // Button background (highlight if selected)
+            Color bgColor = types[i] == CurrentType ? new Color(100, 200, 100) : new Color(60, 60, 60);
+            spriteBatch.Draw(_pixelTexture, buttonRect, bgColor);
+
+            // Button border
+            Color borderColor = types[i] == CurrentType ? Color.LightGreen : Color.Gray;
+            DrawBorder(spriteBatch, buttonRect.X, buttonRect.Y, buttonRect.Width, buttonRect.Height, borderColor, 1);
+
+            // Button text
+            Color textColor = types[i] == CurrentType ? Color.White : Color.LightGray;
+            _font.DrawString(spriteBatch, types[i].ToString(),
+                new Vector2(buttonRect.X + 5, buttonRect.Y + 4), textColor);
+
+            textY += buttonHeight + buttonSpacing;
         }
 
         textY += 5;

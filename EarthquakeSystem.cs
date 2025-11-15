@@ -49,9 +49,19 @@ public static class EarthquakeSystem
                 var cell = map.Cells[x, y];
 
                 // Check if stress threshold exceeded
-                float threshold = cell.Geology.IsFault ? 0.7f : 0.95f; // Faults trigger easier
+                // Lower thresholds for more frequent small earthquakes
+                float threshold = cell.Geology.IsFault ? 0.3f : 0.6f; // Faults trigger much easier
 
-                if (cell.Geology.SeismicStress > threshold && _random.NextDouble() < 0.01) // 1% chance per update when stressed
+                // Higher stress = higher probability
+                double triggerChance = cell.Geology.IsFault ? 0.05 : 0.02; // 5% for faults, 2% otherwise
+
+                // Plate boundaries get extra activity
+                if (cell.Geology.BoundaryType != PlateBoundaryType.None)
+                {
+                    triggerChance *= 3.0; // 3x more earthquakes at plate boundaries
+                }
+
+                if (cell.Geology.SeismicStress > threshold && _random.NextDouble() < triggerChance)
                 {
                     // Trigger earthquake!
                     float magnitude = CalculateMagnitude(cell.Geology.SeismicStress);
@@ -68,9 +78,10 @@ public static class EarthquakeSystem
                         tsunamiMagnitude = magnitude;
                     }
 
-                    // Large earthquakes (M > 6.5) can create new faults
-                    if (magnitude >= 6.5f)
+                    // Large earthquakes (M > 6.5) can create new faults (but only once per location every 100 years)
+                    if (magnitude >= 6.5f && !cell.Geology.IsFault)
                     {
+                        // Only create fault if one doesn't already exist here
                         CreateFaultLine(map, x, y, currentYear);
                     }
                 }
@@ -116,16 +127,42 @@ public static class EarthquakeSystem
 
     /// <summary>
     /// Calculate earthquake magnitude from stress level (Richter scale)
+    /// Follows Gutenberg-Richter law: many small earthquakes, few large ones
     /// </summary>
     private static float CalculateMagnitude(float stress)
     {
-        // Magnitude range: 2.0 (minor) to 9.5 (mega-thrust)
-        float baseMagnitude = 2.0f + (stress * 7.5f);
+        // Use exponential distribution for realistic earthquake magnitudes
+        // Most earthquakes should be small (M 2-4), very few large (M 7+)
 
-        // Add some randomness
-        baseMagnitude += (float)(_random.NextDouble() * 1.5 - 0.5);
+        // Random value determines magnitude category
+        double roll = _random.NextDouble();
 
-        return MathF.Max(2.0f, MathF.Min(9.5f, baseMagnitude));
+        float magnitude;
+        if (roll < 0.70) // 70% are minor (M 2.0-4.0)
+        {
+            magnitude = 2.0f + (float)(_random.NextDouble() * 2.0);
+        }
+        else if (roll < 0.90) // 20% are light-moderate (M 4.0-5.5)
+        {
+            magnitude = 4.0f + (float)(_random.NextDouble() * 1.5);
+        }
+        else if (roll < 0.97) // 7% are moderate-strong (M 5.5-6.5)
+        {
+            magnitude = 5.5f + (float)(_random.NextDouble() * 1.0);
+        }
+        else if (roll < 0.995) // 2.5% are major (M 6.5-7.5)
+        {
+            magnitude = 6.5f + (float)(_random.NextDouble() * 1.0);
+        }
+        else // 0.5% are great earthquakes (M 7.5-9.0)
+        {
+            magnitude = 7.5f + (float)(_random.NextDouble() * 1.5);
+        }
+
+        // Stress level modifies magnitude (higher stress = potential for larger quake)
+        magnitude += stress * 0.5f; // Stress can add up to +0.75 to magnitude
+
+        return MathF.Max(2.0f, MathF.Min(9.5f, magnitude));
     }
 
     /// <summary>
@@ -165,10 +202,12 @@ public static class EarthquakeSystem
                 cell.Geology.EarthquakeIntensity = MathF.Max(cell.Geology.EarthquakeIntensity, intensity);
 
                 // Damage to civilization and biomass based on intensity
-                if (intensity > 0.5f && magnitude > 5.0f)
+                // Only major earthquakes (M 6.0+) cause significant damage
+                if (intensity > 0.5f && magnitude >= 6.0f)
                 {
-                    // Reduce biomass (landslides, destruction)
-                    cell.Biomass *= (1.0f - intensity * 0.3f);
+                    // Reduce biomass (landslides, destruction) - scaled by magnitude
+                    float damagePercent = (magnitude - 5.0f) * 0.05f * intensity; // M6=5%, M7=10%, M8=15%, M9=20%
+                    cell.Biomass *= (1.0f - damagePercent);
 
                     // TODO: Damage cities when civilization system is integrated
                 }
@@ -202,7 +241,7 @@ public static class EarthquakeSystem
         }
 
         // Create fault line extending from epicenter
-        int faultLength = 10 + _random.Next(20); // 10-30 cells
+        int faultLength = 3 + _random.Next(7); // 3-10 cells (smaller, more realistic)
         float directionX = (float)(_random.NextDouble() * 2 - 1);
         float directionY = (float)(_random.NextDouble() * 2 - 1);
         float magnitude = MathF.Sqrt(directionX * directionX + directionY * directionY);
