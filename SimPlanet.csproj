@@ -18,12 +18,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Update="Content\Fonts\*.ttf">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
-    </ItemGroup>
-
-    <ItemGroup>
+        <EmbeddedResource Include="Content\Fonts\*.ttf" />
         <EmbeddedResource Include="splash.png" />
     </ItemGroup>
 

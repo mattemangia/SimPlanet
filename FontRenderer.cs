@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using FontStashSharp;
 using System.IO;
+using System.Reflection;
 
 namespace SimPlanet;
 
@@ -18,16 +19,24 @@ public class FontRenderer
         _defaultFontSize = defaultFontSize;
         _fontSystem = new FontSystem();
 
-        // Load the font file
-        string fontPath = Path.Combine("Content", "Fonts", "Roboto-Regular.ttf");
+        // Load the font from embedded resources
+        var assembly = Assembly.GetExecutingAssembly();
+        string resourceName = "SimPlanet.Content.Fonts.Roboto-Regular.ttf";
 
-        if (!File.Exists(fontPath))
+        using (Stream? stream = assembly.GetManifestResourceStream(resourceName))
         {
-            throw new FileNotFoundException($"Font file not found at: {fontPath}");
-        }
+            if (stream == null)
+            {
+                throw new FileNotFoundException($"Font resource not found: {resourceName}");
+            }
 
-        byte[] fontData = File.ReadAllBytes(fontPath);
-        _fontSystem.AddFont(fontData);
+            using (var memoryStream = new MemoryStream())
+            {
+                stream.CopyTo(memoryStream);
+                byte[] fontData = memoryStream.ToArray();
+                _fontSystem.AddFont(fontData);
+            }
+        }
     }
 
     public void DrawString(SpriteBatch spriteBatch, string text, Vector2 position, Color color, float fontSize)
