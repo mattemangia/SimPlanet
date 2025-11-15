@@ -31,7 +31,7 @@ SimPlanet is a complete SimEarth-like planetary evolution simulator built from s
 
 ### Rendering & Visualization
 - ✅ **Procedural Graphics**: All sprites generated programmatically (no external assets)
-- ✅ **21 View Modes**: Terrain, Temperature, Rainfall, Life, Oxygen, CO2, Elevation, Geology, Tectonic Plates, Volcanoes, Clouds, Wind, Pressure, Storms, Biomes, Albedo, Radiation, Resources, Earthquakes, Faults, Tsunamis
+- ✅ **22 View Modes**: Terrain, Temperature, Rainfall, Life, Oxygen, CO2, Elevation, Geology, Tectonic Plates, Volcanoes, Clouds, Wind, Pressure, Storms, Biomes, Albedo, Radiation, Resources, Infrastructure, Earthquakes, Faults, Tsunamis
 - ✅ **Custom Font System**: Built-in font rendering (no external font files)
 - ✅ **Real-time Updates**: Dynamic texture generation each frame
 - ✅ **Advanced Thematic Views**: Albedo (surface reflectivity), Radiation (cosmic ray levels), Biomes (15 types)
@@ -759,7 +759,21 @@ dotnet run
   - 3 road types: Dirt paths (Tech 5) → Paved roads (Tech 10) → Highways (Tech 20)
   - Roads connect nearest cities (within 50 cells) and resource sites (within 20 cells)
   - Bresenham line algorithm for efficient pathfinding
-  - Roads tracked in Civilization.Roads HashSet and marked on terrain cells
+  - Mountain tunnels: Tech 10+ civilizations tunnel through high mountains (elevation > 0.7)
+  - Rockfall hazards: Steep slope roads face random disasters (3x higher during rain)
+  - Albedo effects: Roads affect climate (Highways: 0.08, Roads: 0.10, Dirt: 0.18)
+  - Roads tracked in Civilization.Roads HashSet and marked on terrain cells with HasTunnel and RockfallRisk flags
+- ✅ **Energy Infrastructure System**: Nuclear, wind, and solar power generation
+  - **Nuclear Plants** (Tech 60): Built near cities, require uranium, emit radiation, risk meltdowns
+    - Meltdown risk increases with age, earthquakes, war, and poor maintenance
+    - Automatic meltdown checks can trigger nuclear accidents
+    - 1-3 plants per civilization based on uranium availability
+  - **Wind Turbines** (Tech 45): Clean energy on high ground, 5 per city
+  - **Solar Farms** (Tech 80): Advanced clean energy on flat terrain, 3 per city, albedo 0.10
+  - **Natural Radioactivity**: Uranium deposits emit 0.5-2.0 radiation based on concentration
+  - **Infrastructure View (O key)**: Dedicated visualization showing all civilization infrastructure
+    - Nuclear plants color-coded by risk: Purple (safe) → Orange (warning) → Red (dangerous)
+    - Solar farms: Gold, Wind turbines: Light blue, Tunnels: Bright green
 - ✅ **Civilization-Induced Earthquakes**: Industrial activities trigger seismic events
   - Oil & gas extraction increases seismic stress at extraction sites
   - Fracking operations (Industrial+ civs) cause higher earthquake probability

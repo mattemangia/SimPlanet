@@ -418,6 +418,12 @@ public class ClimateSimulator
             };
         }
 
+        // Solar panels have very low albedo (0.05-0.15, absorb sunlight for energy)
+        if (geo.HasSolarFarm)
+        {
+            albedo = 0.10f; // Dark solar panels
+        }
+
         // Clouds increase effective albedo (in future enhancement)
         // For now, clouds are handled separately in weather system
 

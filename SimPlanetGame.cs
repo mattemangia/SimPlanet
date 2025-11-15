@@ -582,6 +582,10 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.J) && _previousKeyState.IsKeyUp(Keys.J))
             _currentRenderMode = RenderMode.Resources;
 
+        // Infrastructure view mode (O key) - civilization infrastructure
+        if (keyState.IsKeyDown(Keys.O) && _previousKeyState.IsKeyUp(Keys.O))
+            _currentRenderMode = RenderMode.Infrastructure;
+
         // Apply render mode to terrain renderer (triggers texture update when mode changes)
         _terrainRenderer.Mode = _currentRenderMode;
 
@@ -819,7 +823,7 @@ public class SimPlanetGame : Game
             MapOptionsUI.ApplyWaterWorldPreset(_mapOptions);
             _mapOptionsUI.NeedsPreviewUpdate = true;
         }
-        if (keyState.IsKeyDown(Keys.F9) && _previousKeyState.IsKeyUp(Keys.F9))
+        if (keyState.IsKeyDown(Keys.S) && _previousKeyState.IsKeyUp(Keys.S))
         {
             MapOptionsUI.ApplyDesertWorldPreset(_mapOptions);
             _mapOptionsUI.NeedsPreviewUpdate = true;

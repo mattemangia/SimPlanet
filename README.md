@@ -348,6 +348,7 @@ dotnet run
 | **A** | Albedo/Surface reflectivity view (advanced) |
 | **F12** | Radiation levels view (advanced) |
 | **J** | Resources view (advanced) |
+| **O** | Infrastructure view (civilization infrastructure) |
 | **E** | Earthquakes view (geological hazards) |
 | **Q** | Faults view (geological hazards) |
 | **U** | Tsunamis view (geological hazards) |
@@ -803,10 +804,53 @@ Potential additions (not yet implemented):
   - Tech 5 (Land Transport): Dirt paths and basic trails
   - Tech 10 (Agricultural+): Paved roads
   - Tech 20 (Industrial+): Modern highways
+- ✅ **Mountain Tunnels** - Advanced civilizations tunnel through high mountains
+  - Tech 10+: Automatic tunnel construction on mountains (elevation > 0.7)
+  - Tunnels protected from rockfall disasters
+- ✅ **Rockfall Hazards** - Mountain roads face natural disasters
+  - Steep slope roads (elevation 0.5-0.7) marked as high rockfall risk
+  - Random rockfall events damage/destroy roads
+  - 3x higher chance during heavy rainfall
+  - Roads can downgrade: Highway → Road → Dirt Path → Destroyed
+- ✅ **Albedo Effects** - Roads affect solar reflection and local climate
+  - Highways: 0.08 albedo (dark asphalt absorbs heat)
+  - Paved roads: 0.10 albedo
+  - Dirt paths: 0.18 albedo (lighter surface)
 - ✅ **Infrastructure Data** - Roads tracked in multiple ways
   - Civilization.Roads HashSet stores all road cells
-  - Terrain cells marked with HasRoad, RoadType, RoadBuiltYear
+  - Terrain cells marked with HasRoad, RoadType, RoadBuiltYear, HasTunnel, RockfallRisk
   - Roads visible on map and contribute to civilization connectivity
+
+**NEW - Energy Infrastructure System:**
+- ✅ **Nuclear Power Plants** - High-risk, high-reward energy production
+  - Tech 60 (Scientific): Nuclear plants built near major cities
+  - Requires uranium resource availability
+  - 1-3 plants per civilization based on uranium stockpile
+  - Meltdown risk increases with plant age, earthquakes, war, and poor maintenance
+  - Automatic meltdown checks can trigger nuclear accidents
+  - Emit low-level radiation (increases with meltdown risk)
+- ✅ **Wind Turbines** - Clean energy for late-industrial civilizations
+  - Tech 45: Wind farms on high ground (elevation 0.3-0.7)
+  - Built in windy locations for maximum efficiency
+  - 5 turbines per city on average
+  - No environmental hazards
+- ✅ **Solar Farms** - Advanced clean energy technology
+  - Tech 80 (Advanced Scientific): Large-scale solar installations
+  - Prefer flat, sunny terrain (deserts ideal)
+  - 3 farms per city on average
+  - Albedo 0.10 (dark panels absorb sunlight for energy conversion)
+  - Affect local climate through heat absorption
+- ✅ **Natural Radioactivity** - Uranium deposits emit radiation
+  - Uranium-rich areas show elevated radiation levels (0.5-2.0 based on concentration)
+  - Natural background radiation visible in Radiation view (F12)
+  - Nuclear plants add 0.5+ radiation to surrounding area
+- ✅ **Infrastructure View (O key)** - Dedicated visualization of all civilization infrastructure
+  - Nuclear plants: Purple (safe) → Orange (warning) → Red (dangerous) based on meltdown risk
+  - Solar farms: Gold/yellow (solar panels)
+  - Wind turbines: Light blue (wind energy)
+  - Tunnels: Bright green (major engineering)
+  - Highways: Dark gray | Roads: Medium gray | Dirt paths: Light brown
+  - Civilization territory: Base gray color
 
 **NEW - Civilization-Induced Earthquakes:**
 - ✅ **Industrial Seismicity** - Human activities trigger earthquakes

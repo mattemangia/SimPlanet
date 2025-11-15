@@ -134,8 +134,26 @@ public class MagnetosphereSimulator
                     solarRadiation *= (1.0f - MagneticFieldStrength * 0.8f);
                 }
 
+                // Natural radioactivity from uranium deposits
+                float naturalRadiation = 0.0f;
+                var geo = cell.GetGeology();
+                var resources = cell.GetResourceData();
+                if (resources.Uranium > 0.1f)
+                {
+                    // Uranium deposits emit radiation (0.5-2.0 based on concentration)
+                    naturalRadiation = resources.Uranium * 2.0f;
+                }
+
+                // Nuclear power plants emit radiation
+                if (geo.HasNuclearPlant)
+                {
+                    // Operating nuclear plants emit low-level radiation (0.5)
+                    // Higher if plant is old or at high meltdown risk
+                    naturalRadiation += 0.5f + geo.MeltdownRisk * 2.0f;
+                }
+
                 // Total radiation for this cell
-                float totalCellRadiation = cosmicRays + solarRadiation;
+                float totalCellRadiation = cosmicRays + solarRadiation + naturalRadiation;
 
                 // Store radiation data
                 var magneticData = cell.GetMagneticData();

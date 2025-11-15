@@ -338,6 +338,7 @@ public class GameUI
         leftY += lineHeight + 3;
         DrawTextAt("F10: Biomes  A: Albedo", Color.Gray, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F12: Radiation  J: Resources", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("O: Infrastructure (Civ)", Color.Gray, leftColX, leftY); leftY += lineHeight;
         leftY += 5;
 
         DrawTextAt("=== SAVE/LOAD ===", Color.Yellow, leftColX, leftY);
@@ -368,6 +369,7 @@ public class GameUI
         DrawTextAt("F6: Earth preset", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("F7: Mars preset", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("F8: Water World preset", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("S: Desert World preset", Color.White, rightColX, rightY); rightY += lineHeight;
         rightY += 5;
 
         DrawTextAt("=== CIVILIZATION TOOLS ===", Color.Yellow, rightColX, rightY);

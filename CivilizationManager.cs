@@ -205,6 +205,20 @@ public class CivilizationManager
                 civ.HasNuclearWeapons = true; // Nuclear weapons
                 civ.NuclearStockpile = 5; // Initial stockpile
             }
+
+            // Energy infrastructure at various tech levels
+            if (civ.TechLevel == 45)
+            {
+                BuildWindTurbines(civ, currentYear); // Wind energy
+            }
+            if (civ.TechLevel == 60)
+            {
+                BuildNuclearPlants(civ, currentYear); // Nuclear power (before weapons)
+            }
+            if (civ.TechLevel == 80)
+            {
+                BuildSolarFarms(civ, currentYear); // Solar energy
+            }
         }
 
         // Build nuclear stockpile for advanced civilizations
@@ -215,6 +229,9 @@ public class CivilizationManager
                 civ.NuclearStockpile++;
             }
         }
+
+        // Update nuclear plant meltdown risk
+        UpdateNuclearPlantRisk(civ, deltaTime);
 
         // Update military strength based on population and tech
         civ.MilitaryStrength = (civ.Population / 1000) + (civ.TechLevel * 10);
@@ -1891,6 +1908,162 @@ public class CivilizationManager
                 {
                     // Can predict and prepare for cyclones
                     civ.Population += casualties / 5;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Build nuclear power plants for energy production
+    /// </summary>
+    private void BuildNuclearPlants(Civilization civ, int currentYear)
+    {
+        if (civ.Cities.Count == 0) return;
+
+        // Build 1-3 nuclear plants based on uranium availability
+        int plantsToBuil = Math.Min(3, (int)(civ.ResourceStockpile.GetValueOrDefault(ResourceType.Uranium, 0) / 0.5f));
+        int plantsBuilt = 0;
+
+        foreach (var city in civ.Cities.OrderByDescending(c => c.Population))
+        {
+            if (plantsBuilt >= plantsToBuil) break;
+
+            // Find suitable location near city (flat land, near water if possible)
+            for (int radius = 2; radius <= 10 && plantsBuilt < plantsToBuil; radius++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    for (int dy = -radius; dy <= radius; dy++)
+                    {
+                        if (plantsBuilt >= plantsToBuil) break;
+
+                        int nx = (city.X + dx + _map.Width) % _map.Width;
+                        int ny = Math.Clamp(city.Y + dy, 0, _map.Height - 1);
+
+                        var cell = _map.Cells[nx, ny];
+                        var geo = cell.GetGeology();
+
+                        // Must be in territory, on land, not mountain, not already has plant
+                        if (civ.Territory.Contains((nx, ny)) &&
+                            cell.IsLand &&
+                            cell.Elevation < 0.5f &&
+                            !geo.HasNuclearPlant)
+                        {
+                            geo.HasNuclearPlant = true;
+                            geo.EnergyInfraBuiltYear = currentYear;
+                            geo.MeltdownRisk = 0.01f; // Initial 1% risk
+                            plantsBuilt++;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Build wind turbines for green energy
+    /// </summary>
+    private void BuildWindTurbines(Civilization civ, int currentYear)
+    {
+        if (civ.Cities.Count == 0) return;
+
+        // Build turbines on windy high ground
+        int turbinesBuilt = 0;
+        int targetTurbines = civ.Cities.Count * 5; // 5 turbines per city
+
+        foreach (var (x, y) in civ.Territory.OrderBy(_ => _random.Next()))
+        {
+            if (turbinesBuilt >= targetTurbines) break;
+
+            var cell = _map.Cells[x, y];
+            var geo = cell.GetGeology();
+
+            // Prefer high elevation (windy) locations
+            if (cell.IsLand &&
+                cell.Elevation > 0.3f &&
+                cell.Elevation < 0.7f && // Not too high (mountains)
+                !geo.HasWindTurbine &&
+                !geo.HasNuclearPlant &&
+                !geo.HasSolarFarm)
+            {
+                geo.HasWindTurbine = true;
+                geo.EnergyInfraBuiltYear = currentYear;
+                turbinesBuilt++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Build solar farms for green energy
+    /// </summary>
+    private void BuildSolarFarms(Civilization civ, int currentYear)
+    {
+        if (civ.Cities.Count == 0) return;
+
+        // Build solar farms in sunny flat areas (deserts ideal)
+        int farmsBuilt = 0;
+        int targetFarms = civ.Cities.Count * 3; // 3 farms per city
+
+        foreach (var (x, y) in civ.Territory.OrderBy(_ => _random.Next()))
+        {
+            if (farmsBuilt >= targetFarms) break;
+
+            var cell = _map.Cells[x, y];
+            var geo = cell.GetGeology();
+
+            // Prefer flat, sunny locations (deserts are ideal)
+            if (cell.IsLand &&
+                cell.Elevation < 0.3f && // Flat land
+                !geo.HasWindTurbine &&
+                !geo.HasNuclearPlant &&
+                !geo.HasSolarFarm)
+            {
+                geo.HasSolarFarm = true;
+                geo.EnergyInfraBuiltYear = currentYear;
+                farmsBuilt++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Update nuclear plant meltdown risk based on various factors
+    /// </summary>
+    private void UpdateNuclearPlantRisk(Civilization civ, float deltaTime)
+    {
+        foreach (var (x, y) in civ.Territory)
+        {
+            var cell = _map.Cells[x, y];
+            var geo = cell.GetGeology();
+
+            if (geo.HasNuclearPlant)
+            {
+                // Base risk increases over time (aging)
+                int plantAge = _map.CurrentYear - geo.EnergyInfraBuiltYear;
+                geo.MeltdownRisk = 0.01f + (plantAge / 1000f) * 0.05f; // +5% per 1000 years
+
+                // Earthquake zones increase risk
+                if (geo.TectonicStress > 0.7f)
+                {
+                    geo.MeltdownRisk += 0.03f;
+                }
+
+                // War/low population increases risk (poor maintenance)
+                if (civ.Population < 50000 || civ.AtWar)
+                {
+                    geo.MeltdownRisk += 0.02f;
+                }
+
+                // Clamp risk to max 50%
+                geo.MeltdownRisk = Math.Min(geo.MeltdownRisk, 0.5f);
+
+                // Check for random meltdown
+                if (_random.NextDouble() < geo.MeltdownRisk * 0.0001f * deltaTime)
+                {
+                    // Trigger meltdown!
+                    _disasterManager?.TriggerNuclearAccident(x, y, _map.CurrentYear);
+                    geo.HasNuclearPlant = false; // Plant destroyed
+                    geo.MeltdownRisk = 0f;
                 }
             }
         }

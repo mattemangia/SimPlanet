@@ -166,6 +166,13 @@ public class GeologicalData
     public bool HasTunnel { get; set; } = false;  // Tunnel through mountain
     public bool RockfallRisk { get; set; } = false;  // Road on unstable mountain slope
 
+    // Energy infrastructure
+    public bool HasNuclearPlant { get; set; } = false;     // Nuclear power plant
+    public bool HasSolarFarm { get; set; } = false;        // Solar panel array
+    public bool HasWindTurbine { get; set; } = false;      // Wind turbine
+    public int EnergyInfraBuiltYear { get; set; } = 0;     // Year infrastructure was built
+    public float MeltdownRisk { get; set; } = 0.0f;        // Nuclear plant risk (0-1)
+
     // Age and composition
     public int CrustAge { get; set; }  // Millions of years
     public float CrystallineRock { get; set; } = 0.5f;  // Granite, gabbro

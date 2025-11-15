@@ -113,6 +113,7 @@ public class TerrainRenderer
                     RenderMode.Earthquakes => GetEarthquakesColor(cell),
                     RenderMode.Faults => GetFaultsColor(cell),
                     RenderMode.Tsunamis => GetTsunamisColor(cell),
+                    RenderMode.Infrastructure => GetInfrastructureColor(cell),
                     _ => Color.Black
                 };
 
@@ -632,6 +633,12 @@ public class TerrainRenderer
             };
         }
 
+        // Solar panels have very low albedo (absorb sunlight for energy)
+        if (geo.HasSolarFarm)
+        {
+            albedo = 0.10f; // Dark solar panels
+        }
+
         // Color gradient: Dark (low albedo/absorbs heat) to White (high albedo/reflects heat)
         // Low albedo (0-20%): Dark blue/green (absorbs solar energy)
         // Medium albedo (20-40%): Yellow/tan (moderate reflection)
@@ -826,6 +833,75 @@ public class TerrainRenderer
         return new Color(60, 80, 60);
     }
 
+    private Color GetInfrastructureColor(TerrainCell cell)
+    {
+        var geo = cell.GetGeology();
+
+        // Priority visualization: show most important infrastructure
+
+        // Nuclear power plants (red - highest priority for safety)
+        if (geo.HasNuclearPlant)
+        {
+            // Color intensity based on meltdown risk
+            float risk = geo.MeltdownRisk;
+            if (risk > 0.2f)
+                return Color.Lerp(new Color(255, 100, 0), Color.Red, (risk - 0.2f) / 0.3f); // Orange to red (dangerous)
+            else
+                return Color.Lerp(new Color(150, 0, 150), new Color(255, 100, 0), risk / 0.2f); // Purple to orange (safe to warning)
+        }
+
+        // Solar farms (bright yellow/gold)
+        if (geo.HasSolarFarm)
+        {
+            return new Color(255, 215, 0); // Gold (solar panels)
+        }
+
+        // Wind turbines (cyan/light blue)
+        if (geo.HasWindTurbine)
+        {
+            return new Color(100, 200, 255); // Light blue (wind)
+        }
+
+        // Roads with tunnels (bright green)
+        if (geo.HasTunnel)
+        {
+            return new Color(0, 255, 100); // Bright green (major infrastructure)
+        }
+
+        // Highways (dark gray/black)
+        if (geo.HasRoad && geo.RoadType == RoadType.Highway)
+        {
+            return new Color(50, 50, 50); // Dark gray
+        }
+
+        // Paved roads (medium gray)
+        if (geo.HasRoad && geo.RoadType == RoadType.Road)
+        {
+            return new Color(120, 120, 120); // Medium gray
+        }
+
+        // Dirt paths (light brown)
+        if (geo.HasRoad && geo.RoadType == RoadType.DirtPath)
+        {
+            return new Color(160, 140, 100); // Light brown
+        }
+
+        // Civilization territory (light gray base)
+        if (cell.LifeType == LifeForm.Civilization)
+        {
+            return new Color(80, 80, 80); // Dark gray background
+        }
+
+        // Water (dark blue)
+        if (cell.IsWater)
+        {
+            return new Color(20, 40, 80); // Dark blue
+        }
+
+        // Uninhabited land (dark green)
+        return new Color(40, 60, 40); // Dark green
+    }
+
     public void DrawLegend(SpriteBatch spriteBatch, FontRenderer font, int screenWidth, int screenHeight)
     {
         // Don't show legend for Terrain mode (it's self-explanatory)
@@ -902,6 +978,7 @@ public class TerrainRenderer
             RenderMode.Resources => "RESOURCES",
             RenderMode.Albedo => "SURFACE ALBEDO",
             RenderMode.Radiation => "RADIATION LEVELS",
+            RenderMode.Infrastructure => "CIVILIZATION INFRASTRUCTURE",
             _ => "LEGEND"
         };
     }
@@ -927,6 +1004,7 @@ public class TerrainRenderer
             RenderMode.Resources => new List<string> { "Coal", "Iron", "Oil", "Uranium", "Rare" },
             RenderMode.Albedo => new List<string> { "0% (Dark/Absorbs)", "85% (Bright/Reflects)" },
             RenderMode.Radiation => new List<string> { "0 (Safe)", "5+ (Deadly)" },
+            RenderMode.Infrastructure => new List<string> { "Roads", "Nuclear Plants", "Wind Turbines", "Solar Farms", "Tunnels" },
             _ => new List<string>()
         };
     }
@@ -1074,5 +1152,6 @@ public enum RenderMode
     Radiation,      // Cosmic rays and solar radiation
     Earthquakes,    // Seismic activity and epicenters
     Faults,         // Fault lines and fault types
-    Tsunamis        // Tsunami waves and coastal flooding
+    Tsunamis,       // Tsunami waves and coastal flooding
+    Infrastructure  // Civilization infrastructure (roads, energy, etc.)
 }
