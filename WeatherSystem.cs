@@ -605,7 +605,8 @@ public class WeatherSystem
                     float currentStrength = effectStrength * storm.MaxWindSpeed * 0.02f;
 
                     // Create circular current pattern
-                    float currentAngle = angle + (storm.RotationDirection * MathF.PI / 2f);
+                    float currentAngle = MathF.Atan2(dy, dx);
+                    currentAngle = currentAngle + (storm.RotationDirection * MathF.PI / 2f);
                     met.WindSpeedX += MathF.Cos(currentAngle) * currentStrength;
                     met.WindSpeedY += MathF.Sin(currentAngle) * currentStrength;
 

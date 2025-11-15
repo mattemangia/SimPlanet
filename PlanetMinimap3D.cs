@@ -255,7 +255,7 @@ public class PlanetMinimap3D
                         cloudAlpha = Math.Clamp(cloudAlpha, 0, 0.8f);
 
                         // Blend clouds over terrain
-                        Color cloudColor = new Color(255, 255, 255, (byte)(cloudAlpha * 255));
+                        Color cloudColor = new Color((byte)255, (byte)255, (byte)255, (byte)(cloudAlpha * 255));
                         baseColor = BlendColors(baseColor, cloudColor);
                     }
                 }
