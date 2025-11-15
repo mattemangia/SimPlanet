@@ -21,7 +21,7 @@ SimPlanet is a complete SimEarth-like planetary evolution simulator built from s
 - ✅ **Disease & Pandemic System**: 6 pathogen types with realistic spread and civilization responses
 - ✅ **Auto-Stabilization**: Automatic planetary condition maintenance for habitability
 - ✅ **Disaster System**: Meteors, volcanoes (including hot spots), ice ages, droughts, and plagues
-- ✅ **Civilization Development**: Cities, railroads, commerce, and industrial development
+- ✅ **Civilization Development**: Intelligent city placement, road networks, railroads, commerce, and industrial development with induced earthquakes
 
 ### Rendering & Visualization
 - ✅ **Procedural Graphics**: All sprites generated programmatically (no external assets)
@@ -36,7 +36,8 @@ SimPlanet is a complete SimEarth-like planetary evolution simulator built from s
 - ✅ **Help System**: Toggle-able in-game help with comprehensive controls
 - ✅ **Map Options Menu**: Interactive planet customization with real-time preview
 - ✅ **Time Control**: Variable simulation speed (0.25x to 32x)
-- ✅ **Manual Terraforming Tool**: Place plants, algae, bacteria with mouse click
+- ✅ **Manual Terraforming Tool**: Place plants, algae, bacteria, create fault lines with mouse click
+- ✅ **Resource Placement Tool**: Manually place 10 resource types (Iron, Copper, Coal, Gold, Silver, Oil, Gas, Uranium, Rare Earths, Diamonds)
 - ✅ **Disaster Control**: Toggle disasters on/off with status display
 - ✅ **Civilization Control**: Toggle civilization growth and development
 - ✅ **Auto-Stabilizer Display**: Real-time stabilization status and adjustments made
@@ -408,10 +409,11 @@ dotnet run
 🆕 **Magnetosphere Simulation**: Planetary magnetic field with radiation protection
 🆕 **Auto-Stabilization System**: Maintains habitable conditions automatically
 🆕 **Forest Fire System**: Natural and meteor-induced wildfires
-🆕 **Manual Terraforming Tools**: Click-to-place life forms for guided evolution
+🆕 **Manual Terraforming Tools**: Click-to-place life forms, create fault lines, manual resource placement
+🆕 **Resource Placement Tool**: Place 10 resource types with adjustable amounts
 🆕 **Disaster Control**: Toggle natural disasters on/off
-🆕 **Civilization Management**: Cities, railroads, commerce systems
-🆕 **Advanced Visualization**: 18 view modes including Albedo, Radiation, Biomes, Storms
+🆕 **Intelligent Civilization Management**: Strategic city placement, road networks, railroads, commerce, induced earthquakes
+🆕 **Advanced Visualization**: 21 view modes including Albedo, Radiation, Biomes, Storms, Earthquakes, Faults, Tsunamis
 🆕 **Gradual Biome Transitions**: Realistic ecosystem boundaries
 🆕 **Enhanced Climate**: Hadley cells, ITCZ, realistic atmospheric circulation
 🆕 **Animal Evolution**: Dinosaurs and mammals with different characteristics
@@ -423,7 +425,36 @@ dotnet run
 
 ## Recent Updates
 
-### Comprehensive Geological Hazard System (Latest)
+### Intelligent City Placement, Road Networks & Advanced Terraforming (Latest)
+- ✅ **Strategic City Placement AI**: Cities positioned based on resources (40%), defense (30%), and commerce (30%)
+  - Resource Score: Scans 10-cell radius for mines, resources, and forests
+  - Defense Score: Evaluates high ground, mountains, peninsula locations
+  - Commerce Score: Coastal access and river proximity for trade
+  - Cities store strategic data: ResourceScore, DefenseScore, CommerceScore, NearRiver, Coastal, OnHighGround, NearbyResources
+  - Top 5 candidates selected for variety while maintaining strategy
+- ✅ **Road Infrastructure System**: Automatic road networks connecting cities and resources
+  - 3 road types: Dirt paths (Tech 5) → Paved roads (Tech 10) → Highways (Tech 20)
+  - Roads connect nearest cities (within 50 cells) and resource sites (within 20 cells)
+  - Bresenham line algorithm for efficient pathfinding
+  - Roads tracked in Civilization.Roads HashSet and marked on terrain cells
+- ✅ **Civilization-Induced Earthquakes**: Industrial activities trigger seismic events
+  - Oil & gas extraction increases seismic stress at extraction sites
+  - Fracking operations (Industrial+ civs) cause higher earthquake probability
+  - Geothermal energy (Scientific+ civs) triggers tremors in volcanic areas
+  - Smaller magnitude earthquakes (M2.0-5.0) compared to natural quakes
+  - Integrated with existing EarthquakeSystem via InducedSeismicity flag
+- ✅ **Resource Placement Tool**: Manual resource placement anywhere on map (M key)
+  - 10 resource types: Iron, Copper, Coal, Gold, Silver, Oil, Natural Gas, Uranium, Rare Earths, Diamonds
+  - Adjustable deposit amounts: 5-100 units (scroll wheel)
+  - R key cycles through resource types
+  - Resources auto-discovered when manually placed
+- ✅ **Enhanced Terraforming - Fault Creation**: Create earthquake faults with manual tool (T key)
+  - 5 fault types: Strike-Slip, Normal, Reverse, Thrust, Oblique
+  - Automatically sets seismic stress (0.3-0.7) and fault activity (0.5-1.0)
+  - Configures matching plate boundary types
+  - Integrates with existing earthquake and tsunami systems
+
+### Comprehensive Geological Hazard System
 - ✅ **Earthquake System**: Realistic seismic activity with magnitude 2.0-9.5 on Richter scale
   - Stress accumulation at plate boundaries and faults
   - Epicenter tracking with seismic wave propagation
