@@ -26,6 +26,49 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 
 ## Features
 
+### Divine Powers & Government Systems
+
+**Play as a God** - Directly interfere with civilizations using divine powers (Press H):
+
+**Government Types:**
+- **Tribal**: Simple leadership, low stability
+- **Monarchy**: Hereditary rule, single dynasty
+- **Dynasty**: Extended royal families with succession
+- **Theocracy**: Religious leadership, high legitimacy
+- **Republic**: Elected leaders, moderate stability
+- **Democracy**: Advanced elected government, high stability
+- **Oligarchy**: Rule by elite class
+- **Dictatorship**: Single authoritarian ruler
+- **Federation**: Advanced unified government
+
+**Diplomatic Relations:**
+- **Treaties**: Trade Pacts, Defense Pacts, Military Alliances, Non-Aggression Pacts
+- **Royal Marriages**: Political marriages between rulers create lasting alliances
+- **Opinion System**: -100 to +100 relationship scores between civilizations
+- **Trust Levels**: Breaking treaties destroys trust and damages relations
+- **Diplomatic Status**: War, Hostile, Neutral, Friendly, Allied
+
+**Divine Powers (God Mode - Press H):**
+- **Change Government**: Overthrow existing government and install new system
+- **Send Spies**: Launch espionage missions against civilizations
+  - Steal Technology: Gain advanced tech from rivals
+  - Sabotage: Destroy resources and infrastructure
+  - Assassinate Ruler: Kill leaders and destabilize governments
+  - Incite Revolution: Reduce stability and trigger unrest
+  - Steal Resources: Transfer wealth between civilizations
+- **Force Betrayal**: Make civilizations break treaties and declare war
+- **Bless Civilization**: Divine favor (population +20%, resources +50%, stability boost)
+- **Curse Civilization**: Divine wrath (population -30%, resources -50%, stability collapse)
+- **Force Alliance**: Make civilizations ally regardless of relations
+- **Force War**: Trigger wars between civilizations
+
+**Succession & Dynasties:**
+- **Hereditary Succession**: Monarchies pass throne to children
+- **Dynasty Tracking**: Royal families with generated names (House of Dragon, Dynasty of Phoenix, etc.)
+- **Succession Crises**: Dynasties can fall when no heirs exist
+- **Ruler Traits**: Wisdom, Charisma, Ambition, Brutality, Piety affect government performance
+- **Elected Leaders**: Democracies and Republics elect new rulers when old ones die
+
 ### Core Mechanics (SimEarth-like)
 - **Terrain Generation**:
   - Procedural height maps with configurable land/water ratios
@@ -95,6 +138,13 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
     - Cyclonic wind patterns with spiral rotation and eye walls
     - Track central pressure, max wind speed, and storm category
     - Storm surge damage on coastlines
+    - **Real-time visualization** with animated vortices on both 3D minimap and 2D weather maps
+    - **Climate impact**: Sea surface cooling, ocean current disruption, upwelling effects
+  - **Animated Weather Visualization**:
+    - Semi-transparent cloud layer drifting with wind on 3D minimap
+    - Cyclone vortices with spiral arms and eye visualization
+    - Synchronized weather display between 3D globe and 2D thematic maps
+    - Storm intensity color-coding (blue→yellow→orange→red)
   - Thunderstorms, blizzards, and tornadoes
   - Seasonal temperature variations based on latitude
 - **Forest Fire System**:
@@ -127,6 +177,15 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Railroad networks connect cities (unlocks at Industrial age)
   - Cities with names, populations, trade systems, and strategic location data
   - Commerce and trade income between cities
+  - **Government Systems**: 9 government types (Tribal, Monarchy, Dynasty, Theocracy, Republic, Democracy, Oligarchy, Dictatorship, Federation)
+  - **Hereditary Succession**: Monarchies and dynasties pass power to heirs, dynasties can fall and be replaced
+  - **Royal Dynasties**: Randomly generated dynasty names and family trees with succession tracking
+  - **Diplomatic Relations**: Civilizations form treaties, alliances, trade pacts, and non-aggression pacts
+  - **Royal Marriages**: Political marriages between civilizations create lasting alliances
+  - **Espionage**: Spy missions to steal technology, sabotage resources, assassinate rulers, or incite revolutions
+  - **Government Stability**: Rulers have traits (Wisdom, Charisma, Ambition, Brutality, Piety) affecting stability
+  - **Divine Powers (God Mode)**: Player can interfere with civilizations - change governments, send spies, force wars/alliances, bless/curse civs
+  - **Disaster Response**: Civilizations respond to cyclones, volcanoes, earthquakes with casualties and political instability
 - **Life Evolution**:
   - Bacteria → Algae → Plants → Simple Animals → Complex Animals → Intelligence → Civilization
   - Life spreads and adapts based on environmental conditions
@@ -304,8 +363,8 @@ dotnet run
 | **D** | Toggle disaster control panel |
 | **K** | Toggle disease/pandemic control center |
 | **G** | Open civilization control panel |
+| **H** | Open divine powers menu (god mode - control civilizations) |
 | **R** | Regenerate planet with current settings |
-| **H** | Toggle help panel |
 | **F5** | Quick save game |
 | **F6** | Apply Earth preset (in map options) |
 | **F7** | Apply Mars preset (in map options) |
@@ -597,7 +656,77 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Realistic Tropical Cyclones with Coriolis-Based Trajectories
+### Latest Update - Government Systems, Diplomacy & Divine Powers
+
+**NEW - Complete Government System:**
+- ✅ **9 Government Types** - Tribal, Monarchy, Dynasty, Theocracy, Republic, Democracy, Oligarchy, Dictatorship, Federation
+- ✅ **Hereditary Succession** - Monarchies and dynasties pass power through family lines
+- ✅ **Dynasty System** - Royal families with randomly generated names (House of Dragon, Dynasty of Phoenix, Line of Lion, etc.)
+- ✅ **Ruler Traits** - Each ruler has Wisdom, Charisma, Ambition, Brutality, and Piety affecting performance
+- ✅ **Succession Crises** - Dynasties can fall when no heirs exist, triggering new dynasties or government changes
+- ✅ **Elected Leaders** - Democracies and Republics hold elections when rulers die
+- ✅ **Government Evolution** - Civilizations advance from Tribal → Monarchy → Republic/Democracy based on tech level
+- ✅ **Stability & Legitimacy** - Governments can collapse from low stability, causing revolutions
+- ✅ **Corruption System** - Government corruption affects civilization performance
+
+**NEW - Diplomatic Relations:**
+- ✅ **Treaty System** - 9 treaty types: Trade Pacts, Defense Pacts, Military Alliances, Non-Aggression, Royal Marriage, Vassalage, Tribute, Cultural Exchange, Climate Agreements
+- ✅ **Opinion System** - Civilizations track -100 to +100 opinion scores affecting relations
+- ✅ **Trust Levels** - Trust builds over time, shattered by treaty violations
+- ✅ **Royal Marriages** - Political marriages between rulers create lasting alliances and produce heirs
+- ✅ **Diplomatic Status** - War, Hostile, Neutral, Friendly, Allied relationships
+- ✅ **Treaty Breaking** - Breaking treaties causes major diplomatic incidents and trust loss
+- ✅ **Automatic Diplomacy** - Civilizations autonomously propose treaties and form alliances
+
+**NEW - Divine Powers (God Mode - Press H):**
+- ✅ **Complete Player Control** - Interfere with civilizations as an omnipotent god
+- ✅ **Change Government** - Overthrow governments and install new systems (triggers revolution, 10% population loss)
+- ✅ **Espionage System** - Send spies on missions:
+  - Steal Technology: Bridge tech gaps between civilizations
+  - Sabotage: Destroy 50% of resources
+  - Assassinate Ruler: Kill leaders and destabilize governments (-40% stability)
+  - Incite Revolution: Reduce stability and legitimacy
+  - Steal Resources: Transfer 30% of resources between civilizations
+  - Success rates based on tech level differences
+- ✅ **Force Betrayal** - Make civilizations break all treaties and declare war
+- ✅ **Bless/Curse Civilizations**:
+  - Blessing: +20% population, +50% resources, +30% stability
+  - Curse: -30% population, -50% resources, -50% stability
+- ✅ **Force Diplomatic Actions** - Force alliances or wars regardless of relations
+- ✅ **Divine Powers UI** - Full menu system for selecting civilizations and actions
+
+**NEW - Enhanced Weather Visualization:**
+- ✅ **Animated Clouds on 3D Minimap** - Semi-transparent cloud layer drifting with wind
+- ✅ **Cyclone Vortices** - Real-time visualization of tropical cyclones:
+  - Spiral vortex arms showing rotation (counterclockwise NH, clockwise SH)
+  - Storm eye visible for Category 3+ hurricanes
+  - Color-coded intensity (blue→yellow→orange→red)
+  - Synchronized between 3D minimap and 2D weather maps
+- ✅ **2D Map Weather Display** - Cyclones visible on Clouds, Storms, Wind, and Pressure views
+
+**NEW - Cyclone Climate Impact:**
+- ✅ **Sea Surface Cooling** - Cyclones cool ocean temperature up to 2°C
+- ✅ **Evaporative Cooling** - Heavy rainfall reduces air temperature
+- ✅ **Ocean Current Disruption** - Cyclones create circular current patterns
+- ✅ **Upwelling Effects** - Cold water brought to surface in cyclone wake
+- ✅ **Enhanced Civilization Damage** - Casualties calculated based on storm category (Cat 5 = 10% population loss)
+- ✅ **Political Instability** - Major cyclones reduce government stability
+
+**Game Architecture Updates:**
+- **Government.cs** - Complete government, ruler, and dynasty system
+- **DiplomaticRelation.cs** - Treaty management and diplomatic relations
+- **DivinePowers.cs** - God-mode player powers implementation
+- **DivinePowersUI.cs** - Full UI for divine intervention
+- **CivilizationManager.cs** - Enhanced with government updates, succession, diplomacy, and disaster response
+- **WeatherSystem.cs** - Enhanced cyclone effects on climate and oceans
+- **PlanetMinimap3D.cs** - Animated clouds and cyclone vortex rendering
+- **SimPlanetGame.cs** - Integrated weather visualization on 2D maps
+
+**Keyboard Shortcuts:**
+- **H**: Open divine powers menu
+- **G**: Civilization control panel
+
+### Previous Update - Realistic Tropical Cyclones with Coriolis-Based Trajectories
 
 **NEW - Advanced Cyclone System:**
 - ✅ **Tropical Cyclone Formation** - Realistic conditions required:
