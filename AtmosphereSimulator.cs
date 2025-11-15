@@ -259,11 +259,13 @@ public class AtmosphereSimulator
                 // CO2 greenhouse contribution (baseline)
                 float co2Effect = cell.CO2 * 0.02f;
 
-                // Methane contribution (28x more potent than CO2)
-                float ch4Effect = cell.Methane * 0.56f;
+                // Methane contribution (28x more potent than CO2, but in much lower concentrations)
+                // FIXED: Reduced from 0.56 to 0.006 to prevent runaway greenhouse effect
+                float ch4Effect = cell.Methane * 0.006f;
 
-                // Nitrous oxide contribution (265x more potent than CO2)
-                float n2oEffect = cell.NitrousOxide * 5.3f;
+                // Nitrous oxide contribution (265x more potent than CO2, but in much lower concentrations)
+                // FIXED: Reduced from 5.3 to 0.01 to prevent runaway greenhouse effect
+                float n2oEffect = cell.NitrousOxide * 0.01f;
 
                 // Water vapor feedback (most important greenhouse gas)
                 // Water vapor amplifies warming from other gases
@@ -273,10 +275,15 @@ public class AtmosphereSimulator
                     waterVaporEffect = (cell.Humidity - 0.5f) * 0.2f;
 
                     // Positive feedback: warmer air holds more water vapor
+                    // FIXED: Reduced feedback strength and added cap to prevent runaway
                     if (cell.Temperature > 15)
                     {
-                        waterVaporEffect *= (1.0f + (cell.Temperature - 15) * 0.01f);
+                        float tempFactor = Math.Min((cell.Temperature - 15) * 0.005f, 0.5f); // Reduced from 0.01, capped at 0.5
+                        waterVaporEffect *= (1.0f + tempFactor);
                     }
+
+                    // CRITICAL FIX: Cap water vapor effect to prevent runaway greenhouse
+                    waterVaporEffect = Math.Min(waterVaporEffect, 0.3f);
                 }
 
                 // Total greenhouse effect with gas interactions
