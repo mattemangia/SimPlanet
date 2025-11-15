@@ -186,12 +186,12 @@ public class PlanetMinimap3D
 
             if (cloudCover > 0.1f)
             {
-                // White clouds with transparency based on cloud density
-                byte alpha = (byte)(cloudCover * 200); // Max alpha 200
+                // White clouds with transparency based on cloud density (lighter for minimap)
+                byte alpha = (byte)(cloudCover * 120); // Max alpha 120 (reduced from 200)
                 Color cloudColor = new Color((byte)255, (byte)255, (byte)255, alpha);
 
-                // Blend clouds with terrain
-                float cloudAlpha = cloudCover * 0.8f; // Max 80% cloud coverage visible
+                // Blend clouds with terrain (more transparent for minimap)
+                float cloudAlpha = cloudCover * 0.4f; // Max 40% cloud coverage visible (reduced from 80%)
                 terrainColor = Color.Lerp(terrainColor, cloudColor, cloudAlpha);
             }
         }
@@ -288,9 +288,9 @@ public class PlanetMinimap3D
 
                     if (animCloudCover > 0.3f)
                     {
-                        // White semi-transparent clouds
-                        float cloudAlpha = (animCloudCover - 0.3f) * 1.4f; // 0.3-1.0 -> 0-1
-                        cloudAlpha = Math.Clamp(cloudAlpha, 0, 0.8f);
+                        // White semi-transparent clouds (more transparent for minimap)
+                        float cloudAlpha = (animCloudCover - 0.3f) * 1.0f; // 0.3-1.0 -> 0-0.7
+                        cloudAlpha = Math.Clamp(cloudAlpha, 0, 0.4f); // Max 40% opacity (reduced from 80%)
 
                         // Blend clouds over terrain
                         Color cloudColor = new Color((byte)255, (byte)255, (byte)255, (byte)(cloudAlpha * 255));

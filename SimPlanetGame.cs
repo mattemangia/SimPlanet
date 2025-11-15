@@ -1024,6 +1024,7 @@ public class SimPlanetGame : Game
         _ui.SetPlanetStabilizer(_planetStabilizer);
         _minimap3D.Dispose();
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+        _minimap3D.SetWeatherSystem(_weatherSystem); // Connect weather system for clouds and storms
         _eventsUI.InitializeOverlayTexture(_map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
 
