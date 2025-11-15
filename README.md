@@ -117,12 +117,15 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Transportation systems affect spread (air travel, ships, railroads)
 - **Civilization Development**:
   - Technology progression: Tribal → Agricultural → Industrial → Scientific → Spacefaring
-  - Population growth and territorial expansion
+  - **Intelligent city placement** based on resources, defense, and commerce
+  - **Road networks** connecting cities and resource sites (dirt paths → roads → highways)
+  - **Civilization-induced earthquakes** from oil extraction, fracking, and geothermal energy
+  - Population growth and strategic territorial expansion
   - Environmental impact (pollution, deforestation, CO2 emissions)
   - Advanced civilizations can terraform and restore ecosystems
   - Inter-civilization interactions (war, cooperation, technology sharing)
   - Railroad networks connect cities (unlocks at Industrial age)
-  - Cities with names, populations, and trade systems
+  - Cities with names, populations, trade systems, and strategic location data
   - Commerce and trade income between cities
 - **Life Evolution**:
   - Bacteria → Algae → Plants → Simple Animals → Complex Animals → Intelligence → Civilization
@@ -137,10 +140,16 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Manual Terraforming Tool** (Press T):
   - Plant forests, grasslands, deserts, tundra
   - Create oceans and raise mountains
+  - **Create fault lines** (5 types: Strike-Slip, Normal, Reverse, Thrust, Oblique)
   - Seed new civilizations
   - Adjustable brush size (1-15 radius)
   - Respects terrain constraints for realistic results
   - Scroll wheel adjusts brush size
+- **Resource Placement Tool** (Press M):
+  - Place 10 resource types: Iron, Copper, Coal, Gold, Silver, Oil, Gas, Uranium, Rare Earths, Diamonds
+  - Adjustable deposit amounts (5-100 units)
+  - Scroll wheel adjusts amount, R key cycles resource type
+  - Resources auto-discovered and ready for civilization extraction
 - **Auto-Stabilization System** (Press Y):
   - **ENABLED BY DEFAULT** to prevent runaway climate disasters
   - Automatically maintains Earth-like habitable conditions
@@ -182,6 +191,11 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 16. **Albedo (F11)**: Surface reflectivity showing ice-albedo feedback (dark absorbs heat, bright reflects)
 17. **Radiation (F12)**: Cosmic ray and solar radiation levels (green=safe, red/purple=deadly)
 18. **Resources (J)**: Natural resource deposits (coal, iron, oil, uranium, rare minerals)
+
+**Geological Hazard Views (E, Q, U keys):**
+19. **Earthquakes (E)**: Seismic activity with epicenters (red/orange), wave propagation, and stress buildup (blue/purple)
+20. **Faults (Q)**: Fault lines color-coded by type - Strike-Slip (yellow), Normal (blue), Reverse (red), Thrust (dark red), Oblique (purple)
+21. **Tsunamis (U)**: Ocean wave propagation with wave height (cyan to white gradient) and coastal flooding (brown)
 
 ### Geological Overlays (Toggle On/Off)
 - **Volcanoes**: Red triangles showing active volcanoes
@@ -274,10 +288,13 @@ dotnet run
 | **F11** | Albedo/Surface reflectivity view (advanced) |
 | **F12** | Radiation levels view (advanced) |
 | **J** | Resources view (advanced) |
+| **E** | Earthquakes view (geological hazards) |
+| **Q** | Faults view (geological hazards) |
+| **U** | Tsunamis view (geological hazards) |
 | **+/-** | Increase/Decrease time speed |
 | **C** | Toggle day/night cycle (auto-enabled at <0.5x speed) |
 | **L** | Seed new life forms |
-| **M** | Open map generation options menu |
+| **M** | Toggle resource placement tool (R to cycle) |
 | **T** | Toggle manual terraforming tool |
 | **Y** | Toggle auto-stabilization system |
 | **P** | Toggle 3D rotating minimap |
@@ -630,7 +647,74 @@ Potential additions (not yet implemented):
 - Realistic storm radii (10-25 cells based on category)
 - Ocean temperature feedback for intensification
 
-### Latest Update - Comprehensive Geological Hazard System
+### Latest Update - Intelligent City Placement, Road Networks & Advanced Terraforming
+
+**NEW - Strategic City Placement AI:**
+- ✅ **Smart Location Selection** - Cities placed based on three key factors:
+  - **Resource Score (40%)**: Scans 10-cell radius for mines, resources, and forests
+  - **Defense Score (30%)**: Evaluates high ground, nearby mountains, peninsula locations
+  - **Commerce Score (30%)**: Coastal access and river proximity for trade routes
+  - Cities store full strategic data: ResourceScore, DefenseScore, CommerceScore
+  - Location flags: NearRiver, Coastal, OnHighGround, NearbyResources list
+- ✅ **Intelligent Growth** - Civilizations expand strategically, not randomly
+  - Cities spaced minimum 10 cells apart to prevent clustering
+  - Top 5 candidates selected for variety while maintaining strategy
+  - Replaces random placement with calculated optimal locations
+
+**NEW - Road Infrastructure System:**
+- ✅ **Road Network** - Cities and resources automatically connected
+  - Roads link nearest cities together (within 50 cells)
+  - Roads connect cities to nearby mines and resource sites (within 20 cells)
+  - Bresenham line algorithm for efficient pathfinding
+- ✅ **Technology-Based Upgrades** - Road quality improves with civilization advancement
+  - Tech 5 (Land Transport): Dirt paths and basic trails
+  - Tech 10 (Agricultural+): Paved roads
+  - Tech 20 (Industrial+): Modern highways
+- ✅ **Infrastructure Data** - Roads tracked in multiple ways
+  - Civilization.Roads HashSet stores all road cells
+  - Terrain cells marked with HasRoad, RoadType, RoadBuiltYear
+  - Roads visible on map and contribute to civilization connectivity
+
+**NEW - Civilization-Induced Earthquakes:**
+- ✅ **Industrial Seismicity** - Human activities trigger earthquakes
+  - **Oil & Gas Extraction**: Increases seismic stress at extraction sites
+  - **Fracking Operations** (Industrial+ civs): Higher earthquake probability
+  - **Geothermal Energy** (Scientific+ civs): Tremors in volcanic areas
+- ✅ **Smaller Magnitudes** - Induced quakes are M2.0-5.0 (weaker than natural)
+- ✅ **Integrated System** - Works with existing EarthquakeSystem
+  - Tracked per cell with InducedSeismicity flag
+  - Active during resource extraction at mines
+  - Chance-based triggering (0.1% per update at active sites)
+
+**NEW - Resource Placement Tool:**
+- ✅ **Manual Resource Placement** - Place natural resources anywhere on map
+  - **10 Resource Types**: Iron, Copper, Coal, Gold, Silver, Oil, Natural Gas, Uranium, Rare Earths, Diamonds
+  - **Adjustable Amounts**: 5-100 units via scroll wheel
+  - **Auto-Discovery**: Resources automatically discovered when manually placed
+  - **Click to Place**: Simple mouse interface
+- ✅ **Tool Controls** (Press M to activate):
+  - **M**: Toggle resource placement tool on/off
+  - **R**: Cycle through resource types
+  - **Scroll Wheel**: Adjust deposit amount (±5 units)
+  - **Left Click**: Place resource at cursor location
+  - **UI Panel**: Shows current type, amount, and available resources
+
+**NEW - Enhanced Terraforming - Fault Creation:**
+- ✅ **Manual Fault Lines** - Create earthquake faults anywhere (existing tool T key)
+  - **5 Fault Types**: Strike-Slip, Normal, Reverse, Thrust, Oblique
+  - Automatically sets seismic stress (0.3-0.7) for realistic activity
+  - Sets fault activity level (0.5-1.0)
+  - Configures matching plate boundary types
+- ✅ **Expanded Planting Tool** - Now includes Fault option
+  - Cycle through: Forest → Grass → Desert → Tundra → Ocean → Mountain → **Fault** → Civilization
+  - Faults integrate with existing earthquake and tsunami systems
+  - Create custom seismic zones and test disaster scenarios
+
+**Keyboard Shortcuts:**
+- **M**: Toggle resource placement tool (R to cycle types)
+- **T**: Toggle terraforming tool (includes Fault creation)
+
+### Previous Update - Comprehensive Geological Hazard System
 
 **NEW - Earthquake System:**
 - ✅ **Realistic Seismic Activity** - Stress accumulation at plate boundaries and faults

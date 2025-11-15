@@ -374,7 +374,8 @@ public class GameUI
         rightY += lineHeight + 3;
         DrawTextAt("D: Disaster controls", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("K: Pandemic controls", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("T: Manual planting tool", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("T: Terraforming (R=cycle)", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("M: Resource placement (R=cycle)", Color.Orange, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("G: Control civilization", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Y: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
 
