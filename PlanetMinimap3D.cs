@@ -280,6 +280,7 @@ public class PlanetMinimap3D
                     // Animate clouds (drift with wind)
                     float cloudOffset = _cloudAnimation + (met.WindSpeedX * 0.01f);
                     float animatedU = (u + cloudOffset) % 1.0f;
+                    if (animatedU < 0) animatedU += 1.0f; // Handle negative modulo (when wind is negative)
                     int animTexX = (int)(animatedU * _map.Width) % _map.Width;
 
                     // Use animated position for cloud sampling
