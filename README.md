@@ -747,7 +747,48 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Interactive Toolbar, Splash Screen & Planetary Controls
+### Latest Update - Critical Greenhouse Effect Bug Fix
+
+**CRITICAL BUG FIX - Runaway Temperature at Poles:**
+- ✅ **Fixed Runaway Greenhouse Effect** - Corrected catastrophic heating bug causing polar temperatures to reach 83°C
+- ✅ **Greenhouse Gas Coefficients Rebalanced** (AtmosphereSimulator.cs):
+  - Methane coefficient: 0.56 → 0.006 (~93x reduction)
+  - N2O coefficient: 5.3 → 0.01 (~530x reduction)
+  - Previous values were massively overpowered due to unit scaling error (ppb vs ppm)
+- ✅ **Water Vapor Feedback Capped** (AtmosphereSimulator.cs):
+  - Temperature feedback factor: 0.01 → 0.005 (50% reduction)
+  - Added maximum cap of 0.5 on temperature amplification
+  - Added hard cap of 0.3 on total water vapor greenhouse effect
+  - Prevents positive feedback loops from creating runaway heating
+- ✅ **Enhanced Planet Stabilizer** (PlanetStabilizer.cs):
+  - Now controls methane and N2O in addition to CO2
+  - Intervention threshold: 10°C → 5°C above target temperature
+  - Solar energy reduction threshold: 40°C → 25°C average temperature
+  - CO2 reduction rate: 0.05 → 0.1 per stabilization cycle
+  - Solar energy reduction: 0.01 → 0.02 per stabilization cycle
+  - Prioritizes removing most potent gases first (N2O → Methane → CO2)
+- ✅ **Emergency Temperature Clamping** (PlanetStabilizer.cs):
+  - Added automatic temperature limits by latitude:
+    - Polar regions (>70° latitude): Maximum 10°C
+    - Mid-latitudes (40-70° latitude): Maximum 30°C
+    - Tropics/Equator (<40° latitude): Maximum 45°C
+  - Automatically reduces greenhouse gases at overheated locations
+  - Provides immediate protection while stabilizer systems normalize conditions
+
+**Root Cause Analysis:**
+The greenhouse gas multipliers were treating methane and N2O as if they were at CO2 concentrations, but they're measured in different units (parts per billion vs parts per million), creating a ~1000x scaling error. Even small amounts of these gases would add +100°C or more through the greenhouse effect. Combined with uncapped water vapor positive feedback, this created an unstoppable runaway greenhouse effect that overwhelmed the equilibrium system, especially at the poles.
+
+**Technical Impact:**
+- Temperature simulation now properly balanced across all latitudes
+- Automatic equilibrium system effectively prevents extreme temperatures
+- Greenhouse gases have realistic warming effects without runaway scenarios
+- Water vapor feedback amplifies warming moderately without creating Venus-like conditions
+
+**Files Modified:**
+- `AtmosphereSimulator.cs` - Fixed greenhouse gas coefficients and water vapor feedback
+- `PlanetStabilizer.cs` - Enhanced temperature control with methane/N2O management and emergency clamping
+
+### Previous Update - Interactive Toolbar, Splash Screen & Planetary Controls
 
 **NEW - Comprehensive Interactive Toolbar:**
 - ✅ **Clickable Buttons for All Functions** - No need to remember keybindings!
