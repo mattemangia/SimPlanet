@@ -108,6 +108,7 @@ public class PlanetStabilizer
     {
         float tempDeviation = avgTemp - TargetGlobalTemp;
 
+        // CRITICAL FIX: More aggressive temperature control - act sooner and stronger
         // Too cold - increase greenhouse gases slightly
         if (tempDeviation < -5f)
         {
@@ -119,31 +120,51 @@ public class PlanetStabilizer
                 AdjustmentsMade++;
             }
         }
-        // Too hot - reduce greenhouse gases only if dangerously high
-        else if (tempDeviation > 10f)
+        // Too hot - reduce greenhouse gases (FIXED: lower threshold from 10f to 5f, more aggressive reduction)
+        else if (tempDeviation > 5f)
         {
-            // Remove excess CO2 only if it's contributing to extreme heat
-            if (avgCO2 > 0.5f)
+            // Calculate avg methane and N2O to control them too
+            float avgMethane = CalculateAverageMethane();
+            float avgN2O = CalculateAverageN2O();
+
+            // CRITICAL FIX: Control methane and N2O, which were causing runaway heating!
+            // Prioritize removing the most potent gases first
+            if (avgN2O > 0.5f)
             {
-                AdjustCO2Globally(-0.05f);
+                ReduceN2OGlobally(0.2f); // Aggressive N2O reduction
+                LastAction = $"Removing N2O to cool planet (avg: {avgTemp:F1}°C, N2O: {avgN2O:F2})";
+                AdjustmentsMade++;
+            }
+            else if (avgMethane > 1.0f)
+            {
+                ReduceMethaneGlobally(0.3f); // Aggressive methane reduction
+                LastAction = $"Removing methane to cool planet (avg: {avgTemp:F1}°C, CH4: {avgMethane:F2})";
+                AdjustmentsMade++;
+            }
+            else if (avgCO2 > 0.5f)
+            {
+                AdjustCO2Globally(-0.1f); // Increased from -0.05f
                 LastAction = $"Removing CO2 to cool planet (avg: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
         }
 
-        // Adjust solar energy if extreme
+        // Adjust solar energy if extreme (FIXED: lower hot threshold from 40f to 25f)
         if (avgTemp < -10f && _map.SolarEnergy < 1.2f)
         {
             _map.SolarEnergy += 0.01f;
             LastAction = "Increasing solar energy";
             AdjustmentsMade++;
         }
-        else if (avgTemp > 40f && _map.SolarEnergy > 0.8f)
+        else if (avgTemp > 25f && _map.SolarEnergy > 0.8f)
         {
-            _map.SolarEnergy -= 0.01f;
+            _map.SolarEnergy -= 0.02f; // Increased from -0.01f
             LastAction = "Decreasing solar energy";
             AdjustmentsMade++;
         }
+
+        // EMERGENCY: Direct temperature reduction if critically high anywhere
+        ClampExtremeTemperatures();
     }
 
     private void StabilizeAtmosphere(float avgOxygen, float avgCO2)
@@ -287,6 +308,36 @@ public class PlanetStabilizer
         return total / count;
     }
 
+    private float CalculateAverageMethane()
+    {
+        float total = 0;
+        int count = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                total += _map.Cells[x, y].Methane;
+                count++;
+            }
+        }
+        return total / count;
+    }
+
+    private float CalculateAverageN2O()
+    {
+        float total = 0;
+        int count = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                total += _map.Cells[x, y].NitrousOxide;
+                count++;
+            }
+        }
+        return total / count;
+    }
+
     private float CalculateLandRatio()
     {
         int landCells = 0;
@@ -326,6 +377,59 @@ public class PlanetStabilizer
                 _map.Cells[x, y].Oxygen = Math.Max(0, _map.Cells[x, y].Oxygen - amount);
             }
         }
+    }
+
+    private void ReduceMethaneGlobally(float amount)
+    {
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                cell.Methane = Math.Max(0, cell.Methane - amount);
+
+                // Update greenhouse effect after reducing methane
+                UpdateCellGreenhouse(cell);
+            }
+        }
+    }
+
+    private void ReduceN2OGlobally(float amount)
+    {
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                cell.NitrousOxide = Math.Max(0, cell.NitrousOxide - amount);
+
+                // Update greenhouse effect after reducing N2O
+                UpdateCellGreenhouse(cell);
+            }
+        }
+    }
+
+    private void UpdateCellGreenhouse(TerrainCell cell)
+    {
+        // Recalculate greenhouse effect using the same formula as AtmosphereSimulator
+        float co2Effect = cell.CO2 * 0.02f;
+        float ch4Effect = cell.Methane * 0.006f;
+        float n2oEffect = cell.NitrousOxide * 0.01f;
+
+        float waterVaporEffect = 0;
+        if (cell.Humidity > 0.5f)
+        {
+            waterVaporEffect = (cell.Humidity - 0.5f) * 0.2f;
+            if (cell.Temperature > 15)
+            {
+                float tempFactor = Math.Min((cell.Temperature - 15) * 0.005f, 0.5f);
+                waterVaporEffect *= (1.0f + tempFactor);
+            }
+            waterVaporEffect = Math.Min(waterVaporEffect, 0.3f);
+        }
+
+        cell.Greenhouse = co2Effect + ch4Effect + n2oEffect + waterVaporEffect;
+        cell.Greenhouse = Math.Clamp(cell.Greenhouse, 0, 5);
     }
 
     private void BoostPlantGrowth()
@@ -392,6 +496,62 @@ public class PlanetStabilizer
                     cell.Humidity += 0.05f;
                 }
             }
+        }
+    }
+
+    private void ClampExtremeTemperatures()
+    {
+        // CRITICAL FIX: Directly clamp temperatures that are dangerously high
+        // This prevents runaway heating at poles and other regions
+        int clampedCells = 0;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+
+                // Calculate expected max temperature based on latitude
+                float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+
+                // Poles (lat > 0.7) should never exceed 10°C under normal conditions
+                // Mid-latitudes should never exceed 40°C
+                // Equator can be hot but shouldn't exceed 50°C
+                float maxAllowedTemp;
+                if (latitude > 0.7f)
+                {
+                    maxAllowedTemp = 10f; // Polar regions
+                }
+                else if (latitude > 0.4f)
+                {
+                    maxAllowedTemp = 30f; // Mid-latitudes
+                }
+                else
+                {
+                    maxAllowedTemp = 45f; // Tropics and equator
+                }
+
+                // Emergency clamp if temperature exceeds safe limits
+                if (cell.Temperature > maxAllowedTemp)
+                {
+                    // Aggressively reduce temperature
+                    cell.Temperature = maxAllowedTemp;
+                    clampedCells++;
+
+                    // Also reduce greenhouse gases at this location
+                    cell.Methane = Math.Max(0, cell.Methane * 0.5f);
+                    cell.NitrousOxide = Math.Max(0, cell.NitrousOxide * 0.5f);
+                    cell.CO2 = Math.Max(0, cell.CO2 * 0.9f);
+
+                    UpdateCellGreenhouse(cell);
+                }
+            }
+        }
+
+        if (clampedCells > 0)
+        {
+            LastAction = $"EMERGENCY: Clamped {clampedCells} cells with extreme temperatures";
+            AdjustmentsMade++;
         }
     }
 
