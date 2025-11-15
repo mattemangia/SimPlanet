@@ -3,7 +3,7 @@ echo ===========================================
 echo SimPlanet - Build Script
 echo ===========================================
 echo.
-
+REM This is the main building script for Windows
 REM Check if dotnet is installed
 dotnet --version >nul 2>&1
 if errorlevel 1 (
