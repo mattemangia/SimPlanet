@@ -34,16 +34,45 @@ public class ClimateSimulator
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
+                var met = cell.GetMeteorology();
 
                 // Base temperature from latitude with stronger polar cooling
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+                float signedLatitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
 
-                // Add longitude variation to prevent perfect horizontal bands
-                float longitudeVariation = MathF.Sin(x * 0.3f) * 2.0f; // Small variation across longitude
+                // *** ENHANCED: STRONGER LONGITUDINAL VARIATIONS ***
+                // Ocean currents create warm/cold zones (Gulf Stream, Kuroshio, Peru Current)
+                float oceanCurrentEffect = 0;
+                if (cell.IsWater)
+                {
+                    // Warm currents on west coasts in mid-latitudes, cold currents on east coasts
+                    float currentPattern = MathF.Sin(x * 0.15f + signedLatitude * 3f) * 8.0f; // Up to ±8°C
+                    oceanCurrentEffect = currentPattern;
+                }
+
+                // Land heating variations (continentality - land heats/cools faster than ocean)
+                float continentalityEffect = 0;
+                if (cell.IsLand)
+                {
+                    // Check distance to ocean (simplified as neighbor count)
+                    int oceanNeighbors = 0;
+                    foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                    {
+                        if (neighbor.IsWater) oceanNeighbors++;
+                    }
+                    float continentality = 1.0f - (oceanNeighbors / 8.0f); // 0=coastal, 1=interior
+
+                    // Continental interiors have more extreme temperatures
+                    continentalityEffect = continentality * latitude * 10f; // Interior cools more at high lat
+                }
+
+                // Local topographic effects create temperature pockets
+                float topographicVariation = MathF.Sin(x * 0.4f) * MathF.Cos(y * 0.35f) * 3.0f;
 
                 // Realistic temperature gradient: hot equator, freezing poles
                 // Equator (lat=0): ~30°C, Poles (lat=1): ~-40°C
-                float baseTemp = 30 - (latitude * latitude * 70) + longitudeVariation;
+                float baseTemp = 30 - (latitude * latitude * 70) + oceanCurrentEffect +
+                                continentalityEffect + topographicVariation;
 
                 // Calculate surface albedo (reflection coefficient)
                 float albedo = CalculateAlbedo(cell);
@@ -66,7 +95,28 @@ public class ClimateSimulator
                     solarHeating += 5;
                 }
 
-                // Heat diffusion from neighbors (prevents sharp boundaries)
+                // *** WIND-DRIVEN HEAT TRANSPORT ***
+                // Advection: winds carry warm/cold air
+                float windTemp = cell.Temperature; // Default to current temp
+                if (Math.Abs(met.WindSpeedX) > 0.5f || Math.Abs(met.WindSpeedY) > 0.5f)
+                {
+                    // Calculate upwind cell (where wind is coming from)
+                    int upwindX = x - (int)Math.Sign(met.WindSpeedX);
+                    int upwindY = y - (int)Math.Sign(met.WindSpeedY);
+
+                    upwindX = (upwindX + _map.Width) % _map.Width;
+                    upwindY = Math.Clamp(upwindY, 0, _map.Height - 1);
+
+                    var upwindCell = _map.Cells[upwindX, upwindY];
+                    float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
+
+                    // Strong winds transport more heat
+                    float advectionStrength = Math.Clamp(windSpeed / 10f, 0, 0.6f); // Max 60% influence
+                    windTemp = cell.Temperature * (1f - advectionStrength) + upwindCell.Temperature * advectionStrength;
+                }
+
+                // *** REDUCED DIFFUSION (was 80%, now 30%) ***
+                // Heat diffusion from neighbors (prevents sharp boundaries but doesn't create bands)
                 float neighborTemp = 0;
                 int neighborCount = 0;
                 foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
@@ -79,8 +129,9 @@ public class ClimateSimulator
                     neighborTemp /= neighborCount;
                 }
 
-                // Blend current temperature with target - higher neighbor influence prevents bands
-                float targetTemp = solarHeating * 0.2f + neighborTemp * 0.8f;
+                // *** KEY FIX: Reduced neighbor influence from 80% to 30% ***
+                // This prevents band formation while still smoothing sharp edges
+                float targetTemp = solarHeating * 0.5f + windTemp * 0.2f + neighborTemp * 0.3f;
                 newTemperatures[x, y] = cell.Temperature + (targetTemp - cell.Temperature) * deltaTime * 0.1f;
             }
         }

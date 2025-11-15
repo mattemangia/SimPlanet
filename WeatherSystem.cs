@@ -73,6 +73,7 @@ public class WeatherSystem
     private List<Storm> _storms;
     private float _seasonProgress = 0; // 0-4, wraps around
     private const float SeasonLength = 100.0f; // Years per season
+    private float _turbulenceTime = 0; // Time variable for dynamic turbulence
 
     public List<Storm> ActiveStorms => _storms;
 
@@ -85,6 +86,8 @@ public class WeatherSystem
 
     public void Update(float deltaTime, int currentYear)
     {
+        _turbulenceTime += deltaTime * 0.5f; // Slow evolution of turbulence patterns
+
         UpdateSeasons(deltaTime, currentYear);
         UpdateAirPressure();
         UpdatePressureCells(deltaTime); // Create rotating pressure systems
@@ -267,10 +270,13 @@ public class WeatherSystem
                     baseWindY = -Math.Sign(signedLatitude) * 0.7f; // Reduced from 1.0f
                 }
 
-                // *** NEW: ADD TURBULENCE TO BREAK UP BANDING ***
-                // Small-scale eddies and local variations
-                float turbulenceX = (float)(Math.Sin(x * 0.5f + y * 0.3f) * 0.8f);
-                float turbulenceY = (float)(Math.Cos(x * 0.3f + y * 0.5f) * 0.8f);
+                // *** NEW: DYNAMIC TURBULENCE TO BREAK UP BANDING ***
+                // Small-scale eddies and local variations that EVOLVE OVER TIME
+                // Multiple frequency components create complex, non-repeating patterns
+                float turbulenceX = (float)(Math.Sin(x * 0.5f + _turbulenceTime * 0.3f) * 1.2f +
+                                           Math.Cos(x * 0.7f + y * 0.4f + _turbulenceTime * 0.2f) * 0.8f);
+                float turbulenceY = (float)(Math.Cos(y * 0.5f + _turbulenceTime * 0.3f) * 1.2f +
+                                           Math.Sin(x * 0.4f + y * 0.7f + _turbulenceTime * 0.2f) * 0.8f);
                 baseWindX += turbulenceX;
                 baseWindY += turbulenceY;
 
@@ -376,8 +382,11 @@ public class WeatherSystem
         // Create semi-permanent rotating pressure systems (highs and lows)
         // This breaks up zonal banding and creates cellular patterns
 
+        // *** STRENGTHENED: More frequent and stronger pressure perturbations ***
         // Add random pressure perturbations to seed cyclone/anticyclone formation
-        for (int i = 0; i < 5; i++) // Create 5 pressure anomalies per update
+        int numCells = Math.Max(3, (int)(8 * deltaTime)); // Create 3-8 pressure anomalies per update
+
+        for (int i = 0; i < numCells; i++)
         {
             int centerX = _random.Next(_map.Width);
             int centerY = _random.Next(_map.Height);
@@ -386,15 +395,20 @@ public class WeatherSystem
             float latitude = (centerY - _map.Height / 2.0f) / (_map.Height / 2.0f);
             float absLatitude = Math.Abs(latitude);
 
-            // Pressure cells form mainly in mid-latitudes (30-60°)
-            if (absLatitude < 0.3f || absLatitude > 0.7f) continue;
+            // Pressure cells form mainly in mid-latitudes (30-60°), but allow some everywhere
+            bool isMidLatitude = absLatitude >= 0.3f && absLatitude <= 0.7f;
+
+            // Lower probability outside mid-latitudes
+            if (!isMidLatitude && _random.NextDouble() > 0.3) continue;
 
             // Randomly create high or low pressure cell
             bool isHighPressure = _random.NextDouble() > 0.5;
-            float pressureAnomaly = isHighPressure ? 15f : -15f;
+
+            // *** STRONGER pressure anomalies (increased from 15 to 25) ***
+            float pressureAnomaly = isHighPressure ? 25f : -25f;
 
             // Apply pressure anomaly in a circular pattern
-            int radius = 15 + _random.Next(10); // Varied size
+            int radius = 18 + _random.Next(12); // Larger, varied size (was 15+10)
 
             for (int dx = -radius; dx <= radius; dx++)
             {
@@ -410,9 +424,11 @@ public class WeatherSystem
                     var cell = _map.Cells[x, y];
                     var met = cell.GetMeteorology();
 
-                    // Gaussian pressure distribution
-                    float strength = MathF.Exp(-(dist * dist) / (radius * radius / 2f));
-                    met.AirPressure += pressureAnomaly * strength * deltaTime * 2f;
+                    // Gaussian pressure distribution with stronger central core
+                    float strength = MathF.Exp(-(dist * dist) / (radius * radius / 1.8f)); // Stronger core
+
+                    // *** INCREASED application rate (was 2f, now 5f) ***
+                    met.AirPressure += pressureAnomaly * strength * deltaTime * 5f;
                     met.AirPressure = Math.Clamp(met.AirPressure, 950, 1050);
                 }
             }
