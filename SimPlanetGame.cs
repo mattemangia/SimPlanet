@@ -1105,72 +1105,102 @@ public class SimPlanetGame : Game
 
     private void SetCustomIcon()
     {
-        // Create a procedurally generated planet icon (32x32)
-        const int iconSize = 32;
-        var iconTexture = new Texture2D(GraphicsDevice, iconSize, iconSize);
-        var iconData = new Color[iconSize * iconSize];
-
-        int centerX = iconSize / 2;
-        int centerY = iconSize / 2;
-        float radius = iconSize / 2.0f - 1;
-
-        // Create a simple planet with ocean, land, and polar cap
-        var random = new Random(42); // Fixed seed for consistent icon
-
-        for (int y = 0; y < iconSize; y++)
+        try
         {
-            for (int x = 0; x < iconSize; x++)
+            // Create a procedurally generated planet icon (32x32)
+            const int iconSize = 32;
+            var iconData = new byte[iconSize * iconSize * 4]; // RGBA format
+
+            int centerX = iconSize / 2;
+            int centerY = iconSize / 2;
+            float radius = iconSize / 2.0f - 1;
+
+            // Create a simple planet with ocean, land, and polar cap
+            for (int y = 0; y < iconSize; y++)
             {
-                int index = y * iconSize + x;
-                float dx = x - centerX;
-                float dy = y - centerY;
-                float distance = MathF.Sqrt(dx * dx + dy * dy);
-
-                if (distance <= radius)
+                for (int x = 0; x < iconSize; x++)
                 {
-                    // Inside planet sphere
-                    // Add simple shading based on distance from edge
-                    float edgeFactor = 1.0f - (distance / radius);
-                    float shade = 0.6f + edgeFactor * 0.4f;
+                    int index = (y * iconSize + x) * 4;
+                    float dx = x - centerX;
+                    float dy = y - centerY;
+                    float distance = MathF.Sqrt(dx * dx + dy * dy);
 
-                    // Polar cap (top)
-                    if (y < iconSize * 0.2f)
+                    if (distance <= radius)
                     {
-                        iconData[index] = new Color(
-                            (byte)(240 * shade),
-                            (byte)(245 * shade),
-                            (byte)(250 * shade)
-                        ); // White/ice
+                        // Inside planet sphere
+                        // Add simple shading based on distance from edge
+                        float edgeFactor = 1.0f - (distance / radius);
+                        float shade = 0.6f + edgeFactor * 0.4f;
+
+                        byte r, g, b;
+                        // Polar cap (top)
+                        if (y < iconSize * 0.2f)
+                        {
+                            r = (byte)(240 * shade);
+                            g = (byte)(245 * shade);
+                            b = (byte)(250 * shade);
+                        }
+                        // Land masses (simple noise pattern)
+                        else if ((x + y * 3) % 7 < 3 && y < iconSize * 0.7f)
+                        {
+                            r = (byte)(60 * shade);
+                            g = (byte)(160 * shade);
+                            b = (byte)(80 * shade);
+                        }
+                        // Ocean
+                        else
+                        {
+                            r = (byte)(30 * shade);
+                            g = (byte)(90 * shade);
+                            b = (byte)(180 * shade);
+                        }
+
+                        iconData[index + 0] = r;     // Red
+                        iconData[index + 1] = g;     // Green
+                        iconData[index + 2] = b;     // Blue
+                        iconData[index + 3] = 255;   // Alpha (opaque)
                     }
-                    // Land masses (simple noise pattern)
-                    else if ((x + y * 3) % 7 < 3 && y < iconSize * 0.7f)
-                    {
-                        iconData[index] = new Color(
-                            (byte)(60 * shade),
-                            (byte)(160 * shade),
-                            (byte)(80 * shade)
-                        ); // Green land
-                    }
-                    // Ocean
                     else
                     {
-                        iconData[index] = new Color(
-                            (byte)(30 * shade),
-                            (byte)(90 * shade),
-                            (byte)(180 * shade)
-                        ); // Blue ocean
+                        // Outside planet - transparent
+                        iconData[index + 0] = 0;
+                        iconData[index + 1] = 0;
+                        iconData[index + 2] = 0;
+                        iconData[index + 3] = 0;
                     }
                 }
-                else
+            }
+
+            // Use SDL2 to set the window icon
+            unsafe
+            {
+                fixed (byte* pixels = iconData)
                 {
-                    // Outside planet - transparent
-                    iconData[index] = Color.Transparent;
+                    IntPtr surface = SDL2.SDL.SDL_CreateRGBSurfaceFrom(
+                        (IntPtr)pixels,
+                        iconSize,
+                        iconSize,
+                        32,
+                        iconSize * 4,
+                        0x000000FF,
+                        0x0000FF00,
+                        0x00FF0000,
+                        0xFF000000
+                    );
+
+                    if (surface != IntPtr.Zero)
+                    {
+                        SDL2.SDL.SDL_SetWindowIcon(Window.Handle, surface);
+                        SDL2.SDL.SDL_FreeSurface(surface);
+                    }
                 }
             }
         }
-
-        iconTexture.SetData(iconData);
-        Window.SetIcon(iconTexture);
+        catch
+        {
+            // Silently fail if icon setting is not supported on this platform
+            // The game will still work fine without a custom icon
+        }
     }
 
     private void OnClientSizeChanged(object sender, EventArgs e)
