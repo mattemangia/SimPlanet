@@ -47,6 +47,12 @@ public class PlanetaryControlsUI
 
         public float GetNormalizedValue() => (Value - Min) / (Max - Min);
         public void SetNormalizedValue(float normalized) => Value = Math.Clamp(Min + normalized * (Max - Min), Min, Max);
+
+        // Update slider value from external source without triggering OnValueChanged
+        public void UpdateFromValue(float value)
+        {
+            Value = Math.Clamp(value, Min, Max);
+        }
     }
 
     private List<Slider> _sliders = new();
@@ -139,6 +145,12 @@ public class PlanetaryControlsUI
         // Update slider positions
         PositionSliders();
 
+        // Auto-update sliders from map state when AI stabilizer is active
+        if (_stabilizer.IsActive)
+        {
+            UpdateSlidersFromMapState();
+        }
+
         // Handle slider interaction
         foreach (var slider in _sliders)
         {
@@ -173,6 +185,81 @@ public class PlanetaryControlsUI
         }
 
         _previousMouseState = mouseState;
+    }
+
+    private void UpdateSlidersFromMapState()
+    {
+        // Only update sliders that aren't currently being dragged by the user
+        for (int i = 0; i < _sliders.Count; i++)
+        {
+            if (_sliders[i].IsDragging) continue; // Don't update if user is actively dragging
+
+            // Update slider value from current map state
+            switch (i)
+            {
+                case 0: // Solar Energy
+                    _sliders[i].UpdateFromValue(_map.SolarEnergy);
+                    break;
+                case 1: // Temperature Offset
+                    _sliders[i].UpdateFromValue(_map.GlobalTemperatureOffset);
+                    break;
+                case 2: // Rainfall Multiplier
+                    _sliders[i].UpdateFromValue(_map.RainfallMultiplier);
+                    break;
+                case 3: // Wind Speed Multiplier
+                    _sliders[i].UpdateFromValue(_map.WindSpeedMultiplier);
+                    break;
+                case 4: // Atmospheric Pressure
+                    _sliders[i].UpdateFromValue(_map.AtmosphericPressure);
+                    break;
+                case 10: // Oxygen Level (read-only display)
+                    // Calculate average oxygen from map
+                    float avgOxygen = CalculateAverageOxygen();
+                    _sliders[i].UpdateFromValue(avgOxygen);
+                    break;
+                case 11: // CO2 Level (read-only display)
+                    float avgCO2 = CalculateAverageCO2();
+                    _sliders[i].UpdateFromValue(avgCO2);
+                    break;
+                case 13: // Magnetic Field Strength
+                    _sliders[i].UpdateFromValue(_magnetosphere.FieldStrength);
+                    break;
+                case 14: // Core Temperature
+                    _sliders[i].UpdateFromValue(_magnetosphere.CoreTemperature);
+                    break;
+                // Other sliders update from their direct sources as needed
+            }
+        }
+    }
+
+    private float CalculateAverageOxygen()
+    {
+        float total = 0f;
+        int count = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                total += _map.Cells[x, y].Oxygen;
+                count++;
+            }
+        }
+        return count > 0 ? total / count : 0f;
+    }
+
+    private float CalculateAverageCO2()
+    {
+        float total = 0f;
+        int count = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                total += _map.Cells[x, y].CO2;
+                count++;
+            }
+        }
+        return count > 0 ? total / count : 0f;
     }
 
     private void PositionSliders()

@@ -39,16 +39,37 @@ public class LifeSimulator
     public void SeedInitialLife()
     {
         // Seed bacteria in warm, wet areas
+        SeedSpecificLife(LifeForm.Bacteria);
+    }
+
+    public void SeedSpecificLife(LifeForm lifeForm)
+    {
+        // Seed the specified life form in appropriate locations
         for (int i = 0; i < 100; i++)
         {
             int x = _random.Next(_map.Width);
             int y = _random.Next(_map.Height);
 
             var cell = _map.Cells[x, y];
-            if (cell.Temperature > 0 && cell.Temperature < 50 && cell.Humidity > 0.3f)
+
+            // Check if location is suitable for this life form
+            bool suitable = lifeForm switch
             {
-                cell.LifeType = LifeForm.Bacteria;
-                cell.Biomass = 0.1f;
+                LifeForm.Bacteria => cell.Temperature > -20 && cell.Temperature < 80,
+                LifeForm.Algae => cell.IsWater && cell.Temperature > 0 && cell.Temperature < 40,
+                LifeForm.PlantLife => cell.IsLand && cell.Temperature > 0 && cell.Temperature < 45 && cell.Rainfall > 0.2f,
+                LifeForm.SimpleAnimals => cell.IsLand && cell.Oxygen > 15 && cell.Temperature > -10 && cell.Temperature < 40,
+                LifeForm.ComplexAnimals => cell.IsLand && cell.Oxygen > 18 && cell.Temperature > -10 && cell.Temperature < 35,
+                LifeForm.Dinosaurs => cell.IsLand && cell.Oxygen > 18 && cell.Temperature > 15 && cell.Temperature < 35,
+                LifeForm.Mammals => cell.IsLand && cell.Oxygen > 18 && cell.Temperature > -20 && cell.Temperature < 40,
+                LifeForm.Intelligence => cell.IsLand && cell.Oxygen > 20 && cell.Temperature > -10 && cell.Temperature < 30,
+                _ => cell.Temperature > 0 && cell.Humidity > 0.3f
+            };
+
+            if (suitable)
+            {
+                cell.LifeType = lifeForm;
+                cell.Biomass = lifeForm == LifeForm.Bacteria ? 0.1f : 0.3f;
                 cell.Evolution = 0.0f;
             }
         }
