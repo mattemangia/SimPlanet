@@ -336,7 +336,7 @@ public class GameUI
 
         DrawTextAt("=== ADVANCED VIEWS ===", Color.Yellow, leftColX, leftY);
         leftY += lineHeight + 3;
-        DrawTextAt("F10: Biomes  F11: Albedo", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("F10: Biomes  A: Albedo", Color.Gray, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F12: Radiation  J: Resources", Color.Gray, leftColX, leftY); leftY += lineHeight;
         leftY += 5;
 

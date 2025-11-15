@@ -345,7 +345,7 @@ dotnet run
 | **F3** | Air Pressure view (meteorology) |
 | **F4** | Storms view (meteorology) |
 | **F10** | Biomes view (advanced) |
-| **F11** | Albedo/Surface reflectivity view (advanced) |
+| **A** | Albedo/Surface reflectivity view (advanced) |
 | **F12** | Radiation levels view (advanced) |
 | **J** | Resources view (advanced) |
 | **E** | Earthquakes view (geological hazards) |
