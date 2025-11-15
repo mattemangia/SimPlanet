@@ -246,6 +246,7 @@ public class SimPlanetGame : Game
         _hydrologySimulator = new HydrologySimulator(_map, _mapOptions.Seed);
         _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
         _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
+        _civilizationManager.SetWeatherSystem(_weatherSystem); // Connect weather system for cyclone response
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
@@ -306,6 +307,7 @@ public class SimPlanetGame : Game
         _ui.SetPlanetStabilizer(_planetStabilizer);
         _mapOptionsUI = new MapOptionsUI(_spriteBatch, _font, GraphicsDevice);
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+        _minimap3D.SetWeatherSystem(_weatherSystem); // Connect weather system for clouds and storms
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
         _eventsUI.InitializeOverlayTexture(_map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
@@ -885,6 +887,7 @@ public class SimPlanetGame : Game
             _ui.SetPlanetStabilizer(_planetStabilizer);
             _minimap3D.Dispose();
             _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+            _minimap3D.SetWeatherSystem(_weatherSystem); // Connect weather system for clouds and storms
             _eventsUI.InitializeOverlayTexture(_map);
             _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
 
@@ -1066,6 +1069,13 @@ public class SimPlanetGame : Game
 
         _terrainRenderer.Draw(_spriteBatch, offsetX, offsetY);
 
+        // Draw cyclone vortices on weather view modes
+        if (_currentRenderMode == RenderMode.Clouds || _currentRenderMode == RenderMode.Storms ||
+            _currentRenderMode == RenderMode.Wind || _currentRenderMode == RenderMode.Pressure)
+        {
+            DrawCycloneVortices2D(_spriteBatch, offsetX, offsetY);
+        }
+
         // Draw geological overlays (volcanoes, rivers, plates)
         // TerrainRenderer applies camera offset internally (camX = offsetX - CameraX)
         // DrawOverlay uses offset directly, so we need to apply camera offset before passing
@@ -1131,6 +1141,96 @@ public class SimPlanetGame : Game
         _spriteBatch.End();
 
         base.Draw(gameTime);
+    }
+
+    private void DrawCycloneVortices2D(SpriteBatch spriteBatch, int offsetX, int offsetY)
+    {
+        var storms = _weatherSystem.GetActiveStorms();
+        var pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
+        pixelTexture.SetData(new[] { Color.White });
+
+        foreach (var storm in storms)
+        {
+            // Only draw tropical cyclones (hurricanes, typhoons)
+            if (storm.Type < StormType.TropicalDepression || storm.Type > StormType.HurricaneCategory5)
+                continue;
+
+            // Convert storm position to screen coordinates
+            float stormX = storm.CenterX * _terrainRenderer.CellSize;
+            float stormY = storm.CenterY * _terrainRenderer.CellSize;
+
+            // Apply camera offset
+            int screenX = offsetX + (int)(stormX - _terrainRenderer.CameraX);
+            int screenY = offsetY + (int)(stormY - _terrainRenderer.CameraY);
+
+            // Apply zoom
+            screenX = offsetX + (int)((stormX - _terrainRenderer.CameraX) * _terrainRenderer.ZoomLevel);
+            screenY = offsetY + (int)((stormY - _terrainRenderer.CameraY) * _terrainRenderer.ZoomLevel);
+
+            // Color based on intensity
+            Color vortexColor = storm.Type switch
+            {
+                StormType.TropicalDepression => new Color(200, 200, 255, 180),
+                StormType.TropicalStorm => new Color(255, 255, 100, 200),
+                StormType.HurricaneCategory1 => new Color(255, 200, 0, 220),
+                StormType.HurricaneCategory2 => new Color(255, 150, 0, 220),
+                StormType.HurricaneCategory3 => new Color(255, 100, 0, 240),
+                StormType.HurricaneCategory4 => new Color(255, 50, 0, 240),
+                StormType.HurricaneCategory5 => new Color(255, 0, 0, 255),
+                _ => new Color(255, 255, 255, 180)
+            };
+
+            // Draw spiral vortex (scaled with zoom)
+            int vortexSize = (int)((15 + storm.Intensity * 30) * _terrainRenderer.ZoomLevel);
+            float rotationSpeed = (float)_gameState.Year * 0.5f * storm.RotationDirection;
+
+            // Draw multiple spiral arms
+            for (int arm = 0; arm < 3; arm++)
+            {
+                float armAngle = (arm * MathF.PI * 2f / 3f) + rotationSpeed;
+
+                for (float r = 0; r < vortexSize; r += 1.0f)
+                {
+                    float angle = armAngle + r * 0.2f * storm.RotationDirection;
+                    int x = screenX + (int)(MathF.Cos(angle) * r);
+                    int y = screenY + (int)(MathF.Sin(angle) * r);
+
+                    // Fade toward edges
+                    float alpha = 1.0f - (r / vortexSize);
+                    Color pixelColor = new Color(
+                        vortexColor.R,
+                        vortexColor.G,
+                        vortexColor.B,
+                        (byte)(vortexColor.A * alpha)
+                    );
+
+                    int pixelSize = Math.Max(1, (int)(2 * _terrainRenderer.ZoomLevel));
+                    spriteBatch.Draw(pixelTexture,
+                        new Rectangle(x, y, pixelSize, pixelSize),
+                        pixelColor);
+                }
+            }
+
+            // Draw eye of storm for major hurricanes
+            if (storm.Type >= StormType.HurricaneCategory3)
+            {
+                int eyeRadius = (int)(4 * _terrainRenderer.ZoomLevel);
+                for (int dy = -eyeRadius; dy <= eyeRadius; dy++)
+                {
+                    for (int dx = -eyeRadius; dx <= eyeRadius; dx++)
+                    {
+                        if (dx * dx + dy * dy <= eyeRadius * eyeRadius)
+                        {
+                            spriteBatch.Draw(pixelTexture,
+                                new Rectangle(screenX + dx, screenY + dy, 1, 1),
+                                new Color(20, 20, 20, 200));
+                        }
+                    }
+                }
+            }
+        }
+
+        pixelTexture.Dispose();
     }
 
     private void SetCustomIcon()

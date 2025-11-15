@@ -584,6 +584,38 @@ public class WeatherSystem
                 // Increase cloud cover
                 met.CloudCover = Math.Max(met.CloudCover, effectStrength * 0.9f);
 
+                // Temperature effects
+                // Tropical cyclones cool sea surface temperature by mixing deep cold water
+                if (cell.IsWater && storm.Type >= StormType.TropicalStorm)
+                {
+                    float cooling = effectStrength * 2.0f; // Up to 2°C cooling
+                    cell.Temperature -= cooling * 0.05f; // Gradual cooling
+                }
+                // Evaporative cooling from heavy rain
+                if (rainIntensity > 0.5f)
+                {
+                    cell.Temperature -= rainIntensity * 0.3f;
+                }
+
+                // Ocean current disruption from cyclone winds
+                if (cell.IsWater && storm.Type >= StormType.TropicalStorm)
+                {
+                    // Cyclones create strong vertical mixing and surface currents
+                    // Add turbulent flow component
+                    float currentStrength = effectStrength * storm.MaxWindSpeed * 0.02f;
+
+                    // Create circular current pattern
+                    float currentAngle = angle + (storm.RotationDirection * MathF.PI / 2f);
+                    met.WindSpeedX += MathF.Cos(currentAngle) * currentStrength;
+                    met.WindSpeedY += MathF.Sin(currentAngle) * currentStrength;
+
+                    // Upwelling in the cyclone's wake (brings cold water to surface)
+                    if (dist < radius * 0.5f)
+                    {
+                        cell.Temperature -= effectStrength * 0.5f;
+                    }
+                }
+
                 // Damage to life from high winds
                 bool isMajorHurricane = storm.Type >= StormType.HurricaneCategory3;
                 if (isMajorHurricane && effectStrength > 0.5f)

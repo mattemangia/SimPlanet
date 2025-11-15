@@ -11,9 +11,15 @@ public class CivilizationManager
     private int _nextCivId = 1;
     private DivinePowers _divinePowers;
     private int _nextRulerId = 1;
+    private WeatherSystem? _weatherSystem;
 
     public List<Civilization> Civilizations => _civilizations;
     public DivinePowers DivinePowers => _divinePowers;
+
+    public void SetWeatherSystem(WeatherSystem weatherSystem)
+    {
+        _weatherSystem = weatherSystem;
+    }
 
     private static readonly string[] CivNames = new[]
     {
@@ -1712,6 +1718,7 @@ public class CivilizationManager
             // Check territory for disasters
             int disastersInTerritory = 0;
             int totalDamage = 0;
+            int cycloneHits = 0;
 
             foreach (var (x, y) in civ.Territory)
             {
@@ -1739,11 +1746,85 @@ public class CivilizationManager
                 }
             }
 
+            // Check for cyclones/hurricanes hitting civilization
+            if (_weatherSystem != null)
+            {
+                var storms = _weatherSystem.GetActiveStorms();
+                foreach (var storm in storms)
+                {
+                    // Only tropical cyclones
+                    if (storm.Type < StormType.TropicalDepression || storm.Type > StormType.HurricaneCategory5)
+                        continue;
+
+                    // Check if storm is hitting civilization territory
+                    int stormRadius = storm.Type switch
+                    {
+                        StormType.TropicalDepression => 3,
+                        StormType.TropicalStorm => 5,
+                        StormType.HurricaneCategory1 => 8,
+                        StormType.HurricaneCategory2 => 10,
+                        StormType.HurricaneCategory3 => 12,
+                        StormType.HurricaneCategory4 => 15,
+                        StormType.HurricaneCategory5 => 20,
+                        _ => 3
+                    };
+
+                    bool hit = false;
+                    int affectedCells = 0;
+
+                    foreach (var (x, y) in civ.Territory)
+                    {
+                        // Calculate distance from storm center
+                        int dx = Math.Abs(x - storm.CenterX);
+                        if (dx > _map.Width / 2) dx = _map.Width - dx; // Wrap around
+
+                        int dy = Math.Abs(y - storm.CenterY);
+                        float distance = MathF.Sqrt(dx * dx + dy * dy);
+
+                        if (distance < stormRadius)
+                        {
+                            hit = true;
+                            affectedCells++;
+                        }
+                    }
+
+                    if (hit)
+                    {
+                        cycloneHits++;
+                        disastersInTerritory++;
+
+                        // Damage based on storm category
+                        int cycloneDamage = storm.Type switch
+                        {
+                            StormType.TropicalDepression => 20,
+                            StormType.TropicalStorm => 50,
+                            StormType.HurricaneCategory1 => 100,
+                            StormType.HurricaneCategory2 => 200,
+                            StormType.HurricaneCategory3 => 400,
+                            StormType.HurricaneCategory4 => 800,
+                            StormType.HurricaneCategory5 => 1500,
+                            _ => 20
+                        };
+
+                        // Scale damage by affected area
+                        float areaCovered = affectedCells / (float)civ.Territory.Count;
+                        totalDamage += (int)(cycloneDamage * areaCovered);
+                    }
+                }
+            }
+
             if (disastersInTerritory > 0)
             {
                 // Calculate casualties based on preparedness
-                float casualtyRate = 0.01f * disastersInTerritory * (1.0f - civ.DisasterPreparedness);
-                int casualties = (int)(civ.Population * casualtyRate);
+                float baseCasualtyRate = 0.01f * disastersInTerritory * (1.0f - civ.DisasterPreparedness);
+
+                // Cyclones are more deadly
+                if (cycloneHits > 0)
+                {
+                    baseCasualtyRate += 0.05f * cycloneHits * (1.0f - civ.DisasterPreparedness);
+                }
+
+                int casualties = (int)(civ.Population * baseCasualtyRate);
 
                 civ.Population -= casualties;
                 civ.PopulationLostToDisasters += casualties;
@@ -1755,17 +1836,38 @@ public class CivilizationManager
                 // Disasters reduce stability
                 if (civ.Government != null)
                 {
-                    civ.Government.Stability -= 0.05f * disastersInTerritory;
+                    float stabilityLoss = 0.05f * disastersInTerritory;
+                    // Cyclones cause more political instability
+                    if (cycloneHits > 0)
+                    {
+                        stabilityLoss += 0.1f * cycloneHits;
+                    }
+                    civ.Government.Stability -= stabilityLoss;
                 }
 
                 // Resource losses
-                civ.Food *= (1.0f - 0.1f * disastersInTerritory);
+                float resourceLoss = 0.1f * disastersInTerritory;
+                // Cyclones destroy more infrastructure and resources
+                if (cycloneHits > 0)
+                {
+                    resourceLoss += 0.2f * cycloneHits;
+                }
+
+                civ.Food *= (1.0f - Math.Min(resourceLoss, 0.9f));
+                civ.Wood *= (1.0f - Math.Min(resourceLoss * 0.5f, 0.8f));
+                civ.Stone *= (1.0f - Math.Min(resourceLoss * 0.3f, 0.5f));
 
                 // Advanced civilizations can evacuate/adapt better
                 if (civ.TechLevel >= 50)
                 {
                     // Restore some population through disaster relief
                     civ.Population += casualties / 3;
+                }
+                // Modern weather forecasting helps
+                else if (civ.TechLevel >= 30 && cycloneHits > 0)
+                {
+                    // Can predict and prepare for cyclones
+                    civ.Population += casualties / 5;
                 }
             }
         }

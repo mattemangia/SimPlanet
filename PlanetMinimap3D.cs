@@ -15,11 +15,16 @@ public class PlanetMinimap3D
     private Texture2D _sphereTexture;
     private Color[] _spherePixels;
     private Color[] _terrainColors;
+    private WeatherSystem? _weatherSystem;
 
     private float _rotation = 0;
     private float _tilt = 0; // Vertical tilt angle
+    private float _cloudAnimation = 0; // For animated clouds
     private const int MinimapSize = 150;
     private const int SphereRadius = 70;
+
+    public bool ShowClouds { get; set; } = true;
+    public bool ShowStorms { get; set; } = true;
 
     public int PosX { get; set; } = 10;
     public int PosY { get; set; } = 420;
@@ -55,8 +60,17 @@ public class PlanetMinimap3D
         _previousMouseState = Mouse.GetState();
     }
 
+    public void SetWeatherSystem(WeatherSystem weatherSystem)
+    {
+        _weatherSystem = weatherSystem;
+    }
+
     public void Update(float deltaTime)
     {
+        // Animate clouds
+        _cloudAnimation += deltaTime * 0.05f;
+        if (_cloudAnimation > 1.0f) _cloudAnimation -= 1.0f;
+
         var mouseState = Mouse.GetState();
 
         // Check if mouse is over minimap
@@ -216,6 +230,36 @@ public class PlanetMinimap3D
                 // Sample texture
                 Color baseColor = _terrainColors != null ? _terrainColors[texY * _map.Width + texX] : Color.Gray;
 
+                // Add cloud layer if enabled
+                if (ShowClouds && _weatherSystem != null)
+                {
+                    var cell = _map.Cells[texX, texY];
+                    var met = cell.GetMeteorology();
+
+                    // Cloud cover with animation
+                    float cloudCover = met.CloudCover;
+
+                    // Animate clouds (drift with wind)
+                    float cloudOffset = _cloudAnimation + (met.WindSpeedX * 0.01f);
+                    float animatedU = (u + cloudOffset) % 1.0f;
+                    int animTexX = (int)(animatedU * _map.Width) % _map.Width;
+
+                    // Use animated position for cloud sampling
+                    var animCell = _map.Cells[animTexX, texY];
+                    float animCloudCover = animCell.GetMeteorology().CloudCover;
+
+                    if (animCloudCover > 0.3f)
+                    {
+                        // White semi-transparent clouds
+                        float cloudAlpha = (animCloudCover - 0.3f) * 1.4f; // 0.3-1.0 -> 0-1
+                        cloudAlpha = Math.Clamp(cloudAlpha, 0, 0.8f);
+
+                        // Blend clouds over terrain
+                        Color cloudColor = new Color(255, 255, 255, (byte)(cloudAlpha * 255));
+                        baseColor = BlendColors(baseColor, cloudColor);
+                    }
+                }
+
                 // Apply shading based on angle to light
                 float lightX = 1.0f;
                 float lightY = 0.0f;
@@ -245,6 +289,16 @@ public class PlanetMinimap3D
         _minimapTexture.SetData(_spherePixels);
     }
 
+    private Color BlendColors(Color bottom, Color top)
+    {
+        float alpha = top.A / 255f;
+        return new Color(
+            (byte)(bottom.R * (1 - alpha) + top.R * alpha),
+            (byte)(bottom.G * (1 - alpha) + top.G * alpha),
+            (byte)(bottom.B * (1 - alpha) + top.B * alpha)
+        );
+    }
+
     public void Draw(SpriteBatch spriteBatch)
     {
         if (!IsVisible) return;
@@ -258,9 +312,114 @@ public class PlanetMinimap3D
                         new Rectangle(PosX, PosY, MinimapSize, MinimapSize),
                         Color.White);
 
+        // Draw storm systems (cyclone vortices)
+        if (ShowStorms && _weatherSystem != null)
+        {
+            DrawStormVortices(spriteBatch);
+        }
+
         // Draw border
         DrawCircleOutline(spriteBatch, PosX + MinimapSize / 2, PosY + MinimapSize / 2,
                          SphereRadius, Color.White, 2);
+    }
+
+    private void DrawStormVortices(SpriteBatch spriteBatch)
+    {
+        var storms = _weatherSystem!.GetActiveStorms();
+        var pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
+        pixelTexture.SetData(new[] { Color.White });
+
+        foreach (var storm in storms)
+        {
+            // Only draw tropical cyclones (hurricanes, typhoons)
+            if (storm.Type < StormType.TropicalDepression || storm.Type > StormType.HurricaneCategory5)
+                continue;
+
+            // Convert storm position to sphere coordinates
+            float u = storm.CenterX / (float)_map.Width;
+            float v = storm.CenterY / (float)_map.Height;
+
+            // Convert to longitude/latitude
+            float longitude = u * 2 * MathF.PI - MathF.PI;
+            float latitude = (v - 0.5f) * MathF.PI;
+
+            // Convert to 3D point on sphere
+            float sphereZ = SphereRadius * MathF.Cos(latitude) * MathF.Cos(longitude);
+            float sphereX = SphereRadius * MathF.Cos(latitude) * MathF.Sin(longitude);
+            float sphereY = SphereRadius * MathF.Sin(latitude);
+
+            // Apply rotation
+            float rotatedX = sphereX * MathF.Cos(_rotation) - sphereZ * MathF.Sin(_rotation);
+            float rotatedZ = sphereX * MathF.Sin(_rotation) + sphereZ * MathF.Cos(_rotation);
+
+            // Apply tilt
+            float tiltedY = sphereY * MathF.Cos(_tilt) - rotatedZ * MathF.Sin(_tilt);
+            float tiltedZ = sphereY * MathF.Sin(_tilt) + rotatedZ * MathF.Cos(_tilt);
+
+            // Check if visible (front of sphere)
+            if (tiltedZ < 0) continue;
+
+            // Project to 2D screen
+            int screenX = PosX + MinimapSize / 2 + (int)rotatedX;
+            int screenY = PosY + MinimapSize / 2 - (int)tiltedY;
+
+            // Draw cyclone vortex
+            DrawCycloneVortex(spriteBatch, pixelTexture, screenX, screenY, storm);
+        }
+
+        pixelTexture.Dispose();
+    }
+
+    private void DrawCycloneVortex(SpriteBatch spriteBatch, Texture2D pixelTexture, int centerX, int centerY, Storm storm)
+    {
+        // Color based on intensity
+        Color vortexColor = storm.Type switch
+        {
+            StormType.TropicalDepression => new Color(200, 200, 255, 180),
+            StormType.TropicalStorm => new Color(255, 255, 100, 200),
+            StormType.HurricaneCategory1 => new Color(255, 200, 0, 220),
+            StormType.HurricaneCategory2 => new Color(255, 150, 0, 220),
+            StormType.HurricaneCategory3 => new Color(255, 100, 0, 240),
+            StormType.HurricaneCategory4 => new Color(255, 50, 0, 240),
+            StormType.HurricaneCategory5 => new Color(255, 0, 0, 255),
+            _ => new Color(255, 255, 255, 180)
+        };
+
+        // Draw spiral vortex
+        int vortexSize = (int)(5 + storm.Intensity * 15); // 5-20 pixels
+        float rotationSpeed = _cloudAnimation * 10f * storm.RotationDirection;
+
+        // Draw multiple spiral arms
+        for (int arm = 0; arm < 3; arm++)
+        {
+            float armAngle = (arm * MathF.PI * 2f / 3f) + rotationSpeed;
+
+            for (float r = 0; r < vortexSize; r += 0.5f)
+            {
+                float angle = armAngle + r * 0.3f * storm.RotationDirection;
+                int x = centerX + (int)(MathF.Cos(angle) * r);
+                int y = centerY + (int)(MathF.Sin(angle) * r);
+
+                // Fade toward edges
+                float alpha = 1.0f - (r / vortexSize);
+                Color pixelColor = new Color(
+                    vortexColor.R,
+                    vortexColor.G,
+                    vortexColor.B,
+                    (byte)(vortexColor.A * alpha)
+                );
+
+                spriteBatch.Draw(pixelTexture,
+                    new Rectangle(x, y, 2, 2),
+                    pixelColor);
+            }
+        }
+
+        // Draw eye of storm for major hurricanes
+        if (storm.Type >= StormType.HurricaneCategory3)
+        {
+            DrawCircle(spriteBatch, centerX, centerY, 2, new Color(20, 20, 20, 200));
+        }
     }
 
     private void DrawCircle(SpriteBatch spriteBatch, int centerX, int centerY, int radius, Color color)
