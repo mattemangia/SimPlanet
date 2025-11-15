@@ -67,6 +67,7 @@ public class SimPlanetGame : Game
     private DiseaseControlUI _diseaseControlUI;
     private ToolbarUI _toolbar;
     private PlanetaryControlsUI _planetaryControlsUI;
+    private AboutDialog _aboutDialog;
     private FontRenderer _font;
     private LoadingScreen _loadingScreen;
 
@@ -334,6 +335,9 @@ public class SimPlanetGame : Game
         // Create main menu
         _mainMenu = new MainMenu(GraphicsDevice, _font);
 
+        // Create about dialog
+        _aboutDialog = new AboutDialog(_spriteBatch, _font, GraphicsDevice);
+
         // Create loading screen
         _loadingScreen = new LoadingScreen(_spriteBatch, _font, GraphicsDevice);
     }
@@ -369,6 +373,9 @@ public class SimPlanetGame : Game
         // Handle menu navigation
         if (_mainMenu.CurrentScreen != GameScreen.InGame)
         {
+            // Update about dialog (if visible)
+            _aboutDialog.Update(mouseState, _previousMouseState);
+
             // Show map options UI when on NewGame screen
             if (_mainMenu.CurrentScreen == GameScreen.NewGame)
             {
@@ -437,6 +444,7 @@ public class SimPlanetGame : Game
 
             // Update UI systems
             _toolbar.Update(mouseState);
+            _aboutDialog.Update(mouseState, _previousMouseState);
             _minimap3D.Update(realDeltaTime);
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(realDeltaTime);
@@ -758,6 +766,9 @@ public class SimPlanetGame : Game
             case MenuAction.SaveGame:
                 SaveGame("AutoSave_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
                 _mainMenu.CurrentScreen = GameScreen.InGame;
+                break;
+            case MenuAction.ShowAbout:
+                _aboutDialog.IsVisible = true;
                 break;
             case MenuAction.Quit:
                 Exit();
@@ -1198,6 +1209,9 @@ public class SimPlanetGame : Game
             _toolbar.Draw(_spriteBatch, GraphicsDevice.Viewport.Width);
         }
 
+        // Draw about dialog (if visible) - on top of everything
+        _aboutDialog.Draw(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
         _spriteBatch.End();
 
         base.Draw(gameTime);
@@ -1441,6 +1455,7 @@ public class SimPlanetGame : Game
         _terrainRenderer?.Dispose();
         _font?.Dispose();
         _minimap3D?.Dispose();
+        _aboutDialog?.Dispose();
         _loadingScreen?.Dispose();
         _spriteBatch?.Dispose();
         _graphics?.Dispose();

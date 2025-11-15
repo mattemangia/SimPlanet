@@ -32,8 +32,8 @@ public class MainMenu
     private List<string> _saveGames = new();
     private MouseState _previousMouseState;
 
-    private string[] _mainMenuItems = { "New Game", "Load Game", "Quit" };
-    private string[] _pauseMenuItems = { "Resume", "Save Game", "Main Menu" };
+    private string[] _mainMenuItems = { "New Game", "Load Game", "About", "Quit" };
+    private string[] _pauseMenuItems = { "Resume", "Save Game", "About", "Main Menu" };
 
     // Store menu item bounds for mouse clicking
     private List<Rectangle> _menuItemBounds = new();
@@ -176,7 +176,9 @@ public class MainMenu
                         RefreshSaveGames();
                         _selectedMenuItem = 0;
                         return MenuAction.None;
-                    case 2: // Quit
+                    case 2: // About
+                        return MenuAction.ShowAbout;
+                    case 3: // Quit
                         return MenuAction.Quit;
                 }
                 break;
@@ -199,7 +201,9 @@ public class MainMenu
                     case 1: // Save Game
                         CurrentScreen = GameScreen.SaveGame;
                         return MenuAction.SaveGame;
-                    case 2: // Main Menu
+                    case 2: // About
+                        return MenuAction.ShowAbout;
+                    case 3: // Main Menu
                         CurrentScreen = GameScreen.MainMenu;
                         _selectedMenuItem = 0;
                         return MenuAction.BackToMainMenu;
@@ -446,5 +450,6 @@ public enum MenuAction
     BackToMainMenu,
     ShowMapOptions,
     CancelNewGame,
+    ShowAbout,
     Quit
 }
