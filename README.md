@@ -1,4 +1,4 @@
-# SimPlanet - Planetary Evolution Simulator
+# SimPlanet - Planetary Evolution Simulator - With AI
 
 ![SimPlanet Logo](splash.png)
 
