@@ -651,8 +651,8 @@ public class SimPlanetGame : Game
             _playerCivControl.OpenCivilizationSelector();
         }
 
-        // Open divine powers (H key - "Heaven/Holy")
-        if (keyState.IsKeyDown(Keys.H) && _previousKeyState.IsKeyUp(Keys.H))
+        // Open divine powers (I key - "Intervene")
+        if (keyState.IsKeyDown(Keys.I) && _previousKeyState.IsKeyUp(Keys.I))
         {
             _divinePowersUI.IsOpen = !_divinePowersUI.IsOpen;
         }

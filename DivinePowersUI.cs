@@ -72,6 +72,9 @@ public class DivinePowersUI
                 "Force War", Color.Red, () => OpenMode(DivinePowerMode.ForceWar)),
 
             new Button(new Rectangle(startX, startY + 7 * (buttonHeight + spacing), buttonWidth, buttonHeight),
+                "Advance Civilization", Color.CornflowerBlue, () => OpenMode(DivinePowerMode.AdvanceCivilization)),
+
+            new Button(new Rectangle(startX, startY + 8 * (buttonHeight + spacing), buttonWidth, buttonHeight),
                 "Close", Color.Gray, () => IsOpen = false)
         };
     }
@@ -134,6 +137,12 @@ public class DivinePowersUI
         {
             _civManager.DivinePowers.CurseCivilization(civ);
             ShowMessage($"Cursed {civ.Name}!");
+            _currentMode = DivinePowerMode.None;
+        }
+        else if (_currentMode == DivinePowerMode.AdvanceCivilization)
+        {
+            _civManager.DivinePowers.AdvanceCivilization(civ);
+            ShowMessage($"Advanced {civ.Name} to Tech Level {civ.TechLevel}!");
             _currentMode = DivinePowerMode.None;
         }
         else if (_selectedCiv == null)
@@ -370,6 +379,7 @@ public class DivinePowersUI
             DivinePowerMode.ForceBetray => "Select victim civilization",
             DivinePowerMode.Bless => "Select civilization to bless",
             DivinePowerMode.Curse => "Select civilization to curse",
+            DivinePowerMode.AdvanceCivilization => "Select civilization to advance",
             DivinePowerMode.ForceAlliance when _selectedCiv == null => "Select first civilization",
             DivinePowerMode.ForceAlliance => "Select second civilization",
             DivinePowerMode.ForceWar when _selectedCiv == null => "Select aggressor",
@@ -510,5 +520,6 @@ public enum DivinePowerMode
     Bless,
     Curse,
     ForceAlliance,
-    ForceWar
+    ForceWar,
+    AdvanceCivilization
 }

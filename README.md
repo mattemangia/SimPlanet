@@ -28,7 +28,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 
 ### Divine Powers & Government Systems
 
-**Play as a God** - Directly interfere with civilizations using divine powers (Press H):
+**Play as a God** - Directly interfere with civilizations using divine powers (Press I):
 
 **Government Types:**
 - **Tribal**: Simple leadership, low stability
@@ -48,7 +48,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Trust Levels**: Breaking treaties destroys trust and damages relations
 - **Diplomatic Status**: War, Hostile, Neutral, Friendly, Allied
 
-**Divine Powers (God Mode - Press H):**
+**Divine Powers (God Mode - Press I):**
 - **Change Government**: Overthrow existing government and install new system
 - **Send Spies**: Launch espionage missions against civilizations
   - Steal Technology: Gain advanced tech from rivals
@@ -59,6 +59,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Force Betrayal**: Make civilizations break treaties and declare war
 - **Bless Civilization**: Divine favor (population +20%, resources +50%, stability boost)
 - **Curse Civilization**: Divine wrath (population -30%, resources -50%, stability collapse)
+- **Advance Civilization**: Boost single civilization (tech +10, population +10%, resources +30%, stability +20%)
 - **Force Alliance**: Make civilizations ally regardless of relations
 - **Force War**: Trigger wars between civilizations
 
@@ -363,7 +364,8 @@ dotnet run
 | **D** | Toggle disaster control panel |
 | **K** | Toggle disease/pandemic control center |
 | **G** | Open civilization control panel |
-| **H** | Open divine powers menu (god mode - control civilizations) |
+| **H** | Toggle help panel |
+| **I** | Open divine powers menu (god mode - control civilizations) |
 | **R** | Regenerate planet with current settings |
 | **F5** | Quick save game |
 | **F6** | Apply Earth preset (in map options) |
@@ -678,7 +680,7 @@ Potential additions (not yet implemented):
 - ✅ **Treaty Breaking** - Breaking treaties causes major diplomatic incidents and trust loss
 - ✅ **Automatic Diplomacy** - Civilizations autonomously propose treaties and form alliances
 
-**NEW - Divine Powers (God Mode - Press H):**
+**NEW - Divine Powers (God Mode - Press I):**
 - ✅ **Complete Player Control** - Interfere with civilizations as an omnipotent god
 - ✅ **Change Government** - Overthrow governments and install new systems (triggers revolution, 10% population loss)
 - ✅ **Espionage System** - Send spies on missions:
@@ -692,6 +694,7 @@ Potential additions (not yet implemented):
 - ✅ **Bless/Curse Civilizations**:
   - Blessing: +20% population, +50% resources, +30% stability
   - Curse: -30% population, -50% resources, -50% stability
+- ✅ **Advance Civilization** - Boost single civilization progress (+10 tech, +10% population, +30% resources, +20% stability)
 - ✅ **Force Diplomatic Actions** - Force alliances or wars regardless of relations
 - ✅ **Divine Powers UI** - Full menu system for selecting civilizations and actions
 
@@ -723,8 +726,9 @@ Potential additions (not yet implemented):
 - **SimPlanetGame.cs** - Integrated weather visualization on 2D maps
 
 **Keyboard Shortcuts:**
-- **H**: Open divine powers menu
+- **I**: Open divine powers menu (Intervene)
 - **G**: Civilization control panel
+- **H**: Toggle help panel
 
 ### Previous Update - Realistic Tropical Cyclones with Coriolis-Based Trajectories
 

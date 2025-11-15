@@ -225,6 +225,28 @@ public class DivinePowers
     }
 
     /// <summary>
+    /// Advance a civilization (increase tech level and progress)
+    /// </summary>
+    public void AdvanceCivilization(Civilization civ)
+    {
+        // Boost technology
+        civ.TechLevel += 10;
+
+        // Boost population
+        civ.Population = (int)(civ.Population * 1.1f);
+
+        // Boost resources
+        civ.Food *= 1.3f;
+        civ.Metal *= 1.3f;
+
+        // Boost stability (progress brings optimism)
+        if (civ.Government != null)
+        {
+            civ.Government.Stability = Math.Min(civ.Government.Stability + 0.2f, 1.0f);
+        }
+    }
+
+    /// <summary>
     /// Generate a random ruler
     /// </summary>
     public Ruler GenerateRandomRuler(Civilization civ, int currentYear)
