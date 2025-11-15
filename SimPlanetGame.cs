@@ -1100,6 +1100,9 @@ public class SimPlanetGame : Game
                 _mapOptionsUI.Draw(_mapOptions);
             }
 
+            // Draw about dialog (if visible) - on top of everything
+            _aboutDialog.Draw(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
             _spriteBatch.End();
             base.Draw(gameTime);
             return;
