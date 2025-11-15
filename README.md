@@ -2,6 +2,8 @@
 
 ![SimPlanet Logo](splash.png)
 
+📖 **[READ THE COMPLETE PLAYER GUIDE](PLAYER_GUIDE.md)** - Comprehensive tutorial covering all systems, features, and strategies!
+
 A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - Procedural planet generation with Perlin noise and **real-time preview**
 - **Full geological simulation** (plate tectonics, volcanoes, erosion, sedimentation)
