@@ -120,7 +120,7 @@ public class TerrainRenderer
                 // Apply day/night cycle if enabled
                 if (ShowDayNight && Mode == RenderMode.Terrain)
                 {
-                    baseColor = ApplyDayNightCycle(baseColor, cell, x);
+                    baseColor = ApplyDayNightCycle(baseColor, cell, x, y);
                 }
 
                 _terrainColors[index] = baseColor;
@@ -131,27 +131,73 @@ public class TerrainRenderer
         _isDirty = false; // Clear dirty flag after update
     }
 
-    private Color ApplyDayNightCycle(Color baseColor, TerrainCell cell, int x)
+    private Color ApplyDayNightCycle(Color baseColor, TerrainCell cell, int x, int y)
     {
-        // Calculate longitude-based lighting (simulate planet rotation)
-        // DayNightTime goes from 0-24, representing hours
+        // Get cell latitude and longitude for realistic solar angle calculation
         float longitude = (float)x / _map.Width; // 0 to 1
-        float sunPosition = (DayNightTime / 24.0f); // 0 to 1
+        float latitude = ((float)y / _map.Height - 0.5f) * 2.0f; // -1 (south) to +1 (north)
 
-        // Calculate how far this cell is from the "noon" position
-        float distanceFromNoon = Math.Abs(longitude - sunPosition);
-        if (distanceFromNoon > 0.5f) distanceFromNoon = 1.0f - distanceFromNoon; // Wrap around
+        // Sun position based on time of day (0-24 hours)
+        float sunLongitude = (DayNightTime / 24.0f); // 0 to 1
 
-        // Convert to lighting (0 = midnight, 0.25 = noon)
-        float lighting = 1.0f - (distanceFromNoon * 4.0f); // 0 to 1, where 1 is full daylight
+        // PLANETARY AXIS TILT (23.5° like Earth)
+        float axialTilt = 23.5f * (MathF.PI / 180f); // Convert to radians
+
+        // Calculate solar angle based on latitude and planetary tilt
+        // This creates seasonal variation in day length at different latitudes
+        float solarDeclination = MathF.Sin(DayNightTime * MathF.PI / 12f) * axialTilt;
+        float latitudeInRadians = latitude * MathF.PI / 2f;
+
+        // Hour angle (how far from solar noon)
+        float hourAngle = (longitude - sunLongitude) * 2f * MathF.PI;
+        if (hourAngle > MathF.PI) hourAngle -= 2f * MathF.PI;
+        if (hourAngle < -MathF.PI) hourAngle += 2f * MathF.PI;
+
+        // Calculate solar elevation angle (altitude above horizon)
+        // Uses spherical trigonometry for realistic solar position
+        float solarElevation = MathF.Sin(latitudeInRadians) * MathF.Sin(solarDeclination) +
+                              MathF.Cos(latitudeInRadians) * MathF.Cos(solarDeclination) * MathF.Cos(hourAngle);
+
+        // BELL-SHAPED LIGHTING CURVE (smooth gradual transition, not rectangular!)
+        // solarElevation ranges from -1 (midnight) to +1 (noon)
+        // Use cosine-based smoothing for natural light transition
+        float lighting = (solarElevation + 1f) / 2f; // Convert to 0-1 range
+        lighting = MathF.Pow(lighting, 0.6f); // Gamma correction for more realistic lighting
+
+        // Clamp lighting
         lighting = Math.Clamp(lighting, 0.0f, 1.0f);
 
-        // Create dusk/dawn effect
-        Color nightColor = new Color(20, 20, 40); // Dark blue for night
+        // Enhanced twilight colors (dawn/dusk)
+        Color nightColor = new Color(10, 15, 35); // Deep night blue
+        Color twilightColor = new Color(120, 80, 140); // Purple-pink twilight
         Color dayColor = baseColor;
 
-        // Blend between night and day
-        Color litColor = Color.Lerp(nightColor, dayColor, lighting);
+        Color litColor;
+        if (lighting < 0.15f) // Night
+        {
+            // Pure night
+            litColor = Color.Lerp(nightColor, twilightColor, lighting / 0.15f);
+        }
+        else if (lighting < 0.35f) // Twilight (dawn/dusk)
+        {
+            // Transition from twilight to day with orange/red hues
+            float twilightProgress = (lighting - 0.15f) / 0.2f;
+            Color dawnColor = new Color(255, 180, 120); // Orange-pink dawn
+            Color transitionColor = Color.Lerp(twilightColor, dawnColor, twilightProgress);
+            litColor = Color.Lerp(transitionColor, dayColor, twilightProgress * 0.5f);
+        }
+        else // Daytime
+        {
+            // Full daylight with subtle variation
+            litColor = Color.Lerp(dayColor, dayColor, lighting);
+            // Apply atmospheric attenuation (more pronounced at low angles)
+            float atmosphericEffect = 1.0f - (1.0f - lighting) * 0.3f;
+            litColor = new Color(
+                (byte)(litColor.R * atmosphericEffect),
+                (byte)(litColor.G * atmosphericEffect),
+                (byte)(litColor.B * atmosphericEffect)
+            );
+        }
 
         // Add city lights at night if civilization is present
         if (ShowCityLights && cell.LifeType == LifeForm.Civilization && cell.Biomass > 0.5f && lighting < 0.3f)
