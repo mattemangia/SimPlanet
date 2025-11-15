@@ -404,6 +404,20 @@ public class ClimateSimulator
             albedo = 0.20f;
         }
 
+        // Roads modify albedo (asphalt/concrete is dark)
+        var geo = cell.GetGeology();
+        if (geo.HasRoad)
+        {
+            // Roads: 0.08-0.12 depending on type (asphalt is very dark, absorbs heat)
+            albedo = geo.RoadType switch
+            {
+                RoadType.Highway => 0.08f,   // Fresh asphalt (darkest)
+                RoadType.Road => 0.10f,      // Paved road
+                RoadType.DirtPath => 0.18f,  // Dirt path (lighter)
+                _ => albedo
+            };
+        }
+
         // Clouds increase effective albedo (in future enhancement)
         // For now, clouds are handled separately in weather system
 

@@ -85,6 +85,9 @@ public class DisasterManager
         {
             TriggerRandomHeavyRain(currentYear);
         }
+
+        // Rockfalls on mountain roads (checks all risky roads)
+        CheckForRockfalls(deltaTime, currentYear);
     }
 
     public void TriggerAsteroid(int x, int y, int size, int year)
@@ -535,6 +538,96 @@ public class DisasterManager
     {
         return RecentDisasters;
     }
+
+    /// <summary>
+    /// Check for rockfalls on mountain roads with risk
+    /// </summary>
+    private void CheckForRockfalls(float deltaTime, int currentYear)
+    {
+        // Scan all cells for roads at rockfall risk
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+
+                // Check if this road is at risk
+                if (geo.HasRoad && geo.RockfallRisk && !geo.HasTunnel)
+                {
+                    // Higher chance during heavy rain or earthquakes
+                    float baseChance = 0.0001f * deltaTime;
+
+                    // Increase chance if it's raining heavily
+                    if (cell.Rainfall > 0.8f)
+                        baseChance *= 3.0f;
+
+                    // Random rockfall event
+                    if (_random.NextDouble() < baseChance)
+                    {
+                        TriggerRockfall(x, y, currentYear);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Trigger a rockfall event that damages roads and infrastructure
+    /// </summary>
+    public void TriggerRockfall(int x, int y, int year)
+    {
+        var cell = _map.Cells[x, y];
+        var geo = cell.GetGeology();
+
+        RecentDisasters.Add(new DisasterEvent
+        {
+            Type = DisasterType.Rockfall,
+            X = x,
+            Y = y,
+            Year = year,
+            Magnitude = 1
+        });
+
+        // Damage or destroy the road
+        if (_random.NextDouble() < 0.5)
+        {
+            // 50% chance to completely destroy road
+            geo.HasRoad = false;
+            geo.RoadType = RoadType.None;
+            geo.RockfallRisk = false;
+        }
+        else
+        {
+            // Otherwise downgrade road type
+            geo.RoadType = geo.RoadType switch
+            {
+                RoadType.Highway => RoadType.Road,
+                RoadType.Road => RoadType.DirtPath,
+                RoadType.DirtPath => RoadType.None,
+                _ => RoadType.None
+            };
+
+            if (geo.RoadType == RoadType.None)
+            {
+                geo.HasRoad = false;
+                geo.RockfallRisk = false;
+            }
+        }
+
+        // Deposit debris
+        geo.SedimentLayer += 0.05f + (float)_random.NextDouble() * 0.1f;
+
+        // Minor damage to nearby cells (debris spread)
+        foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+        {
+            neighbor.Biomass *= 0.9f; // 10% vegetation damage
+            var neighborGeo = neighbor.GetGeology();
+            neighborGeo.SedimentLayer += 0.02f;
+        }
+
+        StartRecovery(x, y, DisasterType.Rockfall, 20);
+    }
 }
 
 public class DisasterEvent
@@ -562,5 +655,6 @@ public enum DisasterType
     AcidRain,
     Tornado,
     HeavyRain,
-    Flood
+    Flood,
+    Rockfall
 }

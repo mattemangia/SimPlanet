@@ -581,7 +581,7 @@ public class TerrainRenderer
         // Water (low albedo)
         else if (cell.IsWater)
         {
-            if (cell.Elevation < -0.5f)
+            if (cell.Elevation < -0.3f)  // Fixed: was -0.5f, now matches ClimateSimulator
                 albedo = 0.06f; // Deep ocean (very dark)
             else
                 albedo = 0.08f; // Shallow water
@@ -597,12 +597,12 @@ public class TerrainRenderer
             albedo = 0.17f;
         }
         // Grassland (medium albedo - 23%)
-        else if (cell.Rainfall > 0.4f && cell.IsLand)
+        else if (cell.Rainfall > 0.3f && cell.IsLand)  // Fixed: was 0.4f, now matches ClimateSimulator
         {
             albedo = 0.23f;
         }
         // Bare rock/mountains (low-medium albedo - 15%)
-        else if (cell.Elevation > 0.6f)
+        else if (cell.Elevation > 0.5f)  // Fixed: was 0.6f, now matches ClimateSimulator
         {
             albedo = 0.15f;
         }
@@ -616,6 +616,20 @@ public class TerrainRenderer
         if (cell.LifeType == LifeForm.Civilization)
         {
             albedo = 0.20f;
+        }
+
+        // Roads modify albedo (asphalt/concrete is dark)
+        var geo = cell.GetGeology();
+        if (geo.HasRoad)
+        {
+            // Roads: 0.08-0.12 depending on type (asphalt is very dark)
+            albedo = geo.RoadType switch
+            {
+                RoadType.Highway => 0.08f,   // Fresh asphalt (darkest)
+                RoadType.Road => 0.10f,      // Paved road
+                RoadType.DirtPath => 0.18f,  // Dirt path (lighter)
+                _ => albedo
+            };
         }
 
         // Color gradient: Dark (low albedo/absorbs heat) to White (high albedo/reflects heat)

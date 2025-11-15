@@ -982,6 +982,29 @@ public class CivilizationManager
                         geo.HasRoad = true;
                         geo.RoadType = roadType;
                         geo.RoadBuiltYear = currentYear;
+
+                        // Check if tunnel is needed for high mountains (tech level 10+)
+                        if (cell.Elevation > 0.7f && civ.TechLevel >= 10)
+                        {
+                            geo.HasTunnel = true;
+                        }
+                        // Check for rockfall risk on mountain slopes (elevation 0.5-0.7)
+                        else if (cell.Elevation > 0.5f && cell.Elevation <= 0.7f)
+                        {
+                            // Calculate slope to neighbors
+                            float maxSlope = 0f;
+                            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                            {
+                                float slope = Math.Abs(cell.Elevation - neighbor.Elevation);
+                                maxSlope = Math.Max(maxSlope, slope);
+                            }
+
+                            // Steep slopes (>0.15 elevation difference) are at risk
+                            if (maxSlope > 0.15f)
+                            {
+                                geo.RockfallRisk = true;
+                            }
+                        }
                     }
                 }
             }

@@ -163,6 +163,8 @@ public class GeologicalData
     public bool HasRoad { get; set; } = false;
     public RoadType RoadType { get; set; } = RoadType.None;
     public int RoadBuiltYear { get; set; } = 0;
+    public bool HasTunnel { get; set; } = false;  // Tunnel through mountain
+    public bool RockfallRisk { get; set; } = false;  // Road on unstable mountain slope
 
     // Age and composition
     public int CrustAge { get; set; }  // Millions of years
