@@ -23,4 +23,8 @@
         </None>
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="splash.png" />
+    </ItemGroup>
+
 </Project>

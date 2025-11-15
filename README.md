@@ -1,5 +1,7 @@
 # SimPlanet - Planetary Evolution Simulator
 
+![SimPlanet Logo](splash.png)
+
 A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - Procedural planet generation with Perlin noise and **real-time preview**
 - **Full geological simulation** (plate tectonics, volcanoes, erosion, sedimentation)
@@ -15,6 +17,8 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Auto-stabilization system** (maintains habitable conditions automatically)
 - **Planet presets** (Earth, Mars, Water World, Desert World)
 - **Interactive 3D planet minimap** with manual rotation and tilt controls (just like SimEarth!)
+- **Interactive Toolbar** with clickable buttons for all keybindings - small squared buttons with custom icons and tooltips
+- **Splash Screen** with beautiful loading animation before game starts
 - **Save/load game system** with quick save/load (F5/F9)
 - **Main menu** with new game, load game, and pause functionality
 - Climate simulation (temperature, rainfall, humidity)
@@ -325,6 +329,18 @@ dotnet run
 ```
 
 ## Controls
+
+### Interactive Toolbar
+The game features a comprehensive toolbar at the top of the screen with clickable buttons for all major functions:
+- **View Mode Buttons** (1-0, F1-F4, F10-F12, E, Q, U, J, O, A) - Quick access to all 22 visualization modes
+- **Game Control Buttons** - Pause/Resume, Speed Up/Down, Quick Save/Load, Regenerate Planet
+- **UI Toggle Buttons** - Help, Map Options, Minimap, Day/Night, Overlays (Volcanoes, Rivers, Plates)
+- **Feature Buttons** - Seed Life, Civilization Control, Divine Powers, Disasters, Diseases, Plant Tool, Stabilizer
+- **Custom Icons** - Each button has a unique runtime-generated icon representing its function
+- **Tooltips** - Hover over any button to see what it does and its keybinding
+- All existing keyboard shortcuts still work alongside the toolbar buttons!
+
+### Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
@@ -659,7 +675,38 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Government Systems, Diplomacy & Divine Powers
+### Latest Update - Interactive Toolbar & Splash Screen
+
+**NEW - Comprehensive Interactive Toolbar:**
+- ✅ **Clickable Buttons for All Functions** - No need to remember keybindings!
+- ✅ **50+ Toolbar Buttons** - Access all 22 view modes, game controls, UI toggles, and features
+- ✅ **Custom Runtime-Generated Icons** - Each button has a unique, hand-crafted icon drawn procedurally
+- ✅ **Tooltips on Hover** - See what each button does and its keyboard shortcut
+- ✅ **Smart Organization** - Buttons grouped by category with visual spacing (Terrain, Weather, Hazards, etc.)
+- ✅ **Top-Screen Positioning** - Toolbar positioned at top, all panels adjusted to render below it
+- ✅ **Small Squared Buttons** - Compact 28x28px buttons with 2px spacing for maximum screen space
+- ✅ **Visual Feedback** - Buttons highlight on hover with white border
+- ✅ **Keyboard Shortcuts Preserved** - All existing keybindings work alongside toolbar buttons
+
+**NEW - Beautiful Splash Screen:**
+- ✅ **Animated Intro** - Displays game logo with fade-in/fade-out effects before game starts
+- ✅ **Cross-Platform** - Uses MonoGame for Mac, Linux, and Windows compatibility
+- ✅ **Professional Presentation** - Borderless centered window with 3-second display duration
+- ✅ **Smooth Animations** - 300ms fade in, 2.4s display, 300ms fade out
+
+**UI Architecture Updates:**
+- **ToolbarUI.cs** - Complete toolbar system with button infrastructure and icon generation
+- **SplashScreen.cs** - MonoGame-based splash screen with fade effects
+- **GameUI.cs** - Updated to render info panel below toolbar
+- **GeologicalEventsUI.cs** - Event log positioned below toolbar
+- **SimPlanetGame.cs** - Integrated toolbar rendering and layout adjustments
+- **Program.cs** - Shows splash screen before game initialization
+
+**Keyboard Shortcuts:**
+- All existing keyboard shortcuts work - toolbar is purely additive!
+- Hover tooltips show keyboard equivalents for all buttons
+
+### Previous Update - Government Systems, Diplomacy & Divine Powers
 
 **NEW - Complete Government System:**
 - ✅ **9 Government Types** - Tribal, Monarchy, Dynasty, Theocracy, Republic, Democracy, Oligarchy, Dictatorship, Federation
