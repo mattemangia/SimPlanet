@@ -7,6 +7,8 @@ public class LifeSimulator
 {
     private readonly PlanetMap _map;
     private readonly Random _random;
+    private float _autoReseedTimer = 0f;
+    private const float AUTO_RESEED_CHECK_INTERVAL = 5.0f; // Check every 5 seconds
 
     public LifeSimulator(PlanetMap map)
     {
@@ -34,6 +36,14 @@ public class LifeSimulator
         SimulateBiomassGrowth(deltaTime);
         SimulateEvolution(deltaTime);
         SimulateLifeSpread(deltaTime);
+
+        // Auto-reseed life if extinct and conditions are good
+        _autoReseedTimer += deltaTime;
+        if (_autoReseedTimer >= AUTO_RESEED_CHECK_INTERVAL)
+        {
+            _autoReseedTimer = 0f;
+            CheckAndAutoReseedLife();
+        }
     }
 
     public void SeedInitialLife()
@@ -45,12 +55,21 @@ public class LifeSimulator
     public void SeedSpecificLife(LifeForm lifeForm)
     {
         // Seed the specified life form in appropriate locations
-        for (int i = 0; i < 100; i++)
+        // Try many more times to ensure good coverage
+        int attempts = lifeForm == LifeForm.Bacteria ? 2000 : 500; // Bacteria should spread widely
+        int successfulSeeds = 0;
+        int maxSeeds = lifeForm == LifeForm.Bacteria ? 1000 : 200; // Cap total seeds
+
+        for (int i = 0; i < attempts && successfulSeeds < maxSeeds; i++)
         {
             int x = _random.Next(_map.Width);
             int y = _random.Next(_map.Height);
 
             var cell = _map.Cells[x, y];
+
+            // Don't overwrite existing life
+            if (cell.LifeType != LifeForm.None)
+                continue;
 
             // Check if location is suitable for this life form
             bool suitable = lifeForm switch
@@ -69,10 +88,13 @@ public class LifeSimulator
             if (suitable)
             {
                 cell.LifeType = lifeForm;
-                cell.Biomass = lifeForm == LifeForm.Bacteria ? 0.1f : 0.3f;
+                cell.Biomass = lifeForm == LifeForm.Bacteria ? 0.3f : 0.4f; // Start with higher biomass for faster spread
                 cell.Evolution = 0.0f;
+                successfulSeeds++;
             }
         }
+
+        Console.WriteLine($"[LifeSimulator] Seeded {successfulSeeds} {lifeForm} cells across the planet");
     }
 
     private void SimulateBiomassGrowth(float deltaTime)
@@ -86,7 +108,7 @@ public class LifeSimulator
                 if (cell.LifeType == LifeForm.None)
                     continue;
 
-                float growthRate = CalculateGrowthRate(cell);
+                float growthRate = CalculateGrowthRate(cell, x, y);
                 float deathRate = CalculateDeathRate(cell);
 
                 float netGrowth = (growthRate - deathRate) * deltaTime;
@@ -105,17 +127,17 @@ public class LifeSimulator
         }
     }
 
-    private float CalculateGrowthRate(TerrainCell cell)
+    private float CalculateGrowthRate(TerrainCell cell, int x, int y)
     {
         float growth = 0;
 
         switch (cell.LifeType)
         {
             case LifeForm.Bacteria:
-                // Can survive almost anywhere
-                if (cell.Temperature > -20 && cell.Temperature < 80)
+                // Can survive almost anywhere - extremely resilient
+                if (cell.Temperature > -50 && cell.Temperature < 100)
                 {
-                    growth = 0.1f;
+                    growth = 0.15f; // Increased from 0.1f - bacteria reproduce quickly
                 }
                 break;
 
@@ -249,22 +271,34 @@ public class LifeSimulator
 
     private float CalculateDeathRate(TerrainCell cell)
     {
-        float death = 0.05f; // Base death rate
+        // Bacteria are extremely resilient
+        float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.05f; // Lower base death for bacteria
 
         // Temperature extremes
-        if (cell.Temperature < -30 || cell.Temperature > 60)
+        if (cell.LifeType == LifeForm.Bacteria)
         {
-            death += 0.3f;
+            // Bacteria can survive extreme temperatures
+            if (cell.Temperature < -50 || cell.Temperature > 100)
+            {
+                death += 0.2f; // Still resilient even in extremes
+            }
+        }
+        else
+        {
+            if (cell.Temperature < -30 || cell.Temperature > 60)
+            {
+                death += 0.3f;
+            }
         }
 
-        // Lack of oxygen (for aerobic life)
-        if (cell.LifeType != LifeForm.Bacteria && cell.Oxygen < 10)
+        // Lack of oxygen (for aerobic life) - bacteria don't need oxygen
+        if (cell.LifeType != LifeForm.Bacteria && cell.LifeType != LifeForm.Algae && cell.Oxygen < 10)
         {
             death += 0.2f;
         }
 
-        // Too much CO2
-        if (cell.CO2 > 10)
+        // Too much CO2 - bacteria are tolerant
+        if (cell.LifeType != LifeForm.Bacteria && cell.CO2 > 10)
         {
             death += 0.1f;
         }
@@ -348,32 +382,76 @@ public class LifeSimulator
 
     private void SimulateLifeSpread(float deltaTime)
     {
-        // Randomly spread life to neighboring cells
-        if (_random.NextDouble() < deltaTime * 0.1)
+        // Life spreads to neighboring cells based on biomass and life type
+        // Process multiple random cells per update for better coverage
+        int spreadAttempts = (int)(100 * deltaTime); // More attempts = faster spread
+
+        for (int attempt = 0; attempt < spreadAttempts; attempt++)
         {
             int x = _random.Next(_map.Width);
             int y = _random.Next(_map.Height);
 
             var cell = _map.Cells[x, y];
-            if (cell.LifeType != LifeForm.None && cell.Biomass > 0.3f)
-            {
-                // Try to spread to a neighbor
-                var neighbors = _map.GetNeighbors(x, y).ToList();
-                if (neighbors.Count > 0)
-                {
-                    var (nx, ny, neighbor) = neighbors[_random.Next(neighbors.Count)];
 
-                    if (neighbor.LifeType == LifeForm.None)
-                    {
-                        // Check if neighbor is suitable
-                        if (CanLifeSurvive(cell.LifeType, neighbor))
-                        {
-                            neighbor.LifeType = cell.LifeType;
-                            neighbor.Biomass = 0.1f;
-                            neighbor.Evolution = cell.Evolution * 0.5f;
-                        }
-                    }
-                }
+            // Life must have sufficient biomass to spread
+            if (cell.LifeType == LifeForm.None || cell.Biomass < 0.15f)
+                continue;
+
+            // Different life forms spread at different rates
+            float spreadChance = cell.LifeType switch
+            {
+                LifeForm.Bacteria => 0.8f,      // Very fast reproduction
+                LifeForm.Algae => 0.6f,         // Fast in water
+                LifeForm.PlantLife => 0.5f,     // Seeds, spores
+                LifeForm.SimpleAnimals => 0.3f, // Mobile but slower
+                LifeForm.Fish => 0.4f,          // Can swim to new areas
+                LifeForm.Amphibians => 0.3f,    // Limited range
+                LifeForm.Reptiles => 0.25f,     // Slower reproduction
+                LifeForm.Dinosaurs => 0.2f,     // Large animals
+                LifeForm.Mammals => 0.3f,       // Better at colonization
+                LifeForm.Birds => 0.5f,         // Can fly far
+                _ => 0.2f
+            };
+
+            // Higher biomass = better chance to spread
+            spreadChance *= Math.Min(cell.Biomass * 2, 1.0f);
+
+            if (_random.NextDouble() > spreadChance)
+                continue;
+
+            // Try to spread to multiple neighbors (life spreads in all directions)
+            var neighbors = _map.GetNeighbors(x, y).ToList();
+            if (neighbors.Count == 0)
+                continue;
+
+            // Shuffle neighbors for random spread direction
+            for (int i = neighbors.Count - 1; i > 0; i--)
+            {
+                int j = _random.Next(i + 1);
+                var temp = neighbors[i];
+                neighbors[i] = neighbors[j];
+                neighbors[j] = temp;
+            }
+
+            // Try to colonize up to 2 neighbors per spread event
+            int colonized = 0;
+            foreach (var (nx, ny, neighbor) in neighbors)
+            {
+                if (colonized >= 2) break;
+
+                // Only spread to empty cells
+                if (neighbor.LifeType != LifeForm.None)
+                    continue;
+
+                // Check if neighbor environment is suitable
+                if (!CanLifeSurvive(cell.LifeType, neighbor))
+                    continue;
+
+                // Successfully colonize!
+                neighbor.LifeType = cell.LifeType;
+                neighbor.Biomass = 0.1f + (cell.Biomass * 0.1f); // Start small but scale with parent
+                neighbor.Evolution = cell.Evolution * 0.8f; // Inherit most evolution progress
+                colonized++;
             }
         }
     }
@@ -683,5 +761,57 @@ public class LifeSimulator
         }
     }
 
-    private int x, y; // Helper fields for neighbor calculations
+    private void CheckAndAutoReseedLife()
+    {
+        // Count total life on planet
+        int lifeCells = 0;
+        float avgTemp = 0f;
+        float avgOxygen = 0f;
+        int sampleCount = 0;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (cell.LifeType != LifeForm.None)
+                {
+                    lifeCells++;
+                }
+                avgTemp += cell.Temperature;
+                avgOxygen += cell.Oxygen;
+                sampleCount++;
+            }
+        }
+
+        avgTemp /= sampleCount;
+        avgOxygen /= sampleCount;
+
+        // If life is extinct or critically low, try to reseed
+        if (lifeCells < 50) // Less than 50 cells with life
+        {
+            // Check if planetary conditions are suitable for life
+            bool temperatureOk = avgTemp > -20 && avgTemp < 60;
+            bool hasWater = true; // Assume there's water somewhere on the planet
+
+            if (temperatureOk)
+            {
+                Console.WriteLine($"[AUTO-RESEED] Life extinct or critically low ({lifeCells} cells). Planetary conditions favorable (T={avgTemp:F1}°C, O2={avgOxygen:F1}%). Re-seeding bacteria...");
+
+                // Reseed bacteria - they're the most resilient
+                SeedSpecificLife(LifeForm.Bacteria);
+
+                // If oxygen is high enough, also seed algae
+                if (avgOxygen > 5f)
+                {
+                    Console.WriteLine($"[AUTO-RESEED] Oxygen levels sufficient. Also seeding algae...");
+                    SeedSpecificLife(LifeForm.Algae);
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[AUTO-RESEED] Life extinct but conditions too harsh (T={avgTemp:F1}°C). Waiting for better conditions...");
+            }
+        }
+    }
 }
