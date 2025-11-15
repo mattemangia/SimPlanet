@@ -159,44 +159,41 @@ public class TerrainRenderer
         float solarElevation = MathF.Sin(latitudeInRadians) * MathF.Sin(solarDeclination) +
                               MathF.Cos(latitudeInRadians) * MathF.Cos(solarDeclination) * MathF.Cos(hourAngle);
 
-        // BELL-SHAPED LIGHTING CURVE (smooth gradual transition, not rectangular!)
+        // SMOOTH BELL-CURVE LIGHTING (gradual gradient across the planet)
         // solarElevation ranges from -1 (midnight) to +1 (noon)
-        // Use cosine-based smoothing for natural light transition
-        float lighting = (solarElevation + 1f) / 2f; // Convert to 0-1 range
-        lighting = MathF.Pow(lighting, 0.6f); // Gamma correction for more realistic lighting
 
-        // Clamp lighting
-        lighting = Math.Clamp(lighting, 0.0f, 1.0f);
+        // Create smooth lighting curve using smoothstep for natural falloff
+        float rawLighting = (solarElevation + 1f) / 2f; // Convert to 0-1 range
 
-        // Enhanced twilight colors (dawn/dusk)
-        Color nightColor = new Color(10, 15, 35); // Deep night blue
-        Color twilightColor = new Color(120, 80, 140); // Purple-pink twilight
+        // Apply smoothstep for smoother, more natural gradient (bell curve shape)
+        // This creates a gradual transition without harsh edges
+        float lighting = rawLighting * rawLighting * (3f - 2f * rawLighting); // Smoothstep function
+
+        // Subtle twilight enhancement at the edges (when sun is near horizon)
+        // But keep it minimal to avoid harsh color changes
+        float twilightFactor = 0f;
+        if (solarElevation > -0.3f && solarElevation < 0.3f)
+        {
+            // Gentle twilight zone
+            twilightFactor = 1f - Math.Abs(solarElevation) / 0.3f;
+            twilightFactor = twilightFactor * twilightFactor; // Smooth it
+        }
+
+        // Simple, smooth color transition
+        Color nightColor = new Color(5, 10, 25); // Very dark blue for night
         Color dayColor = baseColor;
 
-        Color litColor;
-        if (lighting < 0.15f) // Night
+        // Smooth interpolation from night to day
+        Color litColor = Color.Lerp(nightColor, dayColor, lighting);
+
+        // Add subtle warm tint during twilight (dawn/dusk) - very gentle
+        if (twilightFactor > 0)
         {
-            // Pure night
-            litColor = Color.Lerp(nightColor, twilightColor, lighting / 0.15f);
-        }
-        else if (lighting < 0.35f) // Twilight (dawn/dusk)
-        {
-            // Transition from twilight to day with orange/red hues
-            float twilightProgress = (lighting - 0.15f) / 0.2f;
-            Color dawnColor = new Color(255, 180, 120); // Orange-pink dawn
-            Color transitionColor = Color.Lerp(twilightColor, dawnColor, twilightProgress);
-            litColor = Color.Lerp(transitionColor, dayColor, twilightProgress * 0.5f);
-        }
-        else // Daytime
-        {
-            // Full daylight with subtle variation
-            litColor = Color.Lerp(dayColor, dayColor, lighting);
-            // Apply atmospheric attenuation (more pronounced at low angles)
-            float atmosphericEffect = 1.0f - (1.0f - lighting) * 0.3f;
+            Color twilightTint = new Color(30, 20, 10); // Subtle warm orange tint
             litColor = new Color(
-                (byte)(litColor.R * atmosphericEffect),
-                (byte)(litColor.G * atmosphericEffect),
-                (byte)(litColor.B * atmosphericEffect)
+                (byte)Math.Min(255, litColor.R + (int)(twilightTint.R * twilightFactor * 0.3f)),
+                (byte)Math.Min(255, litColor.G + (int)(twilightTint.G * twilightFactor * 0.3f)),
+                (byte)Math.Min(255, litColor.B + (int)(twilightTint.B * twilightFactor * 0.3f))
             );
         }
 
