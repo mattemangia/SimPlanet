@@ -370,14 +370,21 @@ public class GameUI
         DrawTextAt("F8: Water World preset", Color.White, rightColX, rightY); rightY += lineHeight;
         rightY += 5;
 
-        DrawTextAt("=== ADVANCED TOOLS ===", Color.Yellow, rightColX, rightY);
+        DrawTextAt("=== CIVILIZATION TOOLS ===", Color.Yellow, rightColX, rightY);
+        rightY += lineHeight + 3;
+        DrawTextAt("G: Control civilization", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("H: Divine powers menu", Color.Gold, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  -Change governments", Color.LightGray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  -Send spies, force wars", Color.LightGray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  -Bless/curse civilizations", Color.LightGray, rightColX, rightY); rightY += lineHeight;
+        rightY += 3;
+
+        DrawTextAt("=== OTHER TOOLS ===", Color.Yellow, rightColX, rightY);
         rightY += lineHeight + 3;
         DrawTextAt("D: Disaster controls", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("K: Pandemic controls", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("T: Terraforming (R=cycle)", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("M: Resource placement (R=cycle)", Color.Orange, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("G: Control civilization", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("H: Divine powers", Color.Gold, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("T: Terraforming", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("M: Resource placement", Color.Orange, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Y: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
 
         // Footer
