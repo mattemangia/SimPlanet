@@ -402,8 +402,6 @@ public class SimPlanetGame : Game
             return;
         }
 
-        _mapOptionsUI.IsVisible = false;
-
         // Handle in-game input
         HandleInput(keyState);
 

@@ -489,6 +489,11 @@ public class LifeSimulator
                     if (dist > damageRadius) continue;
 
                     var target = _map.Cells[nx, ny];
+
+                    // Bacteria are extremely resilient and survive earthquakes
+                    if (target.LifeType == LifeForm.Bacteria)
+                        continue;
+
                     float damage = (1 - dist / damageRadius) * magnitude * 0.2f;
                     target.Biomass *= (1 - damage);
 

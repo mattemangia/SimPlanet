@@ -180,16 +180,16 @@ public class PlanetaryControlsUI
         int screenWidth = _graphicsDevice.Viewport.Width;
         int screenHeight = _graphicsDevice.Viewport.Height;
 
-        int panelWidth = 900;
+        int panelWidth = 1000;  // Increased to fit all controls comfortably
         int panelHeight = screenHeight - 100;
         int panelX = (screenWidth - panelWidth) / 2;
         int panelY = 50;
 
-        int sliderWidth = 250;
+        int sliderWidth = 180;  // Reduced from 250
         int sliderHeight = 20;
-        int labelWidth = 200;
+        int labelWidth = 180;   // Reduced from 200
         int spacing = 35;
-        int columnSpacing = 320;
+        int columnSpacing = 280; // Reduced from 320 to fit within panel
 
         int leftColumnX = panelX + 20;
         int middleColumnX = leftColumnX + columnSpacing;
@@ -243,7 +243,7 @@ public class PlanetaryControlsUI
         int screenWidth = _graphicsDevice.Viewport.Width;
         int screenHeight = _graphicsDevice.Viewport.Height;
 
-        int panelWidth = 900;
+        int panelWidth = 1000;  // Increased to fit all controls comfortably
         int panelHeight = screenHeight - 100;
         int panelX = (screenWidth - panelWidth) / 2;
         int panelY = 50;

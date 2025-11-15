@@ -68,9 +68,10 @@ public static class EarthquakeSystem
                         tsunamiMagnitude = magnitude;
                     }
 
-                    // Large earthquakes (M > 6.5) can create new faults
-                    if (magnitude >= 6.5f)
+                    // Large earthquakes (M > 6.5) can create new faults (but only once per location every 100 years)
+                    if (magnitude >= 6.5f && !cell.Geology.IsFault)
                     {
+                        // Only create fault if one doesn't already exist here
                         CreateFaultLine(map, x, y, currentYear);
                     }
                 }
@@ -202,7 +203,7 @@ public static class EarthquakeSystem
         }
 
         // Create fault line extending from epicenter
-        int faultLength = 10 + _random.Next(20); // 10-30 cells
+        int faultLength = 3 + _random.Next(7); // 3-10 cells (smaller, more realistic)
         float directionX = (float)(_random.NextDouble() * 2 - 1);
         float directionY = (float)(_random.NextDouble() * 2 - 1);
         float magnitude = MathF.Sqrt(directionX * directionX + directionY * directionY);
