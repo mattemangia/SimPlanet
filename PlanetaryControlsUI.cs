@@ -195,39 +195,32 @@ public class PlanetaryControlsUI
             if (_sliders[i].IsDragging) continue; // Don't update if user is actively dragging
 
             // Update slider value from current map state
+            // Only update sliders where we can read the current value back
             switch (i)
             {
                 case 0: // Solar Energy
                     _sliders[i].UpdateFromValue(_map.SolarEnergy);
                     break;
-                case 1: // Temperature Offset
-                    _sliders[i].UpdateFromValue(_map.GlobalTemperatureOffset);
-                    break;
-                case 2: // Rainfall Multiplier
-                    _sliders[i].UpdateFromValue(_map.RainfallMultiplier);
-                    break;
-                case 3: // Wind Speed Multiplier
-                    _sliders[i].UpdateFromValue(_map.WindSpeedMultiplier);
-                    break;
-                case 4: // Atmospheric Pressure
-                    _sliders[i].UpdateFromValue(_map.AtmosphericPressure);
-                    break;
-                case 10: // Oxygen Level (read-only display)
+                case 4: // Oxygen Level (read-only display)
                     // Calculate average oxygen from map
                     float avgOxygen = CalculateAverageOxygen();
                     _sliders[i].UpdateFromValue(avgOxygen);
                     break;
-                case 11: // CO2 Level (read-only display)
+                case 5: // CO2 Level (read-only display)
                     float avgCO2 = CalculateAverageCO2();
                     _sliders[i].UpdateFromValue(avgCO2);
                     break;
+                case 11: // Ice Coverage
+                    _sliders[i].UpdateFromValue(GetIceCoverage());
+                    break;
                 case 13: // Magnetic Field Strength
-                    _sliders[i].UpdateFromValue(_magnetosphere.FieldStrength);
+                    _sliders[i].UpdateFromValue(_magnetosphere.MagneticFieldStrength);
                     break;
                 case 14: // Core Temperature
                     _sliders[i].UpdateFromValue(_magnetosphere.CoreTemperature);
                     break;
-                // Other sliders update from their direct sources as needed
+                // Note: Temperature Offset, Rainfall Multiplier, Wind Speed, and Atmospheric Pressure
+                // are applied via methods and don't have stored properties to read back
             }
         }
     }
