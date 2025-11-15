@@ -104,10 +104,12 @@ public class MagnetosphereSimulator
                 float magneticProtection = MagneticFieldStrength * (1.0f - latitude * 0.3f);
                 cosmicRays *= (1.0f - magneticProtection * 0.7f);
 
-                // Polar regions get more cosmic rays (field lines converge)
-                if (latitude > 0.7f)
+                // Polar regions get more cosmic rays (field lines converge) - smooth transition
+                // Gradually increase from 60° latitude
+                if (latitude > 0.6f)
                 {
-                    cosmicRays *= (1.0f + latitude);
+                    float polarEnhancement = (latitude - 0.6f) / 0.4f; // 0 to 1 from 60° to poles
+                    cosmicRays *= (1.0f + polarEnhancement * latitude);
                 }
 
                 // Atmosphere shields radiation (more atmosphere = less radiation)

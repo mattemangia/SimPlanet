@@ -48,7 +48,7 @@ public class AtmosphericColumn
     public float UpperTropTemp { get; set; } = 228f;    // 8-12 km (tropopause)
     public float StratosphereTemp { get; set; } = 220f; // 12-25 km (ozone layer)
 
-    // Spectral band fluxes (W/m²)
+    // Spectral band fluxes (W/mÂ²)
     // Shortwave (solar) radiation
     public float ShortwaveDownSurface { get; set; }     // Incoming solar at surface
     public float ShortwaveUpSurface { get; set; }       // Reflected solar from surface
@@ -60,7 +60,7 @@ public class AtmosphericColumn
 
     // Layer-specific gas concentrations (for absorption calculations)
     public float OzoneColumn { get; set; } = 300f;      // Dobson Units (DU), mostly in stratosphere
-    public float WaterVaporColumn { get; set; } = 25f;  // kg/m² precipitable water
+    public float WaterVaporColumn { get; set; } = 25f;  // kg/mÂ² precipitable water
 }
 
 /// <summary>
@@ -103,19 +103,19 @@ public class WeatherSystem
     private void UpdateSeasons(float deltaTime, int currentYear)
     {
         // REALISTIC SEASONAL PROGRESSION WITH PLANETARY AXIS TILT
-        // Axial tilt: 23.5° (like Earth) - causes seasons
+        // Axial tilt: 23.5Â° (like Earth) - causes seasons
         // Season progress: 0-4 represents one full orbit (year)
         _seasonProgress += deltaTime * 0.1f;
         if (_seasonProgress >= 4.0f)
             _seasonProgress -= 4.0f;
 
-        // Convert season progress to orbital angle (0-2π)
-        float orbitalAngle = _seasonProgress * MathF.PI / 2f; // 0-2π over 4 seasons
-        const float axialTilt = 23.5f * (MathF.PI / 180f); // 23.5° in radians
+        // Convert season progress to orbital angle (0-2Ï€)
+        float orbitalAngle = _seasonProgress * MathF.PI / 2f; // 0-2Ï€ over 4 seasons
+        const float axialTilt = 23.5f * (MathF.PI / 180f); // 23.5Â° in radians
 
         // Solar declination varies with orbital position
         // Declination: angle between equatorial plane and sun's rays
-        // Summer solstice: +23.5°, Winter solstice: -23.5°, Equinoxes: 0°
+        // Summer solstice: +23.5Â°, Winter solstice: -23.5Â°, Equinoxes: 0Â°
         float solarDeclination = MathF.Sin(orbitalAngle) * axialTilt;
 
         for (int x = 0; x < _map.Width; x++)
@@ -145,7 +145,7 @@ public class WeatherSystem
 
                 // Convert to seasonal temperature effect
                 // Higher sun = more heating, lower sun = less heating
-                float seasonalHeating = maxSunElevation * 25f; // ±25°C seasonal variation
+                float seasonalHeating = maxSunElevation * 25f; // Â±25Â°C seasonal variation
 
                 // Apply stronger seasonal effects at higher latitudes
                 float latitudeEffect = Math.Abs(latitude);
@@ -159,16 +159,24 @@ public class WeatherSystem
                         rainfallModifier = 1.2f; // Spring showers
                         break;
                     case 1: // Summer
+                    {
                         // Monsoons in tropics, dry in subtropics
-                        rainfallModifier = Math.Abs(latitude) < 0.3f ? 1.5f : 0.8f;
+                        // Smooth transition instead of hard boundary
+                        float tropicalBlend = 1.0f - Math.Clamp((Math.Abs(latitude) - 0.25f) / 0.1f, 0, 1);
+                        rainfallModifier = 1.5f * tropicalBlend + 0.8f * (1 - tropicalBlend);
                         break;
+                    }
                     case 2: // Fall
                         rainfallModifier = 1.1f; // Moderate precipitation
                         break;
                     case 3: // Winter
+                    {
                         // Tropical dry season, mid-latitude storms
-                        rainfallModifier = Math.Abs(latitude) < 0.3f ? 0.7f : 1.3f;
+                        // Smooth transition for winter rainfall
+                        float tropicalBlend = 1.0f - Math.Clamp((Math.Abs(latitude) - 0.25f) / 0.1f, 0, 1);
+                        rainfallModifier = 0.7f * tropicalBlend + 1.3f * (1 - tropicalBlend);
                         break;
+                    }
                 }
 
                 // Apply seasonal heating gradually (smooth transitions)
@@ -183,13 +191,17 @@ public class WeatherSystem
                 float absLatitude = Math.Abs(latitude);
 
                 // Polar regions (|lat| > 0.7) - Permanent ice caps
-                if (absLatitude > 0.7f && cell.Temperature < -5f)
+                // Smooth polar ice transition
+                float polarIceChance = Math.Clamp((absLatitude - 0.65f) / 0.1f, 0, 1);
+                if (polarIceChance > 0 && cell.Temperature < -5f && _random.NextDouble() < polarIceChance)
                 {
                     cell.IsIce = true; // Permanent polar ice
                 }
                 // High latitudes (0.5 < |lat| < 0.7) - Seasonal ice sheets
-                else if (absLatitude > 0.5f)
+                // Smooth high latitude ice transition
+                else if (absLatitude > 0.45f && absLatitude <= 0.7f)
                 {
+                    float highLatIceChance = Math.Clamp((absLatitude - 0.45f) / 0.1f, 0, 1);
                     if (met.Season == 3 && cell.Temperature < -5f) // Winter
                     {
                         cell.IsIce = true; // Winter ice sheets expand
@@ -201,8 +213,10 @@ public class WeatherSystem
                     }
                 }
                 // Mid-latitudes - Sea ice forms in winter
-                else if (absLatitude > 0.3f && cell.IsWater)
+                // Smooth mid-latitude ice transition
+                else if (absLatitude > 0.25f && absLatitude <= 0.5f && cell.IsWater)
                 {
+                    float midLatIceChance = Math.Clamp((absLatitude - 0.25f) / 0.1f, 0, 1);
                     if (cell.Temperature < -2f)
                     {
                         cell.IsIce = true; // Winter sea ice
@@ -249,26 +263,38 @@ public class WeatherSystem
                 float baseWindY = 0;
 
                 // Trade winds (0-30° latitude) - easterlies
-                if (absLatitude < 0.3f)
+                // SMOOTHED transitions to eliminate banding
+                float tradeWindZone = 1.0f - Math.Clamp((absLatitude - 0.25f) / 0.1f, 0, 1);
+                float westerliesZone = 0;
+                float polarZone = 0;
+                
+                if (absLatitude >= 0.2f && absLatitude <= 0.7f)
                 {
-                    baseWindX = 3.0f; // Reduced from 5.0f
-                    // Converge toward equator (ITCZ - Intertropical Convergence Zone)
-                    baseWindY = -Math.Sign(signedLatitude) * 1.5f; // Reduced from 2.0f
+                    // Smooth transition zones
+                    if (absLatitude < 0.35f)
+                    {
+                        westerliesZone = Math.Clamp((absLatitude - 0.25f) / 0.1f, 0, 1);
+                    }
+                    else if (absLatitude < 0.55f)
+                    {
+                        westerliesZone = 1.0f;
+                    }
+                    else
+                    {
+                        westerliesZone = 1.0f - Math.Clamp((absLatitude - 0.55f) / 0.1f, 0, 1);
+                        polarZone = Math.Clamp((absLatitude - 0.55f) / 0.1f, 0, 1);
+                    }
                 }
-                // Westerlies (30-60° latitude)
-                else if (absLatitude < 0.6f)
+                else if (absLatitude >= 0.7f)
                 {
-                    baseWindX = -4.0f; // Reduced from -7.0f
-                    // Diverge from mid-latitudes
-                    baseWindY = Math.Sign(signedLatitude) * 1.0f; // Reduced from 1.5f
+                    polarZone = 1.0f;
                 }
-                // Polar easterlies (60-90° latitude)
-                else
-                {
-                    baseWindX = 2.0f; // Reduced from 3.0f
-                    // Converge at poles
-                    baseWindY = -Math.Sign(signedLatitude) * 0.7f; // Reduced from 1.0f
-                }
+                
+                // Blend wind patterns smoothly
+                baseWindX = 3.0f * tradeWindZone + (-4.0f) * westerliesZone + 2.0f * polarZone;
+                baseWindY = (-Math.Sign(signedLatitude) * 1.5f * tradeWindZone) + 
+                           (Math.Sign(signedLatitude) * 1.0f * westerliesZone) + 
+                           (-Math.Sign(signedLatitude) * 0.7f * polarZone);
 
                 // *** NEW: DYNAMIC TURBULENCE TO BREAK UP BANDING ***
                 // Small-scale eddies and local variations that EVOLVE OVER TIME
@@ -281,7 +307,7 @@ public class WeatherSystem
                 baseWindY += turbulenceY;
 
                 // Apply Coriolis effect (deflects winds based on latitude and hemisphere)
-                // Coriolis parameter: f = 2 * Ω * sin(latitude)
+                // Coriolis parameter: f = 2 * Î© * sin(latitude)
                 // Simplified: deflection proportional to latitude and wind speed
                 float coriolisStrength = signedLatitude * 0.3f; // Stronger at poles, zero at equator
 
@@ -395,11 +421,23 @@ public class WeatherSystem
             float latitude = (centerY - _map.Height / 2.0f) / (_map.Height / 2.0f);
             float absLatitude = Math.Abs(latitude);
 
-            // Pressure cells form mainly in mid-latitudes (30-60°), but allow some everywhere
-            bool isMidLatitude = absLatitude >= 0.3f && absLatitude <= 0.7f;
+            // Pressure cells form mainly in mid-latitudes (30-60Â°), but allow some everywhere
+            // Use smooth probability transition to eliminate banding
+            float cellProbability = 0.3f; // Base probability everywhere
+            
+            // Smooth increase in mid-latitudes
+            if (absLatitude >= 0.25f && absLatitude <= 0.75f)
+            {
+                if (absLatitude < 0.35f)
+                    cellProbability = 0.3f + 0.7f * ((absLatitude - 0.25f) / 0.1f);
+                else if (absLatitude < 0.65f)
+                    cellProbability = 1.0f; // Full probability in core mid-latitudes
+                else
+                    cellProbability = 1.0f - 0.7f * ((absLatitude - 0.65f) / 0.1f);
+            }
 
-            // Lower probability outside mid-latitudes
-            if (!isMidLatitude && _random.NextDouble() > 0.3) continue;
+            // Use smooth probability instead of hard boundary
+            if (_random.NextDouble() > cellProbability) continue;
 
             // Randomly create high or low pressure cell
             bool isHighPressure = _random.NextDouble() > 0.5;
@@ -448,7 +486,7 @@ public class WeatherSystem
                 var met = _map.Cells[x, y].GetMeteorology();
 
                 // Calculate wind shear (change in wind across space)
-                // Vorticity = ∂v/∂x - ∂u/∂y (v=east-west wind, u=north-south wind)
+                // Vorticity = âˆ‚v/âˆ‚x - âˆ‚u/âˆ‚y (v=east-west wind, u=north-south wind)
 
                 float dvdx = 0, dudy = 0;
                 int count = 0;
@@ -487,7 +525,7 @@ public class WeatherSystem
 
                 // Add planetary vorticity (Coriolis effect)
                 float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
-                float planetaryVorticity = latitude * 2f; // f = 2Ω sin(lat)
+                float planetaryVorticity = latitude * 2f; // f = 2Î© sin(lat)
 
                 // Total vorticity
                 met.Vorticity = relativeVorticity + planetaryVorticity;
@@ -528,8 +566,20 @@ public class WeatherSystem
                 float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
                 float absLatitude = Math.Abs(latitude);
 
+                // Baroclinic instability strongest in mid-latitudes (30-60Â°)
                 // Baroclinic instability strongest in mid-latitudes (30-60°)
-                if (absLatitude < 0.3f || absLatitude > 0.7f) continue;
+                // Smooth transition to eliminate banding
+                float baroclinicStrength = 0;
+                if (absLatitude >= 0.25f && absLatitude <= 0.75f)
+                {
+                    if (absLatitude < 0.35f)
+                        baroclinicStrength = (absLatitude - 0.25f) / 0.1f;
+                    else if (absLatitude < 0.55f)
+                        baroclinicStrength = 1.0f;
+                    else
+                        baroclinicStrength = 1.0f - (absLatitude - 0.55f) / 0.2f;
+                }
+                if (baroclinicStrength < 0.1f) continue;
 
                 var met = cell.GetMeteorology();
 
@@ -665,7 +715,7 @@ public class WeatherSystem
 
     private void UpdateStormIntensity(Storm storm, float deltaTime)
     {
-        // Tropical cyclones intensify over warm water (>26°C), weaken over land or cool water
+        // Tropical cyclones intensify over warm water (>26Â°C), weaken over land or cool water
         bool isTropical = storm.Type >= StormType.TropicalDepression &&
                          storm.Type <= StormType.HurricaneCategory5;
 
@@ -751,12 +801,21 @@ public class WeatherSystem
                               met.CloudCover > 0.7f &&
                               cell.Humidity > 0.7f &&
                               met.AirPressure < 1005 &&
-                              absLatitude > 0.08f &&  // ~5° from equator
-                              absLatitude < 0.5f &&   // ~30° latitude
+                              absLatitude > 0.05f &&  // Smoothed: ~3° from equator
+                              absLatitude < 0.5f &&   // ~30Â° latitude
                               windConvergence > 0.02f;
 
         if (canFormTropical)
         {
+            // Apply smooth latitude probability to avoid hard boundaries
+            float latitudeFactor = 1.0f;
+            if (absLatitude < 0.1f)
+                latitudeFactor = (absLatitude - 0.05f) / 0.05f;
+            else if (absLatitude > 0.45f)
+                latitudeFactor = 1.0f - ((absLatitude - 0.45f) / 0.05f);
+                
+            if (_random.NextDouble() > latitudeFactor) return; // Skip formation based on latitude
+            
             // Check if there's already a storm nearby
             bool hasNearbyStorm = _storms.Any(s =>
             {
@@ -957,7 +1016,7 @@ public class WeatherSystem
                 // Tropical cyclones cool sea surface temperature by mixing deep cold water
                 if (cell.IsWater && storm.Type >= StormType.TropicalStorm)
                 {
-                    float cooling = effectStrength * 2.0f; // Up to 2°C cooling
+                    float cooling = effectStrength * 2.0f; // Up to 2Â°C cooling
                     cell.Temperature -= cooling * 0.05f; // Gradual cooling
                 }
                 // Evaporative cooling from heavy rain
@@ -1051,7 +1110,7 @@ public class WeatherSystem
     private void UpdateEvaporation(float deltaTime)
     {
         // CONTINUOUS WATER EVAPORATION PROCESS
-        // This is critical for the water cycle: evaporation → clouds → rain → runoff → ocean
+        // This is critical for the water cycle: evaporation â†’ clouds â†’ rain â†’ runoff â†’ ocean
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -1067,7 +1126,7 @@ public class WeatherSystem
                     // 2. Wind speed (wind carries moisture away)
                     // 3. Low humidity (dry air can hold more moisture)
 
-                    float tempFactor = Math.Clamp((cell.Temperature + 10) / 40f, 0, 2); // Peak at 30°C
+                    float tempFactor = Math.Clamp((cell.Temperature + 10) / 40f, 0, 2); // Peak at 30Â°C
                     float windFactor = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY) * 0.05f;
                     float humidityFactor = (1.0f - cell.Humidity); // More evap when dry
 
@@ -1139,7 +1198,7 @@ public class WeatherSystem
                 // High humidity = cloud formation
                 if (cell.Humidity > 0.6f)
                 {
-                    targetClouds = (cell.Humidity - 0.5f) * 2.0f; // Scale from 0.6-1.0 → 0.2-1.0
+                    targetClouds = (cell.Humidity - 0.5f) * 2.0f; // Scale from 0.6-1.0 â†’ 0.2-1.0
                 }
 
                 // Low pressure enhances cloud formation (rising air)
@@ -1168,9 +1227,12 @@ public class WeatherSystem
                     }
 
                     // Spiral arms: enhanced clouds where vorticity increases outward
+                    // Use gradual transition instead of binary to avoid banding
                     if (maxNeighborVorticity > absVorticity)
                     {
-                        targetClouds += 0.2f; // Spiral arm enhancement
+                        // Make enhancement proportional to the vorticity gradient
+                        float vorticityGradient = (maxNeighborVorticity - absVorticity) / (absVorticity + 0.1f);
+                        targetClouds += Math.Min(0.2f * vorticityGradient, 0.2f); // Gradual spiral arm enhancement
                     }
                 }
 
@@ -1202,10 +1264,29 @@ public class WeatherSystem
                 float windConvergence = CalculateWindConvergence(x, y);
                 if (windConvergence > 0.02f)
                 {
-                    targetClouds += windConvergence * 2f; // Convergence zones = cloudy
+                    // Use smooth transition instead of threshold
+                    float convergenceEffect = Math.Min((windConvergence - 0.02f) * 2f, 0.5f);
+                    targetClouds += convergenceEffect; // Smooth convergence zones
                 }
 
-                // Gradual cloud formation/dissipation (faster response)
+                // Gradual cloud formation/dissipation with spatial smoothing
+                float smoothingFactor = 0.05f;
+                float neighborAvg = 0;
+                int neighborCount = 0;
+                
+                // Sample neighboring cloud values for smoothing
+                foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                {
+                    neighborAvg += neighbor.GetMeteorology().CloudCover;
+                    neighborCount++;
+                }
+                
+                if (neighborCount > 0)
+                {
+                    neighborAvg /= neighborCount;
+                    targetClouds = targetClouds * (1 - smoothingFactor) + neighborAvg * smoothingFactor;
+                }
+                
                 met.CloudCover += (targetClouds - met.CloudCover) * 0.15f;
                 met.CloudCover = Math.Clamp(met.CloudCover, 0, 1);
 

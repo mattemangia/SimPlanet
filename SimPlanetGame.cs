@@ -373,8 +373,16 @@ public class SimPlanetGame : Game
         // Handle menu navigation
         if (_mainMenu.CurrentScreen != GameScreen.InGame)
         {
-            // Update about dialog (if visible)
+            // Update about dialog (if visible) - this should block other input
             _aboutDialog.Update(mouseState, _previousMouseState);
+            
+            // If about dialog is visible, don't process other menu input
+            if (_aboutDialog.IsVisible)
+            {
+                _previousMouseState = mouseState;
+                _previousKeyState = keyState;
+                return;
+            }
 
             // Show map options UI when on NewGame screen
             if (_mainMenu.CurrentScreen == GameScreen.NewGame)
@@ -445,6 +453,15 @@ public class SimPlanetGame : Game
             // Update UI systems
             _toolbar.Update(mouseState);
             _aboutDialog.Update(mouseState, _previousMouseState);
+            
+            // If about dialog is visible, block other input
+            if (_aboutDialog.IsVisible)
+            {
+                _previousMouseState = mouseState;
+                _previousKeyState = keyState;
+                return;
+            }
+            
             _minimap3D.Update(realDeltaTime);
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(realDeltaTime);
@@ -1099,9 +1116,6 @@ public class SimPlanetGame : Game
             {
                 _mapOptionsUI.Draw(_mapOptions);
             }
-
-            // Draw about dialog (if visible) - on top of everything
-            _aboutDialog.Draw(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
             _spriteBatch.End();
             base.Draw(gameTime);

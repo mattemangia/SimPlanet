@@ -88,10 +88,16 @@ public class GeologicalSimulator
                 if (cell.IsWater && cell.Elevation > -0.3f && cell.Elevation < 0) // Shallow sea
                 {
                     float latitude = Math.Abs((float)y / _map.Height - 0.5f);
-                    if (latitude < 0.3f && cell.Temperature > 20) // Tropical
+                    // Smooth tropical probability for carbonate formation
+                    float tropicalProbability = Math.Max(0, 1.0f - (latitude / 0.35f));
+                    if (tropicalProbability > 0 && cell.Temperature > 20) // Tropical zone
                     {
-                        geo.IsCarbonatePlatform = true;
-                        geo.Limestone = Math.Min(geo.Limestone + 0.3f, 0.8f);
+                        // Probability-based formation to avoid hard boundary
+                        if (_random.NextDouble() < tropicalProbability)
+                        {
+                            geo.IsCarbonatePlatform = true;
+                            geo.Limestone = Math.Min(geo.Limestone + 0.3f * tropicalProbability, 0.8f);
+                        }
                     }
                 }
             }

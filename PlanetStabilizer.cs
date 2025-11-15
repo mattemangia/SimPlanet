@@ -14,7 +14,7 @@ public class PlanetStabilizer
     private const float AdjustmentInterval = 2.0f; // Adjust every 2 seconds
 
     // Stabilization targets (Earth-like conditions)
-    private const float TargetGlobalTemp = 15.0f; // 15°C average
+    private const float TargetGlobalTemp = 15.0f; // 15Â°C average
     private const float TargetOxygen = 21.0f; // 21% oxygen (modern Earth)
     private const float MinCO2 = 0.01f; // Minimum CO2 for photosynthesis
     private const float MaxCO2 = 5.0f; // Maximum safe CO2 (allows early planet high CO2)
@@ -116,7 +116,7 @@ public class PlanetStabilizer
             if (avgCO2 < MaxCO2)
             {
                 AdjustCO2Globally(0.01f);
-                LastAction = $"Adding CO2 to warm planet (avg: {avgTemp:F1}°C)";
+                LastAction = $"Adding CO2 to warm planet (avg: {avgTemp:F1}Â°C)";
                 AdjustmentsMade++;
             }
         }
@@ -132,19 +132,19 @@ public class PlanetStabilizer
             if (avgN2O > 0.5f)
             {
                 ReduceN2OGlobally(0.2f); // Aggressive N2O reduction
-                LastAction = $"Removing N2O to cool planet (avg: {avgTemp:F1}°C, N2O: {avgN2O:F2})";
+                LastAction = $"Removing N2O to cool planet (avg: {avgTemp:F1}Â°C, N2O: {avgN2O:F2})";
                 AdjustmentsMade++;
             }
             else if (avgMethane > 1.0f)
             {
                 ReduceMethaneGlobally(0.3f); // Aggressive methane reduction
-                LastAction = $"Removing methane to cool planet (avg: {avgTemp:F1}°C, CH4: {avgMethane:F2})";
+                LastAction = $"Removing methane to cool planet (avg: {avgTemp:F1}Â°C, CH4: {avgMethane:F2})";
                 AdjustmentsMade++;
             }
             else if (avgCO2 > 0.5f)
             {
                 AdjustCO2Globally(-0.1f); // Increased from -0.05f
-                LastAction = $"Removing CO2 to cool planet (avg: {avgTemp:F1}°C)";
+                LastAction = $"Removing CO2 to cool planet (avg: {avgTemp:F1}Â°C)";
                 AdjustmentsMade++;
             }
         }
@@ -514,21 +514,22 @@ public class PlanetStabilizer
                 // Calculate expected max temperature based on latitude
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
-                // Poles (lat > 0.7) should never exceed 10°C under normal conditions
-                // Mid-latitudes should never exceed 40°C
-                // Equator can be hot but shouldn't exceed 50°C
+                // Poles (lat > 0.7) should never exceed 10Â°C under normal conditions
+                // Mid-latitudes should never exceed 40Â°C
+                // Equator can be hot but shouldn't exceed 50Â°C
                 float maxAllowedTemp;
-                if (latitude > 0.7f)
+                
+                // Smooth temperature limit curve based on latitude
+                if (latitude < 0.5f)
                 {
-                    maxAllowedTemp = 10f; // Polar regions
-                }
-                else if (latitude > 0.4f)
-                {
-                    maxAllowedTemp = 30f; // Mid-latitudes
+                    // Tropical to mid-latitude blend
+                    maxAllowedTemp = 45f - (latitude * 30f); // 45°C at equator to 30°C at 50° latitude
                 }
                 else
                 {
-                    maxAllowedTemp = 45f; // Tropics and equator
+                    // Mid-latitude to polar blend
+                    float polarBlend = (latitude - 0.5f) / 0.5f;
+                    maxAllowedTemp = 30f - (polarBlend * 20f); // 30°C at 50° latitude to 10°C at poles
                 }
 
                 // Emergency clamp if temperature exceeds safe limits

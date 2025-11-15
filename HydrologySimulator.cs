@@ -9,7 +9,7 @@ public class HydrologySimulator
     private readonly Random _random;
     private List<River> _rivers;
     private int _nextRiverId = 1;
-    private float _tidalCycle = 0;  // 0 to 2π for tidal cycle
+    private float _tidalCycle = 0;  // 0 to 2Ï€ for tidal cycle
     private const float TidalPeriod = 12.4f; // Hours for one tidal cycle
 
     public List<River> Rivers => _rivers;
@@ -393,7 +393,7 @@ public class HydrologySimulator
     private void UpdateWaterDensity()
     {
         // Water density calculation based on temperature and salinity
-        // Density = ρ(T, S) where T = temperature, S = salinity
+        // Density = Ï(T, S) where T = temperature, S = salinity
         // Approximate equation of state for seawater
         // Source: UNESCO equation of state (simplified)
 
@@ -406,15 +406,15 @@ public class HydrologySimulator
 
                 var geo = cell.GetGeology();
 
-                // Base density at 0°C, 0 ppt = 999.8 kg/m³ = 0.9998 g/cm³
+                // Base density at 0Â°C, 0 ppt = 999.8 kg/mÂ³ = 0.9998 g/cmÂ³
                 float baseDensity = 0.9998f;
 
                 // Temperature effect: density decreases with temperature
-                // ΔρT ≈ -0.0002 g/cm³ per °C (simplified)
+                // Î”ÏT â‰ˆ -0.0002 g/cmÂ³ per Â°C (simplified)
                 float tempEffect = -0.0002f * cell.Temperature;
 
                 // Salinity effect: density increases with salinity
-                // Δρs ≈ 0.0008 g/cm³ per ppt (simplified)
+                // Î”Ïs â‰ˆ 0.0008 g/cmÂ³ per ppt (simplified)
                 float salinityEffect = 0.0008f * (geo.Salinity - 35);
 
                 // Total density
@@ -444,22 +444,28 @@ public class HydrologySimulator
                     // Latitude-based currents (Coriolis effect)
                     float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
-                    // Gyres: Trade winds near equator, westerlies at mid-latitudes
-                    if (latitude < 0.3f)
+                    // Smooth ocean current transitions based on latitude
+                    // Trade winds influence (0-35°)
+                    float tradeWindInfluence = Math.Max(0, 1.0f - (latitude / 0.35f));
+                    // Westerlies influence (25-65°)
+                    float westerliesInfluence = 0;
+                    if (latitude >= 0.25f && latitude <= 0.65f)
                     {
-                        // Equatorial currents - westward (trade winds)
-                        geo.FlowDirection = (-1, 0);
+                        if (latitude < 0.45f)
+                            westerliesInfluence = (latitude - 0.25f) / 0.2f;
+                        else
+                            westerliesInfluence = 1.0f - ((latitude - 0.45f) / 0.2f);
                     }
-                    else if (latitude < 0.6f)
-                    {
-                        // Subtropical and mid-latitude - eastward (westerlies)
-                        geo.FlowDirection = (1, 0);
-                    }
-                    else
-                    {
-                        // Polar currents - eastward
-                        geo.FlowDirection = (1, 0);
-                    }
+                    // Polar influence (55°+)
+                    float polarInfluence = Math.Max(0, (latitude - 0.55f) / 0.45f);
+                    
+                    // Blend current directions smoothly
+                    float flowX = -1.0f * tradeWindInfluence + 1.0f * westerliesInfluence + 0.5f * polarInfluence;
+                    float flowY = 0;
+                    
+                    // Normalize and set flow direction
+                    float flowMag = Math.Max(0.1f, Math.Abs(flowX));
+                    geo.FlowDirection = ((int x, int y))(flowX / flowMag, flowY);
 
                     // Western intensification (stronger currents on western boundaries)
                     // Check if near a continental boundary
@@ -516,7 +522,9 @@ public class HydrologySimulator
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
                 // Deep water formation at high latitudes (polar regions)
-                if (latitude > 0.7f && cell.Elevation < -0.3f)
+                // Use smooth probability for formation
+                float deepWaterProbability = Math.Max(0, (latitude - 0.65f) / 0.25f);
+                if (deepWaterProbability > 0 && cell.Elevation < -0.3f && _random.NextDouble() < deepWaterProbability)
                 {
                     // Cold, salty water is dense and sinks
                     if (cell.Temperature < 5 && geo.Salinity > 34)
@@ -593,7 +601,9 @@ public class HydrologySimulator
                 }
 
                 // Upwelling regions (low latitudes, coastal areas)
-                if (latitude < 0.3f && cell.Elevation > -0.3f && cell.Elevation < 0)
+                // Smooth probability based on latitude
+                float upwellingProbability = Math.Max(0, 1.0f - (latitude / 0.35f));
+                if (upwellingProbability > 0 && cell.Elevation > -0.3f && cell.Elevation < 0 && _random.NextDouble() < upwellingProbability)
                 {
                     // Nutrient-rich deep water rises to surface
                     foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
@@ -617,7 +627,7 @@ public class HydrologySimulator
         if (_tidalCycle > 2 * MathF.PI)
             _tidalCycle -= 2 * MathF.PI;
 
-        float tidalHeight = MathF.Sin(_tidalCycle) * 0.05f; // ±0.05 elevation units
+        float tidalHeight = MathF.Sin(_tidalCycle) * 0.05f; // Â±0.05 elevation units
 
         // Apply tides to coastal and ocean cells
         for (int x = 0; x < _map.Width; x++)

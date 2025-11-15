@@ -179,10 +179,14 @@ public class PlanetMap
             {
                 float latitudeFactor = Math.Abs((y - Height / 2.0f) / (Height / 2.0f));
 
-                // Make poles slightly lower (ice caps)
-                if (latitudeFactor > 0.8f)
+                // Make poles gradually lower (ice caps) with smooth transition
+                // Start gradual lowering from 70° latitude
+                if (latitudeFactor > 0.7f)
                 {
-                    Cells[x, y].Elevation -= (latitudeFactor - 0.8f) * 0.3f;
+                    // Smooth cubic curve for polar depression
+                    float polarFactor = (latitudeFactor - 0.7f) / 0.3f;
+                    float loweringAmount = polarFactor * polarFactor * 0.3f;
+                    Cells[x, y].Elevation -= loweringAmount;
                 }
             }
         }
@@ -371,7 +375,7 @@ public class PlanetMap
 
                 // Temperature based on latitude (distance from equator)
                 float latitude = Math.Abs((y - Height / 2.0f) / (Height / 2.0f));
-                float baseTemp = 30 - (latitude * 40); // 30°C at equator, -10°C at poles
+                float baseTemp = 30 - (latitude * 40); // 30Â°C at equator, -10Â°C at poles
 
                 // Elevation affects temperature (cooler at higher elevations)
                 if (cell.Elevation > 0)
