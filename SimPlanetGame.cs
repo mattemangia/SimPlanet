@@ -167,6 +167,17 @@ public class SimPlanetGame : Game
                     _magnetosphereSimulator.Update(simDeltaTime, newYear);
                     _planetStabilizer.Update(simDeltaTime);
 
+                    // Earthquake system (triggers tsunamis)
+                    EarthquakeSystem.Update(_map, simDeltaTime, newYear, out bool tsunamiTriggered, out (int x, int y) tsunamiEpicenter, out float tsunamiMagnitude);
+                    if (tsunamiTriggered)
+                    {
+                        TsunamiSystem.InitiateTsunami(_map, tsunamiEpicenter.x, tsunamiEpicenter.y, tsunamiMagnitude, newYear);
+                    }
+
+                    // Tsunami wave propagation and flooding
+                    TsunamiSystem.Update(_map, simDeltaTime, newYear);
+                    TsunamiSystem.DrainFloodWaters(_map, simDeltaTime);
+
                     // Update game state (thread-safe)
                     lock (_simulationLock)
                     {
@@ -222,6 +233,9 @@ public class SimPlanetGame : Game
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
         _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
+
+        // Generate initial geological features
+        EarthquakeSystem.GenerateInitialFaults(_map); // Create fault lines at plate boundaries
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -516,6 +530,14 @@ public class SimPlanetGame : Game
             _currentRenderMode = RenderMode.Pressure;
         if (keyState.IsKeyDown(Keys.F4) && _previousKeyState.IsKeyUp(Keys.F4))
             _currentRenderMode = RenderMode.Storms;
+
+        // Geological hazards view modes (E, Q, U)
+        if (keyState.IsKeyDown(Keys.E) && _previousKeyState.IsKeyUp(Keys.E))
+            _currentRenderMode = RenderMode.Earthquakes;
+        if (keyState.IsKeyDown(Keys.Q) && _previousKeyState.IsKeyUp(Keys.Q))
+            _currentRenderMode = RenderMode.Faults;
+        if (keyState.IsKeyDown(Keys.U) && _previousKeyState.IsKeyUp(Keys.U))
+            _currentRenderMode = RenderMode.Tsunamis;
 
         // Biome view mode (F10)
         if (keyState.IsKeyDown(Keys.F10) && _previousKeyState.IsKeyUp(Keys.F10))
