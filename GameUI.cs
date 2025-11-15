@@ -283,9 +283,9 @@ public class GameUI
         int panelX = infoPanelWidth + 20;
         int panelY = 20;
         int panelWidth = 780;
-        int panelHeight = Math.Min(400, _graphicsDevice.Viewport.Height - 40);
+        int panelHeight = Math.Min(680, _graphicsDevice.Viewport.Height - 40);
 
-        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 200));
+        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 240));
         DrawBorder(panelX, panelY, panelWidth, panelHeight, Color.Yellow, 2);
 
         int lineHeight = 18;
