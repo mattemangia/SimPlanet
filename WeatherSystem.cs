@@ -27,6 +27,36 @@ public class MeteorologicalData
     public bool InStorm { get; set; }
     public float Precipitation { get; set; } // Current rainfall/snowfall
     public int Season { get; set; } // 0=Spring, 1=Summer, 2=Fall, 3=Winter
+
+    // Multi-layer atmospheric structure for radiative transfer
+    public AtmosphericColumn Column { get; set; } = new();
+}
+
+/// <summary>
+/// Represents a vertical column of atmosphere with multiple layers
+/// Used for realistic radiative transfer calculations
+/// </summary>
+public class AtmosphericColumn
+{
+    // Layer temperatures (K) - 4 layers from surface to upper atmosphere
+    public float SurfaceTemp { get; set; } = 288f;      // 0-2 km (surface boundary layer)
+    public float LowerTropTemp { get; set; } = 268f;    // 2-8 km (main weather layer)
+    public float UpperTropTemp { get; set; } = 228f;    // 8-12 km (tropopause)
+    public float StratosphereTemp { get; set; } = 220f; // 12-25 km (ozone layer)
+
+    // Spectral band fluxes (W/m²)
+    // Shortwave (solar) radiation
+    public float ShortwaveDownSurface { get; set; }     // Incoming solar at surface
+    public float ShortwaveUpSurface { get; set; }       // Reflected solar from surface
+
+    // Longwave (terrestrial infrared) radiation
+    public float LongwaveDownSurface { get; set; }      // Atmospheric back-radiation
+    public float LongwaveUpSurface { get; set; }        // Surface emission
+    public float LongwaveUpTOA { get; set; }            // Outgoing at top of atmosphere
+
+    // Layer-specific gas concentrations (for absorption calculations)
+    public float OzoneColumn { get; set; } = 300f;      // Dobson Units (DU), mostly in stratosphere
+    public float WaterVaporColumn { get; set; } = 25f;  // kg/m² precipitable water
 }
 
 /// <summary>

@@ -141,11 +141,35 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
     - **Methane (CH4)** - wetlands, decomposition, agriculture, volcanic emissions (28x CO2 potency)
     - **Nitrous oxide (N2O)** - soil microbes, fertilizers, ocean production (265x CO2 potency)
     - Water vapor feedback (temperature-dependent humidity effects)
-  - **Enhanced greenhouse effect**:
-    - Multi-gas radiative forcing (CO2, CH4, N2O, H2O)
-    - Water vapor positive feedback amplification
-    - Cloud greenhouse effects
-    - Realistic climate sensitivity based on IPCC AR6 data
+  - **Multi-layer atmospheric structure**:
+    - 4 distinct atmospheric layers (surface, lower troposphere, upper troposphere, stratosphere)
+    - Realistic tropospheric lapse rate (-6.5 K/km)
+    - Stratospheric temperature inversion from ozone heating
+    - Latitude-dependent ozone column (250-400 Dobson Units)
+    - Clausius-Clapeyron water vapor distribution
+  - **Spectral band radiative transfer**:
+    - Two-stream approximation for upward and downward radiation fluxes
+    - **Shortwave (solar) radiation**: 0.2-4 μm
+      - Ozone UV absorption in stratosphere
+      - Rayleigh scattering (blue sky)
+      - Cloud reflection and absorption
+      - Water vapor near-IR absorption
+      - Surface albedo reflection
+    - **Longwave (terrestrial IR) radiation**: 4-100 μm
+      - Stefan-Boltzmann surface emission
+      - Layer-by-layer atmospheric absorption
+      - Wavelength-dependent gas absorption:
+        - CO2: 15 μm band (logarithmic forcing)
+        - H2O: 6.3 μm band + rotation bands (square-root dependence)
+        - CH4: 7.6 μm band (square-root saturation)
+        - N2O: 7.8 μm band (overlaps with CO2)
+      - Cloud thermal emission (near-blackbody)
+      - Atmospheric window (8-12 μm) for direct escape
+      - Back-radiation from atmosphere to surface
+      - Outgoing longwave radiation at top of atmosphere
+  - **Net radiation budget**:
+    - Surface energy balance from shortwave and longwave fluxes
+    - Realistic climate sensitivity based on IPCC AR6 radiative forcing
   - Photosynthesis and respiration
   - Volcanic emissions
   - Atmospheric gas mixing and wind-driven transport
@@ -1527,6 +1551,31 @@ SimPlanet implements realistic planetary physics and Earth systems based on esta
 - **Oxygen Production**: Photosynthesis by plants and algae (6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂)
 - **Source**: *Climate Change 2021: The Physical Science Basis* (IPCC AR6, 2021), *The Atmosphere* (Lutgens & Tarbuck, 2015), NASA climate models
 
+### **Radiative Transfer & Spectral Bands**
+- **Multi-layer Atmosphere**: 4-layer structure (surface, lower/upper troposphere, stratosphere)
+  - Tropospheric lapse rate: -6.5 K/km (environmental lapse rate)
+  - Stratospheric inversion: Temperature increases with altitude due to ozone UV absorption
+  - Ozone column: 250-400 Dobson Units (latitude-dependent, higher at poles)
+- **Two-Stream Radiative Transfer**: Upward and downward flux calculations through atmospheric layers
+- **Shortwave (Solar) Radiation** (0.2-4 μm):
+  - Solar constant: 1361 W/m² (varies with solar energy parameter)
+  - Ozone absorption: ~3% of incoming solar (UV protection)
+  - Rayleigh scattering: ~10% (blue sky effect, pressure-dependent)
+  - Cloud albedo: 50% reflection for thick clouds
+  - Water vapor near-IR absorption: 10-20% depending on column amount
+- **Longwave (Thermal IR) Radiation** (4-100 μm):
+  - Stefan-Boltzmann law: σT⁴ for surface and atmospheric emission (σ = 5.67×10⁻⁸ W m⁻² K⁻⁴)
+  - **Spectral absorption by wavelength**:
+    - CO₂: 15 μm band - Logarithmic forcing: Δα ∝ ln(C/C₀) per IPCC formula
+    - H₂O: 6.3 μm rotational band - Square-root dependence: α ∝ √(water column)
+    - CH₄: 7.6 μm band - Square-root saturation
+    - N₂O: 7.8 μm band - Overlaps with CO₂, square-root dependence
+  - Atmospheric window: 8-12 μm (direct thermal escape to space)
+  - Back-radiation: Atmospheric emission downward to surface
+  - Outgoing longwave radiation (OLR): Energy loss to space at top of atmosphere
+- **Net Surface Energy Budget**: Q_net = (SW_down - SW_up) + (LW_down - LW_up)
+- **Source**: *Principles of Planetary Climate* (Pierrehumbert, 2010), *A First Course in Atmospheric Radiation* (Petty, 2006), IPCC radiative forcing methodology
+
 ### **Biological Processes**
 - **Biomass Growth**: Logistic growth model with carrying capacity
 - **Evolution**: Stress-driven adaptation (environmental pressure → mutation → selection)
@@ -1545,8 +1594,10 @@ For gameplay and performance, some simplifications were made:
 - 2D projection of 3D spherical planet
 - Accelerated timescales (years pass quickly)
 - Reduced grid resolution (240×120 cells vs Earth's complexity)
-- Simplified radiative transfer (no spectral bands or atmospheric layers)
-- No ocean stratification layers (mixed layer vs thermocline vs deep ocean)
+- Simplified vertical layers (4 atmospheric layers instead of 50+ in GCMs)
+- Two-stream approximation instead of full discrete ordinates radiative transfer
+- Simplified cloud microphysics (no droplet size distributions or ice phase transitions)
+- No ocean vertical stratification (mixed layer, thermocline, abyssal layers combined)
 
 **All core physics use scientifically accurate formulas** - this is an educational simulation grounded in real Earth science!
 

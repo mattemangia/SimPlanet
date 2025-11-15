@@ -114,6 +114,7 @@ public class TerrainRenderer
                     RenderMode.Faults => GetFaultsColor(cell),
                     RenderMode.Tsunamis => GetTsunamisColor(cell),
                     RenderMode.Infrastructure => GetInfrastructureColor(cell),
+                    RenderMode.SpectralBands => GetSpectralBandsColor(cell),
                     _ => Color.Black
                 };
 
@@ -948,6 +949,64 @@ public class TerrainRenderer
         return new Color(40, 60, 40); // Dark green
     }
 
+    private Color GetSpectralBandsColor(TerrainCell cell)
+    {
+        // Visualize net radiation budget: shortwave + longwave fluxes
+        // Shows energy balance at surface - positive = warming, negative = cooling
+        var met = cell.GetMeteorology();
+        var column = met.Column;
+
+        // Net shortwave (absorbed solar energy)
+        float netShortwave = column.ShortwaveDownSurface - column.ShortwaveUpSurface;
+
+        // Net longwave (thermal infrared balance)
+        float netLongwave = column.LongwaveDownSurface - column.LongwaveUpSurface;
+
+        // Total net radiation budget (W/m²)
+        float netRadiation = netShortwave + netLongwave;
+
+        // Normalize to color range
+        // Typical range: -200 to +400 W/m²
+        // Negative = net cooling (blue), Positive = net heating (red/yellow)
+
+        if (netRadiation > 0)
+        {
+            // Heating (red/yellow gradient)
+            float intensity = Math.Clamp(netRadiation / 400f, 0, 1);
+
+            if (intensity < 0.5f)
+            {
+                // Yellow to orange
+                float t = intensity * 2f;
+                return Color.Lerp(Color.Yellow, new Color(255, 128, 0), t);
+            }
+            else
+            {
+                // Orange to red
+                float t = (intensity - 0.5f) * 2f;
+                return Color.Lerp(new Color(255, 128, 0), Color.Red, t);
+            }
+        }
+        else
+        {
+            // Cooling (blue gradient)
+            float intensity = Math.Clamp(-netRadiation / 200f, 0, 1);
+
+            if (intensity < 0.5f)
+            {
+                // Light blue to medium blue
+                float t = intensity * 2f;
+                return Color.Lerp(Color.LightBlue, Color.Blue, t);
+            }
+            else
+            {
+                // Medium blue to dark blue
+                float t = (intensity - 0.5f) * 2f;
+                return Color.Lerp(Color.Blue, new Color(0, 0, 100), t);
+            }
+        }
+    }
+
     public void DrawLegend(SpriteBatch spriteBatch, FontRenderer font, int screenWidth, int screenHeight)
     {
         // Don't show legend for Terrain mode (it's self-explanatory)
@@ -1025,6 +1084,7 @@ public class TerrainRenderer
             RenderMode.Albedo => "SURFACE ALBEDO",
             RenderMode.Radiation => "RADIATION LEVELS",
             RenderMode.Infrastructure => "CIVILIZATION INFRASTRUCTURE",
+            RenderMode.SpectralBands => "NET RADIATION BUDGET",
             _ => "LEGEND"
         };
     }
@@ -1051,6 +1111,7 @@ public class TerrainRenderer
             RenderMode.Albedo => new List<string> { "0% (Dark/Absorbs)", "85% (Bright/Reflects)" },
             RenderMode.Radiation => new List<string> { "0 (Safe)", "5+ (Deadly)" },
             RenderMode.Infrastructure => new List<string> { "Roads", "Nuclear Plants", "Wind Turbines", "Solar Farms", "Tunnels" },
+            RenderMode.SpectralBands => new List<string> { "-200 W/m² (Cooling)", "+400 W/m² (Heating)" },
             _ => new List<string>()
         };
     }
@@ -1088,8 +1149,38 @@ public class TerrainRenderer
             RenderMode.Storms => LerpColor(new Color(150, 200, 255), new Color(100, 0, 100), t),
             RenderMode.Albedo => GetAlbedoGradientColor(t),
             RenderMode.Radiation => GetRadiationGradientColor(t),
+            RenderMode.SpectralBands => GetSpectralBandsGradientColor(t),
             _ => Color.Gray
         };
+    }
+
+    private Color GetSpectralBandsGradientColor(float t)
+    {
+        // Gradient from cooling (blue) to heating (yellow/red)
+        // t=0: -200 W/m² (strong cooling, dark blue)
+        // t=0.5: 0 W/m² (neutral, light blue/yellow transition)
+        // t=1: +400 W/m² (strong heating, red)
+
+        if (t < 0.25f)
+        {
+            // Dark blue to blue (strong to moderate cooling)
+            return Color.Lerp(new Color(0, 0, 100), Color.Blue, t * 4);
+        }
+        else if (t < 0.5f)
+        {
+            // Blue to light blue (moderate to weak cooling)
+            return Color.Lerp(Color.Blue, Color.LightBlue, (t - 0.25f) * 4);
+        }
+        else if (t < 0.75f)
+        {
+            // Light blue/yellow to orange (weak heating to moderate heating)
+            return Color.Lerp(Color.Yellow, new Color(255, 128, 0), (t - 0.5f) * 4);
+        }
+        else
+        {
+            // Orange to red (moderate to strong heating)
+            return Color.Lerp(new Color(255, 128, 0), Color.Red, (t - 0.75f) * 4);
+        }
     }
 
     private Color GetAlbedoGradientColor(float t)
@@ -1199,5 +1290,6 @@ public enum RenderMode
     Earthquakes,    // Seismic activity and epicenters
     Faults,         // Fault lines and fault types
     Tsunamis,       // Tsunami waves and coastal flooding
-    Infrastructure  // Civilization infrastructure (roads, energy, etc.)
+    Infrastructure, // Civilization infrastructure (roads, energy, etc.)
+    SpectralBands   // Radiative transfer with shortwave/longwave fluxes
 }

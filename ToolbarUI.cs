@@ -87,6 +87,7 @@ namespace SimPlanet
             AddButton(ref x, y, "F12", "Radiation", "Extra", () => SetViewMode(RenderMode.Radiation));
             AddButton(ref x, y, "J", "Resources", "Extra", () => SetViewMode(RenderMode.Resources));
             AddButton(ref x, y, "O", "Infrastructure", "Extra", () => SetViewMode(RenderMode.Infrastructure));
+            AddButton(ref x, y, "S", "Spectral Bands - Net Radiation (S)", "Extra", () => SetViewMode(RenderMode.SpectralBands));
 
             x += categorySpacing;
 

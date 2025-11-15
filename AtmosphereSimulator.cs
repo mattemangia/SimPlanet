@@ -18,6 +18,8 @@ public class AtmosphereSimulator
         SimulateCarbonCycle(deltaTime);
         SimulateMethaneCycle(deltaTime);
         SimulateNitrousOxideCycle(deltaTime);
+        UpdateAtmosphericLayers(deltaTime);
+        UpdateSpectralRadiativeTransfer();
         UpdateGreenhouseEffect();
         // Global atmosphere stats now calculated in SimPlanetGame.UpdateGlobalStats() for performance
     }
@@ -292,6 +294,214 @@ public class AtmosphereSimulator
                 cell.Greenhouse = Math.Clamp(cell.Greenhouse, 0, 5);
             }
         }
+    }
+
+    private void UpdateAtmosphericLayers(float deltaTime)
+    {
+        // Update temperature profile of atmospheric layers based on surface conditions
+        // Implements realistic lapse rates and stratospheric warming from ozone
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var met = cell.GetMeteorology();
+                var column = met.Column;
+
+                // Surface temperature (Celsius to Kelvin)
+                column.SurfaceTemp = cell.Temperature + 273.15f;
+
+                // Tropospheric lapse rate: -6.5 K/km (environmental lapse rate)
+                // Layer 1: 2-8 km above surface (average 5 km)
+                column.LowerTropTemp = column.SurfaceTemp - (6.5f * 5f);
+
+                // Layer 2: 8-12 km above surface (average 10 km)
+                column.UpperTropTemp = column.SurfaceTemp - (6.5f * 10f);
+
+                // Stratosphere: Temperature inversion due to ozone absorption
+                // Warms with altitude from ~220K to ~270K
+                float ozoneHeating = column.OzoneColumn / 300f * 20f; // Ozone heating effect
+                column.StratosphereTemp = 220f + ozoneHeating;
+
+                // Water vapor column from humidity (kg/m²)
+                // Clausius-Clapeyron: exponential increase with temperature
+                float saturationVaporPressure = 6.112f * MathF.Exp(17.67f * cell.Temperature / (cell.Temperature + 243.5f));
+                column.WaterVaporColumn = cell.Humidity * saturationVaporPressure * 2.5f;
+                column.WaterVaporColumn = Math.Clamp(column.WaterVaporColumn, 0, 70); // 0-70 kg/m²
+
+                // Ozone column varies with latitude (higher at poles, lower at equator)
+                float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+                column.OzoneColumn = 250f + (latitude * 150f); // 250-400 DU
+                column.OzoneColumn = Math.Clamp(column.OzoneColumn, 150, 500);
+            }
+        }
+    }
+
+    private void UpdateSpectralRadiativeTransfer()
+    {
+        // Multi-band radiative transfer through atmospheric layers
+        // Implements two-stream approximation for upward and downward fluxes
+        // Source: Pierrehumbert "Principles of Planetary Climate" (2010)
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var met = cell.GetMeteorology();
+                var column = met.Column;
+
+                // Calculate latitude for solar geometry
+                float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
+                float latitudeRad = latitude * (MathF.PI / 2f);
+
+                // ===== SHORTWAVE (SOLAR) RADIATION =====
+                // Incoming solar radiation at top of atmosphere
+                float solarConstant = 1361f * _map.SolarEnergy; // W/m² (solar constant)
+                float cosSolarZenith = Math.Max(0, MathF.Cos(latitudeRad)); // Simplified: assumes noon
+                float solarTOA = solarConstant * cosSolarZenith;
+
+                // Ozone absorption in stratosphere (UV and visible)
+                // Ozone absorbs ~3% of solar radiation
+                float ozoneAbsorption = column.OzoneColumn / 300f * 0.03f;
+                float solarAfterOzone = solarTOA * (1f - ozoneAbsorption);
+
+                // Rayleigh scattering in atmosphere (~10% of solar)
+                float rayleighScatter = 0.10f * met.AirPressure / 1013.25f;
+
+                // Cloud reflection and absorption
+                float cloudReflection = met.CloudCover * 0.5f; // Thick clouds reflect 50%
+                float cloudAbsorption = met.CloudCover * 0.1f; // Clouds absorb 10%
+
+                // Water vapor absorption (near-IR bands)
+                // Absorbs ~10-20% depending on column amount
+                float waterVaporAbsorption = Math.Min(0.2f, column.WaterVaporColumn / 50f * 0.15f);
+
+                // Total atmospheric attenuation
+                float atmosphericTransmission = (1f - rayleighScatter) * (1f - cloudReflection) *
+                                               (1f - cloudAbsorption) * (1f - waterVaporAbsorption);
+
+                // Shortwave reaching surface
+                column.ShortwaveDownSurface = solarAfterOzone * atmosphericTransmission;
+
+                // Surface reflection (albedo)
+                column.ShortwaveUpSurface = column.ShortwaveDownSurface * cell.Albedo;
+
+                // ===== LONGWAVE (THERMAL INFRARED) RADIATION =====
+                // Stefan-Boltzmann constant
+                const float sigma = 5.67e-8f; // W m⁻² K⁻⁴
+
+                // Surface emission (blackbody, emissivity ≈ 0.95)
+                float surfaceEmissivity = 0.95f;
+                column.LongwaveUpSurface = surfaceEmissivity * sigma *
+                                          MathF.Pow(column.SurfaceTemp, 4);
+
+                // ===== ATMOSPHERIC ABSORPTION BY LAYER =====
+
+                // Calculate absorption coefficients for each gas
+                // These are simplified spectral absorption in the thermal IR window
+
+                // CO2 absorption (15 μm band) - strongest greenhouse gas band
+                float co2Absorption = CalculateCO2Absorption(cell.CO2);
+
+                // H2O absorption (multiple bands: 6.3 μm, rotation band)
+                float h2oAbsorption = CalculateWaterVaporAbsorption(column.WaterVaporColumn);
+
+                // CH4 absorption (7.6 μm band)
+                float ch4Absorption = CalculateMethaneAbsorption(cell.Methane);
+
+                // N2O absorption (overlaps with CO2 at 7.8 μm)
+                float n2oAbsorption = CalculateN2OAbsorption(cell.NitrousOxide);
+
+                // Cloud absorption/emission (clouds are nearly blackbodies in IR)
+                float cloudEmission = met.CloudCover;
+
+                // Total atmospheric absorptivity/emissivity
+                float totalAbsorption = Math.Min(0.95f, co2Absorption + h2oAbsorption +
+                                                       ch4Absorption + n2oAbsorption + cloudEmission);
+
+                // Effective atmospheric temperature (weighted average of layers)
+                float effectiveAtmosphereTemp = (column.LowerTropTemp * 0.6f +
+                                                column.UpperTropTemp * 0.3f +
+                                                column.StratosphereTemp * 0.1f);
+
+                // Atmospheric back-radiation to surface
+                column.LongwaveDownSurface = totalAbsorption * sigma *
+                                            MathF.Pow(effectiveAtmosphereTemp, 4);
+
+                // Outgoing longwave radiation at top of atmosphere
+                // Some surface radiation escapes through atmospheric window
+                float atmosphericWindow = (1f - totalAbsorption);
+                float atmosphericEmission = totalAbsorption * sigma *
+                                           MathF.Pow(effectiveAtmosphereTemp, 4);
+
+                column.LongwaveUpTOA = (column.LongwaveUpSurface * atmosphericWindow) +
+                                      (atmosphericEmission * 0.5f); // Half emitted upward
+
+                // ===== NET RADIATION AND TEMPERATURE EFFECT =====
+                // Net radiation budget affects surface temperature
+                float netShortwave = column.ShortwaveDownSurface - column.ShortwaveUpSurface;
+                float netLongwave = column.LongwaveDownSurface - column.LongwaveUpSurface;
+                float netRadiation = netShortwave + netLongwave;
+
+                // Store net radiation effect (used in climate simulator)
+                // This replaces the simple greenhouse multiplier
+                cell.Greenhouse = netLongwave / 100f; // Normalized greenhouse forcing
+                cell.Greenhouse = Math.Clamp(cell.Greenhouse, 0, 5);
+            }
+        }
+    }
+
+    private float CalculateCO2Absorption(float co2Concentration)
+    {
+        // CO2 absorption in 15 μm band (most important greenhouse band)
+        // Logarithmic dependence: doubling CO2 adds constant forcing
+        // Source: IPCC radiative forcing formula
+
+        float co2Reference = 280f; // Pre-industrial CO2 (ppm equivalent)
+        float co2Current = Math.Max(co2Concentration, 1f);
+
+        // Logarithmic absorption: Δα ≈ 5.35 × ln(C/C₀)
+        float absorption = 0.12f + 0.05f * MathF.Log(co2Current / co2Reference);
+        return Math.Clamp(absorption, 0.05f, 0.35f);
+    }
+
+    private float CalculateWaterVaporAbsorption(float waterColumn)
+    {
+        // Water vapor absorption (continuum + rotation band)
+        // Strongest greenhouse gas, but condensable (feedback)
+        // Absorption increases with column amount (kg/m²)
+
+        // Square root dependence (approximate)
+        float absorption = 0.25f * MathF.Sqrt(waterColumn / 25f);
+        return Math.Clamp(absorption, 0.1f, 0.6f);
+    }
+
+    private float CalculateMethaneAbsorption(float ch4Concentration)
+    {
+        // Methane absorption in 7.6 μm band
+        // 28× more potent than CO2 per molecule
+
+        float ch4Reference = 0.7f; // Pre-industrial CH4 (ppm equivalent)
+        float ch4Current = Math.Max(ch4Concentration, 0.1f);
+
+        // Square root dependence (band saturation)
+        float absorption = 0.015f * MathF.Sqrt(ch4Current / ch4Reference);
+        return Math.Clamp(absorption, 0f, 0.08f);
+    }
+
+    private float CalculateN2OAbsorption(float n2oConcentration)
+    {
+        // N2O absorption overlapping with CO2 bands
+        // 265× more potent than CO2 per molecule
+
+        float n2oReference = 0.27f; // Pre-industrial N2O (ppm equivalent)
+        float n2oCurrent = Math.Max(n2oConcentration, 0.05f);
+
+        // Square root dependence
+        float absorption = 0.01f * MathF.Sqrt(n2oCurrent / n2oReference);
+        return Math.Clamp(absorption, 0f, 0.05f);
     }
 
     // REMOVED: UpdateGlobalAtmosphere() - now handled by SimPlanetGame.UpdateGlobalStats()
