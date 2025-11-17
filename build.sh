@@ -9,7 +9,7 @@ echo ""
 if ! command -v dotnet &> /dev/null
 then
     echo "❌ .NET 8 SDK is not installed!"
-    echo ""
+    echo "-----------------------------------------------"
     echo "Please install .NET 8 from:"
     echo "  - Linux/macOS: https://dot.net/v1/dotnet-install.sh"
     echo "  - Or visit: https://dotnet.microsoft.com/download/dotnet/8.0"
