@@ -391,10 +391,64 @@ public class SedimentColumnViewer
             new Vector2(panelX + 10, textY), Color.Orange);
         textY += lineHeight + 5;
 
-        if (geo.SedimentColumn.Count == 0)
+        if (geo.SedimentColumn.Count == 0 && !cell.IsIce)
         {
             _font.DrawString(spriteBatch, "No sediment layers",
                 new Vector2(panelX + 10, textY), Color.Gray);
+        }
+        else if (geo.SedimentColumn.Count == 0 && cell.IsIce)
+        {
+            // Draw just the ice layer with no sediments below
+            int columnWidth = 120;
+            int columnX = panelX + 20;
+            int columnStartY = textY;
+            int iceLayerHeight = 20;
+
+            // Draw column border
+            DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, iceLayerHeight + 4, Color.White, 2);
+
+            // Draw "Surface" label at top
+            _font.DrawString(spriteBatch, "← SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
+
+            Color iceColor = new Color(200, 230, 255);
+
+            // Draw ice layer
+            spriteBatch.Draw(_pixelTexture,
+                new Rectangle(columnX, columnStartY, columnWidth, iceLayerHeight),
+                iceColor);
+
+            // Draw ice pattern
+            DrawIcePattern(spriteBatch, columnX, columnStartY, columnWidth, iceLayerHeight);
+
+            // Draw ice border
+            spriteBatch.Draw(_pixelTexture,
+                new Rectangle(columnX, columnStartY + iceLayerHeight - 1, columnWidth, 1),
+                new Color(80, 80, 80));
+
+            // Label ice layer
+            _font.DrawString(spriteBatch, "ICE",
+                new Vector2(columnX + 4, columnStartY + 4), new Color(0, 50, 100), 12);
+
+            // Draw "Bedrock" label at bottom
+            int bottomY = columnStartY + iceLayerHeight;
+            _font.DrawString(spriteBatch, "← BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
+
+            // Draw legend
+            int legendX = columnX + columnWidth + 90;
+            int legendY = columnStartY;
+            _font.DrawString(spriteBatch, "LEGEND:", new Vector2(legendX, legendY), Color.Orange, 14);
+            legendY += 25;
+
+            int boxSize = 12;
+            spriteBatch.Draw(_pixelTexture,
+                new Rectangle(legendX, legendY + 2, boxSize, boxSize),
+                iceColor);
+            DrawBorder(spriteBatch, legendX, legendY + 2, boxSize, boxSize, Color.Gray, 1);
+
+            _font.DrawString(spriteBatch, "Ice",
+                new Vector2(legendX + boxSize + 6, legendY), Color.White, 11);
+
+            textY = bottomY + 30;
         }
         else
         {
@@ -403,23 +457,58 @@ public class SedimentColumnViewer
             int columnX = panelX + 20;
             int columnStartY = textY;
 
+            // Check if ice is present
+            bool hasIce = cell.IsIce;
+            int iceLayerHeight = 20; // Ice layer is thicker for visibility
+
             // Show all layers - scrolling allows viewing everything
             int layersToShow = geo.SedimentColumn.Count;
             var recentLayers = geo.SedimentColumn.AsEnumerable().Reverse().ToList();
 
             int layerHeight = 15; // Fixed height per layer for consistency
 
+            // Calculate total height including ice if present
+            int totalColumnHeight = (layerHeight * layersToShow) + (hasIce ? iceLayerHeight : 0);
+
             // Draw column border
-            DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, (layerHeight * layersToShow) + 4, Color.White, 2);
+            DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, totalColumnHeight + 4, Color.White, 2);
 
             // Draw "Surface" label at top
             _font.DrawString(spriteBatch, "← SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
 
+            int currentY = columnStartY;
+
+            // Draw ice layer at the very top if present
+            if (hasIce)
+            {
+                Color iceColor = new Color(200, 230, 255); // Light blue-white for ice
+
+                // Draw ice layer
+                spriteBatch.Draw(_pixelTexture,
+                    new Rectangle(columnX, currentY, columnWidth, iceLayerHeight),
+                    iceColor);
+
+                // Draw ice pattern
+                DrawIcePattern(spriteBatch, columnX, currentY, columnWidth, iceLayerHeight);
+
+                // Draw ice border
+                spriteBatch.Draw(_pixelTexture,
+                    new Rectangle(columnX, currentY + iceLayerHeight - 1, columnWidth, 1),
+                    new Color(80, 80, 80));
+
+                // Label ice layer
+                _font.DrawString(spriteBatch, "ICE",
+                    new Vector2(columnX + 4, currentY + 4), new Color(0, 50, 100), 12);
+
+                currentY += iceLayerHeight;
+            }
+
+            // Draw sediment layers below ice
             for (int i = 0; i < layersToShow; i++)
             {
                 var sedimentType = recentLayers[i];
                 Color layerColor = GetSedimentColor(sedimentType);
-                int layerY = columnStartY + (i * layerHeight);
+                int layerY = currentY + (i * layerHeight);
 
                 // Draw sediment layer with pattern
                 spriteBatch.Draw(_pixelTexture,
@@ -449,7 +538,7 @@ public class SedimentColumnViewer
             }
 
             // Draw "Bedrock" label at bottom
-            int bottomY = columnStartY + (layerHeight * layersToShow);
+            int bottomY = columnStartY + totalColumnHeight;
             _font.DrawString(spriteBatch, "← BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
 
             // Update textY for legend
@@ -459,6 +548,22 @@ public class SedimentColumnViewer
             // Draw legend on the right side
             _font.DrawString(spriteBatch, "LEGEND:", new Vector2(legendX, textY), Color.Orange, 14);
             textY += 25;
+
+            // Add ice to legend if present
+            if (hasIce)
+            {
+                Color iceColor = new Color(200, 230, 255);
+                int boxSize = 12;
+                spriteBatch.Draw(_pixelTexture,
+                    new Rectangle(legendX, textY + 2, boxSize, boxSize),
+                    iceColor);
+                DrawBorder(spriteBatch, legendX, textY + 2, boxSize, boxSize, Color.Gray, 1);
+
+                _font.DrawString(spriteBatch, "Ice",
+                    new Vector2(legendX + boxSize + 6, textY), Color.White, 11);
+
+                textY += 18;
+            }
 
             var uniqueTypes = recentLayers.Distinct().ToList();
             foreach (var sedType in uniqueTypes)
@@ -539,6 +644,48 @@ public class SedimentColumnViewer
         int instructionsY = panelY + panelHeight - 30;
         _font.DrawString(spriteBatch, "Scroll wheel to scroll | Right-click or ESC to close",
             new Vector2(panelX + 10, instructionsY), Color.Gray, 11);
+    }
+
+    private void DrawIcePattern(SpriteBatch spriteBatch, int x, int y, int width, int height)
+    {
+        // Draw crystalline ice pattern
+        Random iceRandom = new Random(42); // Fixed seed for consistent pattern
+
+        // Draw ice crystals - diagonal lines and snowflake-like patterns
+        for (int i = 0; i < width; i += 8)
+        {
+            // Diagonal lines for crystalline structure
+            for (int j = 0; j < height; j += 1)
+            {
+                int lineX = x + i + (j / 2);
+                int lineY = y + j;
+                if (lineX < x + width && lineY < y + height)
+                    spriteBatch.Draw(_pixelTexture, new Rectangle(lineX, lineY, 1, 1), new Color(255, 255, 255, 60));
+            }
+        }
+
+        // Add sparkle effect for ice
+        for (int i = 0; i < width / 15; i++)
+        {
+            for (int j = 0; j < height / 8; j++)
+            {
+                int sparkleX = x + i * 15 + iceRandom.Next(8);
+                int sparkleY = y + j * 8 + iceRandom.Next(4);
+                if (sparkleY < y + height)
+                {
+                    // Small sparkle
+                    spriteBatch.Draw(_pixelTexture, new Rectangle(sparkleX, sparkleY, 2, 2), new Color(255, 255, 255, 150));
+                }
+            }
+        }
+
+        // Horizontal cracks in ice
+        for (int i = 0; i < height; i += 6)
+        {
+            int crackY = y + i + iceRandom.Next(2);
+            if (crackY < y + height)
+                spriteBatch.Draw(_pixelTexture, new Rectangle(x, crackY, width, 1), new Color(100, 150, 200, 80));
+        }
     }
 
     private void DrawSedimentPattern(SpriteBatch spriteBatch, int x, int y, int width, int height, SedimentType type)
