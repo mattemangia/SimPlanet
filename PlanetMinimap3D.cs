@@ -261,8 +261,21 @@ public class PlanetMinimap3D
                 u = u % 1.0f;
                 if (u < 0) u += 1.0f;
 
-                int texX = (int)(u * _map.Width) % _map.Width;
+                // Validate u and v (prevent NaN propagation)
+                if (float.IsNaN(u) || float.IsInfinity(u))
+                    u = 0.5f;
+                if (float.IsNaN(v) || float.IsInfinity(v))
+                    v = 0.5f;
+
+                // Clamp to valid range before converting to texture coordinates
+                u = Math.Clamp(u, 0, 0.9999f);
+                v = Math.Clamp(v, 0, 0.9999f);
+
+                int texX = (int)(u * _map.Width);
                 int texY = (int)(v * _map.Height);
+
+                // Ensure coordinates are within bounds
+                texX = Math.Clamp(texX, 0, _map.Width - 1);
                 texY = Math.Clamp(texY, 0, _map.Height - 1);
 
                 // Sample texture
@@ -278,14 +291,38 @@ public class PlanetMinimap3D
                     float cloudCover = met.CloudCover;
 
                     // Animate clouds (drift with wind)
-                    float cloudOffset = _cloudAnimation + (met.WindSpeedX * 0.01f);
+                    float windSpeed = met.WindSpeedX;
+
+                    // Validate wind speed (prevent NaN propagation)
+                    if (float.IsNaN(windSpeed) || float.IsInfinity(windSpeed))
+                        windSpeed = 0;
+
+                    float cloudOffset = _cloudAnimation + (windSpeed * 0.01f);
+
+                    // Validate cloud offset
+                    if (float.IsNaN(cloudOffset) || float.IsInfinity(cloudOffset))
+                        cloudOffset = _cloudAnimation;
+
                     float animatedU = (u + cloudOffset) % 1.0f;
                     if (animatedU < 0) animatedU += 1.0f; // Handle negative modulo (when wind is negative)
-                    int animTexX = (int)(animatedU * _map.Width) % _map.Width;
+
+                    // Validate animatedU and ensure it's in valid range
+                    if (float.IsNaN(animatedU) || float.IsInfinity(animatedU))
+                        animatedU = u;
+                    animatedU = Math.Clamp(animatedU, 0, 0.9999f); // Ensure it never equals or exceeds 1.0
+
+                    int animTexX = (int)(animatedU * _map.Width);
+
+                    // Ensure animTexX is within bounds
+                    animTexX = Math.Clamp(animTexX, 0, _map.Width - 1);
 
                     // Use animated position for cloud sampling
                     var animCell = _map.Cells[animTexX, texY];
                     float animCloudCover = animCell.GetMeteorology().CloudCover;
+
+                    // Validate cloud cover value
+                    if (float.IsNaN(animCloudCover) || float.IsInfinity(animCloudCover))
+                        animCloudCover = 0;
 
                     if (animCloudCover > 0.3f)
                     {

@@ -366,7 +366,12 @@ public class WeatherSystem
                     windY *= 0.5f;
                 }
 
-                // Set final wind speeds
+                // Validate and set final wind speeds (prevent NaN propagation)
+                if (float.IsNaN(windX) || float.IsInfinity(windX))
+                    windX = 0;
+                if (float.IsNaN(windY) || float.IsInfinity(windY))
+                    windY = 0;
+
                 met.WindSpeedX = windX;
                 met.WindSpeedY = windY;
             }
@@ -395,6 +400,11 @@ public class WeatherSystem
                 float humidityEffect = cell.Humidity * 5;
 
                 met.AirPressure = 1013.25f + tempEffect + elevationEffect - humidityEffect;
+
+                // Validate pressure (prevent NaN propagation)
+                if (float.IsNaN(met.AirPressure) || float.IsInfinity(met.AirPressure))
+                    met.AirPressure = 1013.25f;
+
                 met.AirPressure = Math.Clamp(met.AirPressure, 950, 1050);
 
                 // Calculate pressure tendency (change rate)
