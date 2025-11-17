@@ -193,6 +193,8 @@ public class GeologicalSimulator
             UpdateVolcanicActivity(currentYear);
             UpdateErosionAndSedimentation(deltaTime);
             UpdateCarbonatePlatforms(deltaTime);
+            UpdateTurbidites(deltaTime);
+            UpdateFiningUpwardSequences(deltaTime);
 
             _geologicalTime = 0;
 
@@ -727,6 +729,12 @@ public class GeologicalSimulator
 
     private void UpdateErosionAndSedimentation(float deltaTime)
     {
+        // Validate deltaTime to prevent NaN propagation
+        if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime < 0)
+        {
+            return;
+        }
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -736,12 +744,28 @@ public class GeologicalSimulator
 
                 if (!cell.IsLand) continue;
 
+                // Fix any existing NaN values
+                if (float.IsNaN(geo.SedimentLayer) || float.IsInfinity(geo.SedimentLayer))
+                {
+                    geo.SedimentLayer = 0.0f;
+                }
+                if (float.IsNaN(geo.ErosionRate) || float.IsInfinity(geo.ErosionRate))
+                {
+                    geo.ErosionRate = 0.0f;
+                }
+
                 // Erosion rate based on rainfall, temperature, and slope
                 float slope = CalculateSlope(x, y);
-                geo.ErosionRate = cell.Rainfall * 0.1f * (1.0f + slope * 2.0f);
+
+                // Validate inputs before calculation
+                float rainfall = float.IsNaN(cell.Rainfall) ? 0.0f : Math.Max(0, cell.Rainfall);
+                float temperature = float.IsNaN(cell.Temperature) ? 0.0f : cell.Temperature;
+                slope = float.IsNaN(slope) ? 0.0f : Math.Max(0, slope);
+
+                geo.ErosionRate = rainfall * 0.1f * (1.0f + slope * 2.0f);
 
                 // Temperature affects weathering
-                if (cell.Temperature > 20)
+                if (temperature > 20)
                 {
                     geo.ErosionRate *= 1.5f; // Chemical weathering in warm climates
                 }
@@ -754,8 +778,13 @@ public class GeologicalSimulator
 
                 // Apply erosion
                 float erosion = geo.ErosionRate * deltaTime * 0.0001f;
-                cell.Elevation -= erosion;
-                geo.SedimentLayer += erosion;
+
+                // Validate erosion value
+                if (!float.IsNaN(erosion) && !float.IsInfinity(erosion) && erosion >= 0)
+                {
+                    cell.Elevation -= erosion;
+                    geo.SedimentLayer += erosion;
+                }
 
                 // Transport sediment downhill (by rivers and flooding)
                 var lowestNeighbor = GetLowestNeighbor(x, y);
@@ -764,9 +793,30 @@ public class GeologicalSimulator
                     var (lx, ly) = lowestNeighbor.Value;
                     var targetGeo = _map.Cells[lx, ly].GetGeology();
 
+                    // Fix any NaN values in target cell
+                    if (float.IsNaN(targetGeo.SedimentLayer) || float.IsInfinity(targetGeo.SedimentLayer))
+                    {
+                        targetGeo.SedimentLayer = 0.0f;
+                    }
+
                     // Transport rate depends on water flow (rainfall + flooding)
-                    float waterCurrent = cell.Rainfall + geo.FloodLevel + geo.WaterFlow;
+                    float floodLevel = float.IsNaN(geo.FloodLevel) ? 0.0f : Math.Max(0, geo.FloodLevel);
+                    float waterFlow = float.IsNaN(geo.WaterFlow) ? 0.0f : Math.Max(0, geo.WaterFlow);
+                    float waterCurrent = rainfall + floodLevel + waterFlow;
+
+                    // Validate waterCurrent
+                    if (float.IsNaN(waterCurrent) || float.IsInfinity(waterCurrent))
+                    {
+                        waterCurrent = 0.0f;
+                    }
+
                     float transport = geo.SedimentLayer * 0.1f * waterCurrent;
+
+                    // Validate transport value
+                    if (float.IsNaN(transport) || float.IsInfinity(transport) || transport < 0)
+                    {
+                        continue; // Skip this transport if invalid
+                    }
 
                     // Determine sediment type based on source material and current strength
                     SedimentType sedimentType;
@@ -788,13 +838,14 @@ public class GeologicalSimulator
                     }
 
                     // Volcanic sediments
-                    if (geo.VolcanicRock > 0.5f)
+                    if (!float.IsNaN(geo.VolcanicRock) && geo.VolcanicRock > 0.5f)
                     {
                         sedimentType = SedimentType.Volcanic;
                     }
 
                     // Organic sediments from biomass
-                    if (cell.Biomass > 0.5f && waterCurrent < 0.4f)
+                    float biomass = float.IsNaN(cell.Biomass) ? 0.0f : cell.Biomass;
+                    if (biomass > 0.5f && waterCurrent < 0.4f)
                     {
                         sedimentType = SedimentType.Organic;
                     }
@@ -811,7 +862,11 @@ public class GeologicalSimulator
                         // Sediment builds up elevation in lowlands
                         if (_map.Cells[lx, ly].IsWater || _map.Cells[lx, ly].Elevation < 0.1f)
                         {
-                            _map.Cells[lx, ly].Elevation += transport * 0.5f;
+                            float elevationIncrease = transport * 0.5f;
+                            if (!float.IsNaN(elevationIncrease) && !float.IsInfinity(elevationIncrease))
+                            {
+                                _map.Cells[lx, ly].Elevation += elevationIncrease;
+                            }
                         }
                     }
                     else // High current = sediment keeps moving
@@ -823,6 +878,248 @@ public class GeologicalSimulator
                     if (targetGeo.SedimentColumn.Count > 100)
                     {
                         targetGeo.SedimentColumn.RemoveAt(0);
+                    }
+                }
+            }
+        }
+    }
+
+    private void UpdateTurbidites(float deltaTime)
+    {
+        // Validate deltaTime to prevent NaN propagation
+        if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime < 0)
+        {
+            return;
+        }
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+
+                // Turbidites occur in ocean environments, especially on slopes
+                if (!cell.IsWater) continue;
+
+                // Fix any existing NaN values
+                if (float.IsNaN(geo.SedimentLayer) || float.IsInfinity(geo.SedimentLayer))
+                {
+                    geo.SedimentLayer = 0.0f;
+                }
+
+                // Calculate slope to determine if turbidity currents can form
+                float slope = CalculateSlope(x, y);
+                slope = float.IsNaN(slope) ? 0.0f : Math.Max(0, slope);
+
+                // Turbidites are more likely on continental slopes and submarine canyons
+                // They require: (1) steep slope, (2) available sediment, (3) deep water
+                bool isContinentalSlope = cell.Elevation < -0.1f && cell.Elevation > -0.5f && slope > 0.05f;
+                bool isDeepOcean = cell.Elevation < -0.5f;
+                bool hasSediment = geo.SedimentLayer > 0.05f;
+
+                // Turbidity currents are triggered by sediment instability on slopes
+                if ((isContinentalSlope || isDeepOcean) && hasSediment && slope > 0.02f)
+                {
+                    // Probability of turbidity current increases with slope and sediment load
+                    float turbidityProbability = slope * geo.SedimentLayer * 0.1f;
+
+                    if (_random.NextDouble() < turbidityProbability * deltaTime)
+                    {
+                        // Create a turbidite deposit with classic fining upward Bouma sequence
+                        // Bouma sequence: Gravel -> Sand -> Silt -> Clay (coarse to fine)
+
+                        float turbiditeThickness = geo.SedimentLayer * 0.3f; // Use 30% of available sediment
+
+                        // Validate turbidite thickness
+                        if (float.IsNaN(turbiditeThickness) || float.IsInfinity(turbiditeThickness))
+                        {
+                            continue;
+                        }
+
+                        // Find downslope neighbor for deposition
+                        var lowestNeighbor = GetLowestNeighbor(x, y);
+                        if (lowestNeighbor.HasValue)
+                        {
+                            var (lx, ly) = lowestNeighbor.Value;
+                            var targetCell = _map.Cells[lx, ly];
+                            var targetGeo = targetCell.GetGeology();
+
+                            // Fix any NaN values in target cell
+                            if (float.IsNaN(targetGeo.SedimentLayer) || float.IsInfinity(targetGeo.SedimentLayer))
+                            {
+                                targetGeo.SedimentLayer = 0.0f;
+                            }
+
+                            // Only deposit in deeper water
+                            if (targetCell.IsWater)
+                            {
+                                // Create fining upward sequence (Bouma sequence)
+                                // Ta: Gravel/coarse sand (base of flow, high energy)
+                                if (turbiditeThickness > 0.15f)
+                                {
+                                    targetGeo.SedimentColumn.Add(SedimentType.Gravel);
+                                }
+
+                                // Tb: Medium to coarse sand (parallel lamination)
+                                if (turbiditeThickness > 0.10f)
+                                {
+                                    targetGeo.SedimentColumn.Add(SedimentType.Sand);
+                                }
+
+                                // Tc: Fine sand to silt (ripple cross-lamination)
+                                if (turbiditeThickness > 0.05f)
+                                {
+                                    targetGeo.SedimentColumn.Add(SedimentType.Silt);
+                                }
+
+                                // Td-Te: Clay and organic matter (suspension settling)
+                                targetGeo.SedimentColumn.Add(SedimentType.Clay);
+
+                                // Update sediment layers
+                                geo.SedimentLayer -= turbiditeThickness;
+                                targetGeo.SedimentLayer += turbiditeThickness;
+                                targetGeo.SedimentaryRock += turbiditeThickness * 0.15f;
+
+                                // Turbidites can build up abyssal plains
+                                if (targetCell.Elevation < -0.3f && !float.IsNaN(turbiditeThickness))
+                                {
+                                    targetCell.Elevation += turbiditeThickness * 0.02f;
+                                }
+
+                                // Limit sediment column size
+                                if (targetGeo.SedimentColumn.Count > 100)
+                                {
+                                    targetGeo.SedimentColumn.RemoveRange(0, targetGeo.SedimentColumn.Count - 100);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void UpdateFiningUpwardSequences(float deltaTime)
+    {
+        // Validate deltaTime to prevent NaN propagation
+        if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime < 0)
+        {
+            return;
+        }
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+
+                // Fix any existing NaN values
+                if (float.IsNaN(geo.SedimentLayer) || float.IsInfinity(geo.SedimentLayer))
+                {
+                    geo.SedimentLayer = 0.0f;
+                }
+
+                // Validate inputs
+                float rainfall = float.IsNaN(cell.Rainfall) ? 0.0f : Math.Max(0, cell.Rainfall);
+                float waterFlow = float.IsNaN(geo.WaterFlow) ? 0.0f : Math.Max(0, geo.WaterFlow);
+                float elevation = float.IsNaN(cell.Elevation) ? 0.0f : cell.Elevation;
+
+                // Fining upward sequences form in:
+                // 1. River channels (point bars, channel fills)
+                // 2. Delta distributary channels
+                // 3. Floodplains
+
+                bool isRiverChannel = cell.IsLand && waterFlow > 0.3f && rainfall > 0.4f;
+                bool isDelta = cell.IsLand && elevation < 0.1f && elevation > -0.05f && rainfall > 0.5f;
+                bool isFloodplain = cell.IsLand && elevation < 0.2f && rainfall > 0.3f && waterFlow > 0.1f;
+
+                if ((isRiverChannel || isDelta || isFloodplain) && geo.SedimentLayer > 0.08f)
+                {
+                    // Rivers and deltas periodically create fining upward sequences
+                    // Probability increases with water flow and sediment availability
+                    float sequenceProbability = waterFlow * geo.SedimentLayer * 0.05f;
+
+                    if (_random.NextDouble() < sequenceProbability * deltaTime)
+                    {
+                        // Create a fining upward sequence
+                        float sequenceThickness = geo.SedimentLayer * 0.4f; // Use 40% of available sediment
+
+                        // Validate sequence thickness
+                        if (float.IsNaN(sequenceThickness) || float.IsInfinity(sequenceThickness))
+                        {
+                            continue;
+                        }
+
+                        // Determine the grain sizes based on flow strength
+                        if (waterFlow > 0.7f) // High energy channel
+                        {
+                            // Classic channel lag -> point bar sequence
+                            // Base: Gravel (channel lag, erosive base)
+                            geo.SedimentColumn.Add(SedimentType.Gravel);
+
+                            // Middle: Coarse to medium sand (point bar accretion)
+                            geo.SedimentColumn.Add(SedimentType.Sand);
+
+                            // Upper: Fine sand to silt (upper point bar, low flow)
+                            geo.SedimentColumn.Add(SedimentType.Silt);
+
+                            // Top: Clay (overbank/floodplain deposits)
+                            if (isFloodplain || _random.NextDouble() < 0.5)
+                            {
+                                geo.SedimentColumn.Add(SedimentType.Clay);
+                            }
+                        }
+                        else if (waterFlow > 0.4f) // Moderate energy
+                        {
+                            // Delta distributary or meandering river
+                            // Base: Medium sand
+                            geo.SedimentColumn.Add(SedimentType.Sand);
+
+                            // Middle: Fine sand to silt
+                            geo.SedimentColumn.Add(SedimentType.Silt);
+
+                            // Top: Clay (abandoned channel fill)
+                            geo.SedimentColumn.Add(SedimentType.Clay);
+
+                            // Organic-rich if delta
+                            if (isDelta)
+                            {
+                                geo.SedimentColumn.Add(SedimentType.Organic);
+                            }
+                        }
+                        else // Low energy floodplain
+                        {
+                            // Crevasse splay or levee deposits
+                            // Base: Silt (initial flood)
+                            geo.SedimentColumn.Add(SedimentType.Silt);
+
+                            // Top: Clay (waning flood, suspension)
+                            geo.SedimentColumn.Add(SedimentType.Clay);
+
+                            // Organic matter (swamp/marsh)
+                            if (_random.NextDouble() < 0.6)
+                            {
+                                geo.SedimentColumn.Add(SedimentType.Organic);
+                            }
+                        }
+
+                        // Update sediment properties
+                        geo.SedimentLayer -= sequenceThickness;
+                        geo.SedimentaryRock += sequenceThickness * 0.2f;
+
+                        // Build up elevation in low-lying areas (delta progradation)
+                        if (isDelta && !float.IsNaN(sequenceThickness))
+                        {
+                            cell.Elevation += sequenceThickness * 0.3f;
+                        }
+
+                        // Limit sediment column size
+                        if (geo.SedimentColumn.Count > 100)
+                        {
+                            geo.SedimentColumn.RemoveRange(0, geo.SedimentColumn.Count - 100);
+                        }
                     }
                 }
             }
