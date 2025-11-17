@@ -1132,12 +1132,16 @@ public class TerrainRenderer
         // t ranges from 0 to 1
         return Mode switch
         {
-            RenderMode.Temperature => LerpColor(new Color(100, 150, 255), new Color(255, 100, 50), t),
-            RenderMode.Rainfall => LerpColor(new Color(220, 180, 100), new Color(50, 100, 255), t),
+            // Fixed to match actual GetTemperatureColor: Blue → Green → Red
+            RenderMode.Temperature => GetTemperatureGradientColor(t),
+            // Fixed to match actual GetRainfallColor: Brown → Blue
+            RenderMode.Rainfall => LerpColor(new Color(139, 90, 43), new Color(0, 100, 200), t),
             RenderMode.Life => GetLifeGradientColor(t),
-            RenderMode.Oxygen => LerpColor(new Color(100, 50, 50), new Color(100, 255, 100), t),
+            // Fixed to match actual GetOxygenColor: Black → Light Blue
+            RenderMode.Oxygen => LerpColor(Color.Black, new Color(100, 200, 255), t),
             RenderMode.CO2 => LerpColor(new Color(50, 50, 100), new Color(255, 200, 50), t),
-            RenderMode.Elevation => LerpColor(new Color(10, 50, 120), new Color(200, 200, 200), t),
+            // Fixed to match actual GetElevationColor: Black → White
+            RenderMode.Elevation => LerpColor(Color.Black, Color.White, t),
             RenderMode.Geological => GetGeologicalGradientColor(t),
             RenderMode.Volcanoes => LerpColor(new Color(60, 60, 60), new Color(255, 100, 0), t),
             RenderMode.Clouds => LerpColor(new Color(50, 100, 150), Color.White, t),
@@ -1149,6 +1153,21 @@ public class TerrainRenderer
             RenderMode.SpectralBands => GetSpectralBandsGradientColor(t),
             _ => Color.Gray
         };
+    }
+
+    private Color GetTemperatureGradientColor(float t)
+    {
+        // Match GetTemperatureColor: Blue → Green → Red
+        if (t < 0.5f)
+        {
+            // Blue to green
+            return Color.Lerp(new Color(0, 0, 255), new Color(0, 255, 0), t * 2);
+        }
+        else
+        {
+            // Green to red
+            return Color.Lerp(new Color(0, 255, 0), new Color(255, 0, 0), (t - 0.5f) * 2);
+        }
     }
 
     private Color GetSpectralBandsGradientColor(float t)
