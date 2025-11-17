@@ -108,7 +108,27 @@ public class HydrologySimulator
                 }
                 else
                 {
-                    geo.WaterFlow = (cell.Rainfall + geo.SoilMoisture) * steepestGradient;
+                    // Validate all inputs to prevent NaN/Infinity propagation
+                    float rainfall = cell.Rainfall;
+                    if (float.IsNaN(rainfall) || float.IsInfinity(rainfall))
+                        rainfall = 0;
+                    rainfall = Math.Clamp(rainfall, 0f, 1f);
+
+                    float soilMoisture = geo.SoilMoisture;
+                    if (float.IsNaN(soilMoisture) || float.IsInfinity(soilMoisture))
+                        soilMoisture = 0;
+                    soilMoisture = Math.Clamp(soilMoisture, 0f, 1f);
+
+                    if (float.IsNaN(steepestGradient) || float.IsInfinity(steepestGradient))
+                        steepestGradient = 0;
+                    steepestGradient = Math.Clamp(steepestGradient, 0f, 10f);
+
+                    geo.WaterFlow = (rainfall + soilMoisture) * steepestGradient;
+
+                    // Validate result and clamp to reasonable range
+                    if (float.IsNaN(geo.WaterFlow) || float.IsInfinity(geo.WaterFlow))
+                        geo.WaterFlow = 0;
+                    geo.WaterFlow = Math.Clamp(geo.WaterFlow, 0f, 10f);
                 }
             }
         }
@@ -671,8 +691,24 @@ public class HydrologySimulator
 
                 if (cell.IsLand)
                 {
+                    // Validate deltaTime to prevent astronomical values
+                    float safeDeltaTime = deltaTime;
+                    if (float.IsNaN(safeDeltaTime) || float.IsInfinity(safeDeltaTime) || safeDeltaTime < 0 || safeDeltaTime > 10)
+                        safeDeltaTime = 0.01f; // Safe default
+
+                    // Validate inputs to prevent NaN/Infinity
+                    float rainfall = cell.Rainfall;
+                    if (float.IsNaN(rainfall) || float.IsInfinity(rainfall))
+                        rainfall = 0;
+                    rainfall = Math.Clamp(rainfall, 0f, 1f);
+
+                    float soilMoisture = geo.SoilMoisture;
+                    if (float.IsNaN(soilMoisture) || float.IsInfinity(soilMoisture))
+                        soilMoisture = 0;
+                    soilMoisture = Math.Clamp(soilMoisture, 0f, 1f);
+
                     // Heavy rainfall causes flooding
-                    float waterInput = cell.Rainfall * 0.5f + geo.SoilMoisture * 0.2f;
+                    float waterInput = rainfall * 0.5f + soilMoisture * 0.2f;
 
                     // River overflow
                     if (geo.RiverId > 0)
@@ -680,11 +716,28 @@ public class HydrologySimulator
                         var river = _rivers.FirstOrDefault(r => r.Id == geo.RiverId);
                         if (river != null)
                         {
-                            waterInput += river.WaterVolume * 0.1f;
+                            float riverVolume = river.WaterVolume;
+                            if (float.IsNaN(riverVolume) || float.IsInfinity(riverVolume))
+                                riverVolume = 0;
+                            riverVolume = Math.Clamp(riverVolume, 0f, 100f);
+
+                            waterInput += riverVolume * 0.1f;
                         }
                     }
 
-                    geo.FloodLevel += waterInput * deltaTime;
+                    // Validate waterInput
+                    if (float.IsNaN(waterInput) || float.IsInfinity(waterInput))
+                        waterInput = 0;
+                    waterInput = Math.Clamp(waterInput, 0f, 10f);
+
+                    // Validate current flood level
+                    if (float.IsNaN(geo.FloodLevel) || float.IsInfinity(geo.FloodLevel))
+                        geo.FloodLevel = 0;
+
+                    geo.FloodLevel += waterInput * safeDeltaTime;
+
+                    // Clamp flood level to reasonable maximum
+                    geo.FloodLevel = Math.Clamp(geo.FloodLevel, 0f, 10f);
                 }
             }
         }

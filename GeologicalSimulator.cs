@@ -399,6 +399,13 @@ public class GeologicalSimulator
                     Earthquakes.Add((x, y, geo.TectonicStress));
                     geo.TectonicStress *= 0.1f;
                 }
+
+                // CRITICAL: Validate and clamp TectonicStress to prevent overflow
+                if (float.IsNaN(geo.TectonicStress) || float.IsInfinity(geo.TectonicStress))
+                    geo.TectonicStress = 0;
+
+                // Clamp to reasonable maximum (0-10 range, with normal values 0-2)
+                geo.TectonicStress = Math.Clamp(geo.TectonicStress, 0f, 10f);
             }
         }
     }
@@ -744,25 +751,32 @@ public class GeologicalSimulator
 
                 if (!cell.IsLand) continue;
 
-                // Fix any existing NaN values
+                // Fix any existing NaN values AND clamp to reasonable ranges
                 if (float.IsNaN(geo.SedimentLayer) || float.IsInfinity(geo.SedimentLayer))
                 {
                     geo.SedimentLayer = 0.0f;
                 }
+                geo.SedimentLayer = Math.Clamp(geo.SedimentLayer, 0f, 10f); // Max 10 units of sediment
+
                 if (float.IsNaN(geo.ErosionRate) || float.IsInfinity(geo.ErosionRate))
                 {
                     geo.ErosionRate = 0.0f;
                 }
+                geo.ErosionRate = Math.Clamp(geo.ErosionRate, 0f, 100f); // Max erosion rate
 
                 // Erosion rate based on rainfall, temperature, and slope
                 float slope = CalculateSlope(x, y);
 
                 // Validate inputs before calculation
                 float rainfall = float.IsNaN(cell.Rainfall) ? 0.0f : Math.Max(0, cell.Rainfall);
+                rainfall = Math.Clamp(rainfall, 0f, 1f); // Rainfall should be 0-1
                 float temperature = float.IsNaN(cell.Temperature) ? 0.0f : cell.Temperature;
+                temperature = Math.Clamp(temperature, -100f, 100f); // Physically possible range
                 slope = float.IsNaN(slope) ? 0.0f : Math.Max(0, slope);
+                slope = Math.Clamp(slope, 0f, 10f); // Max slope
 
                 geo.ErosionRate = rainfall * 0.1f * (1.0f + slope * 2.0f);
+                geo.ErosionRate = Math.Clamp(geo.ErosionRate, 0f, 10f); // Clamp after calculation
 
                 // Temperature affects weathering
                 if (temperature > 20)
@@ -779,11 +793,24 @@ public class GeologicalSimulator
                 // Apply erosion
                 float erosion = geo.ErosionRate * deltaTime * 0.0001f;
 
-                // Validate erosion value
-                if (!float.IsNaN(erosion) && !float.IsInfinity(erosion) && erosion >= 0)
+                // Validate erosion value and clamp
+                if (float.IsNaN(erosion) || float.IsInfinity(erosion) || erosion < 0)
+                    erosion = 0;
+
+                erosion = Math.Clamp(erosion, 0f, 0.1f); // Max erosion per update
+
+                if (erosion > 0)
                 {
+                    // Validate elevation before modification
+                    if (float.IsNaN(cell.Elevation) || float.IsInfinity(cell.Elevation))
+                        cell.Elevation = 0;
+
                     cell.Elevation -= erosion;
                     geo.SedimentLayer += erosion;
+
+                    // Clamp elevation and sediment to reasonable ranges
+                    cell.Elevation = Math.Clamp(cell.Elevation, -2f, 2f); // Keep in reasonable range
+                    geo.SedimentLayer = Math.Clamp(geo.SedimentLayer, 0f, 10f);
                 }
 
                 // Transport sediment downhill (by rivers and flooding)
@@ -793,30 +820,37 @@ public class GeologicalSimulator
                     var (lx, ly) = lowestNeighbor.Value;
                     var targetGeo = _map.Cells[lx, ly].GetGeology();
 
-                    // Fix any NaN values in target cell
+                    // Fix any NaN values in target cell AND clamp
                     if (float.IsNaN(targetGeo.SedimentLayer) || float.IsInfinity(targetGeo.SedimentLayer))
                     {
                         targetGeo.SedimentLayer = 0.0f;
                     }
+                    targetGeo.SedimentLayer = Math.Clamp(targetGeo.SedimentLayer, 0f, 10f);
 
                     // Transport rate depends on water flow (rainfall + flooding)
                     float floodLevel = float.IsNaN(geo.FloodLevel) ? 0.0f : Math.Max(0, geo.FloodLevel);
+                    floodLevel = Math.Clamp(floodLevel, 0f, 10f); // Clamp flood level
+
                     float waterFlow = float.IsNaN(geo.WaterFlow) ? 0.0f : Math.Max(0, geo.WaterFlow);
+                    waterFlow = Math.Clamp(waterFlow, 0f, 10f); // Clamp water flow
+
                     float waterCurrent = rainfall + floodLevel + waterFlow;
 
-                    // Validate waterCurrent
+                    // Validate waterCurrent AND CLAMP to prevent astronomical values
                     if (float.IsNaN(waterCurrent) || float.IsInfinity(waterCurrent))
                     {
                         waterCurrent = 0.0f;
                     }
+                    waterCurrent = Math.Clamp(waterCurrent, 0f, 20f); // Max reasonable water current
 
                     float transport = geo.SedimentLayer * 0.1f * waterCurrent;
 
-                    // Validate transport value
+                    // Validate transport value AND CLAMP to prevent astronomical values
                     if (float.IsNaN(transport) || float.IsInfinity(transport) || transport < 0)
                     {
                         continue; // Skip this transport if invalid
                     }
+                    transport = Math.Clamp(transport, 0f, 1f); // Max sediment transport per update
 
                     // Determine sediment type based on source material and current strength
                     SedimentType sedimentType;

@@ -77,17 +77,38 @@ public class ClimateSimulator
                 // Calculate surface albedo (reflection coefficient)
                 float albedo = CalculateAlbedo(cell);
 
+                // Validate albedo
+                if (float.IsNaN(albedo) || float.IsInfinity(albedo))
+                    albedo = 0.3f;
+
+                // Validate map properties
+                float solarEnergy = _map.SolarEnergy;
+                if (float.IsNaN(solarEnergy) || float.IsInfinity(solarEnergy) || solarEnergy < 0)
+                    solarEnergy = 1.0f;
+
                 // Albedo reduces absorbed solar energy (higher albedo = more reflection = less heating)
-                float solarHeating = baseTemp * _map.SolarEnergy * (1.0f - albedo);
+                float solarHeating = baseTemp * solarEnergy * (1.0f - albedo);
+
+                // Validate solarHeating
+                if (float.IsNaN(solarHeating) || float.IsInfinity(solarHeating))
+                    solarHeating = 15.0f;
 
                 // Elevation cooling (6.5Â°C per km, roughly 0.65Â°C per 0.1 elevation)
-                if (cell.Elevation > 0)
+                float elevation = cell.Elevation;
+                if (float.IsNaN(elevation) || float.IsInfinity(elevation))
+                    elevation = 0;
+
+                if (elevation > 0)
                 {
-                    solarHeating -= cell.Elevation * 20; // Increased cooling
+                    solarHeating -= elevation * 20; // Increased cooling
                 }
 
                 // Greenhouse effect
-                solarHeating += cell.Greenhouse * 20;
+                float greenhouse = cell.Greenhouse;
+                if (float.IsNaN(greenhouse) || float.IsInfinity(greenhouse))
+                    greenhouse = 0.3f;
+
+                solarHeating += greenhouse * 20;
 
                 // Water moderates temperature (oceanic thermal inertia)
                 if (cell.IsWater)
@@ -95,24 +116,54 @@ public class ClimateSimulator
                     solarHeating += 5;
                 }
 
+                // Validate solarHeating after all modifications
+                if (float.IsNaN(solarHeating) || float.IsInfinity(solarHeating))
+                    solarHeating = 15.0f;
+
                 // *** WIND-DRIVEN HEAT TRANSPORT ***
                 // Advection: winds carry warm/cold air
+
+                // Validate current cell temperature (prevent NaN propagation)
+                if (float.IsNaN(cell.Temperature) || float.IsInfinity(cell.Temperature))
+                    cell.Temperature = 15.0f; // Reset to reasonable default
+
                 float windTemp = cell.Temperature; // Default to current temp
-                if (Math.Abs(met.WindSpeedX) > 0.5f || Math.Abs(met.WindSpeedY) > 0.5f)
+
+                // Validate wind speeds before use
+                float windSpeedX = met.WindSpeedX;
+                float windSpeedY = met.WindSpeedY;
+                if (float.IsNaN(windSpeedX) || float.IsInfinity(windSpeedX)) windSpeedX = 0;
+                if (float.IsNaN(windSpeedY) || float.IsInfinity(windSpeedY)) windSpeedY = 0;
+
+                if (Math.Abs(windSpeedX) > 0.5f || Math.Abs(windSpeedY) > 0.5f)
                 {
                     // Calculate upwind cell (where wind is coming from)
-                    int upwindX = x - (int)Math.Sign(met.WindSpeedX);
-                    int upwindY = y - (int)Math.Sign(met.WindSpeedY);
+                    int upwindX = x - (int)Math.Sign(windSpeedX);
+                    int upwindY = y - (int)Math.Sign(windSpeedY);
 
                     upwindX = (upwindX + _map.Width) % _map.Width;
                     upwindY = Math.Clamp(upwindY, 0, _map.Height - 1);
 
                     var upwindCell = _map.Cells[upwindX, upwindY];
-                    float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
+
+                    // Validate upwind temperature
+                    float upwindTemp = upwindCell.Temperature;
+                    if (float.IsNaN(upwindTemp) || float.IsInfinity(upwindTemp))
+                        upwindTemp = cell.Temperature; // Fallback to current temp
+
+                    float windSpeed = MathF.Sqrt(windSpeedX * windSpeedX + windSpeedY * windSpeedY);
+
+                    // Validate windSpeed
+                    if (float.IsNaN(windSpeed) || float.IsInfinity(windSpeed))
+                        windSpeed = 0;
 
                     // Strong winds transport more heat
                     float advectionStrength = Math.Clamp(windSpeed / 10f, 0, 0.6f); // Max 60% influence
-                    windTemp = cell.Temperature * (1f - advectionStrength) + upwindCell.Temperature * advectionStrength;
+                    windTemp = cell.Temperature * (1f - advectionStrength) + upwindTemp * advectionStrength;
+
+                    // Validate result
+                    if (float.IsNaN(windTemp) || float.IsInfinity(windTemp))
+                        windTemp = cell.Temperature;
                 }
 
                 // *** REDUCED DIFFUSION (was 80%, now 30%) ***
@@ -121,18 +172,49 @@ public class ClimateSimulator
                 int neighborCount = 0;
                 foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
                 {
-                    neighborTemp += neighbor.Temperature;
+                    float nTemp = neighbor.Temperature;
+                    // Validate neighbor temperature
+                    if (float.IsNaN(nTemp) || float.IsInfinity(nTemp))
+                        nTemp = cell.Temperature; // Use current cell as fallback
+
+                    neighborTemp += nTemp;
                     neighborCount++;
                 }
                 if (neighborCount > 0)
                 {
                     neighborTemp /= neighborCount;
                 }
+                else
+                {
+                    neighborTemp = cell.Temperature;
+                }
+
+                // Validate all intermediate values
+                if (float.IsNaN(solarHeating) || float.IsInfinity(solarHeating))
+                    solarHeating = 15.0f; // Default moderate temperature
+                if (float.IsNaN(windTemp) || float.IsInfinity(windTemp))
+                    windTemp = cell.Temperature;
+                if (float.IsNaN(neighborTemp) || float.IsInfinity(neighborTemp))
+                    neighborTemp = cell.Temperature;
 
                 // *** KEY FIX: Reduced neighbor influence from 80% to 30% ***
                 // This prevents band formation while still smoothing sharp edges
                 float targetTemp = solarHeating * 0.5f + windTemp * 0.2f + neighborTemp * 0.3f;
-                newTemperatures[x, y] = cell.Temperature + (targetTemp - cell.Temperature) * deltaTime * 0.1f;
+
+                // Validate targetTemp
+                if (float.IsNaN(targetTemp) || float.IsInfinity(targetTemp))
+                    targetTemp = cell.Temperature;
+
+                float newTemp = cell.Temperature + (targetTemp - cell.Temperature) * deltaTime * 0.1f;
+
+                // Final validation and clamping to physically reasonable range
+                if (float.IsNaN(newTemp) || float.IsInfinity(newTemp))
+                    newTemp = 15.0f; // Default to moderate temperature
+
+                // Clamp to physically possible range (-100°C to 100°C)
+                newTemp = Math.Clamp(newTemp, -100f, 100f);
+
+                newTemperatures[x, y] = newTemp;
             }
         }
 
@@ -236,24 +318,54 @@ public class ClimateSimulator
                     continue;
                 }
 
+                // Validate rainfall
+                float rainfall = cell.Rainfall;
+                if (float.IsNaN(rainfall) || float.IsInfinity(rainfall))
+                    rainfall = 0;
+
                 // Humidity from rainfall
-                float humidityFromRain = cell.Rainfall * 0.8f;
+                float humidityFromRain = rainfall * 0.8f;
 
                 // Humidity diffusion from neighbors
                 float neighborHumidity = 0;
                 int waterNeighbors = 0;
                 foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
                 {
-                    neighborHumidity += neighbor.Humidity;
+                    float nHumidity = neighbor.Humidity;
+                    if (float.IsNaN(nHumidity) || float.IsInfinity(nHumidity))
+                        nHumidity = 0.5f;
+
+                    neighborHumidity += nHumidity;
                     if (neighbor.IsWater) waterNeighbors++;
                 }
                 neighborHumidity /= 8;
+
+                // Validate neighborHumidity
+                if (float.IsNaN(neighborHumidity) || float.IsInfinity(neighborHumidity))
+                    neighborHumidity = 0.5f;
 
                 // More water neighbors = more humid
                 float waterEffect = waterNeighbors / 8.0f;
 
                 float targetHumidity = Math.Max(humidityFromRain, neighborHumidity * 0.5f + waterEffect * 0.3f);
-                newHumidity[x, y] = cell.Humidity + (targetHumidity - cell.Humidity) * deltaTime * 0.2f;
+
+                // Validate targetHumidity
+                if (float.IsNaN(targetHumidity) || float.IsInfinity(targetHumidity))
+                    targetHumidity = 0.5f;
+
+                // Validate current humidity
+                float currentHumidity = cell.Humidity;
+                if (float.IsNaN(currentHumidity) || float.IsInfinity(currentHumidity))
+                    currentHumidity = 0.5f;
+
+                float newHum = currentHumidity + (targetHumidity - currentHumidity) * deltaTime * 0.2f;
+
+                // Final validation and clamping
+                if (float.IsNaN(newHum) || float.IsInfinity(newHum))
+                    newHum = 0.5f;
+
+                newHum = Math.Clamp(newHum, 0f, 1f);
+                newHumidity[x, y] = newHum;
             }
         }
 
