@@ -9,6 +9,7 @@
 
         <!-- Disable auto-generated assembly info to prevent duplicates -->
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <ApplicationIcon>splash.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
