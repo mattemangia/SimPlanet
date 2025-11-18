@@ -23,6 +23,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Splash Screen** with beautiful loading animation before game starts
 - **Save/load game system** with quick save/load (F5/F9)
 - **Main menu** with new game, load game, and pause functionality
+- **Spectral band energy view** for inspecting the planet's net radiation budget
 - Climate simulation (temperature, rainfall, humidity)
 - Atmospheric simulation (oxygen, CO2, greenhouse effects)
 - Life evolution from bacteria to civilization with full environmental reactivity
@@ -87,6 +88,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Plate boundaries (convergent, divergent, transform)
   - Mountain building and subduction zones
   - **Realistic volcano distribution** (rare but impactful)
+  - **Volcano lifecycle** with dormant cones fading and new vents forming over time
   - **Volcanic island formation** - underwater volcanoes build into islands
   - Volcanic hotspots and eruption mechanics (effusive, explosive, phreatomagmatic)
   - **Island arc systems** along oceanic-oceanic convergence zones
