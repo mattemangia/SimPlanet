@@ -43,7 +43,7 @@ public class PlanetStabilizer
         _adjustmentTimer += deltaTime;
 
         float effectiveInterval = AdjustmentInterval / MathF.Max(1f, _responseMultiplier);
-        effectiveInterval = Math.Max(0.2f, effectiveInterval); // prevent runaway loops
+        effectiveInterval = Math.Max(0.05f, effectiveInterval); // allow very fast reaction at high speeds
 
         if (_adjustmentTimer >= effectiveInterval)
         {
@@ -59,9 +59,9 @@ public class PlanetStabilizer
 
     private float CalculateResponseMultiplier(float timeSpeed)
     {
-        float clampedSpeed = Math.Clamp(timeSpeed, 0.25f, 64f);
-        float multiplier = MathF.Pow(clampedSpeed, 0.85f);
-        return Math.Clamp(multiplier, 0.5f, 10f);
+        float clampedSpeed = Math.Clamp(timeSpeed, 0.25f, 128f);
+        float multiplier = MathF.Pow(clampedSpeed, 0.95f);
+        return Math.Clamp(multiplier, 0.5f, 25f);
     }
 
     private void PerformStabilization()
@@ -84,13 +84,16 @@ public class PlanetStabilizer
         // Priority 4: Stabilize water levels
         StabilizeWaterCycle();
 
-        // Priority 5: Reverse fast-forming deserts during high-speed play
+        // Priority 5: Maintain moisture corridors before deserts can form
+        ReinforceMoistureCorridors();
+
+        // Priority 6: Reverse fast-forming deserts during high-speed play
         CombatRapidDesertification();
 
-        // Priority 6: Prevent runaway ice ages or greenhouse effects
+        // Priority 7: Prevent runaway ice ages or greenhouse effects
         PreventExtremeFeedbacks();
 
-        // Priority 7: ACTIVELY PROTECT LIFE from disasters and harsh conditions
+        // Priority 8: ACTIVELY PROTECT LIFE from disasters and harsh conditions
         ProtectAndNurtureLife();
     }
 
@@ -529,13 +532,99 @@ public class PlanetStabilizer
         }
     }
 
+    private void ReinforceMoistureCorridors()
+    {
+        int landCells = 0;
+        int dryCells = 0;
+        int threatenedLifeCells = 0;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (!cell.IsLand) continue;
+
+                landCells++;
+                bool moisturePoor = cell.Rainfall < 0.25f || cell.Humidity < 0.35f;
+                if (!moisturePoor) continue;
+
+                dryCells++;
+                if (cell.LifeType != LifeForm.None)
+                {
+                    threatenedLifeCells++;
+                }
+            }
+        }
+
+        if (landCells == 0) return;
+
+        float drynessRatio = (float)dryCells / landCells;
+        if (drynessRatio < 0.08f && threatenedLifeCells < 200) return;
+
+        float severity = Math.Clamp(drynessRatio * 1.5f, 0f, 1f);
+        float rainBoost = (0.02f + 0.1f * severity) * _responseMultiplier;
+        float humidityBoost = (0.03f + 0.15f * severity) * _responseMultiplier;
+        float cooling = (0.1f + 0.5f * severity) * _responseMultiplier;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (!cell.IsLand) continue;
+
+                bool needsCorridor = cell.Rainfall < 0.4f || cell.Humidity < 0.5f || cell.LifeType != LifeForm.None;
+                if (!needsCorridor) continue;
+
+                cell.Rainfall = Math.Clamp(cell.Rainfall + rainBoost, 0f, 1f);
+                cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost, 0f, 1f);
+                cell.Temperature = MathF.Max(cell.Temperature - cooling, 10f);
+
+                if (cell.LifeType == LifeForm.None && cell.Rainfall > 0.35f && cell.Humidity > 0.45f)
+                {
+                    cell.LifeType = LifeForm.PlantLife;
+                    cell.Biomass = Math.Max(cell.Biomass, 0.15f);
+                }
+            }
+        }
+
+        LastAction = $"Stabilizing moisture corridors (dry land: {(drynessRatio * 100f):F0}%)";
+        AdjustmentsMade++;
+    }
+
     private void CombatRapidDesertification()
     {
+        int totalLand = 0;
+        int desertifyingCells = 0;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (!cell.IsLand) continue;
+
+                totalLand++;
+                if (cell.Rainfall < 0.15f && cell.Humidity < 0.25f && cell.Temperature > 25f)
+                {
+                    desertifyingCells++;
+                }
+            }
+        }
+
+        if (desertifyingCells == 0 || totalLand == 0)
+        {
+            return;
+        }
+
+        float severity = Math.Clamp((float)desertifyingCells / totalLand * 3f, 0f, 1f);
+        float rainfallBoost = (0.08f + 0.25f * severity) * _responseMultiplier;
+        float humidityBoost = (0.1f + 0.3f * severity) * _responseMultiplier;
+        float cooling = (0.4f + 0.6f * severity) * _responseMultiplier;
+        float biomassBoost = (0.04f + 0.12f * severity) * _responseMultiplier;
+
         int assistedCells = 0;
-        float rainfallBoost = 0.08f * _responseMultiplier;
-        float humidityBoost = 0.1f * _responseMultiplier;
-        float cooling = 0.4f * _responseMultiplier;
-        float biomassBoost = 0.04f * _responseMultiplier;
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -550,22 +639,19 @@ public class PlanetStabilizer
                 assistedCells++;
                 cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallBoost, 0f, 1f);
                 cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost, 0f, 1f);
-                cell.Temperature = MathF.Max(cell.Temperature - cooling, 15f);
+                cell.Temperature = MathF.Max(cell.Temperature - cooling, 12f);
 
                 if (cell.LifeType == LifeForm.None)
                 {
                     cell.LifeType = LifeForm.PlantLife;
                 }
 
-                cell.Biomass = Math.Min(cell.Biomass + biomassBoost, 0.5f);
+                cell.Biomass = Math.Min(cell.Biomass + biomassBoost, 0.7f);
             }
         }
 
-        if (assistedCells > 0)
-        {
-            LastAction = $"Rehydrating {assistedCells} desertifying cells";
-            AdjustmentsMade++;
-        }
+        LastAction = $"Emergency desert recovery: {assistedCells} cells (severity {(severity * 100f):F0}%)";
+        AdjustmentsMade++;
     }
 
     private void ClampExtremeTemperatures()
