@@ -548,13 +548,14 @@ public class SimPlanetGame : Game
 
         // Mouse controls for pan and zoom (MUST be processed every frame, not just on keyboard changes)
         var mouseState = Mouse.GetState();
+        bool blockMapPanning = _mapOptionsUI.IsVisible || _planetaryControlsUI.IsVisible;
 
         // Check if mouse is over the minimap (don't pan if it is)
         bool isOverMinimap = _minimap3D != null && _minimap3D.IsMouseOver(mouseState);
 
         // Left mouse button for panning (more intuitive than middle button)
         // Don't pan if mouse is over minimap
-        if (mouseState.LeftButton == ButtonState.Pressed && !isOverMinimap)
+        if (!blockMapPanning && mouseState.LeftButton == ButtonState.Pressed && !isOverMinimap)
         {
             if (_previousMouseState.LeftButton == ButtonState.Pressed)
             {
@@ -566,7 +567,7 @@ public class SimPlanetGame : Game
         }
 
         // Middle mouse button for panning (alternative)
-        if (mouseState.MiddleButton == ButtonState.Pressed)
+        if (!blockMapPanning && mouseState.MiddleButton == ButtonState.Pressed)
         {
             if (_previousMouseState.MiddleButton == ButtonState.Pressed)
             {
