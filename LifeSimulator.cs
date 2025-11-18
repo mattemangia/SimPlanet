@@ -10,19 +10,27 @@ public class LifeSimulator
     private float _autoReseedTimer = 0f;
     private const float AUTO_RESEED_CHECK_INTERVAL = 5.0f; // Check every 5 seconds
     private LifeSupportProfile _lifeProfile;
+    private bool _lifeProfileInitialized = false;
+
+    private const float PROFILE_SMOOTHING = 0.05f;
+    private const float EXTREME_RELAX_RATE = 0.015f;
 
     private struct LifeSupportProfile
     {
         public float AvgOxygen;
+        public float OxygenStdDev;
         public float AvgLandTemp;
         public float MinLandTemp;
         public float MaxLandTemp;
+        public float LandTempStdDev;
         public float AvgLandRain;
         public float MinLandRain;
         public float MaxLandRain;
+        public float LandRainStdDev;
         public float AvgWaterTemp;
         public float MinWaterTemp;
         public float MaxWaterTemp;
+        public float WaterTempStdDev;
     }
 
     public LifeSimulator(PlanetMap map)
@@ -275,8 +283,8 @@ public class LifeSimulator
         float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.05f;
 
         var (minComfort, maxComfort) = cell.IsLand
-            ? ExpandTemperatureWindow(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, _lifeProfile.AvgLandTemp)
-            : ExpandTemperatureWindow(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, _lifeProfile.AvgWaterTemp);
+            ? ExpandTemperatureWindow(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, _lifeProfile.AvgLandTemp, Math.Max(1f, _lifeProfile.LandTempStdDev))
+            : ExpandTemperatureWindow(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, _lifeProfile.AvgWaterTemp, Math.Max(1f, _lifeProfile.WaterTempStdDev));
 
         float tolerance = MathF.Max(2f, (maxComfort - minComfort) * 0.15f);
         float lethalCold = minComfort - tolerance;
@@ -557,14 +565,18 @@ public class LifeSimulator
     private void UpdateLifeSupportProfile()
     {
         float totalOxygen = 0f;
+        float totalOxygenSq = 0f;
         int totalCells = 0;
         float landTempSum = 0f;
+        float landTempSqSum = 0f;
         float landRainSum = 0f;
+        float landRainSqSum = 0f;
         float landTempMin = float.MaxValue;
         float landTempMax = float.MinValue;
         float landRainMin = float.MaxValue;
         float landRainMax = float.MinValue;
         float waterTempSum = 0f;
+        float waterTempSqSum = 0f;
         float waterTempMin = float.MaxValue;
         float waterTempMax = float.MinValue;
         int landCells = 0;
@@ -577,12 +589,15 @@ public class LifeSimulator
                 var cell = _map.Cells[x, y];
                 totalCells++;
                 totalOxygen += cell.Oxygen;
+                totalOxygenSq += cell.Oxygen * cell.Oxygen;
 
                 if (cell.IsLand)
                 {
                     landCells++;
                     landTempSum += cell.Temperature;
+                    landTempSqSum += cell.Temperature * cell.Temperature;
                     landRainSum += cell.Rainfall;
+                    landRainSqSum += cell.Rainfall * cell.Rainfall;
                     landTempMin = Math.Min(landTempMin, cell.Temperature);
                     landTempMax = Math.Max(landTempMax, cell.Temperature);
                     landRainMin = Math.Min(landRainMin, cell.Rainfall);
@@ -592,22 +607,43 @@ public class LifeSimulator
                 {
                     waterCells++;
                     waterTempSum += cell.Temperature;
+                    waterTempSqSum += cell.Temperature * cell.Temperature;
                     waterTempMin = Math.Min(waterTempMin, cell.Temperature);
                     waterTempMax = Math.Max(waterTempMax, cell.Temperature);
                 }
             }
         }
 
-        _lifeProfile.AvgOxygen = totalCells > 0 ? totalOxygen / totalCells : _lifeProfile.AvgOxygen;
+        float newAvgOxygen = totalCells > 0 ? totalOxygen / totalCells : _lifeProfile.AvgOxygen;
+        float newOxygenStd = 0f;
+        if (totalCells > 0)
+        {
+            float meanSq = totalOxygenSq / totalCells;
+            float variance = MathF.Max(0f, meanSq - newAvgOxygen * newAvgOxygen);
+            newOxygenStd = MathF.Sqrt(variance);
+        }
+        _lifeProfile.AvgOxygen = SmoothValue(_lifeProfile.AvgOxygen, newAvgOxygen, PROFILE_SMOOTHING);
+        _lifeProfile.OxygenStdDev = SmoothValue(_lifeProfile.OxygenStdDev, newOxygenStd, PROFILE_SMOOTHING);
 
         if (landCells > 0)
         {
-            _lifeProfile.AvgLandTemp = landTempSum / landCells;
-            _lifeProfile.MinLandTemp = landTempMin;
-            _lifeProfile.MaxLandTemp = landTempMax;
-            _lifeProfile.AvgLandRain = landRainSum / landCells;
-            _lifeProfile.MinLandRain = landRainMin;
-            _lifeProfile.MaxLandRain = landRainMax;
+            float avgLandTemp = landTempSum / landCells;
+            float landTempVariance = MathF.Max(0f, (landTempSqSum / landCells) - avgLandTemp * avgLandTemp);
+            float landTempStd = MathF.Sqrt(landTempVariance);
+
+            float avgLandRain = landRainSum / landCells;
+            float landRainVariance = MathF.Max(0f, (landRainSqSum / landCells) - avgLandRain * avgLandRain);
+            float landRainStd = MathF.Sqrt(landRainVariance);
+
+            _lifeProfile.AvgLandTemp = SmoothValue(_lifeProfile.AvgLandTemp, avgLandTemp, PROFILE_SMOOTHING);
+            _lifeProfile.MinLandTemp = UpdateTrackedMin(_lifeProfile.MinLandTemp, landTempMin);
+            _lifeProfile.MaxLandTemp = UpdateTrackedMax(_lifeProfile.MaxLandTemp, landTempMax);
+            _lifeProfile.LandTempStdDev = SmoothValue(_lifeProfile.LandTempStdDev, landTempStd, PROFILE_SMOOTHING);
+
+            _lifeProfile.AvgLandRain = SmoothValue(_lifeProfile.AvgLandRain, avgLandRain, PROFILE_SMOOTHING);
+            _lifeProfile.MinLandRain = UpdateTrackedMin(_lifeProfile.MinLandRain, landRainMin);
+            _lifeProfile.MaxLandRain = UpdateTrackedMax(_lifeProfile.MaxLandRain, landRainMax);
+            _lifeProfile.LandRainStdDev = SmoothValue(_lifeProfile.LandRainStdDev, landRainStd, PROFILE_SMOOTHING);
         }
         else
         {
@@ -617,20 +653,60 @@ public class LifeSimulator
             _lifeProfile.AvgLandRain = 0.3f;
             _lifeProfile.MinLandRain = 0f;
             _lifeProfile.MaxLandRain = 1f;
+            _lifeProfile.LandTempStdDev = 5f;
+            _lifeProfile.LandRainStdDev = 0.2f;
         }
 
         if (waterCells > 0)
         {
-            _lifeProfile.AvgWaterTemp = waterTempSum / waterCells;
-            _lifeProfile.MinWaterTemp = waterTempMin;
-            _lifeProfile.MaxWaterTemp = waterTempMax;
+            float avgWaterTemp = waterTempSum / waterCells;
+            float waterTempVariance = MathF.Max(0f, (waterTempSqSum / waterCells) - avgWaterTemp * avgWaterTemp);
+            float waterTempStd = MathF.Sqrt(waterTempVariance);
+
+            _lifeProfile.AvgWaterTemp = SmoothValue(_lifeProfile.AvgWaterTemp, avgWaterTemp, PROFILE_SMOOTHING);
+            _lifeProfile.MinWaterTemp = UpdateTrackedMin(_lifeProfile.MinWaterTemp, waterTempMin);
+            _lifeProfile.MaxWaterTemp = UpdateTrackedMax(_lifeProfile.MaxWaterTemp, waterTempMax);
+            _lifeProfile.WaterTempStdDev = SmoothValue(_lifeProfile.WaterTempStdDev, waterTempStd, PROFILE_SMOOTHING);
         }
         else
         {
             _lifeProfile.AvgWaterTemp = _lifeProfile.AvgLandTemp;
             _lifeProfile.MinWaterTemp = _lifeProfile.MinLandTemp;
             _lifeProfile.MaxWaterTemp = _lifeProfile.MaxLandTemp;
+            _lifeProfile.WaterTempStdDev = Math.Max(1f, _lifeProfile.LandTempStdDev);
         }
+
+        _lifeProfileInitialized = true;
+    }
+
+    private float SmoothValue(float current, float target, float blend)
+    {
+        if (!_lifeProfileInitialized || float.IsNaN(current) || float.IsInfinity(current))
+            return target;
+
+        return current + (target - current) * blend;
+    }
+
+    private float UpdateTrackedMin(float current, float observed)
+    {
+        if (!_lifeProfileInitialized || current == float.MaxValue)
+            return observed;
+
+        if (observed < current)
+            return observed;
+
+        return current + (observed - current) * EXTREME_RELAX_RATE;
+    }
+
+    private float UpdateTrackedMax(float current, float observed)
+    {
+        if (!_lifeProfileInitialized || current == float.MinValue)
+            return observed;
+
+        if (observed > current)
+            return observed;
+
+        return current + (observed - current) * EXTREME_RELAX_RATE;
     }
 
     private bool LandTempBetween(TerrainCell cell, float normalizedMin, float normalizedMax)
@@ -650,7 +726,8 @@ public class LifeSimulator
         var (windowMin, windowMax) = ExpandTemperatureWindow(
             _lifeProfile.MinLandTemp,
             _lifeProfile.MaxLandTemp,
-            _lifeProfile.AvgLandTemp
+            _lifeProfile.AvgLandTemp,
+            Math.Max(1f, _lifeProfile.LandTempStdDev)
         );
 
         float min = LerpRange(windowMin, windowMax, normalizedMin);
@@ -664,7 +741,8 @@ public class LifeSimulator
         var (windowMin, windowMax) = ExpandTemperatureWindow(
             _lifeProfile.MinWaterTemp,
             _lifeProfile.MaxWaterTemp,
-            _lifeProfile.AvgWaterTemp
+            _lifeProfile.AvgWaterTemp,
+            Math.Max(1f, _lifeProfile.WaterTempStdDev)
         );
 
         float min = LerpRange(windowMin, windowMax, normalizedMin);
@@ -673,42 +751,48 @@ public class LifeSimulator
         return (min, max);
     }
 
-    private (float min, float max) ExpandTemperatureWindow(float observedMin, float observedMax, float average)
+    private (float min, float max) ExpandTemperatureWindow(float observedMin, float observedMax, float average, float stdDev)
     {
-        if (observedMin == float.MaxValue || observedMax == float.MinValue)
+        if (!_lifeProfileInitialized || observedMin == float.MaxValue || observedMax == float.MinValue)
         {
             float fallback = Math.Max(5f, Math.Abs(_map.GlobalTemperature));
             return (_map.GlobalTemperature - fallback, _map.GlobalTemperature + fallback);
         }
 
-        float span = MathF.Max(1f, observedMax - observedMin);
-        // Scale tolerance with the climate we're simulating rather than hard-coded bands
-        float climateScale = MathF.Max(span, MathF.Max(5f, MathF.Abs(average) * 0.4f));
-        float padding = MathF.Max(2f, climateScale * 0.35f);
+        float safeStd = MathF.Max(1f, stdDev);
+        float halfSpan = MathF.Max((observedMax - observedMin) * 0.5f, safeStd * 2.5f);
+        float climateBias = MathF.Abs(average) * 0.1f;
 
-        float min = observedMin - padding;
-        float max = observedMax + padding;
+        float min = Math.Min(observedMin, average - halfSpan) - (climateBias + safeStd * 0.75f);
+        float max = Math.Max(observedMax, average + halfSpan) + (climateBias + safeStd * 0.75f);
+
         if (max < min) (min, max) = (max, min);
         return (min, max);
     }
 
     private (float min, float max) GetRainfallWindow()
     {
-        float observedMin = _lifeProfile.MinLandRain;
-        float observedMax = _lifeProfile.MaxLandRain;
-
-        if (observedMin == float.MaxValue || observedMax == float.MinValue)
+        if (!_lifeProfileInitialized ||
+            _lifeProfile.MinLandRain == float.MaxValue ||
+            _lifeProfile.MaxLandRain == float.MinValue)
         {
-            float fallback = Math.Clamp(_lifeProfile.AvgLandRain, 0.05f, 0.95f);
+            float fallback = Math.Clamp(_lifeProfile.AvgLandRain <= 0f ? 0.3f : _lifeProfile.AvgLandRain, 0.05f, 0.95f);
             return (Math.Max(0f, fallback - 0.25f), Math.Min(1f, fallback + 0.25f));
         }
 
-        float span = MathF.Max(0.02f, observedMax - observedMin);
-        float humidityScale = MathF.Max(span, Math.Max(0.05f, _lifeProfile.AvgLandRain * 0.75f));
-        float padding = MathF.Max(0.03f, humidityScale * 0.35f);
+        float avg = _lifeProfile.AvgLandRain;
+        float std = MathF.Max(0.02f, _lifeProfile.LandRainStdDev);
 
-        float min = Math.Max(0f, observedMin - padding);
-        float max = Math.Min(1f, observedMax + padding);
+        float min = Math.Max(0f, Math.Min(_lifeProfile.MinLandRain, avg - std * 2.5f) - std);
+        float max = Math.Min(1f, Math.Max(_lifeProfile.MaxLandRain, avg + std * 2.5f) + std);
+
+        if (max - min < 0.2f)
+        {
+            float expand = (0.2f - (max - min)) * 0.5f;
+            min = Math.Max(0f, min - expand);
+            max = Math.Min(1f, max + expand);
+        }
+
         if (max < min) (min, max) = (max, min);
         return (min, max);
     }
