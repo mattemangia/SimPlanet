@@ -517,7 +517,8 @@ public class SimPlanetGame : Game
         _diseaseControlUI.Update(Mouse.GetState(), _previousMouseState, keyState);
         _plantingTool.Update(Mouse.GetState(), _terrainRenderer.CellSize,
             _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
-            _civilizationManager, _gameState.Year, _mapRenderOffsetX, _mapRenderOffsetY);
+            _civilizationManager, _gameState.Year, _mapRenderOffsetX, _mapRenderOffsetY, 
+            _lifeSimulator, _planetStabilizer);
         _planetaryControlsUI.Update(Mouse.GetState());
 
         // Update day/night cycle (24 hours = 1 day)

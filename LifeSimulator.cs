@@ -11,6 +11,10 @@ public class LifeSimulator
     private const float AUTO_RESEED_CHECK_INTERVAL = 5.0f; // Check every 5 seconds
     private LifeSupportProfile _lifeProfile;
     private bool _lifeProfileInitialized = false;
+    
+    // Grace period after manual planting to allow life to establish
+    private float _plantingGracePeriod = 0f;
+    private const float PLANTING_GRACE_DURATION = 5f; // 5 seconds of protection
 
     private const float PROFILE_SMOOTHING = 0.05f;
     private const float EXTREME_RELAX_RATE = 0.015f;
@@ -37,11 +41,44 @@ public class LifeSimulator
     {
         _map = map;
         _random = new Random();
+        
+        // Initialize life profile with reasonable default values based on Earth-like conditions
+        // This prevents instant death when life is first seeded
+        _lifeProfile = new LifeSupportProfile
+        {
+            AvgOxygen = 20f,  // Default 20% oxygen
+            OxygenStdDev = 5f,
+            AvgLandTemp = 15f,  // 15°C average land temp
+            MinLandTemp = -20f,  // Reasonable min temp
+            MaxLandTemp = 40f,   // Reasonable max temp
+            LandTempStdDev = 10f,
+            AvgLandRain = 0.5f,  // 50% average rainfall
+            MinLandRain = 0.1f,
+            MaxLandRain = 0.9f,
+            LandRainStdDev = 0.2f,
+            AvgWaterTemp = 10f,  // 10°C average water temp
+            MinWaterTemp = -2f,  // Near freezing
+            MaxWaterTemp = 30f,  // Warm tropical waters
+            WaterTempStdDev = 8f
+        };
+        
+        // Mark as initialized so we don't get invalid windows
+        _lifeProfileInitialized = true;
     }
 
     public void Update(float deltaTime, GeologicalSimulator? geoSim = null, WeatherSystem? weatherSys = null)
     {
         UpdateLifeSupportProfile();
+        
+        // Countdown grace period
+        if (_plantingGracePeriod > 0f)
+        {
+            _plantingGracePeriod -= deltaTime;
+            if (_plantingGracePeriod <= 0f)
+            {
+                Console.WriteLine("[LifeSimulator] Grace period ended");
+            }
+        }
 
         // React to planetary events FIRST
         if (geoSim != null)
@@ -75,6 +112,13 @@ public class LifeSimulator
     {
         // Seed bacteria in warm, wet areas
         SeedSpecificLife(LifeForm.Bacteria);
+    }
+    
+    public void ActivatePlantingGracePeriod()
+    {
+        // Called when manual planting happens
+        _plantingGracePeriod = PLANTING_GRACE_DURATION;
+        Console.WriteLine("[LifeSimulator] Grace period activated for planted life");
     }
 
     public void SeedSpecificLife(LifeForm lifeForm)
@@ -288,6 +332,13 @@ public class LifeSimulator
 
     private float CalculateDeathRate(TerrainCell cell)
     {
+        // During grace period, reduce death rates significantly for planted life
+        if (_plantingGracePeriod > 0f)
+        {
+            // Very low death rate during grace period
+            return cell.LifeType == LifeForm.Bacteria ? 0.01f : 0.015f;
+        }
+        
         // Bacteria are extremely resilient
         // Reduced base death rates for better survival
         float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.03f; // Reduced from 0.05f

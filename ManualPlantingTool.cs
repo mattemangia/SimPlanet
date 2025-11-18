@@ -36,7 +36,8 @@ public class ManualPlantingTool
     }
 
     public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel,
-                      CivilizationManager civManager, int currentYear, int mapRenderOffsetX, int mapRenderOffsetY)
+                      CivilizationManager civManager, int currentYear, int mapRenderOffsetX, int mapRenderOffsetY,
+                      LifeSimulator lifeSimulator = null, PlanetStabilizer planetStabilizer = null)
     {
         if (!IsActive)
         {
@@ -106,7 +107,7 @@ public class ManualPlantingTool
 
                 if (tileX >= 0 && tileX < _map.Width && tileY >= 0 && tileY < _map.Height)
                 {
-                    PlantAt(tileX, tileY, civManager, currentYear);
+                    PlantAt(tileX, tileY, civManager, currentYear, lifeSimulator, planetStabilizer);
                 }
             }
         }
@@ -114,10 +115,13 @@ public class ManualPlantingTool
         _previousMouseState = mouseState;
     }
 
-    private void PlantAt(int x, int y, CivilizationManager civManager, int currentYear)
+    private void PlantAt(int x, int y, CivilizationManager civManager, int currentYear, LifeSimulator lifeSimulator, PlanetStabilizer planetStabilizer)
     {
         lock (_mapDataLock)
         {
+            // Store the cell types that were planted
+            bool plantedLife = false;
+            
             // Plant in a circular area based on brush size
             for (int dx = -BrushSize; dx <= BrushSize; dx++)
             {
@@ -141,9 +145,11 @@ public class ManualPlantingTool
                     {
                         case PlantingType.Forest:
                             PlantForest(cell);
+                            plantedLife = true;
                             break;
                         case PlantingType.Grass:
                             PlantGrass(cell);
+                            plantedLife = true;
                             break;
                         case PlantingType.Desert:
                             PlantDesert(cell);
@@ -162,10 +168,31 @@ public class ManualPlantingTool
                             break;
                         case PlantingType.Civilization:
                             if (dx == 0 && dy == 0) // Only center cell for civilization
+                            {
                                 PlantCivilization(cell, nx, ny, civManager, currentYear);
+                                plantedLife = true;
+                            }
                             break;
                     }
                 }
+            }
+            
+            // If we planted life, activate all protection systems
+            if (plantedLife)
+            {
+                // Activate grace period in life simulator
+                if (lifeSimulator != null)
+                {
+                    lifeSimulator.ActivatePlantingGracePeriod();
+                }
+                
+                // Activate emergency mode in planet stabilizer
+                if (planetStabilizer != null)
+                {
+                    planetStabilizer.ActivateEmergencyLifeProtection();
+                }
+                
+                Console.WriteLine($"[ManualPlantingTool] Planted {CurrentType} at ({x}, {y}) with full protection activated");
             }
         }
 
@@ -176,11 +203,23 @@ public class ManualPlantingTool
     {
         if (!cell.IsLand) return;
 
-        // Create forest conditions
+        // Create forest conditions with proper environmental parameters
         cell.LifeType = LifeForm.PlantLife;
         cell.Biomass = Math.Min(cell.Biomass + 0.4f, 0.9f); // Max 90% biomass
         cell.Rainfall = Math.Max(cell.Rainfall, 0.6f); // Ensure enough rain for forest
         cell.Temperature = Math.Clamp(cell.Temperature, 5, 30); // Temperate conditions
+        
+        // Ensure minimum oxygen for plant survival (plants need some O2 for respiration)
+        if (cell.Oxygen < 10f)
+        {
+            cell.Oxygen = 15f; // Set minimum oxygen level
+        }
+        
+        // Ensure CO2 is not too high
+        if (cell.CO2 > 5f)
+        {
+            cell.CO2 = 2f; // Reasonable CO2 level
+        }
 
         // Set biome
         var biomeData = cell.GetBiomeData();
@@ -199,6 +238,18 @@ public class ManualPlantingTool
         cell.LifeType = LifeForm.PlantLife;
         cell.Biomass = Math.Min(cell.Biomass + 0.3f, 0.5f); // Moderate biomass
         cell.Rainfall = Math.Max(cell.Rainfall, 0.3f); // Ensure some rain
+        
+        // Ensure minimum oxygen
+        if (cell.Oxygen < 10f)
+        {
+            cell.Oxygen = 15f;
+        }
+        
+        // Ensure reasonable CO2
+        if (cell.CO2 > 5f)
+        {
+            cell.CO2 = 2f;
+        }
 
         var biomeData = cell.GetBiomeData();
         if (cell.Temperature > 20)
@@ -293,7 +344,12 @@ public class ManualPlantingTool
 
         if (!cell.IsLand) return;
         if (cell.Temperature < -10 || cell.Temperature > 45) return; // Uninhabitable
-        if (cell.Oxygen < 18) return; // Not enough oxygen
+        
+        // Ensure proper oxygen level for civilization
+        if (cell.Oxygen < 15) // Reduced from 18
+        {
+            cell.Oxygen = 18f; // Set to minimum civilization requirement
+        }
 
         if (civManager != null)
         {
@@ -310,6 +366,12 @@ public class ManualPlantingTool
         cell.Biomass = 0.5f;
         cell.Rainfall = Math.Max(cell.Rainfall, 0.3f); // Ensure water
         cell.Temperature = Math.Clamp(cell.Temperature, 0, 35); // Livable temperature
+        
+        // Ensure reasonable CO2
+        if (cell.CO2 > 5f)
+        {
+            cell.CO2 = 2f;
+        }
 
         // Note: CivilizationManager will need a method to spawn a civilization at coordinates
         // For now, we just mark the cell
