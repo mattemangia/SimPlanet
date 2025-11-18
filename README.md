@@ -1,7 +1,9 @@
 # SimPlanet - Planetary Evolution Simulator - With AI
 
 ![SimPlanet Logo](splash.png)
-
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=.net)](https://dotnet.microsoft.com/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](#installation)
+[![License](https://img.shields.io/badge/license-MIT-green)](#license)
  **[READ THE COMPLETE PLAYER GUIDE](PLAYER_GUIDE.md)** - Comprehensive tutorial covering all systems, features, and strategies!
 
 A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
