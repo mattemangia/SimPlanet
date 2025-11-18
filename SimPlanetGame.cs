@@ -658,6 +658,10 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.O) && _previousKeyState.IsKeyUp(Keys.O))
             SetRenderMode(RenderMode.Infrastructure);
 
+        // Spectral band net radiation view (S key)
+        if (keyState.IsKeyDown(Keys.S) && _previousKeyState.IsKeyUp(Keys.S))
+            SetRenderMode(RenderMode.SpectralBands);
+
         // Apply render mode to terrain renderer (triggers texture update when mode changes)
         _terrainRenderer.Mode = _currentRenderMode;
 
