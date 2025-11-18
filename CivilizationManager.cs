@@ -65,6 +65,38 @@ public class CivilizationManager
         UpdateDisasterResponse(currentYear);
     }
 
+    public bool TryCreateCivilizationAt(int x, int y, int currentYear)
+    {
+        if (x < 0 || x >= _map.Width || y < 0 || y >= _map.Height)
+            return false;
+
+        var cell = _map.Cells[x, y];
+
+        if (!cell.IsLand)
+            return false;
+        if (cell.Temperature < -10 || cell.Temperature > 45)
+            return false;
+        if (cell.Oxygen < 18)
+            return false;
+
+        if (IsCellInCivilization(x, y))
+            return false;
+
+        foreach (var civ in _civilizations)
+        {
+            if (Math.Abs(civ.CenterX - x) < 20 && Math.Abs(civ.CenterY - y) < 20)
+                return false;
+        }
+
+        cell.LifeType = LifeForm.Civilization;
+        cell.Biomass = Math.Max(cell.Biomass, 0.5f);
+        cell.Rainfall = Math.Max(cell.Rainfall, 0.3f);
+        cell.Temperature = Math.Clamp(cell.Temperature, 0, 35);
+
+        CreateCivilization(x, y, currentYear);
+        return true;
+    }
+
     private void CheckForNewCivilizations(int currentYear)
     {
         // Scan for intelligence-level life that could form civilizations

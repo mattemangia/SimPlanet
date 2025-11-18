@@ -94,6 +94,7 @@ public class SimPlanetGame : Game
     // Multithreading: Simulation runs on background thread, UI on main thread
     private Thread _simulationThread;
     private readonly object _simulationLock = new object();
+    private readonly object _mapDataLock = new object();
     private const float SecondsPerGameYear = GameState.SecondsPerGameYear;
     private bool _simulationRunning = false;
     private bool _simulationThreadActive = false;
@@ -176,32 +177,35 @@ public class SimPlanetGame : Game
                         newAccumulator -= SecondsPerGameYear;
                     }
 
-                    // Run all simulators (thread-safe, they only modify map data)
-                    _climateSimulator.Update(simDeltaTime);
-                    _atmosphereSimulator.Update(simDeltaTime);
-                    _weatherSystem.Update(simDeltaTime, newYear);
-                    _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem);
-                    _animalEvolutionSimulator.Update(simDeltaTime, newYear);
-                    _geologicalSimulator.Update(simDeltaTime, newYear);
-                    _hydrologySimulator.Update(simDeltaTime);
-                    _civilizationManager.Update(simDeltaTime, newYear);
-                    _diseaseManager.Update(simDeltaTime, newYear);
-                    _biomeSimulator.Update(simDeltaTime);
-                    _disasterManager.Update(simDeltaTime, newYear);
-                    _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager);
-                    _magnetosphereSimulator.Update(simDeltaTime, newYear);
-                    _planetStabilizer.Update(simDeltaTime, gameStateCopy.TimeSpeed);
-
-                    // Earthquake system (triggers tsunamis)
-                    EarthquakeSystem.Update(_map, simDeltaTime, newYear, out bool tsunamiTriggered, out (int x, int y) tsunamiEpicenter, out float tsunamiMagnitude);
-                    if (tsunamiTriggered)
+                    lock (_mapDataLock)
                     {
-                        TsunamiSystem.InitiateTsunami(_map, tsunamiEpicenter.x, tsunamiEpicenter.y, tsunamiMagnitude, newYear);
-                    }
+                        // Run all simulators (thread-safe, they only modify map data)
+                        _climateSimulator.Update(simDeltaTime);
+                        _atmosphereSimulator.Update(simDeltaTime);
+                        _weatherSystem.Update(simDeltaTime, newYear);
+                        _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem);
+                        _animalEvolutionSimulator.Update(simDeltaTime, newYear);
+                        _geologicalSimulator.Update(simDeltaTime, newYear);
+                        _hydrologySimulator.Update(simDeltaTime);
+                        _civilizationManager.Update(simDeltaTime, newYear);
+                        _diseaseManager.Update(simDeltaTime, newYear);
+                        _biomeSimulator.Update(simDeltaTime);
+                        _disasterManager.Update(simDeltaTime, newYear);
+                        _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager);
+                        _magnetosphereSimulator.Update(simDeltaTime, newYear);
+                        _planetStabilizer.Update(simDeltaTime, gameStateCopy.TimeSpeed);
 
-                    // Tsunami wave propagation and flooding
-                    TsunamiSystem.Update(_map, simDeltaTime, newYear);
-                    TsunamiSystem.DrainFloodWaters(_map, simDeltaTime);
+                        // Earthquake system (triggers tsunamis)
+                        EarthquakeSystem.Update(_map, simDeltaTime, newYear, out bool tsunamiTriggered, out (int x, int y) tsunamiEpicenter, out float tsunamiMagnitude);
+                        if (tsunamiTriggered)
+                        {
+                            TsunamiSystem.InitiateTsunami(_map, tsunamiEpicenter.x, tsunamiEpicenter.y, tsunamiMagnitude, newYear);
+                        }
+
+                        // Tsunami wave propagation and flooding
+                        TsunamiSystem.Update(_map, simDeltaTime, newYear);
+                        TsunamiSystem.DrainFloodWaters(_map, simDeltaTime);
+                    }
 
                     // Update game state (thread-safe)
                     lock (_simulationLock)
@@ -325,7 +329,7 @@ public class SimPlanetGame : Game
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
-        _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
+        _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font, _mapDataLock, MarkMapVisualsDirty);
         _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
 
         // Create toolbar
@@ -945,6 +949,13 @@ public class SimPlanetGame : Game
         _mapOptionsUI.UpdatePreview(_mapOptions);
     }
 
+    private void MarkMapVisualsDirty()
+    {
+        _terrainRenderer?.MarkDirty();
+        _minimap3D?.MarkDirty();
+        _eventsUI?.MarkOverlayDirty();
+    }
+
     private void StartNewGame()
     {
         _mapOptionsUI.IsVisible = false;
@@ -1099,7 +1110,7 @@ public class SimPlanetGame : Game
 
         // Update other interactive tools with new map
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
-        _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font);
+        _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font, _mapDataLock, MarkMapVisualsDirty);
         _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphereSimulator, _planetStabilizer);
         _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
 

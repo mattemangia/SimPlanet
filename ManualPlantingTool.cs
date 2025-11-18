@@ -15,16 +15,21 @@ public class ManualPlantingTool
     private readonly FontRenderer _font;
     private Texture2D _pixelTexture;
     private MouseState _previousMouseState;
+    private readonly object _mapDataLock;
+    private readonly Action? _onMapModified;
 
     public bool IsActive { get; set; } = false;
     public PlantingType CurrentType { get; set; } = PlantingType.Forest;
     public int BrushSize { get; set; } = 3; // Radius of planting brush
 
-    public ManualPlantingTool(PlanetMap map, GraphicsDevice graphicsDevice, FontRenderer font)
+    public ManualPlantingTool(PlanetMap map, GraphicsDevice graphicsDevice, FontRenderer font,
+                              object mapDataLock, Action? onMapModified = null)
     {
         _map = map;
         _graphicsDevice = graphicsDevice;
         _font = font;
+        _mapDataLock = mapDataLock;
+        _onMapModified = onMapModified;
 
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
@@ -111,55 +116,60 @@ public class ManualPlantingTool
 
     private void PlantAt(int x, int y, CivilizationManager civManager, int currentYear)
     {
-        // Plant in a circular area based on brush size
-        for (int dx = -BrushSize; dx <= BrushSize; dx++)
+        lock (_mapDataLock)
         {
-            for (int dy = -BrushSize; dy <= BrushSize; dy++)
+            // Plant in a circular area based on brush size
+            for (int dx = -BrushSize; dx <= BrushSize; dx++)
             {
-                int nx = x + dx;
-                int ny = y + dy;
-
-                // Check bounds
-                if (nx < 0 || nx >= _map.Width || ny < 0 || ny >= _map.Height)
-                    continue;
-
-                // Check circular brush
-                float dist = MathF.Sqrt(dx * dx + dy * dy);
-                if (dist > BrushSize)
-                    continue;
-
-                var cell = _map.Cells[nx, ny];
-
-                switch (CurrentType)
+                for (int dy = -BrushSize; dy <= BrushSize; dy++)
                 {
-                    case PlantingType.Forest:
-                        PlantForest(cell);
-                        break;
-                    case PlantingType.Grass:
-                        PlantGrass(cell);
-                        break;
-                    case PlantingType.Desert:
-                        PlantDesert(cell);
-                        break;
-                    case PlantingType.Tundra:
-                        PlantTundra(cell);
-                        break;
-                    case PlantingType.Ocean:
-                        CreateOcean(cell);
-                        break;
-                    case PlantingType.Mountain:
-                        CreateMountain(cell);
-                        break;
-                    case PlantingType.Fault:
-                        CreateFault(cell, nx, ny);
-                        break;
-                    case PlantingType.Civilization:
-                        if (dx == 0 && dy == 0) // Only center cell for civilization
-                            PlantCivilization(cell, nx, ny, civManager, currentYear);
-                        break;
+                    int nx = x + dx;
+                    int ny = y + dy;
+
+                    // Check bounds
+                    if (nx < 0 || nx >= _map.Width || ny < 0 || ny >= _map.Height)
+                        continue;
+
+                    // Check circular brush
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+                    if (dist > BrushSize)
+                        continue;
+
+                    var cell = _map.Cells[nx, ny];
+
+                    switch (CurrentType)
+                    {
+                        case PlantingType.Forest:
+                            PlantForest(cell);
+                            break;
+                        case PlantingType.Grass:
+                            PlantGrass(cell);
+                            break;
+                        case PlantingType.Desert:
+                            PlantDesert(cell);
+                            break;
+                        case PlantingType.Tundra:
+                            PlantTundra(cell);
+                            break;
+                        case PlantingType.Ocean:
+                            CreateOcean(cell);
+                            break;
+                        case PlantingType.Mountain:
+                            CreateMountain(cell);
+                            break;
+                        case PlantingType.Fault:
+                            CreateFault(cell, nx, ny);
+                            break;
+                        case PlantingType.Civilization:
+                            if (dx == 0 && dy == 0) // Only center cell for civilization
+                                PlantCivilization(cell, nx, ny, civManager, currentYear);
+                            break;
+                    }
                 }
             }
         }
+
+        _onMapModified?.Invoke();
     }
 
     private void PlantForest(TerrainCell cell)
@@ -276,15 +286,23 @@ public class ManualPlantingTool
 
     private void PlantCivilization(TerrainCell cell, int x, int y, CivilizationManager civManager, int currentYear)
     {
+        if (civManager != null && civManager.TryCreateCivilizationAt(x, y, currentYear))
+        {
+            return;
+        }
+
         if (!cell.IsLand) return;
         if (cell.Temperature < -10 || cell.Temperature > 45) return; // Uninhabitable
         if (cell.Oxygen < 18) return; // Not enough oxygen
 
-        // Check if civilization already exists nearby
-        foreach (var civ in civManager.Civilizations)
+        if (civManager != null)
         {
-            if (Math.Abs(civ.CenterX - x) < 20 && Math.Abs(civ.CenterY - y) < 20)
-                return; // Too close to existing civilization
+            // Check if civilization already exists nearby
+            foreach (var civ in civManager.Civilizations)
+            {
+                if (Math.Abs(civ.CenterX - x) < 20 && Math.Abs(civ.CenterY - y) < 20)
+                    return; // Too close to existing civilization
+            }
         }
 
         // Ensure good conditions for civilization
@@ -377,7 +395,7 @@ public class ManualPlantingTool
         }
 
         textY += 5;
-        _font.DrawString(spriteBatch, "P: Toggle Tool",
+        _font.DrawString(spriteBatch, "T: Toggle Tool",
             new Vector2(panelX + 10, textY), Color.Yellow);
     }
 
