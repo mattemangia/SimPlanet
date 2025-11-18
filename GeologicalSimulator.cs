@@ -193,18 +193,55 @@ public class GeologicalSimulator
         // Geological processes are slow - update less frequently
         if (_geologicalTime > 1.0f) // Every second of real time
         {
+            // Use the actual accumulated geological time, not frame deltaTime
+            float geologicalDeltaTime = _geologicalTime; // This is the actual time elapsed
+            
             UpdatePlateTectonics(currentYear);
             UpdateVolcanicActivity(currentYear);
-            UpdateErosionAndSedimentation(deltaTime);
-            UpdateCarbonatePlatforms(deltaTime);
-            UpdateTurbidites(deltaTime);
-            UpdateFiningUpwardSequences(deltaTime);
+            UpdateErosionAndSedimentation(geologicalDeltaTime);
+            UpdateCarbonatePlatforms(geologicalDeltaTime);
+            UpdateTurbidites(geologicalDeltaTime);
+            UpdateFiningUpwardSequences(geologicalDeltaTime);
+            
+            // Safety check: Ensure all sediment layers are within bounds
+            ClampAllSedimentLayers();
 
             _geologicalTime = 0;
 
             // Clean up old events
             RecentEruptions.RemoveAll(e => currentYear - e.year > 10);
             if (Earthquakes.Count > 20) Earthquakes.Clear();
+        }
+    }
+    
+    private void ClampAllSedimentLayers()
+    {
+        // Safety check to ensure no sediment values exceed maximum
+        const float MaxSediment = 10f;
+        const float MaxSedimentaryRock = 5f;
+        
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var geo = _map.Cells[x, y].GetGeology();
+                
+                // Clamp sediment layer
+                if (geo.SedimentLayer > MaxSediment || float.IsNaN(geo.SedimentLayer) || float.IsInfinity(geo.SedimentLayer))
+                {
+                    geo.SedimentLayer = Math.Min(MaxSediment, Math.Max(0f, geo.SedimentLayer));
+                }
+                
+                // Clamp sedimentary rock
+                if (geo.SedimentaryRock > MaxSedimentaryRock || float.IsNaN(geo.SedimentaryRock) || float.IsInfinity(geo.SedimentaryRock))
+                {
+                    geo.SedimentaryRock = Math.Min(MaxSedimentaryRock, Math.Max(0f, geo.SedimentaryRock));
+                }
+                
+                // Ensure no negative values
+                if (geo.SedimentLayer < 0f) geo.SedimentLayer = 0f;
+                if (geo.SedimentaryRock < 0f) geo.SedimentaryRock = 0f;
+            }
         }
     }
 
@@ -823,10 +860,10 @@ public class GeologicalSimulator
             return;
         }
 
-        float erosionScale = ErosionScale;
+        float erosionScale = ErosionScale * 0.1f; // Reduce erosion scale by 90%
         
         // Add sediment compaction and removal mechanism
-        float compactionRate = 0.01f; // Sediment compacts over time
+        float compactionRate = 0.02f; // Sediment compacts over time (increased from 0.01f)
 
         for (int x = 0; x < _map.Width; x++)
         {

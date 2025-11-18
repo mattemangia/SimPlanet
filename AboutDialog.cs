@@ -11,7 +11,6 @@ namespace SimPlanet;
 /// </summary>
 public class AboutDialog
 {
-    private readonly SpriteBatch _spriteBatch;
     private readonly FontRenderer _font;
     private readonly GraphicsDevice _graphics;
     private Texture2D _pixel;
@@ -20,16 +19,15 @@ public class AboutDialog
     public bool IsVisible { get; set; } = false;
 
     // Version information
-    private const string Version = "1.0";
+    private const string Version = "1.0.0";
     private const string GitHubUrl = "https://github.com/mattemangia/SimPlanet";
 
     private Rectangle _closeButtonBounds;
     private Rectangle _githubLinkBounds;
     private bool _githubLinkHovered = false;
 
-    public AboutDialog(SpriteBatch spriteBatch, FontRenderer font, GraphicsDevice graphics)
+    public AboutDialog(FontRenderer font, GraphicsDevice graphics)
     {
-        _spriteBatch = spriteBatch;
         _font = font;
         _graphics = graphics;
 
@@ -101,12 +99,15 @@ public class AboutDialog
         }
     }
 
-    public void Draw(int screenWidth, int screenHeight)
+    public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (!IsVisible) return;
+        
+        // Ensure we have valid resources
+        if (_pixel == null || _font == null) return;
 
         // Draw black background first
-        _spriteBatch.Draw(_pixel,
+        spriteBatch.Draw(_pixel,
             new Rectangle(0, 0, screenWidth, screenHeight),
             Color.Black);
 
@@ -123,13 +124,13 @@ public class AboutDialog
             int x = (screenWidth - displayWidth) / 2;
             int y = (screenHeight - displayHeight) / 2;
 
-            _spriteBatch.Draw(_splashBackground,
+            spriteBatch.Draw(_splashBackground,
                 new Rectangle(x, y, displayWidth, displayHeight),
                 Color.White * 0.15f); // Very subtle transparency
         }
 
         // Semi-transparent overlay for contrast
-        _spriteBatch.Draw(_pixel, new Rectangle(0, 0, screenWidth, screenHeight),
+        spriteBatch.Draw(_pixel, new Rectangle(0, 0, screenWidth, screenHeight),
             new Color(0, 0, 0, 150));
 
         // Calculate dialog dimensions
@@ -139,14 +140,14 @@ public class AboutDialog
         int dialogY = (screenHeight - dialogHeight) / 2;
 
         // Draw dialog background
-        _spriteBatch.Draw(_pixel,
+        spriteBatch.Draw(_pixel,
             new Rectangle(dialogX, dialogY, dialogWidth, dialogHeight),
             new Color(20, 30, 50, 230));
 
         // Draw dialog border
         int borderThickness = 2;
         Color borderColor = new Color(100, 150, 200);
-        DrawBorder(dialogX, dialogY, dialogWidth, dialogHeight, borderColor, borderThickness);
+        DrawBorder(spriteBatch, dialogX, dialogY, dialogWidth, dialogHeight, borderColor, borderThickness);
 
         // Draw title
         string title = "ABOUT SIMPLANET";
@@ -155,7 +156,7 @@ public class AboutDialog
             dialogX + (dialogWidth - titleSize.X) / 2,
             dialogY + 30
         );
-        _font.DrawString(_spriteBatch, title, titlePos, new Color(255, 200, 50), 1.5f);
+        _font.DrawString(spriteBatch, title, titlePos, new Color(255, 200, 50), 1.5f);
 
         // Draw subtitle
         string subtitle = "Planetary Evolution Simulator";
@@ -164,7 +165,7 @@ public class AboutDialog
             dialogX + (dialogWidth - subtitleSize.X) / 2,
             dialogY + 75
         );
-        _font.DrawString(_spriteBatch, subtitle, subtitlePos, new Color(150, 200, 255), 1.0f);
+        _font.DrawString(spriteBatch, subtitle, subtitlePos, new Color(150, 200, 255), 1.0f);
 
         // Draw version
         string versionText = $"Version {Version}";
@@ -173,7 +174,7 @@ public class AboutDialog
             dialogX + (dialogWidth - versionSize.X) / 2,
             dialogY + 120
         );
-        _font.DrawString(_spriteBatch, versionText, versionPos, Color.White, 1.2f);
+        _font.DrawString(spriteBatch, versionText, versionPos, Color.White, 1.2f);
 
         // Draw GitHub link
         string githubText = "GitHub: " + GitHubUrl;
@@ -193,12 +194,12 @@ public class AboutDialog
 
         // Draw GitHub link with hover effect
         Color githubColor = _githubLinkHovered ? new Color(255, 255, 100) : new Color(100, 200, 255);
-        _font.DrawString(_spriteBatch, githubText, githubPos, githubColor, 1.0f);
+        _font.DrawString(spriteBatch, githubText, githubPos, githubColor, 1.0f);
 
         // Draw underline for GitHub link if hovered
         if (_githubLinkHovered)
         {
-            _spriteBatch.Draw(_pixel,
+            spriteBatch.Draw(_pixel,
                 new Rectangle((int)githubPos.X, (int)(githubPos.Y + githubSize.Y), (int)githubSize.X, 1),
                 new Color(255, 255, 100));
         }
@@ -215,13 +216,13 @@ public class AboutDialog
         Color buttonBg = _closeButtonBounds.Contains(Mouse.GetState().Position)
             ? new Color(70, 140, 255, 200)
             : new Color(30, 60, 100, 180);
-        _spriteBatch.Draw(_pixel, _closeButtonBounds, buttonBg);
+        spriteBatch.Draw(_pixel, _closeButtonBounds, buttonBg);
 
         // Draw button border
         Color buttonBorder = _closeButtonBounds.Contains(Mouse.GetState().Position)
             ? new Color(120, 200, 255)
             : new Color(80, 120, 160);
-        DrawBorder(buttonX, buttonY, buttonWidth, buttonHeight, buttonBorder, 2);
+        DrawBorder(spriteBatch, buttonX, buttonY, buttonWidth, buttonHeight, buttonBorder, 2);
 
         // Draw button text
         string buttonText = "Close";
@@ -230,19 +231,19 @@ public class AboutDialog
             buttonX + (buttonWidth - buttonTextSize.X) / 2,
             buttonY + (buttonHeight - buttonTextSize.Y) / 2
         );
-        _font.DrawString(_spriteBatch, buttonText, buttonTextPos, Color.White, 1.0f);
+        _font.DrawString(spriteBatch, buttonText, buttonTextPos, Color.White, 1.0f);
     }
 
-    private void DrawBorder(int x, int y, int width, int height, Color color, int thickness)
+    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
     {
         // Top
-        _spriteBatch.Draw(_pixel, new Rectangle(x, y, width, thickness), color);
+        spriteBatch.Draw(_pixel, new Rectangle(x, y, width, thickness), color);
         // Bottom
-        _spriteBatch.Draw(_pixel, new Rectangle(x, y + height - thickness, width, thickness), color);
+        spriteBatch.Draw(_pixel, new Rectangle(x, y + height - thickness, width, thickness), color);
         // Left
-        _spriteBatch.Draw(_pixel, new Rectangle(x, y, thickness, height), color);
+        spriteBatch.Draw(_pixel, new Rectangle(x, y, thickness, height), color);
         // Right
-        _spriteBatch.Draw(_pixel, new Rectangle(x + width - thickness, y, thickness, height), color);
+        spriteBatch.Draw(_pixel, new Rectangle(x + width - thickness, y, thickness, height), color);
     }
 
     public void Dispose()

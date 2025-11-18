@@ -343,7 +343,7 @@ public class SimPlanetGame : Game
         _mainMenu = new MainMenu(GraphicsDevice, _font);
 
         // Create about dialog
-        _aboutDialog = new AboutDialog(_spriteBatch, _font, GraphicsDevice);
+        _aboutDialog = new AboutDialog(_font, GraphicsDevice);
 
         // Create loading screen
         _loadingScreen = new LoadingScreen(_spriteBatch, _font, GraphicsDevice);
@@ -1275,7 +1275,7 @@ public class SimPlanetGame : Game
         }
 
         // Draw about dialog (if visible) - on top of everything, regardless of game state
-        _aboutDialog.Draw(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+        _aboutDialog.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         _spriteBatch.End();
 
