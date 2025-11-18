@@ -28,8 +28,8 @@ public class AboutDialog
 
     public AboutDialog(FontRenderer font, GraphicsDevice graphics)
     {
-        _font = font;
-        _graphics = graphics;
+        _font = font ?? throw new ArgumentNullException(nameof(font));
+        _graphics = graphics ?? throw new ArgumentNullException(nameof(graphics));
 
         // Create a 1x1 white pixel texture for drawing rectangles
         _pixel = new Texture2D(graphics, 1, 1);
@@ -37,6 +37,20 @@ public class AboutDialog
 
         // Load splash background from embedded resource
         LoadSplashBackground();
+        
+        // Debug: Confirm font is working
+        try
+        {
+            var testSize = _font.MeasureString("Test", 16f);
+            if (testSize == Vector2.Zero)
+            {
+                Console.WriteLine("WARNING: Font appears to not be measuring text correctly!");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Font test failed: {ex.Message}");
+        }
     }
 
     private void LoadSplashBackground()
@@ -149,36 +163,50 @@ public class AboutDialog
         Color borderColor = new Color(100, 150, 200);
         DrawBorder(spriteBatch, dialogX, dialogY, dialogWidth, dialogHeight, borderColor, borderThickness);
 
-        // Draw title
+        // Draw title with debug background
         string title = "ABOUT SIMPLANET";
-        Vector2 titleSize = _font.MeasureString(title, 1.5f);
+        float titleFontSize = 24f; // Actual pixel size, not scale
+        Vector2 titleSize = _font.MeasureString(title, titleFontSize);
         Vector2 titlePos = new Vector2(
             dialogX + (dialogWidth - titleSize.X) / 2,
             dialogY + 30
         );
-        _font.DrawString(spriteBatch, title, titlePos, new Color(255, 200, 50), 1.5f);
+        
+        // Debug: Draw background rectangle to see where text should be
+        if (titleSize != Vector2.Zero)
+        {
+            spriteBatch.Draw(_pixel, 
+                new Rectangle((int)titlePos.X - 2, (int)titlePos.Y - 2, 
+                              (int)titleSize.X + 4, (int)titleSize.Y + 4), 
+                new Color(50, 50, 50, 100));
+        }
+        
+        _font.DrawString(spriteBatch, title, titlePos, Color.Yellow, titleFontSize); // Use bright yellow
 
         // Draw subtitle
         string subtitle = "Planetary Evolution Simulator";
-        Vector2 subtitleSize = _font.MeasureString(subtitle, 1.0f);
+        float subtitleFontSize = 16f; // Actual pixel size
+        Vector2 subtitleSize = _font.MeasureString(subtitle, subtitleFontSize);
         Vector2 subtitlePos = new Vector2(
             dialogX + (dialogWidth - subtitleSize.X) / 2,
             dialogY + 75
         );
-        _font.DrawString(spriteBatch, subtitle, subtitlePos, new Color(150, 200, 255), 1.0f);
+        _font.DrawString(spriteBatch, subtitle, subtitlePos, new Color(150, 200, 255), subtitleFontSize);
 
         // Draw version
         string versionText = $"Version {Version}";
-        Vector2 versionSize = _font.MeasureString(versionText, 1.2f);
+        float versionFontSize = 20f; // Actual pixel size
+        Vector2 versionSize = _font.MeasureString(versionText, versionFontSize);
         Vector2 versionPos = new Vector2(
             dialogX + (dialogWidth - versionSize.X) / 2,
             dialogY + 120
         );
-        _font.DrawString(spriteBatch, versionText, versionPos, Color.White, 1.2f);
+        _font.DrawString(spriteBatch, versionText, versionPos, Color.White, versionFontSize);
 
         // Draw GitHub link
         string githubText = "GitHub: " + GitHubUrl;
-        Vector2 githubSize = _font.MeasureString(githubText, 1.0f);
+        float githubFontSize = 16f; // Actual pixel size
+        Vector2 githubSize = _font.MeasureString(githubText, githubFontSize);
         Vector2 githubPos = new Vector2(
             dialogX + (dialogWidth - githubSize.X) / 2,
             dialogY + 170
@@ -194,7 +222,7 @@ public class AboutDialog
 
         // Draw GitHub link with hover effect
         Color githubColor = _githubLinkHovered ? new Color(255, 255, 100) : new Color(100, 200, 255);
-        _font.DrawString(spriteBatch, githubText, githubPos, githubColor, 1.0f);
+        _font.DrawString(spriteBatch, githubText, githubPos, githubColor, githubFontSize);
 
         // Draw underline for GitHub link if hovered
         if (_githubLinkHovered)
@@ -226,12 +254,13 @@ public class AboutDialog
 
         // Draw button text
         string buttonText = "Close";
-        Vector2 buttonTextSize = _font.MeasureString(buttonText, 1.0f);
+        float buttonFontSize = 16f; // Actual pixel size
+        Vector2 buttonTextSize = _font.MeasureString(buttonText, buttonFontSize);
         Vector2 buttonTextPos = new Vector2(
             buttonX + (buttonWidth - buttonTextSize.X) / 2,
             buttonY + (buttonHeight - buttonTextSize.Y) / 2
         );
-        _font.DrawString(spriteBatch, buttonText, buttonTextPos, Color.White, 1.0f);
+        _font.DrawString(spriteBatch, buttonText, buttonTextPos, Color.White, buttonFontSize);
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
