@@ -338,6 +338,7 @@ public class GameUI
         leftY += lineHeight + 3;
         DrawTextAt("F10: Biomes  A: Albedo", Color.Gray, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F12: Radiation  J: Resources", Color.Gray, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("S: Spectral Band Energy", Color.Gray, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("O: Infrastructure (Civ)", Color.Gray, leftColX, leftY); leftY += lineHeight;
         leftY += 5;
 
