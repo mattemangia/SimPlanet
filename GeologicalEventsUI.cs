@@ -131,7 +131,8 @@ public class GeologicalEventsUI
         // Render rivers to texture at 1:1 scale with thickness for visibility
         if (ShowRivers && _hydrologySim != null)
         {
-            foreach (var river in _hydrologySim.Rivers)
+            // BUGFIX: Create a copy of the collection to prevent modification during enumeration.
+            foreach (var river in _hydrologySim.Rivers.ToList())
             {
                 foreach (var (x, y) in river.Path)
                 {
@@ -319,7 +320,8 @@ public class GeologicalEventsUI
         // River LOD effects (shimmer, flow indicators, source markers)
         if (ShowRivers && _hydrologySim != null && zoomLevel > 2.0f)
         {
-            foreach (var river in _hydrologySim.Rivers)
+            // BUGFIX: Create a copy of the collection to prevent modification during enumeration.
+            foreach (var river in _hydrologySim.Rivers.ToList())
             {
                 if (river.Path.Count < 2) continue;
 
