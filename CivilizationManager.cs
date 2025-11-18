@@ -76,7 +76,7 @@ public class CivilizationManager
             return false;
         if (cell.Temperature < -10 || cell.Temperature > 45)
             return false;
-        if (cell.Oxygen < 18)
+        if (cell.Oxygen < 15) // Reduced from 18 - civilizations can adapt to lower oxygen
             return false;
 
         if (IsCellInCivilization(x, y))

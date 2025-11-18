@@ -170,7 +170,13 @@ public class LifeSimulator
                     MeetsRainfall(cell, 0.35f) && MeetsOxygenRequirement(cell, LifeForm.PlantLife))
                 {
                     float rainEfficiency = Math.Clamp(cell.Rainfall / Math.Max(0.05f, _lifeProfile.AvgLandRain), 0f, 1.2f);
-                    growth = 0.4f * rainEfficiency * GetOxygenEfficiency(cell);
+                    // CO2 fertilization effect - plants thrive in CO2-rich atmosphere (up to 3%)
+                    float co2Boost = 1.0f;
+                    if (cell.CO2 > 0.5f)
+                    {
+                        co2Boost = Math.Min(2.0f, 1.0f + (cell.CO2 - 0.5f) * 0.3f);
+                    }
+                    growth = 0.5f * rainEfficiency * GetOxygenEfficiency(cell) * co2Boost; // Increased base from 0.4f
                 }
                 break;
 
@@ -269,7 +275,10 @@ public class LifeSimulator
             case LifeForm.Civilization:
                 if (LandTempBetween(cell, 0.2f, 0.8f) && MeetsOxygenRequirement(cell, LifeForm.Civilization))
                 {
-                    growth = 0.2f;
+                    // Civilizations should grow more robustly with technology
+                    // Base growth enhanced by nearby resources
+                    float resourceBonus = 1.0f + GetNearbyBiomass(x, y) * 0.5f;
+                    growth = 0.35f * resourceBonus; // Increased from 0.2f
                 }
                 break;
         }
@@ -280,7 +289,8 @@ public class LifeSimulator
     private float CalculateDeathRate(TerrainCell cell)
     {
         // Bacteria are extremely resilient
-        float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.05f;
+        // Reduced base death rates for better survival
+        float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.03f; // Reduced from 0.05f
 
         var (minComfort, maxComfort) = cell.IsLand
             ? ExpandTemperatureWindow(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, _lifeProfile.AvgLandTemp, Math.Max(1f, _lifeProfile.LandTempStdDev))
@@ -305,28 +315,30 @@ public class LifeSimulator
         float oxygenDemand = GetOxygenDemand(cell.LifeType);
         if (oxygenDemand > 0f)
         {
-            float oxygenThreshold = Math.Max(2f, _lifeProfile.AvgOxygen * oxygenDemand * 0.8f);
+            float oxygenThreshold = Math.Max(2f, _lifeProfile.AvgOxygen * oxygenDemand * 0.7f); // Reduced from 0.8f
             if (cell.Oxygen < oxygenThreshold)
             {
                 float deficit = oxygenThreshold - cell.Oxygen;
-                death += MathF.Min(0.3f, 0.05f * deficit);
+                death += MathF.Min(0.2f, 0.03f * deficit); // Reduced from 0.3f and 0.05f
             }
         }
 
-        // Too much CO2 relative to the current planet
-        float co2Limit = Math.Max(5f, _map.GlobalCO2 * 2f);
+        // Too much CO2 relative to the current planet - adjusted for higher CO2 worlds
+        // Allow life to adapt to CO2 levels up to 3x global average or 10%, whichever is higher
+        float co2Limit = Math.Max(10f, _map.GlobalCO2 * 3f);
         if (cell.LifeType != LifeForm.Bacteria && cell.CO2 > co2Limit)
         {
-            death += 0.1f;
+            // Reduced death rate from CO2 - life adapts over time
+            death += 0.05f;
         }
 
         // Drought pressure is evaluated against the world's rainfall profile
         if (cell.IsLand && cell.LifeType == LifeForm.PlantLife)
         {
-            float droughtThreshold = GetRainfallThreshold(0.2f);
+            float droughtThreshold = GetRainfallThreshold(0.15f); // Reduced from 0.2f
             if (cell.Rainfall < droughtThreshold)
             {
-                death += 0.2f;
+                death += 0.1f; // Reduced from 0.2f
             }
         }
 
@@ -367,7 +379,7 @@ public class LifeSimulator
 
     private void TryEvolve(TerrainCell cell)
     {
-        // Only handle basic evolution: bacteria → algae → plants → simple animals
+        // Only handle basic evolution: bacteria â†’ algae â†’ plants â†’ simple animals
         // AnimalEvolutionSimulator handles the rest
         switch (cell.LifeType)
         {
@@ -415,7 +427,7 @@ public class LifeSimulator
             var cell = _map.Cells[x, y];
 
             // Life must have sufficient biomass to spread
-            if (cell.LifeType == LifeForm.None || cell.Biomass < 0.15f)
+            if (cell.LifeType == LifeForm.None || cell.Biomass < 0.1f) // Reduced from 0.15f
                 continue;
 
             // Different life forms spread at different rates
@@ -423,7 +435,7 @@ public class LifeSimulator
             {
                 LifeForm.Bacteria => 0.8f,      // Very fast reproduction
                 LifeForm.Algae => 0.6f,         // Fast in water
-                LifeForm.PlantLife => 0.5f,     // Seeds, spores
+                LifeForm.PlantLife => 0.7f,     // Seeds, spores - increased from 0.5f
                 LifeForm.SimpleAnimals => 0.3f, // Mobile but slower
                 LifeForm.Fish => 0.4f,          // Can swim to new areas
                 LifeForm.Amphibians => 0.3f,    // Limited range
@@ -470,8 +482,8 @@ public class LifeSimulator
 
                 // Successfully colonize!
                 neighbor.LifeType = cell.LifeType;
-                neighbor.Biomass = 0.1f + (cell.Biomass * 0.1f); // Start small but scale with parent
-                neighbor.Evolution = cell.Evolution * 0.8f; // Inherit most evolution progress
+                neighbor.Biomass = 0.15f + (cell.Biomass * 0.15f); // Increased from 0.1f and 0.1f
+                neighbor.Evolution = cell.Evolution * 0.9f; // Increased from 0.8f
                 colonized++;
             }
         }
@@ -1018,24 +1030,25 @@ public class LifeSimulator
                 // Oxygen stress (for aerobic life)
                 if (cell.LifeType != LifeForm.Bacteria)
                 {
-                    if (cell.Oxygen < 5)
+                    if (cell.Oxygen < 3) // Reduced from 5
                     {
-                        stressFactor += 0.8f; // Severe
+                        stressFactor += 0.5f; // Reduced from 0.8f
                     }
-                    else if (cell.Oxygen < 10)
+                    else if (cell.Oxygen < 8) // Reduced from 10
                     {
-                        stressFactor += 0.3f;
+                        stressFactor += 0.2f; // Reduced from 0.3f
                     }
                 }
 
-                // CO2 toxicity
-                if (cell.CO2 > 15)
+                // CO2 toxicity - adjusted for high CO2 worlds
+                // Life adapts to baseline CO2 levels over time
+                if (cell.CO2 > Math.Max(20f, _map.GlobalCO2 * 5f))
                 {
-                    stressFactor += 0.5f;
+                    stressFactor += 0.3f; // Reduced from 0.5f
                 }
-                else if (cell.CO2 > 10)
+                else if (cell.CO2 > Math.Max(15f, _map.GlobalCO2 * 3f))
                 {
-                    stressFactor += 0.2f;
+                    stressFactor += 0.1f; // Reduced from 0.2f
                 }
 
                 // Drought stress (for land life)
@@ -1120,7 +1133,7 @@ public class LifeSimulator
 
             if (temperatureOk)
             {
-                Console.WriteLine($"[AUTO-RESEED] Life extinct or critically low ({lifeCells}/{reseedThreshold} cells). Planetary conditions favorable (T={avgTemp:F1}°C, O2={avgOxygen:F1}%). Re-seeding bacteria...");
+                Console.WriteLine($"[AUTO-RESEED] Life extinct or critically low ({lifeCells}/{reseedThreshold} cells). Planetary conditions favorable (T={avgTemp:F1}Â°C, O2={avgOxygen:F1}%). Re-seeding bacteria...");
 
                 // Reseed bacteria - they're the most resilient
                 SeedSpecificLife(LifeForm.Bacteria);
@@ -1134,7 +1147,7 @@ public class LifeSimulator
             }
             else
             {
-                Console.WriteLine($"[AUTO-RESEED] Life extinct but conditions too harsh (T={avgTemp:F1}°C). Waiting for better conditions...");
+                Console.WriteLine($"[AUTO-RESEED] Life extinct but conditions too harsh (T={avgTemp:F1}Â°C). Waiting for better conditions...");
             }
         }
     }
