@@ -1645,3 +1645,5 @@ For gameplay and performance, some simplifications were made:
 **All core physics use scientifically accurate formulas** - this is an educational simulation grounded in real Earth science!
 
 Enjoy watching your planet evolve!!!
+
+N.B. This game has been partially AI generated
