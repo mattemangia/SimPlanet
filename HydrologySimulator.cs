@@ -426,15 +426,15 @@ public class HydrologySimulator
 
                 var geo = cell.GetGeology();
 
-                // Base density at 0Â°C, 0 ppt = 999.8 kg/mÂ³ = 0.9998 g/cmÂ³
+                // Base density at 0°C, 0 ppt = 999.8 kg/m³ = 0.9998 g/cm³
                 float baseDensity = 0.9998f;
 
                 // Temperature effect: density decreases with temperature
-                // Î”ÏT â‰ˆ -0.0002 g/cmÂ³ per Â°C (simplified)
+                // ΔρT ≈ -0.0002 g/cm³ per °C (simplified)
                 float tempEffect = -0.0002f * cell.Temperature;
 
                 // Salinity effect: density increases with salinity
-                // Î”Ïs â‰ˆ 0.0008 g/cmÂ³ per ppt (simplified)
+                // Δρs ≈ 0.0008 g/cm³ per ppt (simplified)
                 float salinityEffect = 0.0008f * (geo.Salinity - 35);
 
                 // Total density
@@ -647,7 +647,7 @@ public class HydrologySimulator
         if (_tidalCycle > 2 * MathF.PI)
             _tidalCycle -= 2 * MathF.PI;
 
-        float tidalHeight = MathF.Sin(_tidalCycle) * 0.05f; // Â±0.05 elevation units
+        float tidalHeight = MathF.Sin(_tidalCycle) * 0.05f; // ±0.05 elevation units
 
         // Apply tides to coastal and ocean cells
         for (int x = 0; x < _map.Width; x++)

@@ -1011,7 +1011,8 @@ public class TerrainRenderer
             return;
 
         int legendWidth = 220;
-        int legendHeight = 180;
+        bool isGeologicalLegend = Mode == RenderMode.Geological;
+        int legendHeight = isGeologicalLegend ? 200 : 180;
         // Position legend in bottom-right corner (empty space)
         int legendX = screenWidth - legendWidth - 10;
         int legendY = screenHeight - legendHeight - 10;
@@ -1027,6 +1028,12 @@ public class TerrainRenderer
         // Title
         string title = GetLegendTitle();
         font.DrawString(spriteBatch, title, new Vector2(legendX + 10, legendY + 10), Color.Yellow, 14);
+
+        if (isGeologicalLegend)
+        {
+            DrawGeologicalLegend(spriteBatch, font, legendX, legendY);
+            return;
+        }
 
         // Draw color gradient and labels
         int gradientX = legendX + 15;
@@ -1057,6 +1064,39 @@ public class TerrainRenderer
                 currentY += 15;
             }
         }
+    }
+
+    private void DrawGeologicalLegend(SpriteBatch spriteBatch, FontRenderer font, int legendX, int legendY)
+    {
+        int swatchX = legendX + 15;
+        int swatchY = legendY + 40;
+        int swatchSize = 24;
+
+        var entries = new (Color Color, string Label)[]
+        {
+            (new Color(75, 65, 65), "Volcanic (Basalt/Lava)"),
+            (new Color(180, 160, 120), "Sedimentary (Sandstone/Limestone)"),
+            (new Color(135, 135, 145), "Crystalline (Granite/Metamorphic)")
+        };
+
+        foreach (var entry in entries)
+        {
+            var swatchRect = new Rectangle(swatchX, swatchY, swatchSize, swatchSize);
+            spriteBatch.Draw(_pixelTexture, swatchRect, entry.Color);
+            DrawBorder(spriteBatch, swatchRect.X, swatchRect.Y, swatchRect.Width, swatchRect.Height, Color.White, 1);
+
+            font.DrawString(spriteBatch, entry.Label, new Vector2(swatchX + swatchSize + 10, swatchY + 4), Color.White, 11);
+
+            swatchY += swatchSize + 15;
+        }
+
+        // Small note tying colors to gameplay data
+        font.DrawString(
+            spriteBatch,
+            "Colors reflect dominant rock type per tile",
+            new Vector2(swatchX, swatchY + 5),
+            new Color(200, 200, 200),
+            9);
     }
 
     private string GetLegendTitle()
