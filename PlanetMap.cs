@@ -34,6 +34,9 @@ public class PlanetMap
     public float SolarEnergy { get; set; } = 1.0f;
     public float AxisTilt { get; set; } = 23.5f; // Earth's tilt
 
+    // Real-time overrides from the planetary controls panel
+    public PlanetaryControlState PlanetaryControls { get; } = new();
+
     // Progress reporting
     public static float GenerationProgress { get; set; } = 0f;
     public static string GenerationTask { get; set; } = "";

@@ -17,6 +17,10 @@ public class GeologicalSimulator
     public float VolcanicActivityLevel { get; set; } = 1.0f;
     public float ErosionRate { get; set; } = 1.0f;
 
+    private float TectonicScale => Math.Clamp(TectonicActivityLevel, 0.1f, 3.0f);
+    private float VolcanicScale => Math.Clamp(VolcanicActivityLevel, 0.1f, 3.0f);
+    private float ErosionScale => Math.Clamp(ErosionRate, 0.1f, 3.0f);
+
     public List<(int x, int y, int year)> RecentEruptions { get; } = new();
     public List<(int x, int y, float magnitude)> Earthquakes { get; } = new();
 
@@ -253,6 +257,9 @@ public class GeologicalSimulator
 
     private void UpdatePlateTectonics(int currentYear)
     {
+        float tectonicScale = TectonicScale;
+        float volcanicScale = VolcanicScale;
+
         // Identify plate boundaries and calculate interactions
         for (int x = 0; x < _map.Width; x++)
         {
@@ -278,8 +285,8 @@ public class GeologicalSimulator
                         var plate2 = _plates[neighborPlate];
 
                         // Calculate relative velocity
-                        float relVelX = plate1.VelocityX - plate2.VelocityX;
-                        float relVelY = plate1.VelocityY - plate2.VelocityY;
+                        float relVelX = (plate1.VelocityX - plate2.VelocityX) * tectonicScale;
+                        float relVelY = (plate1.VelocityY - plate2.VelocityY) * tectonicScale;
                         float relVel = MathF.Sqrt(relVelX * relVelX + relVelY * relVelY);
 
                         // Determine boundary type
@@ -305,13 +312,14 @@ public class GeologicalSimulator
                                     cell.Elevation += 0.003f * relVel; // Mountains build up on continental side
                                 }
 
-                                if (_random.NextDouble() < 0.00002) // Very rare volcanic arcs (10x reduction)
+                                double arcChance = 0.00002 * volcanicScale;
+                                if (_random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
                                     geo.MagmaPressure = 0.3f;
                                 }
-                                geo.TectonicStress += 0.02f;
+                                geo.TectonicStress += 0.02f * tectonicScale;
                                 geo.SubductionRate = relVel * 0.01f; // Track subduction rate
                             }
                             else if (!plate1.IsOceanic && plate2.IsOceanic)
@@ -323,9 +331,9 @@ public class GeologicalSimulator
                                 }
 
                                 cell.Elevation += 0.003f * relVel; // Mountains on continental side
-                                geo.TectonicStress += 0.02f;
+                                geo.TectonicStress += 0.02f * tectonicScale;
 
-                                if (_random.NextDouble() < 0.00002) // Very rare volcanic arcs (10x reduction)
+                                if (_random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -336,10 +344,10 @@ public class GeologicalSimulator
                             {
                                 // Continental collision - massive mountain ranges (Himalayas-like)
                                 cell.Elevation += 0.005f * relVel; // Increased from 0.001f
-                                geo.TectonicStress += 0.02f;
+                                geo.TectonicStress += 0.02f * tectonicScale;
 
                                 // Occasional volcanism from crustal melting
-                                if (cell.Elevation > 0.6f && _random.NextDouble() < 0.002)
+                                if (cell.Elevation > 0.6f && _random.NextDouble() < 0.002 * volcanicScale)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.3f;
@@ -348,7 +356,7 @@ public class GeologicalSimulator
                             else if (plate1.IsOceanic && plate2.IsOceanic)
                             {
                                 // Oceanic-oceanic convergence - island arcs (Japan, Philippines)
-                                if (_random.NextDouble() < 0.00003) // Very rare island chains (10x reduction)
+                                if (_random.NextDouble() < 0.00003 * volcanicScale) // Very rare island chains (10x reduction)
                                 {
                                     cell.Elevation += 0.01f; // Gradual island building (reduced from 0.08f to prevent instant islands)
                                     geo.IsVolcano = true;
@@ -362,7 +370,7 @@ public class GeologicalSimulator
                             geo.BoundaryType = PlateBoundaryType.Divergent;
 
                             // Mid-ocean ridge volcanism (Iceland-like)
-                            if (cell.IsWater && _random.NextDouble() < 0.00001) // Very rare mid-ocean ridge volcanoes (10x reduction)
+                            if (cell.IsWater && _random.NextDouble() < 0.00001 * volcanicScale) // Very rare mid-ocean ridge volcanoes (10x reduction)
                             {
                                 geo.IsVolcano = true;
                                 geo.VolcanicActivity = 0.4f;
@@ -371,7 +379,7 @@ public class GeologicalSimulator
                             }
 
                             // Continental rifts (East African Rift)
-                            if (cell.IsLand && _random.NextDouble() < 0.00001) // Very rare rift volcanoes (10x reduction)
+                            if (cell.IsLand && _random.NextDouble() < 0.00001 * volcanicScale) // Very rare rift volcanoes (10x reduction)
                             {
                                 geo.IsVolcano = true;
                                 geo.VolcanicActivity = 0.5f;
@@ -381,10 +389,10 @@ public class GeologicalSimulator
                         else // Transform
                         {
                             geo.BoundaryType = PlateBoundaryType.Transform;
-                            geo.TectonicStress += 0.02f;
+                            geo.TectonicStress += 0.02f * tectonicScale;
 
                             // Earthquakes
-                            if (geo.TectonicStress > 1.0f && _random.NextDouble() < 0.01)
+                            if (geo.TectonicStress > 1.0f && _random.NextDouble() < 0.01 * tectonicScale)
                             {
                                 Earthquakes.Add((x, y, geo.TectonicStress));
                                 geo.TectonicStress = 0;
@@ -394,7 +402,7 @@ public class GeologicalSimulator
                 }
 
                 // Stress relief through earthquakes
-                if (geo.TectonicStress > 1.5f && _random.NextDouble() < 0.005)
+                if (geo.TectonicStress > 1.5f && _random.NextDouble() < 0.005 * tectonicScale)
                 {
                     Earthquakes.Add((x, y, geo.TectonicStress));
                     geo.TectonicStress *= 0.1f;
@@ -412,6 +420,8 @@ public class GeologicalSimulator
 
     private void UpdateVolcanicActivity(int currentYear)
     {
+        float volcanicScale = VolcanicScale;
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -422,10 +432,11 @@ public class GeologicalSimulator
                 if (!geo.IsVolcano) continue;
 
                 // Build magma pressure
-                geo.MagmaPressure += geo.VolcanicActivity * 0.01f;
+                geo.MagmaPressure += geo.VolcanicActivity * 0.01f * volcanicScale;
 
                 // Eruption threshold
-                if (geo.MagmaPressure > 1.0f && _random.NextDouble() < 0.02)
+                double eruptionChance = Math.Clamp(0.02 * volcanicScale, 0.0, 0.5);
+                if (geo.MagmaPressure > 1.0f && _random.NextDouble() < eruptionChance)
                 {
                     // ERUPTION!
                     VolcanicEruption(x, y, currentYear);
@@ -436,7 +447,7 @@ public class GeologicalSimulator
                 // Dormant volcanoes cool down
                 if (currentYear - geo.LastEruptionYear > 100)
                 {
-                    geo.VolcanicActivity *= 0.99f;
+                    geo.VolcanicActivity *= MathF.Max(0.9f, 1.0f - 0.01f * volcanicScale);
                 }
             }
         }
@@ -742,6 +753,8 @@ public class GeologicalSimulator
             return;
         }
 
+        float erosionScale = ErosionScale;
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -776,19 +789,21 @@ public class GeologicalSimulator
                 slope = Math.Clamp(slope, 0f, 10f); // Max slope
 
                 geo.ErosionRate = rainfall * 0.1f * (1.0f + slope * 2.0f);
-                geo.ErosionRate = Math.Clamp(geo.ErosionRate, 0f, 10f); // Clamp after calculation
+                geo.ErosionRate *= erosionScale;
 
                 // Temperature affects weathering
                 if (temperature > 20)
                 {
-                    geo.ErosionRate *= 1.5f; // Chemical weathering in warm climates
+                    geo.ErosionRate *= 1.5f;
                 }
 
                 // Ice erosion
                 if (cell.IsIce)
                 {
-                    geo.ErosionRate *= 2.0f; // Glacial erosion is powerful
+                    geo.ErosionRate *= 2.0f;
                 }
+
+                geo.ErosionRate = Math.Clamp(geo.ErosionRate, 0f, 10f);
 
                 // Apply erosion
                 float erosion = geo.ErosionRate * deltaTime * 0.0001f;
@@ -834,7 +849,7 @@ public class GeologicalSimulator
                     float waterFlow = float.IsNaN(geo.WaterFlow) ? 0.0f : Math.Max(0, geo.WaterFlow);
                     waterFlow = Math.Clamp(waterFlow, 0f, 10f); // Clamp water flow
 
-                    float waterCurrent = rainfall + floodLevel + waterFlow;
+                    float waterCurrent = (rainfall + floodLevel + waterFlow) * erosionScale;
 
                     // Validate waterCurrent AND CLAMP to prevent astronomical values
                     if (float.IsNaN(waterCurrent) || float.IsInfinity(waterCurrent))

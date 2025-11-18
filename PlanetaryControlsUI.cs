@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections.Generic;
 
 namespace SimPlanet;
 
@@ -19,6 +20,9 @@ public class PlanetaryControlsUI
     private GeologicalSimulator _geologicalSimulator;
     private Texture2D _pixelTexture;
 
+    private const float OceanLevelElevationScale = 0.2f;
+    private const int SlidersPerColumn = 5;
+
     public bool IsVisible { get; set; } = false;
 
     private MouseState _previousMouseState;
@@ -34,8 +38,11 @@ public class PlanetaryControlsUI
         public string Unit { get; set; }
         public bool IsDragging { get; set; }
         public Action<float> OnValueChanged { get; set; }
+        public Func<float>? ValueGetter { get; set; }
+        public Vector2 LabelPosition { get; set; }
+        public bool HasLabelPosition { get; set; }
 
-        public Slider(string label, float min, float max, float initial, string unit, Action<float> onChanged)
+        public Slider(string label, float min, float max, float initial, string unit, Action<float> onChanged, Func<float>? valueGetter = null)
         {
             Label = label;
             Min = min;
@@ -43,6 +50,7 @@ public class PlanetaryControlsUI
             Value = initial;
             Unit = unit;
             OnValueChanged = onChanged;
+            ValueGetter = valueGetter;
         }
 
         public float GetNormalizedValue() => (Value - Min) / (Max - Min);
@@ -76,61 +84,103 @@ public class PlanetaryControlsUI
     public void SetGeologicalSimulator(GeologicalSimulator geologicalSimulator)
     {
         _geologicalSimulator = geologicalSimulator;
+        ApplyStoredGeologyControls();
+    }
+
+    private void ApplyStoredGeologyControls()
+    {
+        if (_geologicalSimulator == null) return;
+
+        _geologicalSimulator.TectonicActivityLevel = _map.PlanetaryControls.TectonicActivityMultiplier;
+        _geologicalSimulator.VolcanicActivityLevel = _map.PlanetaryControls.VolcanicActivityMultiplier;
+        _geologicalSimulator.ErosionRate = _map.PlanetaryControls.ErosionRateMultiplier;
     }
 
     private void InitializeControls()
     {
         _sliders.Clear();
 
-        // Climate Controls
-        _sliders.Add(new Slider("Solar Energy", 0.5f, 1.5f, _map.SolarEnergy, "x",
-            v => _map.SolarEnergy = v));
+        // Climate & energy
+        _sliders.Add(CreateSlider("Solar Energy", 0.5f, 1.5f, "x",
+            () => _map.SolarEnergy,
+            SetSolarEnergy));
 
-        _sliders.Add(new Slider("Temperature Offset", -20f, 20f, 0f, "°C",
-            v => AdjustGlobalTemperature(v)));
+        _sliders.Add(CreateSlider("Temperature Offset", -20f, 20f, "°C",
+            () => _map.PlanetaryControls.TemperatureOffsetCelsius,
+            SetTemperatureOffset));
 
-        _sliders.Add(new Slider("Rainfall Multiplier", 0.1f, 3.0f, 1.0f, "x",
-            v => AdjustGlobalRainfall(v)));
+        _sliders.Add(CreateSlider("Rainfall Multiplier", 0.1f, 3.0f, "x",
+            () => _map.PlanetaryControls.RainfallMultiplier,
+            SetRainfallMultiplier));
 
-        _sliders.Add(new Slider("Wind Strength", 0.1f, 3.0f, 1.0f, "x",
-            v => AdjustWindStrength(v)));
+        _sliders.Add(CreateSlider("Wind Strength", 0.1f, 3.0f, "x",
+            () => _map.PlanetaryControls.WindStrengthMultiplier,
+            SetWindStrength));
 
         // Atmospheric Controls
-        _sliders.Add(new Slider("Oxygen Level", 0f, 40f, GetAverageOxygen(), "%",
-            v => SetGlobalOxygen(v)));
+        _sliders.Add(CreateSlider("Oxygen Level", 0f, 40f, "%",
+            GetAverageOxygen,
+            SetGlobalOxygen));
 
-        _sliders.Add(new Slider("CO2 Level", 0f, 10f, GetAverageCO2(), "%",
-            v => SetGlobalCO2(v)));
+        _sliders.Add(CreateSlider("CO2 Level", 0f, 10f, "%",
+            GetAverageCO2,
+            SetGlobalCO2));
 
-        _sliders.Add(new Slider("Atmospheric Pressure", 0.5f, 2.0f, 1.0f, "atm",
-            v => SetAtmosphericPressure(v)));
+        _sliders.Add(CreateSlider("Atmospheric Pressure", 0.5f, 2.0f, "atm",
+            () => _map.PlanetaryControls.AtmosphericPressureMultiplier,
+            SetAtmosphericPressure));
 
         // Geological Controls
-        _sliders.Add(new Slider("Tectonic Activity", 0f, 2.0f, 1.0f, "x",
-            v => SetTectonicActivity(v)));
+        _sliders.Add(CreateSlider("Tectonic Activity", 0f, 2.0f, "x",
+            () => _geologicalSimulator?.TectonicActivityLevel ?? _map.PlanetaryControls.TectonicActivityMultiplier,
+            SetTectonicActivity));
 
-        _sliders.Add(new Slider("Volcanic Activity", 0f, 2.0f, 1.0f, "x",
-            v => SetVolcanicActivity(v)));
+        _sliders.Add(CreateSlider("Volcanic Activity", 0f, 2.0f, "x",
+            () => _geologicalSimulator?.VolcanicActivityLevel ?? _map.PlanetaryControls.VolcanicActivityMultiplier,
+            SetVolcanicActivity));
 
-        _sliders.Add(new Slider("Erosion Rate", 0f, 2.0f, 1.0f, "x",
-            v => SetErosionRate(v)));
+        _sliders.Add(CreateSlider("Erosion Rate", 0f, 2.0f, "x",
+            () => _geologicalSimulator?.ErosionRate ?? _map.PlanetaryControls.ErosionRateMultiplier,
+            SetErosionRate));
 
         // Surface Controls
-        _sliders.Add(new Slider("Albedo (Reflectivity)", 0.1f, 0.9f, 0.3f, "",
-            v => SetGlobalAlbedo(v)));
+        _sliders.Add(CreateSlider("Albedo (Reflectivity)", 0.1f, 0.9f, string.Empty,
+            () => _map.PlanetaryControls.SurfaceAlbedo,
+            SetGlobalAlbedo));
 
-        _sliders.Add(new Slider("Ice Coverage", 0f, 1.0f, GetIceCoverage(), "%",
-            v => SetIceCoverage(v)));
+        _sliders.Add(CreateSlider("Ice Coverage", 0f, 1.0f, "%",
+            GetIceCoverage,
+            SetIceCoverage));
 
-        _sliders.Add(new Slider("Ocean Level", -0.5f, 0.5f, 0f, "m",
-            v => AdjustOceanLevel(v)));
+        _sliders.Add(CreateSlider("Ocean Level", -0.5f, 0.5f, "m",
+            () => _map.PlanetaryControls.OceanLevelOffset,
+            AdjustOceanLevel));
 
         // Magnetic Field
-        _sliders.Add(new Slider("Magnetic Field", 0f, 2.0f, _magnetosphere.MagneticFieldStrength, "x",
-            v => _magnetosphere.MagneticFieldStrength = v));
+        _sliders.Add(CreateSlider("Magnetic Field", 0f, 2.0f, "x",
+            () => _map.PlanetaryControls.MagneticFieldStrength,
+            SetMagneticFieldStrength));
 
-        _sliders.Add(new Slider("Core Temperature", 1000f, 7000f, _magnetosphere.CoreTemperature, "K",
-            v => _magnetosphere.CoreTemperature = v));
+        _sliders.Add(CreateSlider("Core Temperature", 1000f, 7000f, "K",
+            () => _map.PlanetaryControls.CoreTemperatureKelvin,
+            SetCoreTemperature));
+    }
+
+    private Slider CreateSlider(string label, float min, float max, string unit, Func<float> getter, Action<float> setter)
+    {
+        float initial = Math.Clamp(getter(), min, max);
+        return new Slider(label, min, max, initial, unit, setter, getter);
+    }
+
+    private Rectangle GetPanelBounds()
+    {
+        int screenWidth = _graphicsDevice.Viewport.Width;
+        int screenHeight = _graphicsDevice.Viewport.Height;
+        int panelWidth = 1100;
+        int panelHeight = Math.Max(300, screenHeight - 100);
+        int panelX = (screenWidth - panelWidth) / 2;
+        int panelY = 50;
+        return new Rectangle(panelX, panelY, panelWidth, panelHeight);
     }
 
     public void Update(MouseState mouseState)
@@ -142,14 +192,9 @@ public class PlanetaryControlsUI
         bool released = mouseState.LeftButton == ButtonState.Released &&
                        _previousMouseState.LeftButton == ButtonState.Pressed;
 
-        // Update slider positions
+        // Update slider positions and sync values with the current simulation state
         PositionSliders();
-
-        // Auto-update sliders from map state when AI stabilizer is active
-        if (_stabilizer.IsActive)
-        {
-            UpdateSlidersFromMapState();
-        }
+        UpdateSlidersFromMapState();
 
         // Handle slider interaction
         foreach (var slider in _sliders)
@@ -189,39 +234,10 @@ public class PlanetaryControlsUI
 
     private void UpdateSlidersFromMapState()
     {
-        // Only update sliders that aren't currently being dragged by the user
-        for (int i = 0; i < _sliders.Count; i++)
+        foreach (var slider in _sliders)
         {
-            if (_sliders[i].IsDragging) continue; // Don't update if user is actively dragging
-
-            // Update slider value from current map state
-            // Only update sliders where we can read the current value back
-            switch (i)
-            {
-                case 0: // Solar Energy
-                    _sliders[i].UpdateFromValue(_map.SolarEnergy);
-                    break;
-                case 4: // Oxygen Level (read-only display)
-                    // Calculate average oxygen from map
-                    float avgOxygen = CalculateAverageOxygen();
-                    _sliders[i].UpdateFromValue(avgOxygen);
-                    break;
-                case 5: // CO2 Level (read-only display)
-                    float avgCO2 = CalculateAverageCO2();
-                    _sliders[i].UpdateFromValue(avgCO2);
-                    break;
-                case 11: // Ice Coverage
-                    _sliders[i].UpdateFromValue(GetIceCoverage());
-                    break;
-                case 13: // Magnetic Field Strength
-                    _sliders[i].UpdateFromValue(_magnetosphere.MagneticFieldStrength);
-                    break;
-                case 14: // Core Temperature
-                    _sliders[i].UpdateFromValue(_magnetosphere.CoreTemperature);
-                    break;
-                // Note: Temperature Offset, Rainfall Multiplier, Wind Speed, and Atmospheric Pressure
-                // are applied via methods and don't have stored properties to read back
-            }
+            if (slider.IsDragging || slider.ValueGetter == null) continue;
+            slider.UpdateFromValue(slider.ValueGetter());
         }
     }
 
@@ -257,61 +273,53 @@ public class PlanetaryControlsUI
 
     private void PositionSliders()
     {
-        int screenWidth = _graphicsDevice.Viewport.Width;
-        int screenHeight = _graphicsDevice.Viewport.Height;
+        var panelBounds = GetPanelBounds();
+        int sliderWidth = 240;
+        int sliderHeight = 22;
+        int rowSpacing = 70;
+        int labelSpacing = 18;
+        int columnSpacing = 340;
 
-        int panelWidth = 1000;  // Increased to fit all controls comfortably
-        int panelHeight = screenHeight - 100;
-        int panelX = (screenWidth - panelWidth) / 2;
-        int panelY = 50;
+        int startX = panelBounds.X + 30;
+        int startY = panelBounds.Y + 110;
 
-        int sliderWidth = 180;  // Reduced from 250
-        int sliderHeight = 20;
-        int labelWidth = 180;   // Reduced from 200
-        int spacing = 35;
-        int columnSpacing = 280; // Reduced from 320 to fit within panel
-
-        int leftColumnX = panelX + 20;
-        int middleColumnX = leftColumnX + columnSpacing;
-        int rightColumnX = middleColumnX + columnSpacing;
-
-        int currentY = panelY + 80;
-
-        // Position sliders in 3 columns
         for (int i = 0; i < _sliders.Count; i++)
         {
-            int column = i / 5; // 5 sliders per column
-            int row = i % 5;
+            int column = i / SlidersPerColumn;
+            int row = i % SlidersPerColumn;
 
-            int x = leftColumnX + (column * columnSpacing);
-            int y = currentY + (row * spacing);
+            int x = startX + (column * columnSpacing);
+            int y = startY + (row * rowSpacing);
 
-            _sliders[i].Bounds = new Rectangle(x + labelWidth, y, sliderWidth, sliderHeight);
+            var slider = _sliders[i];
+            slider.Bounds = new Rectangle(x, y + labelSpacing, sliderWidth, sliderHeight);
+            slider.LabelPosition = new Vector2(x, y);
+            slider.HasLabelPosition = true;
         }
 
         // Position buttons at bottom
         _buttons.Clear();
-        int buttonY = panelY + panelHeight - 50;
-        int buttonWidth = 180;
+        int buttonY = panelBounds.Bottom - 50;
+        int buttonWidth = 190;
         int buttonHeight = 35;
 
         _buttons.Add(new UIButton(
-            new Rectangle(panelX + 20, buttonY, buttonWidth, buttonHeight),
+            new Rectangle(panelBounds.X + 30, buttonY, buttonWidth, buttonHeight),
             "Restore Stable",
             () => RestorePlanet()));
 
         _buttons.Add(new UIButton(
-            new Rectangle(panelX + 220, buttonY, buttonWidth, buttonHeight),
+            new Rectangle(panelBounds.X + 250, buttonY, buttonWidth, buttonHeight),
             "Destabilize",
             () => DestabilizePlanet()));
 
         _buttons.Add(new UIButton(
-            new Rectangle(panelX + 420, buttonY, buttonWidth, buttonHeight),
+            new Rectangle(panelBounds.X + 470, buttonY, buttonWidth, buttonHeight),
             _stabilizer.IsActive ? "Stabilizer: ON" : "Stabilizer: OFF",
             () => _stabilizer.IsActive = !_stabilizer.IsActive));
 
         _buttons.Add(new UIButton(
-            new Rectangle(panelX + panelWidth - 200, buttonY, buttonWidth, buttonHeight),
+            new Rectangle(panelBounds.Right - 210, buttonY, buttonWidth, buttonHeight),
             "Close (X)",
             () => IsVisible = false));
     }
@@ -322,55 +330,43 @@ public class PlanetaryControlsUI
 
         int screenWidth = _graphicsDevice.Viewport.Width;
         int screenHeight = _graphicsDevice.Viewport.Height;
-
-        int panelWidth = 1000;  // Increased to fit all controls comfortably
-        int panelHeight = screenHeight - 100;
-        int panelX = (screenWidth - panelWidth) / 2;
-        int panelY = 50;
+        var panelBounds = GetPanelBounds();
 
         // Semi-transparent background
         spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
             new Color(0, 0, 0, 180));
 
         // Panel background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(panelX, panelY, panelWidth, panelHeight),
+        spriteBatch.Draw(_pixelTexture, panelBounds,
             new Color(20, 30, 50, 240));
 
         // Panel border
-        DrawBorder(spriteBatch, panelX, panelY, panelWidth, panelHeight, new Color(100, 150, 255), 3);
+        DrawBorder(spriteBatch, panelBounds.X, panelBounds.Y, panelBounds.Width, panelBounds.Height, new Color(100, 150, 255), 3);
 
         // Title
         _font.DrawString(spriteBatch, "PLANETARY CONTROLS",
-            new Vector2(panelX + panelWidth / 2 - 150, panelY + 15),
+            new Vector2(panelBounds.X + panelBounds.Width / 2 - 150, panelBounds.Y + 15),
             new Color(255, 200, 50), 1.5f);
 
         // Subtitle
         _font.DrawString(spriteBatch, "SimEarth-Style Global Parameter Adjustment",
-            new Vector2(panelX + panelWidth / 2 - 180, panelY + 45),
+            new Vector2(panelBounds.X + panelBounds.Width / 2 - 180, panelBounds.Y + 45),
             new Color(150, 200, 255), 0.9f);
 
         // Section headers
-        int headerY = panelY + 80;
+        int headerY = panelBounds.Y + 90;
+        int headerSpacing = 340;
         _font.DrawString(spriteBatch, "=== CLIMATE ===",
-            new Vector2(panelX + 20, headerY - 25), Color.Orange, 1.0f);
-        _font.DrawString(spriteBatch, "=== ATMOSPHERE ===",
-            new Vector2(panelX + 340, headerY - 25), Color.Cyan, 1.0f);
-        _font.DrawString(spriteBatch, "=== GEOLOGY ===",
-            new Vector2(panelX + 660, headerY - 25), Color.Red, 1.0f);
+            new Vector2(panelBounds.X + 30, headerY - 25), Color.Orange, 1.0f);
+        _font.DrawString(spriteBatch, "=== ATMOSPHERE / GEOLOGY ===",
+            new Vector2(panelBounds.X + 30 + headerSpacing, headerY - 25), Color.Cyan, 1.0f);
+        _font.DrawString(spriteBatch, "=== SURFACE & MAGNETOSPHERE ===",
+            new Vector2(panelBounds.X + 30 + (headerSpacing * 2), headerY - 25), Color.Red, 1.0f);
 
         // Draw sliders
-        int columnSpacing = 320;
-        int spacing = 35;
-
-        for (int i = 0; i < _sliders.Count; i++)
+        foreach (var slider in _sliders)
         {
-            int column = i / 5;
-            int row = i % 5;
-
-            int x = panelX + 20 + (column * columnSpacing);
-            int y = headerY + (row * spacing);
-
-            DrawSlider(spriteBatch, _sliders[i], x, y);
+            DrawSlider(spriteBatch, slider);
         }
 
         // Draw buttons
@@ -394,15 +390,18 @@ public class PlanetaryControlsUI
         string stabilizerStatus = $"AI Stabilizer: {(_stabilizer.IsActive ? "ACTIVE" : "INACTIVE")} | " +
                                  $"Last Action: {_stabilizer.LastAction} | Adjustments: {_stabilizer.AdjustmentsMade}";
         _font.DrawString(spriteBatch, stabilizerStatus,
-            new Vector2(panelX + 20, panelY + panelHeight - 85),
+            new Vector2(panelBounds.X + 20, panelBounds.Bottom - 85),
             _stabilizer.IsActive ? Color.LightGreen : Color.Gray, 0.8f);
     }
 
-    private void DrawSlider(SpriteBatch spriteBatch, Slider slider, int x, int y)
+    private void DrawSlider(SpriteBatch spriteBatch, Slider slider)
     {
-        // Label
+        Vector2 labelPosition = slider.HasLabelPosition
+            ? slider.LabelPosition
+            : new Vector2(slider.Bounds.X, slider.Bounds.Y - 20);
+
         _font.DrawString(spriteBatch, slider.Label,
-            new Vector2(x, y + 3), Color.White, 12);
+            labelPosition, Color.White, 12);
 
         // Slider track
         spriteBatch.Draw(_pixelTexture, slider.Bounds, new Color(60, 60, 80));
@@ -426,10 +425,19 @@ public class PlanetaryControlsUI
             slider.IsDragging ? Color.Yellow : Color.White);
 
         // Value display
-        string valueText = $"{slider.Value:F2}{slider.Unit}";
-        _font.DrawString(spriteBatch, valueText,
-            new Vector2(slider.Bounds.X + slider.Bounds.Width + 10, y + 3),
-            Color.LightGreen, 12);
+        string valueText = FormatSliderValue(slider);
+        Vector2 valuePos = new Vector2(slider.Bounds.X + slider.Bounds.Width + 12, slider.Bounds.Y - 2);
+        var valueSize = _font.MeasureString(valueText, 12);
+        var valueRect = new Rectangle((int)valuePos.X - 4, (int)valuePos.Y - 2,
+            (int)valueSize.X + 8, slider.Bounds.Height + 4);
+        spriteBatch.Draw(_pixelTexture, valueRect, new Color(10, 20, 35, 220));
+        _font.DrawString(spriteBatch, valueText, valuePos, Color.LightGreen, 12);
+    }
+
+    private static string FormatSliderValue(Slider slider)
+    {
+        string format = slider.Max >= 1000f ? "F0" : "F2";
+        return $"{slider.Value.ToString(format)}{slider.Unit}";
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
@@ -441,32 +449,25 @@ public class PlanetaryControlsUI
     }
 
     // Control implementation methods
-    private void AdjustGlobalTemperature(float offset)
+    private void SetSolarEnergy(float multiplier)
     {
-        for (int x = 0; x < _map.Width; x++)
-        {
-            for (int y = 0; y < _map.Height; y++)
-            {
-                _map.Cells[x, y].Temperature += offset * 0.01f;
-            }
-        }
+        _map.SolarEnergy = multiplier;
+        _map.PlanetaryControls.SolarEnergyMultiplier = multiplier;
     }
 
-    private void AdjustGlobalRainfall(float multiplier)
+    private void SetTemperatureOffset(float offset)
     {
-        for (int x = 0; x < _map.Width; x++)
-        {
-            for (int y = 0; y < _map.Height; y++)
-            {
-                _map.Cells[x, y].Rainfall = Math.Clamp(_map.Cells[x, y].Rainfall * multiplier, 0f, 2f);
-            }
-        }
+        _map.PlanetaryControls.TemperatureOffsetCelsius = offset;
     }
 
-    private void AdjustWindStrength(float multiplier)
+    private void SetRainfallMultiplier(float multiplier)
     {
-        // Store this in PlanetMap for the weather simulator to use
-        // This will be used by WeatherSimulator
+        _map.PlanetaryControls.RainfallMultiplier = multiplier;
+    }
+
+    private void SetWindStrength(float multiplier)
+    {
+        _map.PlanetaryControls.WindStrengthMultiplier = multiplier;
     }
 
     private void SetGlobalOxygen(float targetLevel)
@@ -478,6 +479,8 @@ public class PlanetaryControlsUI
                 _map.Cells[x, y].Oxygen = targetLevel;
             }
         }
+        _map.GlobalOxygen = targetLevel;
+        _map.PlanetaryControls.GlobalOxygenPercent = targetLevel;
     }
 
     private void SetGlobalCO2(float targetLevel)
@@ -490,11 +493,13 @@ public class PlanetaryControlsUI
                 _map.Cells[x, y].Greenhouse = targetLevel * 10f;
             }
         }
+        _map.GlobalCO2 = targetLevel;
+        _map.PlanetaryControls.GlobalCO2Percent = targetLevel;
     }
 
     private void SetAtmosphericPressure(float pressure)
     {
-        // This affects weather and climate
+        _map.PlanetaryControls.AtmosphericPressureMultiplier = pressure;
     }
 
     private void SetTectonicActivity(float level)
@@ -503,6 +508,7 @@ public class PlanetaryControlsUI
         {
             _geologicalSimulator.TectonicActivityLevel = level;
         }
+        _map.PlanetaryControls.TectonicActivityMultiplier = level;
     }
 
     private void SetVolcanicActivity(float level)
@@ -511,6 +517,7 @@ public class PlanetaryControlsUI
         {
             _geologicalSimulator.VolcanicActivityLevel = level;
         }
+        _map.PlanetaryControls.VolcanicActivityMultiplier = level;
     }
 
     private void SetErosionRate(float level)
@@ -519,6 +526,7 @@ public class PlanetaryControlsUI
         {
             _geologicalSimulator.ErosionRate = level;
         }
+        _map.PlanetaryControls.ErosionRateMultiplier = level;
     }
 
     private void SetGlobalAlbedo(float albedo)
@@ -530,6 +538,7 @@ public class PlanetaryControlsUI
                 _map.Cells[x, y].Albedo = albedo;
             }
         }
+        _map.PlanetaryControls.SurfaceAlbedo = albedo;
     }
 
     private void SetIceCoverage(float coverage)
@@ -583,36 +592,80 @@ public class PlanetaryControlsUI
                 if (currentIceCells <= targetIceCells) break;
             }
         }
+        _map.PlanetaryControls.TargetIceCoverage = coverage;
     }
 
     private void AdjustOceanLevel(float adjustment)
     {
+        float previous = _map.PlanetaryControls.OceanLevelOffset;
+        float delta = adjustment - previous;
+        if (Math.Abs(delta) < 0.0001f) return;
+
+        _map.PlanetaryControls.OceanLevelOffset = adjustment;
+        float elevationDelta = delta * OceanLevelElevationScale;
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                _map.Cells[x, y].Elevation += adjustment * 0.01f;
+                _map.Cells[x, y].Elevation += elevationDelta;
             }
         }
+    }
+
+    private void SetMagneticFieldStrength(float strength)
+    {
+        _map.PlanetaryControls.MagneticFieldStrength = strength;
+        _map.PlanetaryControls.ManualMagneticField = true;
+        _magnetosphere.MagneticFieldStrength = strength;
+        _magnetosphere.HasDynamo = strength > 0.05f;
+    }
+
+    private void SetCoreTemperature(float temperature)
+    {
+        _map.PlanetaryControls.CoreTemperatureKelvin = temperature;
+        _map.PlanetaryControls.ManualCoreTemperature = true;
+        _magnetosphere.CoreTemperature = temperature;
+        if (temperature < 3000f)
+        {
+            _magnetosphere.HasDynamo = false;
+        }
+        else if (!_map.PlanetaryControls.ManualMagneticField)
+        {
+            _magnetosphere.HasDynamo = true;
+        }
+    }
+
+    private void ReleaseMagnetosphereOverrides()
+    {
+        _map.PlanetaryControls.ManualMagneticField = false;
+        _map.PlanetaryControls.ManualCoreTemperature = false;
+        _map.PlanetaryControls.MagneticFieldStrength = _magnetosphere.MagneticFieldStrength;
+        _map.PlanetaryControls.CoreTemperatureKelvin = _magnetosphere.CoreTemperature;
     }
 
     private void RestorePlanet()
     {
         // Restore to Earth-like stable conditions
-        _map.SolarEnergy = 1.0f;
+        SetSolarEnergy(1.0f);
         _magnetosphere.MagneticFieldStrength = 1.0f;
         _magnetosphere.CoreTemperature = 5000f;
         _magnetosphere.HasDynamo = true;
+        ReleaseMagnetosphereOverrides();
+
+        _map.PlanetaryControls.TemperatureOffsetCelsius = 0f;
+        _map.PlanetaryControls.RainfallMultiplier = 1f;
+        _map.PlanetaryControls.WindStrengthMultiplier = 1f;
+        _map.PlanetaryControls.AtmosphericPressureMultiplier = 1f;
 
         SetGlobalOxygen(21f);
         SetGlobalCO2(0.04f);
+        SetGlobalAlbedo(0.3f);
+        AdjustOceanLevel(0f);
 
-        if (_geologicalSimulator != null)
-        {
-            _geologicalSimulator.TectonicActivityLevel = 1.0f;
-            _geologicalSimulator.VolcanicActivityLevel = 1.0f;
-            _geologicalSimulator.ErosionRate = 1.0f;
-        }
+        SetTectonicActivity(1.0f);
+        SetVolcanicActivity(1.0f);
+        SetErosionRate(1.0f);
 
         // Moderate temperature
         for (int x = 0; x < _map.Width; x++)
@@ -637,19 +690,26 @@ public class PlanetaryControlsUI
     private void DestabilizePlanet()
     {
         // Random chaos mode - randomize all parameters
-        _map.SolarEnergy = 0.5f + Random.Shared.NextSingle() * 1.0f;
+        SetSolarEnergy(0.5f + Random.Shared.NextSingle() * 1.0f);
         _magnetosphere.MagneticFieldStrength = Random.Shared.NextSingle() * 2.0f;
         _magnetosphere.CoreTemperature = 1000f + Random.Shared.NextSingle() * 6000f;
+        _magnetosphere.HasDynamo = _magnetosphere.CoreTemperature >= 3000f && _magnetosphere.MagneticFieldStrength > 0.05f;
+        ReleaseMagnetosphereOverrides();
 
         SetGlobalOxygen(Random.Shared.NextSingle() * 40f);
         SetGlobalCO2(Random.Shared.NextSingle() * 10f);
+        SetGlobalAlbedo(0.1f + Random.Shared.NextSingle() * 0.8f);
+        SetIceCoverage(Random.Shared.NextSingle());
+        AdjustOceanLevel(Random.Shared.NextSingle() - 0.5f);
 
-        if (_geologicalSimulator != null)
-        {
-            _geologicalSimulator.TectonicActivityLevel = Random.Shared.NextSingle() * 2.0f;
-            _geologicalSimulator.VolcanicActivityLevel = Random.Shared.NextSingle() * 2.0f;
-            _geologicalSimulator.ErosionRate = Random.Shared.NextSingle() * 2.0f;
-        }
+        _map.PlanetaryControls.TemperatureOffsetCelsius = -20f + Random.Shared.NextSingle() * 40f;
+        _map.PlanetaryControls.RainfallMultiplier = 0.1f + Random.Shared.NextSingle() * 2.9f;
+        _map.PlanetaryControls.WindStrengthMultiplier = 0.1f + Random.Shared.NextSingle() * 2.9f;
+        _map.PlanetaryControls.AtmosphericPressureMultiplier = 0.5f + Random.Shared.NextSingle() * 1.5f;
+
+        SetTectonicActivity(Random.Shared.NextSingle() * 2.0f);
+        SetVolcanicActivity(Random.Shared.NextSingle() * 2.0f);
+        SetErosionRate(Random.Shared.NextSingle() * 2.0f);
 
         _stabilizer.IsActive = false;
 

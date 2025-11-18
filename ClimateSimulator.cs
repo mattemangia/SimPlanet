@@ -28,6 +28,7 @@ public class ClimateSimulator
     private void SimulateTemperature(float deltaTime)
     {
         var newTemperatures = new float[_map.Width, _map.Height];
+        float temperatureOffset = _map.PlanetaryControls?.TemperatureOffsetCelsius ?? 0f;
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -212,7 +213,7 @@ public class ClimateSimulator
                     newTemp = 15.0f; // Default to moderate temperature
 
                 // Clamp to physically possible range (-100°C to 100°C)
-                newTemp = Math.Clamp(newTemp, -100f, 100f);
+                newTemp = Math.Clamp(newTemp + temperatureOffset, -100f, 100f);
 
                 newTemperatures[x, y] = newTemp;
             }
@@ -230,6 +231,8 @@ public class ClimateSimulator
 
     private void SimulateRainfall(float deltaTime)
     {
+        float rainfallMultiplier = _map.PlanetaryControls?.RainfallMultiplier ?? 1f;
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -293,7 +296,7 @@ public class ClimateSimulator
                 latitudeEffect = Math.Max(0.1f, latitudeEffect + rainfallVariation);
 
                 float targetRainfall = (evaporation + orographicEffect) * latitudeEffect;
-                targetRainfall = Math.Clamp(targetRainfall, 0, 1);
+                targetRainfall = Math.Clamp(targetRainfall * rainfallMultiplier, 0, 1);
 
                 // Smooth transition
                 cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.05f;

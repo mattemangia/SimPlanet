@@ -247,6 +247,7 @@ public class WeatherSystem
     {
         // Global wind patterns with Coriolis effect
         // ENHANCED: Now with turbulence and pressure-driven flow to break up banding
+        float windMultiplier = _map.PlanetaryControls?.WindStrengthMultiplier ?? 1f;
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -317,8 +318,8 @@ public class WeatherSystem
                 float coriolisDeflectionY = baseWindX * coriolisStrength;
 
                 // Apply base wind + Coriolis deflection
-                float windX = baseWindX + coriolisDeflectionX;
-                float windY = baseWindY + coriolisDeflectionY;
+                float windX = (baseWindX + coriolisDeflectionX) * windMultiplier;
+                float windY = (baseWindY + coriolisDeflectionY) * windMultiplier;
 
                 // *** ENHANCED: STRONGER PRESSURE GRADIENT WINDS ***
                 // This is the key to creating cellular patterns!
@@ -380,6 +381,10 @@ public class WeatherSystem
 
     private void UpdateAirPressure()
     {
+        float pressureMultiplier = _map.PlanetaryControls?.AtmosphericPressureMultiplier ?? 1f;
+        float basePressure = 1013.25f * pressureMultiplier;
+        float pressureRange = 100f * pressureMultiplier;
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -399,13 +404,13 @@ public class WeatherSystem
                 // Humidity affects pressure
                 float humidityEffect = cell.Humidity * 5;
 
-                met.AirPressure = 1013.25f + tempEffect + elevationEffect - humidityEffect;
+                met.AirPressure = basePressure + tempEffect + elevationEffect - humidityEffect;
 
                 // Validate pressure (prevent NaN propagation)
                 if (float.IsNaN(met.AirPressure) || float.IsInfinity(met.AirPressure))
                     met.AirPressure = 1013.25f;
 
-                met.AirPressure = Math.Clamp(met.AirPressure, 950, 1050);
+                met.AirPressure = Math.Clamp(met.AirPressure, basePressure - pressureRange, basePressure + pressureRange);
 
                 // Calculate pressure tendency (change rate)
                 met.PressureTendency = met.AirPressure - oldPressure;

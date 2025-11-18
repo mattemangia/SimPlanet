@@ -30,6 +30,7 @@ public class MagnetosphereSimulator
 
         // Initialize based on planet properties
         InitializeMagnetosphere();
+        PersistMagnetosphereState();
     }
 
     private void InitializeMagnetosphere()
@@ -50,6 +51,8 @@ public class MagnetosphereSimulator
 
     public void Update(float deltaTime, int gameYear)
     {
+        ApplyManualOverrides();
+
         // Update core temperature (very slowly cools over time)
         CoreTemperature -= deltaTime * 0.00001f;
 
@@ -81,6 +84,41 @@ public class MagnetosphereSimulator
 
         // Simulate auroras at poles
         SimulateAuroras();
+
+        PersistMagnetosphereState();
+    }
+
+    private void ApplyManualOverrides()
+    {
+        var controls = _map.PlanetaryControls;
+        if (controls == null) return;
+
+        if (controls.ManualCoreTemperature)
+        {
+            CoreTemperature = controls.CoreTemperatureKelvin;
+        }
+
+        if (controls.ManualMagneticField)
+        {
+            MagneticFieldStrength = controls.MagneticFieldStrength;
+            HasDynamo = CoreTemperature >= 3000f && MagneticFieldStrength > 0.05f;
+        }
+    }
+
+    private void PersistMagnetosphereState()
+    {
+        var controls = _map.PlanetaryControls;
+        if (controls == null) return;
+
+        if (!controls.ManualCoreTemperature)
+        {
+            controls.CoreTemperatureKelvin = CoreTemperature;
+        }
+
+        if (!controls.ManualMagneticField)
+        {
+            controls.MagneticFieldStrength = MagneticFieldStrength;
+        }
     }
 
     private void CalculateRadiation(float deltaTime)
