@@ -697,10 +697,10 @@ Civilization (produces more CO2, can adapt to various climates)
 ## Cross-Platform Compatibility
 
 **100% Guaranteed Compatible:**
-- ✅ **Mac M1/M2/M3** (Apple Silicon with Metal translation)
-- ✅ **Mac Intel** (x64 with native OpenGL)
-- ✅ **Linux** (all distributions with OpenGL 2.1+)
-- ✅ **Windows** (7, 8, 10, 11)
+-  **Mac M1/M2/M3** (Apple Silicon with Metal translation)
+-  **Mac Intel** (x64 with native OpenGL)
+-  **Linux** (all distributions with OpenGL 2.1+)
+-  **Windows** (7, 8, 10, 11)
 
 **Technical Specifications:**
 - MonoGame DesktopGL 3.8.1 (OpenGL backend)
@@ -757,24 +757,24 @@ Potential additions (not yet implemented):
 ### Latest Update - Critical Greenhouse Effect Bug Fix
 
 **CRITICAL BUG FIX - Runaway Temperature at Poles:**
-- ✅ **Fixed Runaway Greenhouse Effect** - Corrected catastrophic heating bug causing polar temperatures to reach 83°C
-- ✅ **Greenhouse Gas Coefficients Rebalanced** (AtmosphereSimulator.cs):
+-  **Fixed Runaway Greenhouse Effect** - Corrected catastrophic heating bug causing polar temperatures to reach 83°C
+-  **Greenhouse Gas Coefficients Rebalanced** (AtmosphereSimulator.cs):
   - Methane coefficient: 0.56 → 0.006 (~93x reduction)
   - N2O coefficient: 5.3 → 0.01 (~530x reduction)
   - Previous values were massively overpowered due to unit scaling error (ppb vs ppm)
-- ✅ **Water Vapor Feedback Capped** (AtmosphereSimulator.cs):
+-  **Water Vapor Feedback Capped** (AtmosphereSimulator.cs):
   - Temperature feedback factor: 0.01 → 0.005 (50% reduction)
   - Added maximum cap of 0.5 on temperature amplification
   - Added hard cap of 0.3 on total water vapor greenhouse effect
   - Prevents positive feedback loops from creating runaway heating
-- ✅ **Enhanced Planet Stabilizer** (PlanetStabilizer.cs):
+-  **Enhanced Planet Stabilizer** (PlanetStabilizer.cs):
   - Now controls methane and N2O in addition to CO2
   - Intervention threshold: 10°C → 5°C above target temperature
   - Solar energy reduction threshold: 40°C → 25°C average temperature
   - CO2 reduction rate: 0.05 → 0.1 per stabilization cycle
   - Solar energy reduction: 0.01 → 0.02 per stabilization cycle
   - Prioritizes removing most potent gases first (N2O → Methane → CO2)
-- ✅ **Emergency Temperature Clamping** (PlanetStabilizer.cs):
+-  **Emergency Temperature Clamping** (PlanetStabilizer.cs):
   - Added automatic temperature limits by latitude:
     - Polar regions (>70° latitude): Maximum 10°C
     - Mid-latitudes (40-70° latitude): Maximum 30°C
@@ -798,35 +798,35 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
 ### Previous Update - Interactive Toolbar, Splash Screen & Planetary Controls
 
 **NEW - Comprehensive Interactive Toolbar:**
-- ✅ **Clickable Buttons for All Functions** - No need to remember keybindings!
-- ✅ **50+ Toolbar Buttons** - Access all 22 view modes, game controls, UI toggles, and features
-- ✅ **Custom Runtime-Generated Icons** - Each button has a unique, hand-crafted icon drawn procedurally
-- ✅ **Tooltips on Hover** - See what each button does and its keyboard shortcut
-- ✅ **Smart Organization** - Buttons grouped by category with visual spacing (Terrain, Weather, Hazards, etc.)
-- ✅ **Top-Screen Positioning** - Toolbar positioned at top, all panels adjusted to render below it
-- ✅ **Small Squared Buttons** - Compact 28x28px buttons with 2px spacing for maximum screen space
-- ✅ **Visual Feedback** - Buttons highlight on hover with white border
-- ✅ **Keyboard Shortcuts Preserved** - All existing keybindings work alongside toolbar buttons
+-  **Clickable Buttons for All Functions** - No need to remember keybindings!
+-  **50+ Toolbar Buttons** - Access all 22 view modes, game controls, UI toggles, and features
+-  **Custom Runtime-Generated Icons** - Each button has a unique, hand-crafted icon drawn procedurally
+-  **Tooltips on Hover** - See what each button does and its keyboard shortcut
+-  **Smart Organization** - Buttons grouped by category with visual spacing (Terrain, Weather, Hazards, etc.)
+-  **Top-Screen Positioning** - Toolbar positioned at top, all panels adjusted to render below it
+-  **Small Squared Buttons** - Compact 28x28px buttons with 2px spacing for maximum screen space
+-  **Visual Feedback** - Buttons highlight on hover with white border
+-  **Keyboard Shortcuts Preserved** - All existing keybindings work alongside toolbar buttons
 
 **NEW - Beautiful Splash Screen:**
-- ✅ **Animated Intro** - Displays game logo with fade-in/fade-out effects before game starts
-- ✅ **Cross-Platform** - Uses MonoGame for Mac, Linux, and Windows compatibility
-- ✅ **Professional Presentation** - Borderless centered window with 3-second display duration
-- ✅ **Smooth Animations** - 300ms fade in, 2.4s display, 300ms fade out
-- ✅ **Menu Backgrounds** - Splash image used as subtle 15% opacity background in all menus
+-  **Animated Intro** - Displays game logo with fade-in/fade-out effects before game starts
+-  **Cross-Platform** - Uses MonoGame for Mac, Linux, and Windows compatibility
+-  **Professional Presentation** - Borderless centered window with 3-second display duration
+-  **Smooth Animations** - 300ms fade in, 2.4s display, 300ms fade out
+-  **Menu Backgrounds** - Splash image used as subtle 15% opacity background in all menus
 
 **NEW - Planetary Controls UI (SimEarth-Style - Press X):**
-- ✅ **Complete Manual Control** - Adjust every planetary parameter in real-time just like SimEarth
-- ✅ **15 Control Sliders** - Full control over climate, atmosphere, geology, surface, and magnetosphere
-- ✅ **Climate Control**: Solar energy (0.5x-1.5x), temperature offset (-20°C to +20°C)
-- ✅ **Atmosphere Control**: Rainfall (0.1x-3.0x), wind speed (0.1x-3.0x), oxygen (0-50%), CO2 (0-10%), pressure (500-1500 mb)
-- ✅ **Geological Control**: Tectonic activity (0.1x-3.0x), volcanic activity (0.1x-3.0x), erosion rate (0.1x-3.0x)
-- ✅ **Surface Control**: Ice coverage (0-100%), ocean level (-1.0 to +1.0), albedo/reflectivity (0.1-0.9)
-- ✅ **Magnetosphere Control**: Magnetic field strength (0.0-2.0), core temperature (1000-8000K)
-- ✅ **AI Stabilizer Integration** - Restore planet to Earth-like conditions or destabilize for chaos
-- ✅ **Manual Terraforming Brush** - Paint tiles directly: Forest, Grassland, Desert, Tundra, Ocean, Mountain, Faults, Civilization
-- ✅ **Real-Time Updates** - All parameter changes apply immediately to the running simulation
-- ✅ **Professional UI** - Organized sliders with clear labels, value indicators, and responsive controls
+-  **Complete Manual Control** - Adjust every planetary parameter in real-time just like SimEarth
+-  **15 Control Sliders** - Full control over climate, atmosphere, geology, surface, and magnetosphere
+-  **Climate Control**: Solar energy (0.5x-1.5x), temperature offset (-20°C to +20°C)
+-  **Atmosphere Control**: Rainfall (0.1x-3.0x), wind speed (0.1x-3.0x), oxygen (0-50%), CO2 (0-10%), pressure (500-1500 mb)
+-  **Geological Control**: Tectonic activity (0.1x-3.0x), volcanic activity (0.1x-3.0x), erosion rate (0.1x-3.0x)
+-  **Surface Control**: Ice coverage (0-100%), ocean level (-1.0 to +1.0), albedo/reflectivity (0.1-0.9)
+-  **Magnetosphere Control**: Magnetic field strength (0.0-2.0), core temperature (1000-8000K)
+-  **AI Stabilizer Integration** - Restore planet to Earth-like conditions or destabilize for chaos
+-  **Manual Terraforming Brush** - Paint tiles directly: Forest, Grassland, Desert, Tundra, Ocean, Mountain, Faults, Civilization
+-  **Real-Time Updates** - All parameter changes apply immediately to the running simulation
+-  **Professional UI** - Organized sliders with clear labels, value indicators, and responsive controls
 
 **UI Architecture Updates:**
 - **ToolbarUI.cs** (NEW) - Complete toolbar system with button infrastructure and icon generation
@@ -849,59 +849,59 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
 ### Previous Update - Government Systems, Diplomacy & Divine Powers
 
 **NEW - Complete Government System:**
-- ✅ **9 Government Types** - Tribal, Monarchy, Dynasty, Theocracy, Republic, Democracy, Oligarchy, Dictatorship, Federation
-- ✅ **Hereditary Succession** - Monarchies and dynasties pass power through family lines
-- ✅ **Dynasty System** - Royal families with randomly generated names (House of Dragon, Dynasty of Phoenix, Line of Lion, etc.)
-- ✅ **Ruler Traits** - Each ruler has Wisdom, Charisma, Ambition, Brutality, and Piety affecting performance
-- ✅ **Succession Crises** - Dynasties can fall when no heirs exist, triggering new dynasties or government changes
-- ✅ **Elected Leaders** - Democracies and Republics hold elections when rulers die
-- ✅ **Government Evolution** - Civilizations advance from Tribal → Monarchy → Republic/Democracy based on tech level
-- ✅ **Stability & Legitimacy** - Governments can collapse from low stability, causing revolutions
-- ✅ **Corruption System** - Government corruption affects civilization performance
+-  **9 Government Types** - Tribal, Monarchy, Dynasty, Theocracy, Republic, Democracy, Oligarchy, Dictatorship, Federation
+-  **Hereditary Succession** - Monarchies and dynasties pass power through family lines
+-  **Dynasty System** - Royal families with randomly generated names (House of Dragon, Dynasty of Phoenix, Line of Lion, etc.)
+-  **Ruler Traits** - Each ruler has Wisdom, Charisma, Ambition, Brutality, and Piety affecting performance
+-  **Succession Crises** - Dynasties can fall when no heirs exist, triggering new dynasties or government changes
+-  **Elected Leaders** - Democracies and Republics hold elections when rulers die
+-  **Government Evolution** - Civilizations advance from Tribal → Monarchy → Republic/Democracy based on tech level
+-  **Stability & Legitimacy** - Governments can collapse from low stability, causing revolutions
+-  **Corruption System** - Government corruption affects civilization performance
 
 **NEW - Diplomatic Relations:**
-- ✅ **Treaty System** - 9 treaty types: Trade Pacts, Defense Pacts, Military Alliances, Non-Aggression, Royal Marriage, Vassalage, Tribute, Cultural Exchange, Climate Agreements
-- ✅ **Opinion System** - Civilizations track -100 to +100 opinion scores affecting relations
-- ✅ **Trust Levels** - Trust builds over time, shattered by treaty violations
-- ✅ **Royal Marriages** - Political marriages between rulers create lasting alliances and produce heirs
-- ✅ **Diplomatic Status** - War, Hostile, Neutral, Friendly, Allied relationships
-- ✅ **Treaty Breaking** - Breaking treaties causes major diplomatic incidents and trust loss
-- ✅ **Automatic Diplomacy** - Civilizations autonomously propose treaties and form alliances
+-  **Treaty System** - 9 treaty types: Trade Pacts, Defense Pacts, Military Alliances, Non-Aggression, Royal Marriage, Vassalage, Tribute, Cultural Exchange, Climate Agreements
+-  **Opinion System** - Civilizations track -100 to +100 opinion scores affecting relations
+-  **Trust Levels** - Trust builds over time, shattered by treaty violations
+-  **Royal Marriages** - Political marriages between rulers create lasting alliances and produce heirs
+-  **Diplomatic Status** - War, Hostile, Neutral, Friendly, Allied relationships
+-  **Treaty Breaking** - Breaking treaties causes major diplomatic incidents and trust loss
+-  **Automatic Diplomacy** - Civilizations autonomously propose treaties and form alliances
 
 **NEW - Divine Powers (God Mode - Press I):**
-- ✅ **Complete Player Control** - Interfere with civilizations as an omnipotent god
-- ✅ **Change Government** - Overthrow governments and install new systems (triggers revolution, 10% population loss)
-- ✅ **Espionage System** - Send spies on missions:
+-  **Complete Player Control** - Interfere with civilizations as an omnipotent god
+-  **Change Government** - Overthrow governments and install new systems (triggers revolution, 10% population loss)
+-  **Espionage System** - Send spies on missions:
   - Steal Technology: Bridge tech gaps between civilizations
   - Sabotage: Destroy 50% of resources
   - Assassinate Ruler: Kill leaders and destabilize governments (-40% stability)
   - Incite Revolution: Reduce stability and legitimacy
   - Steal Resources: Transfer 30% of resources between civilizations
   - Success rates based on tech level differences
-- ✅ **Force Betrayal** - Make civilizations break all treaties and declare war
-- ✅ **Bless/Curse Civilizations**:
+-  **Force Betrayal** - Make civilizations break all treaties and declare war
+-  **Bless/Curse Civilizations**:
   - Blessing: +20% population, +50% resources, +30% stability
   - Curse: -30% population, -50% resources, -50% stability
-- ✅ **Advance Civilization** - Boost single civilization progress (+10 tech, +10% population, +30% resources, +20% stability)
-- ✅ **Force Diplomatic Actions** - Force alliances or wars regardless of relations
-- ✅ **Divine Powers UI** - Full menu system for selecting civilizations and actions
+-  **Advance Civilization** - Boost single civilization progress (+10 tech, +10% population, +30% resources, +20% stability)
+-  **Force Diplomatic Actions** - Force alliances or wars regardless of relations
+-  **Divine Powers UI** - Full menu system for selecting civilizations and actions
 
 **NEW - Enhanced Weather Visualization:**
-- ✅ **Animated Clouds on 3D Minimap** - Semi-transparent cloud layer drifting with wind
-- ✅ **Cyclone Vortices** - Real-time visualization of tropical cyclones:
+-  **Animated Clouds on 3D Minimap** - Semi-transparent cloud layer drifting with wind
+-  **Cyclone Vortices** - Real-time visualization of tropical cyclones:
   - Spiral vortex arms showing rotation (counterclockwise NH, clockwise SH)
   - Storm eye visible for Category 3+ hurricanes
   - Color-coded intensity (blue→yellow→orange→red)
   - Synchronized between 3D minimap and 2D weather maps
-- ✅ **2D Map Weather Display** - Cyclones visible on Clouds, Storms, Wind, and Pressure views
+-  **2D Map Weather Display** - Cyclones visible on Clouds, Storms, Wind, and Pressure views
 
 **NEW - Cyclone Climate Impact:**
-- ✅ **Sea Surface Cooling** - Cyclones cool ocean temperature up to 2°C
-- ✅ **Evaporative Cooling** - Heavy rainfall reduces air temperature
-- ✅ **Ocean Current Disruption** - Cyclones create circular current patterns
-- ✅ **Upwelling Effects** - Cold water brought to surface in cyclone wake
-- ✅ **Enhanced Civilization Damage** - Casualties calculated based on storm category (Cat 5 = 10% population loss)
-- ✅ **Political Instability** - Major cyclones reduce government stability
+-  **Sea Surface Cooling** - Cyclones cool ocean temperature up to 2°C
+-  **Evaporative Cooling** - Heavy rainfall reduces air temperature
+-  **Ocean Current Disruption** - Cyclones create circular current patterns
+-  **Upwelling Effects** - Cold water brought to surface in cyclone wake
+-  **Enhanced Civilization Damage** - Casualties calculated based on storm category (Cat 5 = 10% population loss)
+-  **Political Instability** - Major cyclones reduce government stability
 
 **Game Architecture Updates:**
 - **Government.cs** - Complete government, ruler, and dynasty system
@@ -921,13 +921,13 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
 ### Previous Update - Realistic Tropical Cyclones with Coriolis-Based Trajectories
 
 **NEW - Advanced Cyclone System:**
-- ✅ **Tropical Cyclone Formation** - Realistic conditions required:
+-  **Tropical Cyclone Formation** - Realistic conditions required:
   - Warm ocean temperature (>26°C sea surface temperature)
   - High cloud cover and humidity (>70%)
   - Low atmospheric pressure (<1005 mb)
   - Wind convergence (winds flowing together)
   - Distance from equator (5-30° latitude for Coriolis effect)
-- ✅ **Storm Categories** - Saffir-Simpson scale progression:
+-  **Storm Categories** - Saffir-Simpson scale progression:
   - Tropical Depression: Winds <39 mph (organized convection)
   - Tropical Storm: Winds 39-73 mph
   - Hurricane Category 1: Winds 74-95 mph
@@ -935,24 +935,24 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
   - Hurricane Category 3: Winds 111-129 mph (Major Hurricane)
   - Hurricane Category 4: Winds 130-156 mph (Major Hurricane)
   - Hurricane Category 5: Winds 157+ mph (Catastrophic)
-- ✅ **Realistic Storm Behavior**:
+-  **Realistic Storm Behavior**:
   - Intensify over warm water (heat engine powered by ocean)
   - Weaken rapidly over land (friction + no moisture source)
   - Weaken slowly over cool water (<26°C)
   - Track central pressure (lower = stronger storm)
   - Monitor max wind speeds in m/s
-- ✅ **Coriolis-Based Movement**:
+-  **Coriolis-Based Movement**:
   - Storms curve right in Northern Hemisphere
   - Storms curve left in Southern Hemisphere
   - Poleward and westward drift in tropics
   - Realistic cyclone trajectories matching real weather patterns
-- ✅ **Cyclonic Wind Patterns**:
+-  **Cyclonic Wind Patterns**:
   - Spiral winds rotating around center (counterclockwise NH, clockwise SH)
   - Eye wall with strongest winds
   - Calm eye at storm center
   - Inward spiraling airflow
   - Visible on wind view mode (F2)
-- ✅ **Storm Impacts**:
+-  **Storm Impacts**:
   - Heavy rainfall and flooding (strongest in eye wall)
   - Storm surge damage on coastlines
   - Biomass destruction from high winds
@@ -971,67 +971,67 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
 ### Latest Update - Intelligent City Placement, Road Networks & Advanced Terraforming
 
 **NEW - Strategic City Placement AI:**
-- ✅ **Smart Location Selection** - Cities placed based on three key factors:
+-  **Smart Location Selection** - Cities placed based on three key factors:
   - **Resource Score (40%)**: Scans 10-cell radius for mines, resources, and forests
   - **Defense Score (30%)**: Evaluates high ground, nearby mountains, peninsula locations
   - **Commerce Score (30%)**: Coastal access and river proximity for trade routes
   - Cities store full strategic data: ResourceScore, DefenseScore, CommerceScore
   - Location flags: NearRiver, Coastal, OnHighGround, NearbyResources list
-- ✅ **Intelligent Growth** - Civilizations expand strategically, not randomly
+-  **Intelligent Growth** - Civilizations expand strategically, not randomly
   - Cities spaced minimum 10 cells apart to prevent clustering
   - Top 5 candidates selected for variety while maintaining strategy
   - Replaces random placement with calculated optimal locations
 
 **NEW - Road Infrastructure System:**
-- ✅ **Road Network** - Cities and resources automatically connected
+-  **Road Network** - Cities and resources automatically connected
   - Roads link nearest cities together (within 50 cells)
   - Roads connect cities to nearby mines and resource sites (within 20 cells)
   - Bresenham line algorithm for efficient pathfinding
-- ✅ **Technology-Based Upgrades** - Road quality improves with civilization advancement
+-  **Technology-Based Upgrades** - Road quality improves with civilization advancement
   - Tech 5 (Land Transport): Dirt paths and basic trails
   - Tech 10 (Agricultural+): Paved roads
   - Tech 20 (Industrial+): Modern highways
-- ✅ **Mountain Tunnels** - Advanced civilizations tunnel through high mountains
+-  **Mountain Tunnels** - Advanced civilizations tunnel through high mountains
   - Tech 10+: Automatic tunnel construction on mountains (elevation > 0.7)
   - Tunnels protected from rockfall disasters
-- ✅ **Rockfall Hazards** - Mountain roads face natural disasters
+-  **Rockfall Hazards** - Mountain roads face natural disasters
   - Steep slope roads (elevation 0.5-0.7) marked as high rockfall risk
   - Random rockfall events damage/destroy roads
   - 3x higher chance during heavy rainfall
   - Roads can downgrade: Highway → Road → Dirt Path → Destroyed
-- ✅ **Albedo Effects** - Roads affect solar reflection and local climate
+-  **Albedo Effects** - Roads affect solar reflection and local climate
   - Highways: 0.08 albedo (dark asphalt absorbs heat)
   - Paved roads: 0.10 albedo
   - Dirt paths: 0.18 albedo (lighter surface)
-- ✅ **Infrastructure Data** - Roads tracked in multiple ways
+-  **Infrastructure Data** - Roads tracked in multiple ways
   - Civilization.Roads HashSet stores all road cells
   - Terrain cells marked with HasRoad, RoadType, RoadBuiltYear, HasTunnel, RockfallRisk
   - Roads visible on map and contribute to civilization connectivity
 
 **NEW - Energy Infrastructure System:**
-- ✅ **Nuclear Power Plants** - High-risk, high-reward energy production
+-  **Nuclear Power Plants** - High-risk, high-reward energy production
   - Tech 60 (Scientific): Nuclear plants built near major cities
   - Requires uranium resource availability
   - 1-3 plants per civilization based on uranium stockpile
   - Meltdown risk increases with plant age, earthquakes, war, and poor maintenance
   - Automatic meltdown checks can trigger nuclear accidents
   - Emit low-level radiation (increases with meltdown risk)
-- ✅ **Wind Turbines** - Clean energy for late-industrial civilizations
+-  **Wind Turbines** - Clean energy for late-industrial civilizations
   - Tech 45: Wind farms on high ground (elevation 0.3-0.7)
   - Built in windy locations for maximum efficiency
   - 5 turbines per city on average
   - No environmental hazards
-- ✅ **Solar Farms** - Advanced clean energy technology
+-  **Solar Farms** - Advanced clean energy technology
   - Tech 80 (Advanced Scientific): Large-scale solar installations
   - Prefer flat, sunny terrain (deserts ideal)
   - 3 farms per city on average
   - Albedo 0.10 (dark panels absorb sunlight for energy conversion)
   - Affect local climate through heat absorption
-- ✅ **Natural Radioactivity** - Uranium deposits emit radiation
+-  **Natural Radioactivity** - Uranium deposits emit radiation
   - Uranium-rich areas show elevated radiation levels (0.5-2.0 based on concentration)
   - Natural background radiation visible in Radiation view (F12)
   - Nuclear plants add 0.5+ radiation to surrounding area
-- ✅ **Infrastructure View (O key)** - Dedicated visualization of all civilization infrastructure
+-  **Infrastructure View (O key)** - Dedicated visualization of all civilization infrastructure
   - Nuclear plants: Purple (safe) → Orange (warning) → Red (dangerous) based on meltdown risk
   - Solar farms: Gold/yellow (solar panels)
   - Wind turbines: Light blue (wind energy)
@@ -1040,23 +1040,23 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
   - Civilization territory: Base gray color
 
 **NEW - Civilization-Induced Earthquakes:**
-- ✅ **Industrial Seismicity** - Human activities trigger earthquakes
+-  **Industrial Seismicity** - Human activities trigger earthquakes
   - **Oil & Gas Extraction**: Increases seismic stress at extraction sites
   - **Fracking Operations** (Industrial+ civs): Higher earthquake probability
   - **Geothermal Energy** (Scientific+ civs): Tremors in volcanic areas
-- ✅ **Smaller Magnitudes** - Induced quakes are M2.0-5.0 (weaker than natural)
-- ✅ **Integrated System** - Works with existing EarthquakeSystem
+-  **Smaller Magnitudes** - Induced quakes are M2.0-5.0 (weaker than natural)
+-  **Integrated System** - Works with existing EarthquakeSystem
   - Tracked per cell with InducedSeismicity flag
   - Active during resource extraction at mines
   - Chance-based triggering (0.1% per update at active sites)
 
 **NEW - Resource Placement Tool:**
-- ✅ **Manual Resource Placement** - Place natural resources anywhere on map
+-  **Manual Resource Placement** - Place natural resources anywhere on map
   - **10 Resource Types**: Iron, Copper, Coal, Gold, Silver, Oil, Natural Gas, Uranium, Platinum, Diamond
   - **Adjustable Amounts**: 5-100 units via scroll wheel
   - **Auto-Discovery**: Resources automatically discovered when manually placed
   - **Click to Place**: Simple mouse interface
-- ✅ **Tool Controls** (Press M to activate):
+-  **Tool Controls** (Press M to activate):
   - **M**: Toggle resource placement tool on/off
   - **R**: Cycle through resource types
   - **Scroll Wheel**: Adjust deposit amount (±5 units)
@@ -1064,12 +1064,12 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
   - **UI Panel**: Shows current type, amount, and available resources
 
 **NEW - Enhanced Terraforming - Fault Creation:**
-- ✅ **Manual Fault Lines** - Create earthquake faults anywhere (existing tool T key)
+-  **Manual Fault Lines** - Create earthquake faults anywhere (existing tool T key)
   - **5 Fault Types**: Strike-Slip, Normal, Reverse, Thrust, Oblique
   - Automatically sets seismic stress (0.3-0.7) for realistic activity
   - Sets fault activity level (0.5-1.0)
   - Configures matching plate boundary types
-- ✅ **Expanded Planting Tool** - Now includes Fault option
+-  **Expanded Planting Tool** - Now includes Fault option
   - Cycle through: Forest → Grass → Desert → Tundra → Ocean → Mountain → **Fault** → Civilization
   - Faults integrate with existing earthquake and tsunami systems
   - Create custom seismic zones and test disaster scenarios
@@ -1081,51 +1081,51 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
 ### Previous Update - Comprehensive Geological Hazard System
 
 **NEW - Earthquake System (FIXED - Realistic Distribution):**
-- ✅ **Gutenberg-Richter Law** - Realistic earthquake frequency distribution:
+-  **Gutenberg-Richter Law** - Realistic earthquake frequency distribution:
   - 70% Minor (M2.0-4.0) - Frequent, harmless to life
   - 20% Light-Moderate (M4.0-5.5) - Common, minimal damage
   - 7% Moderate-Strong (M5.5-6.5) - Occasional, some damage
   - 2.5% Major (M6.5-7.5) - Rare, significant damage
   - 0.5% Great (M7.5-9.0) - Very rare, catastrophic
-- ✅ **Concentrated at Plate Boundaries** - 3x more earthquakes at:
+-  **Concentrated at Plate Boundaries** - 3x more earthquakes at:
   - Convergent zones (subduction) - Highest activity
   - Transform faults (strike-slip) - Very high activity
   - Divergent zones (rifts) - Moderate activity
   - Faults: 5% trigger chance (vs 2% elsewhere)
-- ✅ **Magnitude-Based Damage** - Only M6.0+ damages life:
+-  **Magnitude-Based Damage** - Only M6.0+ damages life:
   - M6 = 5% biomass loss, M7 = 10%, M8 = 15%, M9 = 20%
   - Small earthquakes (M2-5.9) are harmless to life
-- ✅ **Earthquake Visualization (E key)** - Monitor seismic activity in real-time
+-  **Earthquake Visualization (E key)** - Monitor seismic activity in real-time
   - Bright red/orange pulses at epicenters (brightness = magnitude)
   - Seismic wave propagation shown as yellow-orange-red gradient
   - Blue-purple stress buildup zones (indicates future earthquake risk)
   - Realistic seismic patterns: many small quakes, few large ones
 
 **NEW - Fault Line System:**
-- ✅ **5 Fault Types** - Realistic geological structures
+-  **5 Fault Types** - Realistic geological structures
   - Strike-Slip (yellow-orange): Horizontal movement like San Andreas
   - Normal (light blue): Extensional rifting zones
   - Reverse (red-pink): Compressional mountain building
   - Thrust (dark red): Major compression zones
   - Oblique (purple): Mixed movement
-- ✅ **Fault Visualization (Q key)** - See all fault lines with activity levels
+-  **Fault Visualization (Q key)** - See all fault lines with activity levels
   - Color-coded by fault type
   - Brightness indicates fault activity (brighter = more active)
   - White highlights = high stress, about to rupture
   - Auto-generated at plate boundaries during world creation
 
 **NEW - Tsunami System:**
-- ✅ **Realistic Tsunami Mechanics** - Triggered by M7.0+ ocean earthquakes
+-  **Realistic Tsunami Mechanics** - Triggered by M7.0+ ocean earthquakes
   - Wave propagation with height and velocity tracking
   - Wave amplification in shallow water (30% increase)
   - Massive amplification when hitting coastlines (2× wave height)
   - Waves up to 30m from M9.0+ mega-thrust earthquakes
-- ✅ **Tsunami Visualization (U key)** - Track deadly ocean waves
+-  **Tsunami Visualization (U key)** - Track deadly ocean waves
   - Light blue → cyan → white gradient (wave height)
   - Coastal flooding shown in muddy brown colors
   - Ocean reference in dark blue
   - Real-time wave propagation visible
-- ✅ **Coastal Impact**:
+-  **Coastal Impact**:
   - Biomass destruction (vegetation washed away)
   - Temporary flooding of low-lying coastal areas
   - Increased sedimentation from erosion
@@ -1133,12 +1133,12 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
   - Future: City and infrastructure damage
 
 **NEW - Enhanced Volcanic System:**
-- ✅ **Hot Spot Volcanoes** - 4-8 mantle plume hotspots per world
+-  **Hot Spot Volcanoes** - 4-8 mantle plume hotspots per world
   - Independent of plate boundaries (Hawaii, Yellowstone, Galápagos style)
   - 70% create volcanic island chains (2-5 volcanoes in line)
   - Higher activity than boundary volcanoes (0.4-0.7 vs 0.3)
   - Simulates plate motion over stationary mantle plumes
-- ✅ **More Volcanoes Overall** - Increased volcanic diversity
+-  **More Volcanoes Overall** - Increased volcanic diversity
   - Hot spots + boundary volcanoes = realistic volcanic distribution
   - Island arc formation in oceanic-oceanic convergence
   - Volcanic mountain chains at subduction zones
@@ -1152,245 +1152,245 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
 ### Previous Update - Albedo & Radiation Visualization + Major Performance Boost
 
 **NEW - Advanced Thematic Views:**
-- ✅ **Albedo Visualization (F11)** - See surface reflectivity that drives ice-albedo feedback
+-  **Albedo Visualization (F11)** - See surface reflectivity that drives ice-albedo feedback
   - Dark surfaces (ocean/forest 6-17%) absorb solar energy and warm up
   - Medium surfaces (desert/grassland 23-35%) moderate reflection
   - Bright surfaces (ice/snow 85%) reflect sunlight and stay cold
   - Visualize the critical feedback loop that can trigger or prevent ice ages
-- ✅ **Radiation Visualization (F12)** - Monitor cosmic ray and solar radiation levels
+-  **Radiation Visualization (F12)** - Monitor cosmic ray and solar radiation levels
   - Green zones: Safe radiation levels (magnetosphere protection working)
   - Yellow/Orange: Elevated radiation (weak magnetic field or high altitude)
   - Red/Purple: Deadly radiation (no magnetosphere or solar storm)
   - Track radiation damage to life and effectiveness of planetary magnetic field
-- ✅ **Reorganized Advanced Views** - Biomes (F10), Albedo (F11), Radiation (F12), Resources (J)
+-  **Reorganized Advanced Views** - Biomes (F10), Albedo (F11), Radiation (F12), Resources (J)
 
 **PERFORMANCE - 5-10x Speed Improvement:**
-- ✅ **Embedded Extension Data** - Eliminated 5 static dictionaries (100,000+ entries)
+-  **Embedded Extension Data** - Eliminated 5 static dictionaries (100,000+ entries)
   - Fixed memory leak when regenerating maps
   - 30-50% performance gain from better cache locality
   - No more dictionary lookup overhead on cell access
-- ✅ **Cached Neighbor Arrays** - Static readonly arrays instead of allocating per call
+-  **Cached Neighbor Arrays** - Static readonly arrays instead of allocating per call
   - Eliminates 160,000+ array allocations per update cycle
   - 20-30% performance gain in simulation systems
-- ✅ **Optimized Global Statistics** - Combined O2, CO2, and temperature into single pass
+-  **Optimized Global Statistics** - Combined O2, CO2, and temperature into single pass
   - Reduced from 3 full-map scans to 1 combined scan
   - Eliminates 57,600+ redundant cell accesses per update
-- ✅ **Increased Map Resolution** - 200×100 → 240×120 cells (20% more detail)
+-  **Increased Map Resolution** - 200×100 → 240×120 cells (20% more detail)
   - Despite 44% more cells, simulation runs faster due to optimizations!
 
 ### Previous Update - Enhanced UI, Ice System Overhaul & Accurate Map Preview
 
 **NEW - Enhanced Sediment Column Viewer:**
-- ✅ **Full-Height Panel** - Uses almost entire screen height (dynamic sizing) instead of fixed 600px
-- ✅ **Mouse Wheel Scrolling** - Scroll through all sediment layers without size limits
-- ✅ **Visual Scrollbar** - Shows scroll position and allows viewing extensive geological histories
-- ✅ **Click-to-Update** - No longer need to close panel to view another tile
-- ✅ **Quick Tile Exploration** - Click any tile on map to instantly update viewer with new location's data
-- ✅ **Shows All Layers** - No longer limited to 18 layers, displays complete stratigraphic column
-- ✅ **Professional Layout** - Fixed 15px layer height for consistency, clear legends
+-  **Full-Height Panel** - Uses almost entire screen height (dynamic sizing) instead of fixed 600px
+-  **Mouse Wheel Scrolling** - Scroll through all sediment layers without size limits
+-  **Visual Scrollbar** - Shows scroll position and allows viewing extensive geological histories
+-  **Click-to-Update** - No longer need to close panel to view another tile
+-  **Quick Tile Exploration** - Click any tile on map to instantly update viewer with new location's data
+-  **Shows All Layers** - No longer limited to 18 layers, displays complete stratigraphic column
+-  **Professional Layout** - Fixed 15px layer height for consistency, clear legends
 
 **FIXED - Ice Formation & Melting System:**
-- ✅ **Land Ice Sheets** - Ice now properly forms on both land (glaciers, ice sheets) and water (sea ice)
-- ✅ **Proper Temperature Thresholds**:
+-  **Land Ice Sheets** - Ice now properly forms on both land (glaciers, ice sheets) and water (sea ice)
+-  **Proper Temperature Thresholds**:
   - Temperature < -10°C: Permanent ice caps (land and water)
   - Temperature -10°C to -2°C: Seasonal sea ice (water only)
   - Temperature >= 0°C: Sea ice melts immediately
   - Temperature > 2°C: Land ice (glaciers) melts
-- ✅ **Desert Formation Fixed** - Hot deserts (>20°C) no longer incorrectly classified as ice
-- ✅ **Realistic Polar Ice** - Proper ice caps on Antarctica-like landmasses and Greenland-like regions
-- ✅ **Mountain Glaciers** - Cold mountain peaks can now have glaciers
-- ✅ **Different Melting Rates** - Sea ice responds quickly, land ice persists longer (realistic behavior)
+-  **Desert Formation Fixed** - Hot deserts (>20°C) no longer incorrectly classified as ice
+-  **Realistic Polar Ice** - Proper ice caps on Antarctica-like landmasses and Greenland-like regions
+-  **Mountain Glaciers** - Cold mountain peaks can now have glaciers
+-  **Different Melting Rates** - Sea ice responds quickly, land ice persists longer (realistic behavior)
 
 **FIXED - Map Preview Accuracy:**
-- ✅ **Preview Matches Generated Terrain** - Preview now shows exactly what will be generated with same seed
-- ✅ **Consistent Noise Sampling** - Fixed constructor parameter passing for reference dimensions
-- ✅ **Half-Resolution Performance** - Preview generates at 120×60 for speed while sampling at full scale
-- ✅ **Reference Dimension Fix** - Pass reference dimensions as constructor params, not in options object
-- ✅ **Same Seed Guarantee** - Preview and final map use identical Perlin noise coordinates
-- ✅ **No More Surprises** - Generated map perfectly matches preview every time
+-  **Preview Matches Generated Terrain** - Preview now shows exactly what will be generated with same seed
+-  **Consistent Noise Sampling** - Fixed constructor parameter passing for reference dimensions
+-  **Half-Resolution Performance** - Preview generates at 120×60 for speed while sampling at full scale
+-  **Reference Dimension Fix** - Pass reference dimensions as constructor params, not in options object
+-  **Same Seed Guarantee** - Preview and final map use identical Perlin noise coordinates
+-  **No More Surprises** - Generated map perfectly matches preview every time
 
 **ENHANCED - Seasonal System:**
-- ✅ **Seasonal Rainfall Variations**:
+-  **Seasonal Rainfall Variations**:
   - Spring: 1.2x rainfall (spring rains)
   - Summer: 1.5x in tropics (monsoons), 0.8x in mid-latitudes (dry)
   - Fall: 1.1x rainfall (moderate rains)
   - Winter: 0.7x in tropics (dry season), 1.3x in mid-latitudes (winter storms)
-- ✅ **Hemisphere-Specific Patterns** - Different seasonal effects in northern vs southern hemispheres
-- ✅ **Dynamic Ice Expansion** - Ice caps grow and shrink with seasonal temperature changes
-- ✅ **Realistic Climate Cycles** - Seasonal rainfall and ice create natural climate variation
+-  **Hemisphere-Specific Patterns** - Different seasonal effects in northern vs southern hemispheres
+-  **Dynamic Ice Expansion** - Ice caps grow and shrink with seasonal temperature changes
+-  **Realistic Climate Cycles** - Seasonal rainfall and ice create natural climate variation
 
 **User Experience Improvements:**
-- ✅ **Better Workflow** - Explore multiple tiles quickly without closing/reopening panels
-- ✅ **Complete Geological Data** - Scroll through unlimited sediment layers
-- ✅ **Accurate Previews** - What you see is what you get in map generation
-- ✅ **Natural Ice Distribution** - Ice forms realistically on land and water
+-  **Better Workflow** - Explore multiple tiles quickly without closing/reopening panels
+-  **Complete Geological Data** - Scroll through unlimited sediment layers
+-  **Accurate Previews** - What you see is what you get in map generation
+-  **Natural Ice Distribution** - Ice forms realistically on land and water
 
 ### Previous Update - Atmospheric Circulation & Weather System Overhaul
 
 **NEW - Wind-Driven Atmospheric Gas Transport:**
-- ✅ **Global CO2 Circulation** - CO2 now spreads globally through wind patterns
-- ✅ **Global O2 Circulation** - Oxygen produced by forests/algae spreads worldwide
-- ✅ **Diffusion Mixing** - 15% gas mixing with neighbors per timestep
-- ✅ **Wind Advection** - Trade winds, westerlies, and polar easterlies transport gases
-- ✅ **Cyanobacteria O2 Production** - Bacteria (cyanobacteria) now produce oxygen and consume CO2
-- ✅ **Realistic Gas Distribution** - No more isolated pockets of high/low gas concentrations
+-  **Global CO2 Circulation** - CO2 now spreads globally through wind patterns
+-  **Global O2 Circulation** - Oxygen produced by forests/algae spreads worldwide
+-  **Diffusion Mixing** - 15% gas mixing with neighbors per timestep
+-  **Wind Advection** - Trade winds, westerlies, and polar easterlies transport gases
+-  **Cyanobacteria O2 Production** - Bacteria (cyanobacteria) now produce oxygen and consume CO2
+-  **Realistic Gas Distribution** - No more isolated pockets of high/low gas concentrations
 
 **NEW - Coriolis Forces Implementation:**
-- ✅ **Latitude-Based Wind Deflection** - Winds deflect right in northern hemisphere, left in southern
-- ✅ **Geostrophic Wind** - Pressure gradient winds affected by Coriolis effect
-- ✅ **Realistic Circulation Cells** - Proper Hadley, Ferrel, and Polar cells
-- ✅ **ITCZ Convergence** - Intertropical Convergence Zone at equator
-- ✅ **Zero at Equator** - No Coriolis deflection at equator, maximum at poles
+-  **Latitude-Based Wind Deflection** - Winds deflect right in northern hemisphere, left in southern
+-  **Geostrophic Wind** - Pressure gradient winds affected by Coriolis effect
+-  **Realistic Circulation Cells** - Proper Hadley, Ferrel, and Polar cells
+-  **ITCZ Convergence** - Intertropical Convergence Zone at equator
+-  **Zero at Equator** - No Coriolis deflection at equator, maximum at poles
 
 **FIXED - Thematic Map Color Accuracy:**
-- ✅ **Wind View** - Now properly shows calm (green) to extreme (red) based on actual wind speed (0-15 range)
-- ✅ **Pressure View** - Fixed units (millibars 950-1050), shows blue (low) to red (high)
-- ✅ **Storm View** - Clear gradient from light blue (clear) to purple (severe storms)
-- ✅ **Cloud View** - Pure white clouds, satellite imagery style with terrain underneath
-- ✅ **CO2 View** - Fixed color gradient to match legend (blue to yellow)
-- ✅ **All Colors Match Legends** - Every thematic view now accurately represents data
+-  **Wind View** - Now properly shows calm (green) to extreme (red) based on actual wind speed (0-15 range)
+-  **Pressure View** - Fixed units (millibars 950-1050), shows blue (low) to red (high)
+-  **Storm View** - Clear gradient from light blue (clear) to purple (severe storms)
+-  **Cloud View** - Pure white clouds, satellite imagery style with terrain underneath
+-  **CO2 View** - Fixed color gradient to match legend (blue to yellow)
+-  **All Colors Match Legends** - Every thematic view now accurately represents data
 
 **FIXED - Day/Night Cycle Behavior:**
-- ✅ **Auto-Enable at Slow Speed** - Day/night cycle shows when speed ≤ 0.5x
-- ✅ **Auto-Disable at Fast Speed** - Day/night cycle hides when speed > 1.0x
-- ✅ **Manual Toggle** - Press C to manually toggle at any speed
+-  **Auto-Enable at Slow Speed** - Day/night cycle shows when speed ≤ 0.5x
+-  **Auto-Disable at Fast Speed** - Day/night cycle hides when speed > 1.0x
+-  **Manual Toggle** - Press C to manually toggle at any speed
 
 **UI Improvements:**
-- ✅ **Compact Info Panel** - Reduced from 400px to 280px width for more map space
-- ✅ **Better Screen Layout** - 120 extra pixels for map rendering
+-  **Compact Info Panel** - Reduced from 400px to 280px width for more map space
+-  **Better Screen Layout** - 120 extra pixels for map rendering
 
 ### Previous Update - Enhanced Sedimentary System & Coordinate Fixes
 
 **NEW - Comprehensive Sedimentary Environments:**
-- ✅ **Delta Systems** - River sediment deposition at coastal areas with high rainfall (silt, sand, clay, organic marsh deposits)
-- ✅ **Carbonate Platforms** - Shallow warm-water limestone reefs and platforms properly marked and modeled
-- ✅ **Desert Environments** - Aeolian (wind-blown) sediments including dune sand, loess, and desert pavement
-- ✅ **Fluvial Systems** - River channel deposits, floodplains, and backswamp sediments
-- ✅ **Coastal Zones** - Beach sand, gravel, and tidal flat sediments
-- ✅ **Glacial Environments** - Glacial till, glacial flour, and glacial lake deposits in cold mountain regions
-- ✅ **Deep Ocean** - Pelagic ooze (clay and limestone), organic ooze
-- ✅ **Volcanic Areas** - Volcanic ash layers in mountain regions and from eruptions
-- ✅ **All Terrain Types** - Every cell now has 5-15 initial sediment layers based on environment
-- ✅ **Failsafe System** - Ensures no cell is left without sediment layers
+-  **Delta Systems** - River sediment deposition at coastal areas with high rainfall (silt, sand, clay, organic marsh deposits)
+-  **Carbonate Platforms** - Shallow warm-water limestone reefs and platforms properly marked and modeled
+-  **Desert Environments** - Aeolian (wind-blown) sediments including dune sand, loess, and desert pavement
+-  **Fluvial Systems** - River channel deposits, floodplains, and backswamp sediments
+-  **Coastal Zones** - Beach sand, gravel, and tidal flat sediments
+-  **Glacial Environments** - Glacial till, glacial flour, and glacial lake deposits in cold mountain regions
+-  **Deep Ocean** - Pelagic ooze (clay and limestone), organic ooze
+-  **Volcanic Areas** - Volcanic ash layers in mountain regions and from eruptions
+-  **All Terrain Types** - Every cell now has 5-15 initial sediment layers based on environment
+-  **Failsafe System** - Ensures no cell is left without sediment layers
 
 **FIXED - Coordinate Conversion Bug:**
-- ✅ **Accurate Tile Selection** - Fixed bug where clicking on land showed ocean data
-- ✅ **Proper Map Bounds** - Info panels no longer open when clicking outside map area
-- ✅ **All UI Components** - Fixed coordinate conversion in sediment viewer, disaster control, and planting tool
-- ✅ **Map Offset Handling** - Properly accounts for 400px info panel and map centering
+-  **Accurate Tile Selection** - Fixed bug where clicking on land showed ocean data
+-  **Proper Map Bounds** - Info panels no longer open when clicking outside map area
+-  **All UI Components** - Fixed coordinate conversion in sediment viewer, disaster control, and planting tool
+-  **Map Offset Handling** - Properly accounts for 400px info panel and map centering
 
 **Previous Update - Legends & Parameter Indicators**
 
 **NEW - Color Legends for All View Modes:**
-- ✅ **Auto-Generated Legends** - Each view mode now displays a color legend (Temperature, Rainfall, Life, etc.)
-- ✅ **Color Gradients** - Visual color gradient bar shows the full range of values
-- ✅ **Clear Labels** - Min/max values or category names displayed for each mode
-- ✅ **Smart Positioning** - Legend appears in bottom-right corner, doesn't obstruct gameplay
-- ✅ **14+ View Modes Supported** - Legends for all visualization modes except Terrain
+-  **Auto-Generated Legends** - Each view mode now displays a color legend (Temperature, Rainfall, Life, etc.)
+-  **Color Gradients** - Visual color gradient bar shows the full range of values
+-  **Clear Labels** - Min/max values or category names displayed for each mode
+-  **Smart Positioning** - Legend appears in bottom-right corner, doesn't obstruct gameplay
+-  **14+ View Modes Supported** - Legends for all visualization modes except Terrain
 
 **Enhanced Parameter Indicators:**
-- ✅ **Zoom Level Display** - Current zoom level (0.5x-4.0x) shown in info panel
-- ✅ **Active Overlays** - Shows which overlays are enabled (Volcanoes, Rivers, Plates)
-- ✅ **View Mode** - Current visualization mode clearly displayed
-- ✅ **Time Speed** - Simulation speed indicator with pause status
-- ✅ **Complete Visibility** - All interactive parameters now have visual indicators
+-  **Zoom Level Display** - Current zoom level (0.5x-4.0x) shown in info panel
+-  **Active Overlays** - Shows which overlays are enabled (Volcanoes, Rivers, Plates)
+-  **View Mode** - Current visualization mode clearly displayed
+-  **Time Speed** - Simulation speed indicator with pause status
+-  **Complete Visibility** - All interactive parameters now have visual indicators
 
 **UI Layout Improvements:**
-- ✅ **Clean Layout** - Removed redundant overlay legend (status now in info panel)
-- ✅ **No Overlapping** - All UI elements positioned to avoid covering each other
-- ✅ **Dynamic Positioning** - Minimap and legend scale with window size
-- ✅ **Updated Help Menu** - All current commands documented (H key to view)
-- ✅ **Better Organization** - Legend in bottom-right, minimap in bottom-left
+-  **Clean Layout** - Removed redundant overlay legend (status now in info panel)
+-  **No Overlapping** - All UI elements positioned to avoid covering each other
+-  **Dynamic Positioning** - Minimap and legend scale with window size
+-  **Updated Help Menu** - All current commands documented (H key to view)
+-  **Better Organization** - Legend in bottom-right, minimap in bottom-left
 
 **Previous Update - Click Detection & Map Editor Fixes**
 
 **Click vs Drag Detection:**
-- ✅ **FIXED: Tile Info Panel** - Clicking and dragging the map no longer opens the tile info panel
-- ✅ **FIXED: Disaster Placement** - Dragging the map while placing disasters no longer triggers placement
-- ✅ **Smart Click Detection** - Panels only open on actual clicks (< 5 pixel movement threshold)
-- ✅ **Better Map Navigation** - Pan freely without accidentally opening info panels
+-  **FIXED: Tile Info Panel** - Clicking and dragging the map no longer opens the tile info panel
+-  **FIXED: Disaster Placement** - Dragging the map while placing disasters no longer triggers placement
+-  **Smart Click Detection** - Panels only open on actual clicks (< 5 pixel movement threshold)
+-  **Better Map Navigation** - Pan freely without accidentally opening info panels
 
 **Map Editor & Generation Fixes:**
-- ✅ **FIXED: Seed Preservation** - Generate button now uses your configured seed instead of randomizing
-- ✅ **FIXED: Preview Accuracy** - Preview now uses proportional dimensions to match actual map generation
-- ✅ **FIXED: Map Dimensions** - Generated map uses dimensions from editor settings instead of old map size
-- ✅ **Seamless Wrapping** - Map already has perfect cylindrical continuity (no stitching artifacts)
+-  **FIXED: Seed Preservation** - Generate button now uses your configured seed instead of randomizing
+-  **FIXED: Preview Accuracy** - Preview now uses proportional dimensions to match actual map generation
+-  **FIXED: Map Dimensions** - Generated map uses dimensions from editor settings instead of old map size
+-  **Seamless Wrapping** - Map already has perfect cylindrical continuity (no stitching artifacts)
 
 **Previous Update - Map Controls, Climate Balance & Ice Sheet Sea Level Mechanics**
 
 **Map Controls:**
-- ✅ **FIXED: Mouse Wheel Zoom** - Mouse wheel now properly zooms in/out (was broken due to input handling order)
-- ✅ **FIXED: Left Click Panning** - Added left mouse button drag to pan the map (more intuitive)
-- ✅ **FIXED: Middle Click Panning** - Middle mouse button panning now works correctly
-- ✅ **Input Processing Fix** - Mouse input now processes every frame, not just on keyboard changes
+-  **FIXED: Mouse Wheel Zoom** - Mouse wheel now properly zooms in/out (was broken due to input handling order)
+-  **FIXED: Left Click Panning** - Added left mouse button drag to pan the map (more intuitive)
+-  **FIXED: Middle Click Panning** - Middle mouse button panning now works correctly
+-  **Input Processing Fix** - Mouse input now processes every frame, not just on keyboard changes
 
 **Climate Balance & Autobalancer:**
-- ✅ **Autobalancer ON by Default** - Prevents runaway ice ages, desert worlds, and vegetation collapse
-- ✅ **Climate Stabilization** - Maintains habitable conditions automatically (can be toggled with Y key)
-- ✅ **Ice Age Prevention** - Stops ice sheets from growing uncontrollably and killing all vegetation
-- ✅ **Desert Prevention** - Balances temperature and precipitation to support diverse ecosystems
+-  **Autobalancer ON by Default** - Prevents runaway ice ages, desert worlds, and vegetation collapse
+-  **Climate Stabilization** - Maintains habitable conditions automatically (can be toggled with Y key)
+-  **Ice Age Prevention** - Stops ice sheets from growing uncontrollably and killing all vegetation
+-  **Desert Prevention** - Balances temperature and precipitation to support diverse ecosystems
 
 **Ice Sheet Sea Level Mechanics - NEW!**
-- ✅ **Realistic Water Cycle** - Ice sheets now affect global sea level
-- ✅ **Ice Formation Lowers Sea Level** - Water locked in glaciers on land reduces ocean volume
-- ✅ **Ice Melting Raises Sea Level** - Meltwater returns to oceans, flooding coastlines
-- ✅ **Dynamic Coastlines** - Continents flood during interglacial periods, expand during ice ages
-- ✅ **Accurate Physics** - Only land ice affects sea level (floating sea ice excluded)
-- ✅ **Real-Time Tracking** - Sea level responds to ice volume changes continuously
+-  **Realistic Water Cycle** - Ice sheets now affect global sea level
+-  **Ice Formation Lowers Sea Level** - Water locked in glaciers on land reduces ocean volume
+-  **Ice Melting Raises Sea Level** - Meltwater returns to oceans, flooding coastlines
+-  **Dynamic Coastlines** - Continents flood during interglacial periods, expand during ice ages
+-  **Accurate Physics** - Only land ice affects sea level (floating sea ice excluded)
+-  **Real-Time Tracking** - Sea level responds to ice volume changes continuously
 
 **Volcano Generation Balance:**
-- ✅ **90% Reduction in Volcano Frequency** - Drastically reduced volcanic hotspot spawning (5-10 → 2-4)
-- ✅ **10x Reduction at Plate Boundaries** - All boundary volcanism probabilities reduced by 10x
-- ✅ **Island Formation Fixed** - Oceanic-oceanic convergence elevation boost reduced from 0.08 → 0.01
-- ✅ **Gradual Island Building** - Volcanic islands now build realistically over time, not instantly
-- ✅ **Fewer Rogue Islands** - Eliminated excessive island chain spam that was covering oceans
+-  **90% Reduction in Volcano Frequency** - Drastically reduced volcanic hotspot spawning (5-10 → 2-4)
+-  **10x Reduction at Plate Boundaries** - All boundary volcanism probabilities reduced by 10x
+-  **Island Formation Fixed** - Oceanic-oceanic convergence elevation boost reduced from 0.08 → 0.01
+-  **Gradual Island Building** - Volcanic islands now build realistically over time, not instantly
+-  **Fewer Rogue Islands** - Eliminated excessive island chain spam that was covering oceans
 
 **World Generation Progress Bar - NEW!**
-- ✅ **Visual Loading Screen** - Beautiful progress bar displays during world generation
-- ✅ **Real-Time Progress** - Shows current generation stage and percentage complete
-- ✅ **Background Threading** - World generates on separate thread, UI remains responsive
-- ✅ **Detailed Tasks** - Displays specific steps: terrain, climate, resources
-- ✅ **No More Freezing** - Game window never freezes during generation
-- ✅ **Works Everywhere** - Displays during new game creation and planet regeneration (R key)
+-  **Visual Loading Screen** - Beautiful progress bar displays during world generation
+-  **Real-Time Progress** - Shows current generation stage and percentage complete
+-  **Background Threading** - World generates on separate thread, UI remains responsive
+-  **Detailed Tasks** - Displays specific steps: terrain, climate, resources
+-  **No More Freezing** - Game window never freezes during generation
+-  **Works Everywhere** - Displays during new game creation and planet regeneration (R key)
 
 **Seamless Map Wrapping - NEW!**
-- ✅ **Perfect Spherical Wrapping** - Left and right edges connect seamlessly like a real planet
-- ✅ **3D Cylindrical Noise** - Uses cylindrical coordinates for terrain generation
-- ✅ **No Stitching Artifacts** - Completely eliminates visible seams on minimap and main map
-- ✅ **True Planetary Topology** - Map wraps horizontally just like a sphere
-- ✅ **Consistent Mountains** - Mountain ranges flow naturally across the wrap boundary
+-  **Perfect Spherical Wrapping** - Left and right edges connect seamlessly like a real planet
+-  **3D Cylindrical Noise** - Uses cylindrical coordinates for terrain generation
+-  **No Stitching Artifacts** - Completely eliminates visible seams on minimap and main map
+-  **True Planetary Topology** - Map wraps horizontally just like a sphere
+-  **Consistent Mountains** - Mountain ranges flow naturally across the wrap boundary
 
 **Enhanced Tile Information Panel - NEW!**
-- ✅ **Click Any Tile** - Click on any tile to see comprehensive information about that location
-- ✅ **Biome Classification** - 15 detailed biome types: Ocean, Coastal, Polar Ice, Tundra, Polar Desert, Desert, Arid, Rainforest, Tropical Forest, Temperate Forest, Grassland, Savanna, Mountain, Plains
-- ✅ **Color-Coded Display** - Biomes, temperature, rainfall, and other values use intuitive color coding
-- ✅ **Terrain Details** - Elevation, temperature (°C), rainfall levels
-- ✅ **Life Information** - Life type and biomass levels (when present)
-- ✅ **Volcano Data** - Activity level, magma pressure, eruption state (dormant/building/critical/erupting)
-- ✅ **Atmospheric Info** - Oxygen %, CO2 %, humidity levels
-- ✅ **Geological Details** - Plate boundary type, tectonic stress, sediment layer thickness
-- ✅ **Tile-Specific Stratigraphy** - Detailed sediment column diagram showing that exact tile's geological history
-- ✅ **Rock Composition** - Crystalline, sedimentary, and volcanic rock percentages
-- ✅ **Professional Legend** - Color legend for sediment types with geological patterns
+-  **Click Any Tile** - Click on any tile to see comprehensive information about that location
+-  **Biome Classification** - 15 detailed biome types: Ocean, Coastal, Polar Ice, Tundra, Polar Desert, Desert, Arid, Rainforest, Tropical Forest, Temperate Forest, Grassland, Savanna, Mountain, Plains
+-  **Color-Coded Display** - Biomes, temperature, rainfall, and other values use intuitive color coding
+-  **Terrain Details** - Elevation, temperature (°C), rainfall levels
+-  **Life Information** - Life type and biomass levels (when present)
+-  **Volcano Data** - Activity level, magma pressure, eruption state (dormant/building/critical/erupting)
+-  **Atmospheric Info** - Oxygen %, CO2 %, humidity levels
+-  **Geological Details** - Plate boundary type, tectonic stress, sediment layer thickness
+-  **Tile-Specific Stratigraphy** - Detailed sediment column diagram showing that exact tile's geological history
+-  **Rock Composition** - Crystalline, sedimentary, and volcanic rock percentages
+-  **Professional Legend** - Color legend for sediment types with geological patterns
 
 **Improved Help Dialog - NEW!**
-- ✅ **2-Column Layout** - Help panel now uses efficient 2-column design that fits on screen
-- ✅ **Better Organization** - Controls grouped by category: Keyboard, Mouse, View Modes, Weather, Overlays, Advanced Tools
-- ✅ **Compact Design** - Reduced from 600px to 400px height while showing all information
-- ✅ **Clearer Sections** - Color-coded headers and better visual hierarchy
-- ✅ **Professional Border** - Yellow border highlights the help panel
-- ✅ **Wider Panel** - Increased to 780px width to accommodate 2 columns comfortably
+-  **2-Column Layout** - Help panel now uses efficient 2-column design that fits on screen
+-  **Better Organization** - Controls grouped by category: Keyboard, Mouse, View Modes, Weather, Overlays, Advanced Tools
+-  **Compact Design** - Reduced from 600px to 400px height while showing all information
+-  **Clearer Sections** - Color-coded headers and better visual hierarchy
+-  **Professional Border** - Yellow border highlights the help panel
+-  **Wider Panel** - Increased to 780px width to accommodate 2 columns comfortably
 
 **Overlay Zoom Synchronization & Level-of-Detail - NEW!**
-- ✅ **Perfect Overlay Sync** - Rivers, volcanoes, and plate boundaries now stay aligned with terrain during zoom
-- ✅ **Enhanced River Detail** - River line width scales from 2px to 6px when zooming in
-- ✅ **Brighter Rivers at Zoom** - Rivers become more vibrant blue when zoomed > 2.5x for better visibility
-- ✅ **Volcano Symbol Scaling** - Volcano triangles increase 50% in size when fully zoomed for clearer detail
-- ✅ **Plate Boundary Enhancement** - Boundary opacity increases from 50% to 80% when zoomed for better visibility
-- ✅ **Smooth Scaling** - All overlays scale smoothly and proportionally with zoom level
+-  **Perfect Overlay Sync** - Rivers, volcanoes, and plate boundaries now stay aligned with terrain during zoom
+-  **Enhanced River Detail** - River line width scales from 2px to 6px when zooming in
+-  **Brighter Rivers at Zoom** - Rivers become more vibrant blue when zoomed > 2.5x for better visibility
+-  **Volcano Symbol Scaling** - Volcano triangles increase 50% in size when fully zoomed for clearer detail
+-  **Plate Boundary Enhancement** - Boundary opacity increases from 50% to 80% when zoomed for better visibility
+-  **Smooth Scaling** - All overlays scale smoothly and proportionally with zoom level
 
 **Enhanced Sprite Details at High Zoom - NEW!**
-- ✅ **Volcano Enhancements** (zoom > 2x):
+-  **Volcano Enhancements** (zoom > 2x):
   - **Outer glow effects** for active volcanoes based on activity level
   - **Heat shimmer rings** at very high zoom (> 3x) for active volcanoes
   - **Crater details** showing magma glow when pressure is high
@@ -1398,7 +1398,7 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
   - **Lava particle spray** at maximum zoom (> 3.5x) during eruptions
   - **Pulsing glow animation** around erupting volcanoes for visual impact
   - **Proper zoom scaling** - volcanoes stay perfectly aligned with terrain at all zoom levels
-- ✅ **River Enhancements** (zoom > 2.5x):
+-  **River Enhancements** (zoom > 2.5x):
   - **Meandering river systems** - rivers now flow in smooth, natural curves instead of straight lines
   - **Catmull-Rom spline rendering** - organic, realistic river paths with deterministic meandering
   - **Dynamic subdivision** - more curve detail at higher zoom levels for smoother appearance
@@ -1407,7 +1407,7 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
   - **River source markers** - cyan highlighted circles at river origins (zoom > 3x)
   - **Enhanced colors** - brighter, more vibrant blue at high zoom levels
   - **Perfect zoom alignment** - rivers scale correctly with terrain at all zoom levels
-- ✅ **Plate Boundary Enhancements** (zoom > 2.5f):
+-  **Plate Boundary Enhancements** (zoom > 2.5f):
   - **Movement arrows** show plate motion direction:
     - Divergent boundaries: Arrows pointing apart (<<  >>)
     - Convergent boundaries: Arrows pointing together (>>  <<)
@@ -1420,90 +1420,90 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
 ### Previous Update - Climate System Realism & 3D Minimap Fixes
 
 **Climate & Geography Improvements:**
-- ✅ **Eliminated Blue Horizontal Stripes** - Ice now forms naturally without artificial banding
-- ✅ **Geographic Variation** - Added sin/cos noise to temperature and ice formation patterns
-- ✅ **Realistic Desert Placement** - Deserts now form at subtropical latitudes (25-30°) like Sahara, not near poles
-- ✅ **Smooth Ice Gradients** - Polar regions transition gradually with 3D geographic variation
-- ✅ **Reduced Ice-Albedo Feedback** - Prevents runaway ice formation and unrealistic glaciation
-- ✅ **Better Rainfall Distribution** - Longitude variation breaks up perfect horizontal rain bands
+-  **Eliminated Blue Horizontal Stripes** - Ice now forms naturally without artificial banding
+-  **Geographic Variation** - Added sin/cos noise to temperature and ice formation patterns
+-  **Realistic Desert Placement** - Deserts now form at subtropical latitudes (25-30°) like Sahara, not near poles
+-  **Smooth Ice Gradients** - Polar regions transition gradually with 3D geographic variation
+-  **Reduced Ice-Albedo Feedback** - Prevents runaway ice formation and unrealistic glaciation
+-  **Better Rainfall Distribution** - Longitude variation breaks up perfect horizontal rain bands
 
 **3D Minimap Overhaul:**
-- ✅ **Fixed Spherical Projection** - Corrected coordinate mapping for accurate globe representation
-- ✅ **Proper Rotation** - Horizontal rotation now applies before tilt transformation
-- ✅ **Accurate Latitude Mapping** - Uses proper asin calculation for realistic pole/equator display
-- ✅ **Ice Caps Show Correctly** - Polar ice now displays in proper positions on the 3D globe
+-  **Fixed Spherical Projection** - Corrected coordinate mapping for accurate globe representation
+-  **Proper Rotation** - Horizontal rotation now applies before tilt transformation
+-  **Accurate Latitude Mapping** - Uses proper asin calculation for realistic pole/equator display
+-  **Ice Caps Show Correctly** - Polar ice now displays in proper positions on the 3D globe
 
 **Code Quality:**
-- ✅ **Fixed deltaTime Compilation Errors** - Resolved scope issues in UI update methods
-- ✅ **Merged Performance Fixes** - Integrated terrain slider lag improvements
+-  **Fixed deltaTime Compilation Errors** - Resolved scope issues in UI update methods
+-  **Merged Performance Fixes** - Integrated terrain slider lag improvements
 
 ### Previous Update - True Multithreading & Complete UI Independence
 
 **TRUE MULTITHREADING - ZERO LAG:**
-- ✅ **Dedicated Simulation Thread** - All simulation runs on separate background thread
-- ✅ **UI Thread Independence** - Main thread ONLY handles input/rendering - always responsive
-- ✅ **Thread-Safe Synchronization** - Lock-based data access prevents race conditions
-- ✅ **Window Never Freezes** - Close button (X) always works, even during heavy simulation
-- ✅ **Perfect Separation** - Simulation can't block UI, UI can't block simulation
-- ✅ **Smooth 60 FPS** - UI renders at constant 60 FPS regardless of simulation complexity
-- ✅ **Cached UI Statistics** - Stats updated every 100ms instead of scanning 20,000 cells per frame
-- ✅ **Responsive Terrain Sliders** - Preview throttled to 150ms (was updating 60 times/second!)
-- ✅ **Split-Screen Layout** - Info panel on left (400px), map on right - NO more overlap!
-- ✅ **Resizable Window** - Window can be resized! Default now 1600×900 (was 1280×720)
+-  **Dedicated Simulation Thread** - All simulation runs on separate background thread
+-  **UI Thread Independence** - Main thread ONLY handles input/rendering - always responsive
+-  **Thread-Safe Synchronization** - Lock-based data access prevents race conditions
+-  **Window Never Freezes** - Close button (X) always works, even during heavy simulation
+-  **Perfect Separation** - Simulation can't block UI, UI can't block simulation
+-  **Smooth 60 FPS** - UI renders at constant 60 FPS regardless of simulation complexity
+-  **Cached UI Statistics** - Stats updated every 100ms instead of scanning 20,000 cells per frame
+-  **Responsive Terrain Sliders** - Preview throttled to 150ms (was updating 60 times/second!)
+-  **Split-Screen Layout** - Info panel on left (400px), map on right - NO more overlap!
+-  **Resizable Window** - Window can be resized! Default now 1600×900 (was 1280×720)
 
 **Interactive 3D Minimap:**
-- ✅ **Manual Rotation** - Left-click drag to rotate and tilt the planet in any direction
-- ✅ **Camera Reset** - Right-click to reset view and re-enable auto-rotation
-- ✅ **Smooth Controls** - ±60° vertical tilt, full 360° horizontal rotation
-- ✅ **Auto-Rotation** - Disabled during manual control, re-enabled on reset
+-  **Manual Rotation** - Left-click drag to rotate and tilt the planet in any direction
+-  **Camera Reset** - Right-click to reset view and re-enable auto-rotation
+-  **Smooth Controls** - ±60° vertical tilt, full 360° horizontal rotation
+-  **Auto-Rotation** - Disabled during manual control, re-enabled on reset
 
 **River Freezing Feature:**
-- ✅ **Dynamic Glaciation** - Rivers freeze when ice sheets advance over them
-- ✅ **Automatic Thaw** - Rivers reform based on elevation when ice retreats
-- ✅ **Realistic Behavior** - No water flow in frozen areas (temperature < 0°C)
-- ✅ **Post-Glacial Rivers** - New rivers form naturally after ice ages based on terrain
+-  **Dynamic Glaciation** - Rivers freeze when ice sheets advance over them
+-  **Automatic Thaw** - Rivers reform based on elevation when ice retreats
+-  **Realistic Behavior** - No water flow in frozen areas (temperature < 0°C)
+-  **Post-Glacial Rivers** - New rivers form naturally after ice ages based on terrain
 
 ### Previous Update - Disease System & Complete Terrain Generation Overhaul
 
 **Disease & Pandemic System:**
-- ✅ **6 Pathogen Types** - Create and evolve Bacteria, Virus, Fungus, Parasite, Prion, or Bioweapon
-- ✅ **Realistic Spread** - Diseases spread between civilizations via air travel, ships, land transport, and borders
-- ✅ **Evolution System** - Upgrade transmission methods, symptoms, resistances, and special abilities
-- ✅ **Civilization Responses** - Civs detect diseases, close borders/airports/ports, activate quarantines, and research cures
-- ✅ **Cure Research** - Scientific/Spacefaring civs develop cures faster; drug resistance slows research
-- ✅ **Disease Control Center** - Full UI (Press K) for creating pandemics, evolving traits, tracking statistics
+-  **6 Pathogen Types** - Create and evolve Bacteria, Virus, Fungus, Parasite, Prion, or Bioweapon
+-  **Realistic Spread** - Diseases spread between civilizations via air travel, ships, land transport, and borders
+-  **Evolution System** - Upgrade transmission methods, symptoms, resistances, and special abilities
+-  **Civilization Responses** - Civs detect diseases, close borders/airports/ports, activate quarantines, and research cures
+-  **Cure Research** - Scientific/Spacefaring civs develop cures faster; drug resistance slows research
+-  **Disease Control Center** - Full UI (Press K) for creating pandemics, evolving traits, tracking statistics
 
 **Terrain Generation - Complete Rewrite:**
-- ✅ **Percentile-Based Land/Water** - LandRatio now guarantees exact percentages (30% = exactly 30% land)
-- ✅ **Working Mountains Slider** - MountainLevel properly controls mountain height and coverage
-- ✅ **Working Water Level** - Raises/lowers sea level to flood continents or expose ocean floor
-- ✅ **Manual Seed Input** - Click seed value to type exact number, or use +/- buttons
-- ✅ **All Sliders Functional** - Smoothness (Persistence) and Detail (Lacunarity) working correctly
-- ✅ **Real-time Preview** - See terrain changes instantly with responsive preview generation
-- ✅ **Sediment Column Diagram** - Professional geological column with visual patterns for each sediment type
-- ✅ **Improved Font Rendering** - Replaced broken pixel font with TrueType font rendering (FontStashSharp + Roboto)
+-  **Percentile-Based Land/Water** - LandRatio now guarantees exact percentages (30% = exactly 30% land)
+-  **Working Mountains Slider** - MountainLevel properly controls mountain height and coverage
+-  **Working Water Level** - Raises/lowers sea level to flood continents or expose ocean floor
+-  **Manual Seed Input** - Click seed value to type exact number, or use +/- buttons
+-  **All Sliders Functional** - Smoothness (Persistence) and Detail (Lacunarity) working correctly
+-  **Real-time Preview** - See terrain changes instantly with responsive preview generation
+-  **Sediment Column Diagram** - Professional geological column with visual patterns for each sediment type
+-  **Improved Font Rendering** - Replaced broken pixel font with TrueType font rendering (FontStashSharp + Roboto)
 
 ### Previous Update - Visual & Interaction Enhancements
-- ✅ **Day/Night Cycle** - Cities light up at night! Auto-enables when time speed drops below 0.5x
-- ✅ **4 New Meteorology Views** - Clouds (F1), Wind (F2), Air Pressure (F3), Storms (F4)
-- ✅ **Mouse Pan & Zoom** - Mouse wheel to zoom (0.5x-4x), middle-click drag to pan
-- ✅ **Civilization Warfare** - Aggressive civs declare war, conduct battles based on military strength
-- ✅ **Transportation Systems** - Civilizations unlock land transport (horses/cars), ships, and planes as they advance
-- ✅ **Enhanced Expansion** - Civs with ships can colonize islands, planes enable rapid global expansion
-- ✅ **Trade Routes** - Peaceful civilizations establish trade for economic benefits
-- ✅ **War Casualties** - Populations decrease during conflicts, stalemates cause attrition
-- ✅ **Transport-Based Growth** - Expansion rates increase with better transportation
-- ✅ **UI Enhancements** - Shows civilization war status, transportation tech, and population in thousands
+-  **Day/Night Cycle** - Cities light up at night! Auto-enables when time speed drops below 0.5x
+-  **4 New Meteorology Views** - Clouds (F1), Wind (F2), Air Pressure (F3), Storms (F4)
+-  **Mouse Pan & Zoom** - Mouse wheel to zoom (0.5x-4x), middle-click drag to pan
+-  **Civilization Warfare** - Aggressive civs declare war, conduct battles based on military strength
+-  **Transportation Systems** - Civilizations unlock land transport (horses/cars), ships, and planes as they advance
+-  **Enhanced Expansion** - Civs with ships can colonize islands, planes enable rapid global expansion
+-  **Trade Routes** - Peaceful civilizations establish trade for economic benefits
+-  **War Casualties** - Populations decrease during conflicts, stalemates cause attrition
+-  **Transport-Based Growth** - Expansion rates increase with better transportation
+-  **UI Enhancements** - Shows civilization war status, transportation tech, and population in thousands
 
 ### Previous Update - Complete Simulation
-- ✅ **Full save/load system** with quick save (F5) and quick load (F9)
-- ✅ **Main menu and pause menu** for better game management
-- ✅ **Weather simulation** with storms, seasons, and meteorology
-- ✅ **Civilization mechanics** with technology advancement and environmental impact
-- ✅ **Life reactivity** - organisms now respond to all planetary events (volcanoes, earthquakes, storms, climate)
-- ✅ **Enhanced UI** showing civilization info and weather alerts
-- ✅ **Complete geological systems** (plate tectonics fully integrated with life)
-- ✅ **Tectonic plate movement and interactions** with realistic boundary types
+-  **Full save/load system** with quick save (F5) and quick load (F9)
+-  **Main menu and pause menu** for better game management
+-  **Weather simulation** with storms, seasons, and meteorology
+-  **Civilization mechanics** with technology advancement and environmental impact
+-  **Life reactivity** - organisms now respond to all planetary events (volcanoes, earthquakes, storms, climate)
+-  **Enhanced UI** showing civilization info and weather alerts
+-  **Complete geological systems** (plate tectonics fully integrated with life)
+-  **Tectonic plate movement and interactions** with realistic boundary types
 
 ## Scientific Basis and Sources
 
