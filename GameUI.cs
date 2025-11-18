@@ -105,7 +105,8 @@ public class GameUI
 
         DrawText("SIMPLANET", new Color(255, 200, 50), 16);
         textY = panelY + 35;
-        DrawText($"Year: {state.Year:N0}", new Color(200, 220, 255));
+        float fractionalYear = state.Year + state.TimeAccumulator / GameState.SecondsPerGameYear;
+        DrawText($"Year: {fractionalYear:N1}", new Color(200, 220, 255));
         if (_animalEvolutionSimulator != null)
         {
             string eraName = _animalEvolutionSimulator.GetCurrentEraName();
@@ -459,6 +460,7 @@ public class GameUI
 
 public class GameState
 {
+    public const float SecondsPerGameYear = 10.0f;
     public int Year { get; set; }
     public float TimeSpeed { get; set; } = 1.0f;
     public bool IsPaused { get; set; }

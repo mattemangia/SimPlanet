@@ -94,6 +94,7 @@ public class SimPlanetGame : Game
     // Multithreading: Simulation runs on background thread, UI on main thread
     private Thread _simulationThread;
     private readonly object _simulationLock = new object();
+    private const float SecondsPerGameYear = GameState.SecondsPerGameYear;
     private bool _simulationRunning = false;
     private bool _simulationThreadActive = false;
     private DateTime _lastSimulationUpdate = DateTime.Now;
@@ -169,10 +170,10 @@ public class SimPlanetGame : Game
                     float newAccumulator = gameStateCopy.TimeAccumulator + simDeltaTime;
                     int newYear = gameStateCopy.Year;
 
-                    if (newAccumulator >= 10.0f)
+                    while (newAccumulator >= SecondsPerGameYear)
                     {
                         newYear++;
-                        newAccumulator -= 10.0f;
+                        newAccumulator -= SecondsPerGameYear;
                     }
 
                     // Run all simulators (thread-safe, they only modify map data)
@@ -595,17 +596,17 @@ public class SimPlanetGame : Game
         // Pause/Resume
         if (keyState.IsKeyDown(Keys.Space) && _previousKeyState.IsKeyUp(Keys.Space))
         {
-            _gameState.IsPaused = !_gameState.IsPaused;
+            TogglePause();
         }
 
         // Time speed controls
         if (keyState.IsKeyDown(Keys.OemPlus) || keyState.IsKeyDown(Keys.Add))
         {
-            _gameState.TimeSpeed = Math.Min(_gameState.TimeSpeed * 2.0f, 32.0f);
+            IncreaseTimeSpeed();
         }
         if (keyState.IsKeyDown(Keys.OemMinus) || keyState.IsKeyDown(Keys.Subtract))
         {
-            _gameState.TimeSpeed = Math.Max(_gameState.TimeSpeed / 2.0f, 0.25f);
+            DecreaseTimeSpeed();
         }
 
         // View mode controls
@@ -1531,17 +1532,26 @@ public class SimPlanetGame : Game
 
     public void TogglePause()
     {
-        _gameState.IsPaused = !_gameState.IsPaused;
+        lock (_simulationLock)
+        {
+            _gameState.IsPaused = !_gameState.IsPaused;
+        }
     }
 
     public void IncreaseTimeSpeed()
     {
-        _gameState.TimeSpeed = Math.Min(_gameState.TimeSpeed * 2.0f, 32.0f);
+        lock (_simulationLock)
+        {
+            _gameState.TimeSpeed = Math.Min(_gameState.TimeSpeed * 2.0f, 32.0f);
+        }
     }
 
     public void DecreaseTimeSpeed()
     {
-        _gameState.TimeSpeed = Math.Max(_gameState.TimeSpeed / 2.0f, 0.25f);
+        lock (_simulationLock)
+        {
+            _gameState.TimeSpeed = Math.Max(_gameState.TimeSpeed / 2.0f, 0.25f);
+        }
     }
 
     public void ToggleHelp()
