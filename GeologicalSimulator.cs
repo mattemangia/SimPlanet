@@ -297,6 +297,8 @@ public class GeologicalSimulator
                             geo.BoundaryType = PlateBoundaryType.Convergent;
 
                             // Mountain building or subduction
+                            double arcChance = 0.00002 * volcanicScale;
+
                             if (plate1.IsOceanic && !plate2.IsOceanic)
                             {
                                 // Oceanic subducts under continental - volcanic mountain chain
@@ -312,7 +314,6 @@ public class GeologicalSimulator
                                     cell.Elevation += 0.003f * relVel; // Mountains build up on continental side
                                 }
 
-                                double arcChance = 0.00002 * volcanicScale;
                                 if (_random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
                                 {
                                     geo.IsVolcano = true;
