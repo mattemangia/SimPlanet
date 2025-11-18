@@ -1012,7 +1012,12 @@ public class TerrainRenderer
 
         int legendWidth = 220;
         bool isGeologicalLegend = Mode == RenderMode.Geological;
-        int legendHeight = isGeologicalLegend ? 200 : 180;
+        var discreteEntries = GetDiscreteLegendEntries();
+        int legendHeight = isGeologicalLegend
+            ? 200
+            : (discreteEntries != null && discreteEntries.Count > 0)
+                ? Math.Min(320, 60 + discreteEntries.Count * 22)
+                : 180;
         // Position legend in bottom-right corner (empty space)
         int legendX = screenWidth - legendWidth - 10;
         int legendY = screenHeight - legendHeight - 10;
@@ -1032,6 +1037,12 @@ public class TerrainRenderer
         if (isGeologicalLegend)
         {
             DrawGeologicalLegend(spriteBatch, font, legendX, legendY);
+            return;
+        }
+
+        if (discreteEntries != null && discreteEntries.Count > 0)
+        {
+            DrawDiscreteLegend(spriteBatch, font, legendX, legendY, discreteEntries);
             return;
         }
 
@@ -1099,6 +1110,25 @@ public class TerrainRenderer
             9);
     }
 
+    private void DrawDiscreteLegend(SpriteBatch spriteBatch, FontRenderer font, int legendX, int legendY,
+        List<(Color Color, string Label)> entries)
+    {
+        int swatchX = legendX + 15;
+        int swatchY = legendY + 40;
+        int swatchSize = 18;
+
+        foreach (var entry in entries)
+        {
+            var rect = new Rectangle(swatchX, swatchY, swatchSize, swatchSize);
+            spriteBatch.Draw(_pixelTexture, rect, entry.Color);
+            DrawBorder(spriteBatch, rect.X, rect.Y, rect.Width, rect.Height, Color.White, 1);
+
+            font.DrawString(spriteBatch, entry.Label, new Vector2(swatchX + swatchSize + 10, swatchY + 2), Color.White, 11);
+
+            swatchY += swatchSize + 8;
+        }
+    }
+
     private string GetLegendTitle()
     {
         return Mode switch
@@ -1150,6 +1180,27 @@ public class TerrainRenderer
             RenderMode.Infrastructure => new List<string> { "Roads", "Nuclear Plants", "Wind Turbines", "Solar Farms", "Tunnels" },
             RenderMode.SpectralBands => new List<string> { "-200 W/m² (Cooling)", "+400 W/m² (Heating)" },
             _ => new List<string>()
+        };
+    }
+
+    private List<(Color Color, string Label)>? GetDiscreteLegendEntries()
+    {
+        return Mode switch
+        {
+            RenderMode.Infrastructure => new List<(Color, string)>
+            {
+                (new Color(150, 0, 150), "Nuclear Plant (Stable)"),
+                (Color.Red, "Nuclear Plant (High Risk)"),
+                (new Color(255, 215, 0), "Solar Farm"),
+                (new Color(100, 200, 255), "Wind Turbine"),
+                (new Color(0, 255, 100), "Tunnel / Major Link"),
+                (new Color(50, 50, 50), "Highway"),
+                (new Color(120, 120, 120), "Paved Road"),
+                (new Color(160, 140, 100), "Dirt Path"),
+                (new Color(80, 80, 80), "Civilization Territory"),
+                (new Color(20, 40, 80), "Water / Ocean")
+            },
+            _ => null
         };
     }
 

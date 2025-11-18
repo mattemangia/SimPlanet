@@ -1154,9 +1154,11 @@ public class SimPlanetGame : Game
 
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
-        // Draw menu screens
-        if (_mainMenu.CurrentScreen != GameScreen.InGame)
+        bool inGame = _mainMenu.CurrentScreen == GameScreen.InGame;
+
+        if (!inGame)
         {
+            // Draw menu screens
             _mainMenu.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
             // Draw map options UI if on NewGame screen
@@ -1164,18 +1166,15 @@ public class SimPlanetGame : Game
             {
                 _mapOptionsUI.Draw(_mapOptions);
             }
-
-            _spriteBatch.End();
-            base.Draw(gameTime);
-            return;
         }
+        else
+        {
+            // In-game rendering
+            // Set render mode (texture will auto-update when mode changes via dirty flag)
+            _terrainRenderer.Mode = _currentRenderMode;
 
-        // In-game rendering
-        // Set render mode (texture will auto-update when mode changes via dirty flag)
-        _terrainRenderer.Mode = _currentRenderMode;
-
-        // Update terrain texture only when dirty (performance optimization)
-        _terrainRenderer.UpdateTerrainTexture();
+            // Update terrain texture only when dirty (performance optimization)
+            _terrainRenderer.UpdateTerrainTexture();
 
         // Split screen layout: Toolbar at top (36px), Info panel on left (280px), map on right
         int toolbarHeight = _toolbar.ToolbarHeight;
@@ -1256,25 +1255,26 @@ public class SimPlanetGame : Game
         // Draw manual planting tool
         _plantingTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
-        // Draw pause menu overlay if paused
-        if (_mainMenu.CurrentScreen == GameScreen.PauseMenu)
-        {
-            _mainMenu.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            // Draw pause menu overlay if paused
+            if (_mainMenu.CurrentScreen == GameScreen.PauseMenu)
+            {
+                _mainMenu.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            }
+
+            // Draw loading screen overlay if generating world
+            if (_loadingScreen.IsVisible)
+            {
+                _loadingScreen.Draw();
+            }
+
+            // Draw toolbar LAST (shown in-game only) so tooltips appear on top
+            if (_mainMenu.CurrentScreen == GameScreen.InGame)
+            {
+                _toolbar.Draw(_spriteBatch, GraphicsDevice.Viewport.Width);
+            }
         }
 
-        // Draw loading screen overlay if generating world
-        if (_loadingScreen.IsVisible)
-        {
-            _loadingScreen.Draw();
-        }
-
-        // Draw toolbar LAST (shown in-game only) so tooltips appear on top
-        if (_mainMenu.CurrentScreen == GameScreen.InGame)
-        {
-            _toolbar.Draw(_spriteBatch, GraphicsDevice.Viewport.Width);
-        }
-
-        // Draw about dialog (if visible) - on top of everything
+        // Draw about dialog (if visible) - on top of everything, regardless of game state
         _aboutDialog.Draw(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         _spriteBatch.End();

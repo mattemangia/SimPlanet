@@ -95,7 +95,10 @@ public class SaveLoadManager
                 TechLevel = civ.TechLevel,
                 CivilizationType = civ.CivType,
                 Aggression = civ.Aggression,
-                EcoFriendliness = civ.EcoFriendliness
+                EcoFriendliness = civ.EcoFriendliness,
+                Prosperity = civ.Prosperity,
+                Stability = civ.Stability,
+                CollapseRisk = civ.CollapseRisk
             }).ToList();
 
         // Save weather

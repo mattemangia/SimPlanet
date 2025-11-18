@@ -133,7 +133,10 @@ public class CivilizationManager
             CivType = CivType.Tribal,
             Aggression = (float)_random.NextDouble(),
             EcoFriendliness = (float)_random.NextDouble(),
-            Founded = currentYear
+            Founded = currentYear,
+            Prosperity = 0.55f,
+            Stability = 0.6f,
+            CollapseRisk = 0.0f
         };
 
         // Initialize government (Tribal starts as Chiefdom)
@@ -286,6 +289,9 @@ public class CivilizationManager
         // Environmental impact
         ApplyEnvironmentalImpact(civ, deltaTime);
 
+        // Update internal stability metrics so civilizations can recover from setbacks
+        UpdateCivilizationStability(civ, deltaTime);
+
         // Check for collapse conditions
         CheckCivilizationCollapse(civ);
     }
@@ -400,6 +406,74 @@ public class CivilizationManager
 
         // Natural resource extraction
         ExtractNaturalResources(civ, deltaTime);
+    }
+
+    private void UpdateCivilizationStability(Civilization civ, float deltaTime)
+    {
+        // Prosperity is driven by food security, territory, and infrastructure
+        float prosperityTarget = 0.5f;
+        float foodRatio = civ.FoodConsumption <= 0.01f
+            ? 1.5f
+            : civ.FoodProduction / Math.Max(0.1f, civ.FoodConsumption);
+
+        if (foodRatio > 1.2f)
+            prosperityTarget += 0.2f;
+        else if (foodRatio < 0.8f)
+            prosperityTarget -= 0.2f;
+
+        float stockpileRatio = civ.FoodConsumption <= 0.01f
+            ? civ.Food / 50f
+            : civ.Food / Math.Max(1f, civ.FoodConsumption);
+        if (stockpileRatio > 4f)
+            prosperityTarget += 0.1f;
+        else if (stockpileRatio < 1f)
+            prosperityTarget -= 0.1f;
+
+        float territoryDensity = civ.Territory.Count / Math.Max(1f, civ.Population / 1000f);
+        if (territoryDensity > 1.5f)
+            prosperityTarget += 0.1f;
+        else if (territoryDensity < 0.5f)
+            prosperityTarget -= 0.1f;
+
+        if (civ.Cities.Count > 0)
+            prosperityTarget += 0.05f;
+
+        civ.Prosperity = Math.Clamp(
+            LerpTowards(civ.Prosperity, Math.Clamp(prosperityTarget, 0f, 1f), 0.5f * deltaTime),
+            0f,
+            1f);
+
+        // Stability trends toward prosperity but is penalized by war and disasters
+        float stabilityTarget = 0.35f + civ.Prosperity * 0.5f;
+        stabilityTarget += civ.DisasterPreparedness * 0.1f;
+        stabilityTarget += civ.AtWar ? -0.1f : 0.1f;
+
+        civ.Stability = Math.Clamp(
+            LerpTowards(civ.Stability, Math.Clamp(stabilityTarget, 0f, 1f), 0.35f * deltaTime),
+            0f,
+            1f);
+
+        // Collapse risk slowly accumulates only if stability remains low
+        float riskDelta = 0f;
+        if (civ.Stability < 0.4f)
+            riskDelta += (0.4f - civ.Stability) * 0.6f * deltaTime;
+        else
+            riskDelta -= (civ.Stability - 0.4f) * 0.4f * deltaTime;
+
+        if (civ.Food <= civ.FoodConsumption)
+            riskDelta += 0.04f * deltaTime;
+        if (civ.Population < 1000)
+            riskDelta += 0.05f * deltaTime;
+        if (!civ.AtWar && civ.Stability > 0.6f)
+            riskDelta -= 0.03f * deltaTime;
+
+        civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + riskDelta, 0f, 1f);
+    }
+
+    private static float LerpTowards(float current, float target, float rate)
+    {
+        float clampedRate = Math.Clamp(rate, 0f, 1f);
+        return current + (target - current) * clampedRate;
     }
 
     private void ExtractNaturalResources(Civilization civ, float deltaTime)
@@ -676,23 +750,30 @@ public class CivilizationManager
 
     private void CheckCivilizationCollapse(Civilization civ)
     {
-        // Environmental collapse
+        // Environmental collapse pressure over time instead of instant elimination
         float avgCO2 = civ.Territory.Average(pos => _map.Cells[pos.x, pos.y].CO2);
         float avgTemp = civ.Territory.Average(pos => _map.Cells[pos.x, pos.y].Temperature);
 
-        if (avgCO2 > 10 || avgTemp > 45 || avgTemp < -15)
+        bool harshClimate = avgCO2 > 10 || avgTemp > 45 || avgTemp < -15;
+        if (harshClimate)
         {
-            // Civilization decline
             civ.Population = (int)(civ.Population * 0.9f);
-
-            if (civ.Population < 100)
-            {
-                CollapseCivilization(civ);
-            }
+            civ.Stability = Math.Max(civ.Stability - 0.05f, 0f);
+            civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + 0.08f, 0f, 1f);
+        }
+        else
+        {
+            civ.CollapseRisk = Math.Max(civ.CollapseRisk - 0.01f, 0f);
         }
 
         // Check if all territory lost
         if (civ.Territory.Count == 0)
+        {
+            CollapseCivilization(civ);
+            return;
+        }
+
+        if (civ.CollapseRisk >= 0.95f || (civ.CollapseRisk > 0.7f && civ.Population < 200))
         {
             CollapseCivilization(civ);
         }
@@ -1433,7 +1514,10 @@ public class CivilizationManager
                 TechLevel = data.TechLevel,
                 CivType = data.CivilizationType,
                 Aggression = data.Aggression,
-                EcoFriendliness = data.EcoFriendliness
+                EcoFriendliness = data.EcoFriendliness,
+                Prosperity = data.Prosperity,
+                Stability = data.Stability,
+                CollapseRisk = data.CollapseRisk
             };
             civ.Territory.UnionWith(data.Territory);
             _civilizations.Add(civ);
@@ -2164,6 +2248,11 @@ public class Civilization
     public Dictionary<ResourceType, float> AnnualProduction { get; set; } = new();
     public List<(int x, int y, ResourceType type)> ActiveMines { get; set; } = new();
     public float ProductionBonus { get; set; } = 1.0f; // Multiplier from resources
+
+    // Internal health
+    public float Prosperity { get; set; } = 0.5f;
+    public float Stability { get; set; } = 0.55f;
+    public float CollapseRisk { get; set; } = 0.0f;
 
     // Resources
     public float Food { get; set; } = 100.0f;            // From hunting, farming, fishing

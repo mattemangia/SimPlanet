@@ -14,14 +14,23 @@ public class PlanetStabilizer
     private const float AdjustmentInterval = 2.0f; // Baseline adjustment cadence
     private float _responseMultiplier = 1f;
 
-    // Stabilization targets (Earth-like conditions)
-    private const float TargetGlobalTemp = 15.0f; // 15°C average
-    private const float TargetOxygen = 21.0f; // 21% oxygen (modern Earth)
-    private const float MinCO2 = 0.01f; // Minimum CO2 for photosynthesis
-    private const float MaxCO2 = 5.0f; // Maximum safe CO2 (allows early planet high CO2)
-    private const float TargetLandRatio = 0.29f; // 29% land
-    private const float TargetMagneticField = 1.0f; // Earth-like
-    private const float TargetCoreTemp = 5000f; // Active core
+    // Stabilization targets are derived from the planet that was generated instead of
+    // forcing Earth-specific numbers. Each world establishes its own baseline and we
+    // nudge conditions back toward that moving average instead of hard-coded values.
+    private readonly float _baselineGlobalTemp;
+    private readonly float _baselineOxygen;
+    private readonly float _baselineCO2;
+    private readonly float _baselineLandRatio;
+    private readonly float _baselineMagneticField;
+    private readonly float _baselineCoreTemp;
+
+    private float _targetGlobalTemp;
+    private float _targetOxygen;
+    private float _minCO2;
+    private float _maxCO2;
+    private float _targetLandRatio;
+    private float _targetMagneticField;
+    private float _targetCoreTemp;
 
     public bool IsActive { get; set; } = true; // Auto-enabled to prevent runaway climate issues
 
@@ -33,6 +42,21 @@ public class PlanetStabilizer
     {
         _map = map;
         _magnetosphere = magnetosphere;
+
+        _baselineGlobalTemp = map.GlobalTemperature;
+        _baselineOxygen = map.GlobalOxygen;
+        _baselineCO2 = map.GlobalCO2;
+        _baselineLandRatio = CalculateLandRatio();
+        _baselineMagneticField = magnetosphere.MagneticFieldStrength;
+        _baselineCoreTemp = magnetosphere.CoreTemperature;
+
+        _targetGlobalTemp = _baselineGlobalTemp;
+        _targetOxygen = _baselineOxygen;
+        _minCO2 = Math.Max(0.001f, _baselineCO2 * 0.4f);
+        _maxCO2 = Math.Max(_baselineCO2 * 3f, _baselineCO2 + 0.5f);
+        _targetLandRatio = _baselineLandRatio;
+        _targetMagneticField = Math.Max(0.1f, _baselineMagneticField);
+        _targetCoreTemp = Math.Max(1000f, _baselineCoreTemp);
     }
 
     public void Update(float deltaTime, float timeSpeed)
@@ -97,30 +121,35 @@ public class PlanetStabilizer
         ProtectAndNurtureLife();
     }
 
+    private static bool IsCivilizationCell(TerrainCell cell)
+    {
+        return cell.LifeType == LifeForm.Civilization;
+    }
+
     private void StabilizeMagnetosphere()
     {
         // Ensure magnetic field is active to protect from radiation
-        if (_magnetosphere.CoreTemperature < TargetCoreTemp)
+        if (_magnetosphere.CoreTemperature < _targetCoreTemp)
         {
             _magnetosphere.CoreTemperature += 100f; // Gradually warm core
             LastAction = "Warming planetary core";
             AdjustmentsMade++;
         }
 
-        if (!_magnetosphere.HasDynamo && _magnetosphere.CoreTemperature >= 3000f)
+        if (!_magnetosphere.HasDynamo && _magnetosphere.CoreTemperature >= Math.Min(3000f, _targetCoreTemp))
         {
             _magnetosphere.HasDynamo = true;
-            _magnetosphere.MagneticFieldStrength = TargetMagneticField;
+            _magnetosphere.MagneticFieldStrength = _targetMagneticField;
             LastAction = "Reactivated magnetic dynamo";
             AdjustmentsMade++;
         }
 
         // Restore magnetic field strength if weakened
-        if (_magnetosphere.MagneticFieldStrength < 0.8f)
+        if (_magnetosphere.MagneticFieldStrength < MathF.Max(0.4f, _targetMagneticField * 0.8f))
         {
             _magnetosphere.MagneticFieldStrength = Math.Min(
                 _magnetosphere.MagneticFieldStrength + 0.1f,
-                TargetMagneticField
+                _targetMagneticField
             );
             LastAction = "Restoring magnetic field";
             AdjustmentsMade++;
@@ -129,14 +158,14 @@ public class PlanetStabilizer
 
     private void StabilizeTemperature(float avgTemp, float avgCO2)
     {
-        float tempDeviation = avgTemp - TargetGlobalTemp;
+        float tempDeviation = avgTemp - _targetGlobalTemp;
 
         // CRITICAL FIX: More aggressive temperature control - act sooner and stronger
         // Too cold - increase greenhouse gases slightly
         if (tempDeviation < -5f)
         {
             // Add CO2 to warm planet (but not too much)
-            if (avgCO2 < MaxCO2)
+            if (avgCO2 < _maxCO2)
             {
                 AdjustCO2Globally(0.01f);
                 LastAction = $"Adding CO2 to warm planet (avg: {avgTemp:F1}°C)";
@@ -192,15 +221,18 @@ public class PlanetStabilizer
 
     private void StabilizeAtmosphere(float avgOxygen, float avgCO2)
     {
+        float lowOxygenThreshold = Math.Max(5f, _targetOxygen * 0.7f);
+        float highOxygenThreshold = Math.Max(lowOxygenThreshold + 2f, _targetOxygen * 1.35f);
+
         // Maintain oxygen at breathable levels (but don't interfere with early evolution)
-        if (avgOxygen < 15f)
+        if (avgOxygen < lowOxygenThreshold)
         {
             // Boost photosynthesis by enhancing plant growth
             BoostPlantGrowth();
             LastAction = $"Boosting O2 production (current: {avgOxygen:F1}%)";
             AdjustmentsMade++;
         }
-        else if (avgOxygen > 30f)
+        else if (avgOxygen > highOxygenThreshold)
         {
             // Too much oxygen is dangerous (fire risk, toxicity)
             ReduceOxygenGlobally(0.5f);
@@ -209,14 +241,14 @@ public class PlanetStabilizer
         }
 
         // Keep CO2 in safe range for life
-        if (avgCO2 > MaxCO2)
+        if (avgCO2 > _maxCO2)
         {
             // Dangerously high CO2 - remove excess
             AdjustCO2Globally(-0.1f);
             LastAction = $"Removing dangerous CO2 (current: {avgCO2:F2}%)";
             AdjustmentsMade++;
         }
-        else if (avgCO2 < MinCO2)
+        else if (avgCO2 < _minCO2)
         {
             // Too little CO2 - plants need it for photosynthesis
             AdjustCO2Globally(0.01f);
@@ -228,16 +260,18 @@ public class PlanetStabilizer
     private void StabilizeWaterCycle()
     {
         float landRatio = CalculateLandRatio();
+        float lowLandThreshold = Math.Max(0.05f, _targetLandRatio * 0.5f);
+        float highLandThreshold = Math.Min(0.95f, _targetLandRatio * 1.6f);
 
         // Adjust water levels if too extreme
-        if (landRatio < 0.1f)
+        if (landRatio < lowLandThreshold)
         {
             // Almost all water - raise some land
             RaiseLandMasses();
             LastAction = "Raising land masses (too much ocean)";
             AdjustmentsMade++;
         }
-        else if (landRatio > 0.9f)
+        else if (landRatio > highLandThreshold)
         {
             // Almost all land - add water
             AddWaterToLowlands();
@@ -507,6 +541,11 @@ public class PlanetStabilizer
                 var cell = _map.Cells[x, y];
                 if (cell.IsLand && cell.Elevation < 0.2f)
                 {
+                    if (IsCivilizationCell(cell))
+                    {
+                        continue; // Never drown an active civilization hub
+                    }
+
                     cell.Elevation -= elevationChange;
                 }
             }
@@ -525,8 +564,9 @@ public class PlanetStabilizer
                 var cell = _map.Cells[x, y];
                 if (cell.IsLand && cell.Rainfall < 0.2f && cell.LifeType != LifeForm.None)
                 {
-                    cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallBoost, 0, 1f);
-                    cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost, 0, 1f);
+                    float civModifier = IsCivilizationCell(cell) ? 0.35f : 1f;
+                    cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallBoost * civModifier, 0, 1f);
+                    cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost * civModifier, 0, 1f);
                 }
             }
         }
@@ -574,12 +614,18 @@ public class PlanetStabilizer
                 var cell = _map.Cells[x, y];
                 if (!cell.IsLand) continue;
 
-                bool needsCorridor = cell.Rainfall < 0.4f || cell.Humidity < 0.5f || cell.LifeType != LifeForm.None;
+                bool needsCorridor = cell.Rainfall < 0.4f || cell.Humidity < 0.5f;
+                if (IsCivilizationCell(cell))
+                {
+                    // Civilizations are already actively managing terrain – only intervene if truly dry
+                    needsCorridor = cell.Rainfall < 0.3f || cell.Humidity < 0.4f;
+                }
                 if (!needsCorridor) continue;
 
-                cell.Rainfall = Math.Clamp(cell.Rainfall + rainBoost, 0f, 1f);
-                cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost, 0f, 1f);
-                cell.Temperature = MathF.Max(cell.Temperature - cooling, 10f);
+                float civModifier = IsCivilizationCell(cell) ? 0.4f : 1f;
+                cell.Rainfall = Math.Clamp(cell.Rainfall + rainBoost * civModifier, 0f, 1f);
+                cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost * civModifier, 0f, 1f);
+                cell.Temperature = MathF.Max(cell.Temperature - (cooling * civModifier), IsCivilizationCell(cell) ? 18f : 10f);
 
                 if (cell.LifeType == LifeForm.None && cell.Rainfall > 0.35f && cell.Humidity > 0.45f)
                 {
@@ -637,16 +683,20 @@ public class PlanetStabilizer
                 if (!isDesertifying) continue;
 
                 assistedCells++;
-                cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallBoost, 0f, 1f);
-                cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost, 0f, 1f);
-                cell.Temperature = MathF.Max(cell.Temperature - cooling, 12f);
+                float civModifier = IsCivilizationCell(cell) ? 0.5f : 1f;
+                cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallBoost * civModifier, 0f, 1f);
+                cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost * civModifier, 0f, 1f);
+                cell.Temperature = MathF.Max(cell.Temperature - (cooling * civModifier), IsCivilizationCell(cell) ? 20f : 12f);
 
                 if (cell.LifeType == LifeForm.None)
                 {
                     cell.LifeType = LifeForm.PlantLife;
                 }
 
-                cell.Biomass = Math.Min(cell.Biomass + biomassBoost, 0.7f);
+                if (!IsCivilizationCell(cell))
+                {
+                    cell.Biomass = Math.Min(cell.Biomass + biomassBoost, 0.7f);
+                }
             }
         }
 
@@ -791,9 +841,12 @@ public class PlanetStabilizer
         }
 
         // If life is critically low globally, take emergency action
-        if (lifeCells < 500) // Less than 500 cells with life (about 17% of default map)
+        int totalCells = _map.Width * _map.Height;
+        int criticalLifeThreshold = Math.Max(200, (int)(totalCells * 0.15f));
+
+        if (lifeCells < criticalLifeThreshold)
         {
-            LastAction = $"EMERGENCY: Life critically low ({lifeCells} cells) - boosting survival";
+            LastAction = $"EMERGENCY: Life critically low ({lifeCells}/{criticalLifeThreshold} cells) - boosting survival";
             AdjustmentsMade++;
 
             // Emergency boost to all surviving life

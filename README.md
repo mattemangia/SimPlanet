@@ -17,6 +17,8 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Disease & pandemic system** (6 pathogen types, realistic spread, civilization responses, cure research)
 - **Manual terraforming tool** (plant forests, create oceans, seed civilizations)
 - **Auto-stabilization system** (maintains habitable conditions automatically)
+- **Civilization-aware auto-stabilizer** that keeps settlements safe from drastic flooding/cooling adjustments
+- **World-dependent survival modeling** that keeps the auto-balancer and life support checks tied to each planet's actual climate instead of fixed Earth numbers
 - **Planet presets** (Earth, Mars, Water World, Desert World)
 - **Interactive 3D planet minimap** with manual rotation and tilt controls (just like SimEarth!)
 - **Interactive Toolbar** with clickable buttons for all keybindings - small squared buttons with custom icons and tooltips

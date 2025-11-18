@@ -78,6 +78,9 @@ public class CivilizationData
     public CivType CivilizationType { get; set; }
     public float Aggression { get; set; }
     public float EcoFriendliness { get; set; }
+    public float Prosperity { get; set; } = 0.5f;
+    public float Stability { get; set; } = 0.55f;
+    public float CollapseRisk { get; set; } = 0.0f;
 }
 
 public class StormData

@@ -9,6 +9,21 @@ public class LifeSimulator
     private readonly Random _random;
     private float _autoReseedTimer = 0f;
     private const float AUTO_RESEED_CHECK_INTERVAL = 5.0f; // Check every 5 seconds
+    private LifeSupportProfile _lifeProfile;
+
+    private struct LifeSupportProfile
+    {
+        public float AvgOxygen;
+        public float AvgLandTemp;
+        public float MinLandTemp;
+        public float MaxLandTemp;
+        public float AvgLandRain;
+        public float MinLandRain;
+        public float MaxLandRain;
+        public float AvgWaterTemp;
+        public float MinWaterTemp;
+        public float MaxWaterTemp;
+    }
 
     public LifeSimulator(PlanetMap map)
     {
@@ -18,6 +33,8 @@ public class LifeSimulator
 
     public void Update(float deltaTime, GeologicalSimulator? geoSim = null, WeatherSystem? weatherSys = null)
     {
+        UpdateLifeSupportProfile();
+
         // React to planetary events FIRST
         if (geoSim != null)
         {
@@ -54,6 +71,8 @@ public class LifeSimulator
 
     public void SeedSpecificLife(LifeForm lifeForm)
     {
+        UpdateLifeSupportProfile();
+
         // Seed the specified life form in appropriate locations
         // Try many more times to ensure good coverage
         int attempts = lifeForm == LifeForm.Bacteria ? 2000 : 500; // Bacteria should spread widely
@@ -71,19 +90,8 @@ public class LifeSimulator
             if (cell.LifeType != LifeForm.None)
                 continue;
 
-            // Check if location is suitable for this life form
-            bool suitable = lifeForm switch
-            {
-                LifeForm.Bacteria => cell.Temperature > -20 && cell.Temperature < 80,
-                LifeForm.Algae => cell.IsWater && cell.Temperature > 0 && cell.Temperature < 40,
-                LifeForm.PlantLife => cell.IsLand && cell.Temperature > 0 && cell.Temperature < 45 && cell.Rainfall > 0.2f,
-                LifeForm.SimpleAnimals => cell.IsLand && cell.Oxygen > 15 && cell.Temperature > -10 && cell.Temperature < 40,
-                LifeForm.ComplexAnimals => cell.IsLand && cell.Oxygen > 18 && cell.Temperature > -10 && cell.Temperature < 35,
-                LifeForm.Dinosaurs => cell.IsLand && cell.Oxygen > 18 && cell.Temperature > 15 && cell.Temperature < 35,
-                LifeForm.Mammals => cell.IsLand && cell.Oxygen > 18 && cell.Temperature > -20 && cell.Temperature < 40,
-                LifeForm.Intelligence => cell.IsLand && cell.Oxygen > 20 && cell.Temperature > -10 && cell.Temperature < 30,
-                _ => cell.Temperature > 0 && cell.Humidity > 0.3f
-            };
+            // Check if location is suitable for this life form based on the current planet profile
+            bool suitable = CanLifeSurvive(lifeForm, cell);
 
             if (suitable)
             {
@@ -134,123 +142,116 @@ public class LifeSimulator
         switch (cell.LifeType)
         {
             case LifeForm.Bacteria:
-                // Can survive almost anywhere - extremely resilient
-                if (cell.Temperature > -50 && cell.Temperature < 100)
+                float bacteriaMin = Math.Min(_lifeProfile.MinLandTemp, _lifeProfile.MinWaterTemp) - 30f;
+                float bacteriaMax = Math.Max(_lifeProfile.MaxLandTemp, _lifeProfile.MaxWaterTemp) + 40f;
+                if (cell.Temperature > bacteriaMin && cell.Temperature < bacteriaMax)
                 {
-                    growth = 0.15f; // Increased from 0.1f - bacteria reproduce quickly
+                    growth = 0.15f;
                 }
                 break;
 
             case LifeForm.Algae:
-                // Needs water and sunlight
-                if (cell.IsWater && cell.Temperature > 0 && cell.Temperature < 40)
+                if (cell.IsWater && WaterTempBetween(cell, 0.2f, 0.85f))
                 {
-                    growth = 0.3f * (cell.Oxygen / 100.0f + 0.5f);
+                    growth = 0.3f * (GetOxygenEfficiency(cell) + 0.5f);
                 }
                 break;
 
             case LifeForm.PlantLife:
-                // Needs land, water, and moderate temperature
-                if (cell.IsLand && cell.Temperature > 0 && cell.Temperature < 45 &&
-                    cell.Rainfall > 0.2f && cell.Oxygen > 10)
+                if (cell.IsLand && LandTempBetween(cell, 0.25f, 0.85f) &&
+                    MeetsRainfall(cell, 0.35f) && MeetsOxygenRequirement(cell, LifeForm.PlantLife))
                 {
-                    growth = 0.4f * cell.Rainfall * (cell.Oxygen / 21.0f);
+                    float rainEfficiency = Math.Clamp(cell.Rainfall / Math.Max(0.05f, _lifeProfile.AvgLandRain), 0f, 1.2f);
+                    growth = 0.4f * rainEfficiency * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.SimpleAnimals:
-                // Needs oxygen and food (other biomass)
-                if (cell.Temperature > -10 && cell.Temperature < 50 && cell.Oxygen > 15)
+                if (LandTempBetween(cell, 0.2f, 0.85f) && MeetsOxygenRequirement(cell, LifeForm.SimpleAnimals))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.2f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.2f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.Fish:
-                // Aquatic vertebrates need water and oxygen
-                if (cell.IsWater && cell.Temperature > 0 && cell.Temperature < 35 && cell.Oxygen > 12)
+                if (cell.IsWater && WaterTempBetween(cell, 0.2f, 0.75f) && MeetsOxygenRequirement(cell, LifeForm.Fish))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.25f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.25f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.Amphibians:
-                // Need both water and land nearby
-                if (cell.Temperature > 5 && cell.Temperature < 40 && cell.Oxygen > 15)
+                if (LandTempBetween(cell, 0.3f, 0.8f) && MeetsRainfall(cell, 0.3f) &&
+                    MeetsOxygenRequirement(cell, LifeForm.Amphibians))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.2f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.2f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.Reptiles:
-                // Cold-blooded, need warmth
-                if (cell.IsLand && cell.Temperature > 10 && cell.Temperature < 45 && cell.Oxygen > 16)
+                if (cell.IsLand && LandTempBetween(cell, 0.35f, 0.95f) &&
+                    MeetsOxygenRequirement(cell, LifeForm.Reptiles))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.22f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.22f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.Dinosaurs:
-                // Large land reptiles, dominant predators/herbivores
-                if (cell.IsLand && cell.Temperature > 15 && cell.Temperature < 40 && cell.Oxygen > 18)
+                if (cell.IsLand && LandTempBetween(cell, 0.45f, 0.95f) &&
+                    MeetsOxygenRequirement(cell, LifeForm.Dinosaurs))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.3f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.3f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.MarineDinosaurs:
-                // Marine reptiles
-                if (cell.IsWater && cell.Temperature > 10 && cell.Temperature < 35 && cell.Oxygen > 17)
+                if (cell.IsWater && WaterTempBetween(cell, 0.4f, 0.9f) &&
+                    MeetsOxygenRequirement(cell, LifeForm.MarineDinosaurs))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.28f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.28f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.Pterosaurs:
-                // Flying reptiles
-                if (cell.Temperature > 15 && cell.Temperature < 38 && cell.Oxygen > 19)
+                if (LandTempBetween(cell, 0.4f, 0.9f) && MeetsOxygenRequirement(cell, LifeForm.Pterosaurs))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.25f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.25f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.Mammals:
-                // Warm-blooded, more adaptable
-                if (cell.Temperature > -20 && cell.Temperature < 45 && cell.Oxygen > 18)
+                if (LandTempBetween(cell, 0.2f, 0.9f) && MeetsOxygenRequirement(cell, LifeForm.Mammals))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.27f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.27f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.Birds:
-                // Warm-blooded, efficient
-                if (cell.Temperature > -10 && cell.Temperature < 45 && cell.Oxygen > 19)
+                if (LandTempBetween(cell, 0.3f, 0.95f) && MeetsOxygenRequirement(cell, LifeForm.Birds))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.26f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.26f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.ComplexAnimals:
-                // Needs good oxygen and abundant food
-                if (cell.Temperature > -5 && cell.Temperature < 40 && cell.Oxygen > 18)
+                if (LandTempBetween(cell, 0.2f, 0.85f) && MeetsOxygenRequirement(cell, LifeForm.ComplexAnimals))
                 {
                     float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.15f * Math.Min(foodAvailable, 1.0f) * (cell.Oxygen / 21.0f);
+                    growth = 0.15f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
                 }
                 break;
 
             case LifeForm.Intelligence:
-                // Tool users, needs diverse ecosystem
-                if (cell.Temperature > -10 && cell.Temperature < 35 && cell.Oxygen > 19)
+                if (LandTempBetween(cell, 0.25f, 0.8f) && MeetsOxygenRequirement(cell, LifeForm.Intelligence))
                 {
                     float ecosystemHealth = GetEcosystemDiversity(x, y);
                     growth = 0.1f * ecosystemHealth;
@@ -258,10 +259,9 @@ public class LifeSimulator
                 break;
 
             case LifeForm.Civilization:
-                // Advanced civilization
-                if (cell.Temperature > -20 && cell.Temperature < 40 && cell.Oxygen > 18)
+                if (LandTempBetween(cell, 0.2f, 0.8f) && MeetsOxygenRequirement(cell, LifeForm.Civilization))
                 {
-                    growth = 0.2f; // Civilizations can adapt
+                    growth = 0.2f;
                 }
                 break;
         }
@@ -272,41 +272,48 @@ public class LifeSimulator
     private float CalculateDeathRate(TerrainCell cell)
     {
         // Bacteria are extremely resilient
-        float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.05f; // Lower base death for bacteria
+        float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.05f;
 
-        // Temperature extremes
+        float lethalCold = cell.IsLand ? _lifeProfile.MinLandTemp - 10f : _lifeProfile.MinWaterTemp - 5f;
+        float lethalHeat = cell.IsLand ? _lifeProfile.MaxLandTemp + 10f : _lifeProfile.MaxWaterTemp + 5f;
+
         if (cell.LifeType == LifeForm.Bacteria)
         {
-            // Bacteria can survive extreme temperatures
-            if (cell.Temperature < -50 || cell.Temperature > 100)
-            {
-                death += 0.2f; // Still resilient even in extremes
-            }
+            lethalCold -= 20f;
+            lethalHeat += 20f;
         }
-        else
+
+        if (cell.Temperature < lethalCold || cell.Temperature > lethalHeat)
         {
-            if (cell.Temperature < -30 || cell.Temperature > 60)
-            {
-                death += 0.3f;
-            }
+            death += cell.LifeType == LifeForm.Bacteria ? 0.1f : 0.3f;
         }
 
         // Lack of oxygen (for aerobic life) - bacteria don't need oxygen
-        if (cell.LifeType != LifeForm.Bacteria && cell.LifeType != LifeForm.Algae && cell.Oxygen < 10)
+        float oxygenDemand = GetOxygenDemand(cell.LifeType);
+        if (oxygenDemand > 0f)
         {
-            death += 0.2f;
+            float oxygenThreshold = Math.Max(2f, _lifeProfile.AvgOxygen * oxygenDemand * 0.8f);
+            if (cell.Oxygen < oxygenThreshold)
+            {
+                death += 0.2f;
+            }
         }
 
-        // Too much CO2 - bacteria are tolerant
-        if (cell.LifeType != LifeForm.Bacteria && cell.CO2 > 10)
+        // Too much CO2 relative to the current planet
+        float co2Limit = Math.Max(5f, _map.GlobalCO2 * 2f);
+        if (cell.LifeType != LifeForm.Bacteria && cell.CO2 > co2Limit)
         {
             death += 0.1f;
         }
 
-        // Drought
-        if (cell.IsLand && cell.Rainfall < 0.1f && cell.LifeType == LifeForm.PlantLife)
+        // Drought pressure is evaluated against the world's rainfall profile
+        if (cell.IsLand && cell.LifeType == LifeForm.PlantLife)
         {
-            death += 0.2f;
+            float droughtThreshold = GetRainfallThreshold(0.2f);
+            if (cell.Rainfall < droughtThreshold)
+            {
+                death += 0.2f;
+            }
         }
 
         return death;
@@ -458,55 +465,55 @@ public class LifeSimulator
 
     private bool CanLifeSurvive(LifeForm lifeType, TerrainCell cell)
     {
-        switch (lifeType)
+        return lifeType switch
         {
-            case LifeForm.Bacteria:
-                return cell.Temperature > -20 && cell.Temperature < 80;
+            LifeForm.Bacteria =>
+                cell.Temperature > Math.Min(_lifeProfile.MinLandTemp, _lifeProfile.MinWaterTemp) - 30f &&
+                cell.Temperature < Math.Max(_lifeProfile.MaxLandTemp, _lifeProfile.MaxWaterTemp) + 40f,
 
-            case LifeForm.Algae:
-                return cell.IsWater && cell.Temperature > 0 && cell.Temperature < 40;
+            LifeForm.Algae => cell.IsWater && WaterTempBetween(cell, 0.2f, 0.85f),
 
-            case LifeForm.PlantLife:
-                return cell.IsLand && cell.Temperature > 0 && cell.Temperature < 45 &&
-                       cell.Rainfall > 0.2f && cell.Oxygen > 10;
+            LifeForm.PlantLife => cell.IsLand && LandTempBetween(cell, 0.25f, 0.85f) &&
+                                   MeetsRainfall(cell, 0.35f) && MeetsOxygenRequirement(cell, LifeForm.PlantLife),
 
-            case LifeForm.SimpleAnimals:
-                return cell.Temperature > -10 && cell.Temperature < 50 && cell.Oxygen > 15;
+            LifeForm.SimpleAnimals => LandTempBetween(cell, 0.2f, 0.85f) &&
+                                       MeetsOxygenRequirement(cell, LifeForm.SimpleAnimals),
 
-            case LifeForm.Fish:
-                return cell.IsWater && cell.Temperature > 0 && cell.Temperature < 35 && cell.Oxygen > 12;
+            LifeForm.Fish => cell.IsWater && WaterTempBetween(cell, 0.2f, 0.75f) &&
+                              MeetsOxygenRequirement(cell, LifeForm.Fish),
 
-            case LifeForm.Amphibians:
-                return cell.Temperature > 5 && cell.Temperature < 40 && cell.Oxygen > 15;
+            LifeForm.Amphibians => LandTempBetween(cell, 0.3f, 0.8f) && MeetsRainfall(cell, 0.3f) &&
+                                    MeetsOxygenRequirement(cell, LifeForm.Amphibians),
 
-            case LifeForm.Reptiles:
-                return cell.IsLand && cell.Temperature > 10 && cell.Temperature < 45 && cell.Oxygen > 16;
+            LifeForm.Reptiles => cell.IsLand && LandTempBetween(cell, 0.35f, 0.95f) &&
+                                  MeetsOxygenRequirement(cell, LifeForm.Reptiles),
 
-            case LifeForm.Dinosaurs:
-                return cell.IsLand && cell.Temperature > 15 && cell.Temperature < 40 && cell.Oxygen > 18;
+            LifeForm.Dinosaurs => cell.IsLand && LandTempBetween(cell, 0.45f, 0.95f) &&
+                                   MeetsOxygenRequirement(cell, LifeForm.Dinosaurs),
 
-            case LifeForm.MarineDinosaurs:
-                return cell.IsWater && cell.Temperature > 10 && cell.Temperature < 35 && cell.Oxygen > 17;
+            LifeForm.MarineDinosaurs => cell.IsWater && WaterTempBetween(cell, 0.4f, 0.9f) &&
+                                         MeetsOxygenRequirement(cell, LifeForm.MarineDinosaurs),
 
-            case LifeForm.Pterosaurs:
-                return cell.Temperature > 15 && cell.Temperature < 38 && cell.Oxygen > 19;
+            LifeForm.Pterosaurs => LandTempBetween(cell, 0.4f, 0.9f) &&
+                                    MeetsOxygenRequirement(cell, LifeForm.Pterosaurs),
 
-            case LifeForm.Mammals:
-                return cell.Temperature > -20 && cell.Temperature < 45 && cell.Oxygen > 18;
+            LifeForm.Mammals => LandTempBetween(cell, 0.2f, 0.9f) &&
+                                 MeetsOxygenRequirement(cell, LifeForm.Mammals),
 
-            case LifeForm.Birds:
-                return cell.Temperature > -10 && cell.Temperature < 45 && cell.Oxygen > 19;
+            LifeForm.Birds => LandTempBetween(cell, 0.3f, 0.95f) &&
+                               MeetsOxygenRequirement(cell, LifeForm.Birds),
 
-            case LifeForm.ComplexAnimals:
-                return cell.Temperature > -10 && cell.Temperature < 50 && cell.Oxygen > 15;
+            LifeForm.ComplexAnimals => LandTempBetween(cell, 0.2f, 0.85f) &&
+                                       MeetsOxygenRequirement(cell, LifeForm.ComplexAnimals),
 
-            case LifeForm.Intelligence:
-            case LifeForm.Civilization:
-                return cell.Temperature > -20 && cell.Temperature < 40 && cell.Oxygen > 18;
+            LifeForm.Intelligence => LandTempBetween(cell, 0.25f, 0.8f) &&
+                                      MeetsOxygenRequirement(cell, LifeForm.Intelligence),
 
-            default:
-                return false;
-        }
+            LifeForm.Civilization => LandTempBetween(cell, 0.2f, 0.8f) &&
+                                      MeetsOxygenRequirement(cell, LifeForm.Civilization),
+
+            _ => false
+        };
     }
 
     private float GetNearbyBiomass(int x, int y)
@@ -539,6 +546,177 @@ public class LifeSimulator
         }
 
         return lifeTypes.Count / 5.0f; // Normalize by max expected diversity
+    }
+
+    private void UpdateLifeSupportProfile()
+    {
+        float totalOxygen = 0f;
+        int totalCells = 0;
+        float landTempSum = 0f;
+        float landRainSum = 0f;
+        float landTempMin = float.MaxValue;
+        float landTempMax = float.MinValue;
+        float landRainMin = float.MaxValue;
+        float landRainMax = float.MinValue;
+        float waterTempSum = 0f;
+        float waterTempMin = float.MaxValue;
+        float waterTempMax = float.MinValue;
+        int landCells = 0;
+        int waterCells = 0;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                totalCells++;
+                totalOxygen += cell.Oxygen;
+
+                if (cell.IsLand)
+                {
+                    landCells++;
+                    landTempSum += cell.Temperature;
+                    landRainSum += cell.Rainfall;
+                    landTempMin = Math.Min(landTempMin, cell.Temperature);
+                    landTempMax = Math.Max(landTempMax, cell.Temperature);
+                    landRainMin = Math.Min(landRainMin, cell.Rainfall);
+                    landRainMax = Math.Max(landRainMax, cell.Rainfall);
+                }
+                else
+                {
+                    waterCells++;
+                    waterTempSum += cell.Temperature;
+                    waterTempMin = Math.Min(waterTempMin, cell.Temperature);
+                    waterTempMax = Math.Max(waterTempMax, cell.Temperature);
+                }
+            }
+        }
+
+        _lifeProfile.AvgOxygen = totalCells > 0 ? totalOxygen / totalCells : _lifeProfile.AvgOxygen;
+
+        if (landCells > 0)
+        {
+            _lifeProfile.AvgLandTemp = landTempSum / landCells;
+            _lifeProfile.MinLandTemp = landTempMin;
+            _lifeProfile.MaxLandTemp = landTempMax;
+            _lifeProfile.AvgLandRain = landRainSum / landCells;
+            _lifeProfile.MinLandRain = landRainMin;
+            _lifeProfile.MaxLandRain = landRainMax;
+        }
+        else
+        {
+            _lifeProfile.AvgLandTemp = _map.GlobalTemperature;
+            _lifeProfile.MinLandTemp = _map.GlobalTemperature - 20f;
+            _lifeProfile.MaxLandTemp = _map.GlobalTemperature + 20f;
+            _lifeProfile.AvgLandRain = 0.3f;
+            _lifeProfile.MinLandRain = 0f;
+            _lifeProfile.MaxLandRain = 1f;
+        }
+
+        if (waterCells > 0)
+        {
+            _lifeProfile.AvgWaterTemp = waterTempSum / waterCells;
+            _lifeProfile.MinWaterTemp = waterTempMin;
+            _lifeProfile.MaxWaterTemp = waterTempMax;
+        }
+        else
+        {
+            _lifeProfile.AvgWaterTemp = _lifeProfile.AvgLandTemp;
+            _lifeProfile.MinWaterTemp = _lifeProfile.MinLandTemp;
+            _lifeProfile.MaxWaterTemp = _lifeProfile.MaxLandTemp;
+        }
+    }
+
+    private bool LandTempBetween(TerrainCell cell, float normalizedMin, float normalizedMax)
+    {
+        var (min, max) = GetLandTemperatureWindow(normalizedMin, normalizedMax);
+        return cell.Temperature >= min && cell.Temperature <= max;
+    }
+
+    private bool WaterTempBetween(TerrainCell cell, float normalizedMin, float normalizedMax)
+    {
+        var (min, max) = GetWaterTemperatureWindow(normalizedMin, normalizedMax);
+        return cell.Temperature >= min && cell.Temperature <= max;
+    }
+
+    private (float min, float max) GetLandTemperatureWindow(float normalizedMin, float normalizedMax)
+    {
+        float min = LerpRange(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, normalizedMin);
+        float max = LerpRange(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, normalizedMax);
+        if (max < min) (min, max) = (max, min);
+        return (min, max);
+    }
+
+    private (float min, float max) GetWaterTemperatureWindow(float normalizedMin, float normalizedMax)
+    {
+        float min = LerpRange(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, normalizedMin);
+        float max = LerpRange(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, normalizedMax);
+        if (max < min) (min, max) = (max, min);
+        return (min, max);
+    }
+
+    private bool MeetsRainfall(TerrainCell cell, float normalizedMin)
+    {
+        if (!cell.IsLand)
+            return true;
+
+        float threshold = GetRainfallThreshold(normalizedMin);
+        return cell.Rainfall >= threshold;
+    }
+
+    private float GetRainfallThreshold(float normalizedMin)
+    {
+        float min = _lifeProfile.MinLandRain;
+        float max = Math.Max(min + 0.05f, _lifeProfile.MaxLandRain);
+        return LerpRange(min, max, normalizedMin);
+    }
+
+    private bool MeetsOxygenRequirement(TerrainCell cell, LifeForm lifeForm)
+    {
+        return MeetsOxygenRequirement(cell, lifeForm, 1f);
+    }
+
+    private bool MeetsOxygenRequirement(TerrainCell cell, LifeForm lifeForm, float multiplier)
+    {
+        float demand = GetOxygenDemand(lifeForm);
+        if (demand <= 0f)
+            return true;
+
+        float target = Math.Max(2f, _lifeProfile.AvgOxygen * demand * multiplier);
+        return cell.Oxygen >= target;
+    }
+
+    private float GetOxygenDemand(LifeForm lifeForm)
+    {
+        return lifeForm switch
+        {
+            LifeForm.Algae => 0.2f,
+            LifeForm.PlantLife => 0.45f,
+            LifeForm.SimpleAnimals => 0.7f,
+            LifeForm.Fish => 0.6f,
+            LifeForm.Amphibians => 0.7f,
+            LifeForm.Reptiles => 0.75f,
+            LifeForm.Dinosaurs => 0.85f,
+            LifeForm.MarineDinosaurs => 0.8f,
+            LifeForm.Pterosaurs => 0.9f,
+            LifeForm.Mammals => 0.85f,
+            LifeForm.Birds => 0.9f,
+            LifeForm.ComplexAnimals => 0.8f,
+            LifeForm.Intelligence => 0.9f,
+            LifeForm.Civilization => 0.85f,
+            _ => 0f
+        };
+    }
+
+    private float GetOxygenEfficiency(TerrainCell cell)
+    {
+        return Math.Clamp(cell.Oxygen / Math.Max(0.1f, _lifeProfile.AvgOxygen), 0f, 1.5f);
+    }
+
+    private float LerpRange(float min, float max, float normalized)
+    {
+        normalized = Math.Clamp(normalized, 0f, 1f);
+        return min + (max - min) * normalized;
     }
 
     // === PLANETARY EVENT REACTIVITY ===
@@ -787,16 +965,19 @@ public class LifeSimulator
         avgTemp /= sampleCount;
         avgOxygen /= sampleCount;
 
+        int totalCells = _map.Width * _map.Height;
+        int reseedThreshold = Math.Max(50, totalCells / 40); // ~2.5% of the map
+
         // If life is extinct or critically low, try to reseed
-        if (lifeCells < 50) // Less than 50 cells with life
+        if (lifeCells < reseedThreshold)
         {
-            // Check if planetary conditions are suitable for life
-            bool temperatureOk = avgTemp > -20 && avgTemp < 60;
+            // Check if planetary conditions are suitable for life relative to the current climate
+            bool temperatureOk = avgTemp > _lifeProfile.MinLandTemp - 5f && avgTemp < _lifeProfile.MaxLandTemp + 5f;
             bool hasWater = true; // Assume there's water somewhere on the planet
 
             if (temperatureOk)
             {
-                Console.WriteLine($"[AUTO-RESEED] Life extinct or critically low ({lifeCells} cells). Planetary conditions favorable (T={avgTemp:F1}°C, O2={avgOxygen:F1}%). Re-seeding bacteria...");
+                Console.WriteLine($"[AUTO-RESEED] Life extinct or critically low ({lifeCells}/{reseedThreshold} cells). Planetary conditions favorable (T={avgTemp:F1}°C, O2={avgOxygen:F1}%). Re-seeding bacteria...");
 
                 // Reseed bacteria - they're the most resilient
                 SeedSpecificLife(LifeForm.Bacteria);
