@@ -450,8 +450,77 @@ public class GeologicalSimulator
                 {
                     geo.VolcanicActivity *= MathF.Max(0.9f, 1.0f - 0.01f * volcanicScale);
                 }
+
+                if (ShouldExtinguishVolcano(geo, currentYear))
+                {
+                    ExtinguishVolcano(geo);
+                }
             }
         }
+
+        // Spawn brand new volcanoes as plates evolve
+        if (_random.NextDouble() < 0.001 * volcanicScale)
+        {
+            TrySpawnNewVolcano(currentYear);
+        }
+    }
+
+    private bool ShouldExtinguishVolcano(GeologicalData geo, int currentYear)
+    {
+        if (!geo.IsVolcano)
+            return false;
+
+        int lastActivityYear = geo.LastEruptionYear <= 0 ? 0 : geo.LastEruptionYear;
+
+        int dormantYears = currentYear - lastActivityYear;
+        if (dormantYears < 400)
+            return false;
+
+        return geo.VolcanicActivity < 0.05f && geo.MagmaPressure < 0.1f;
+    }
+
+    private void ExtinguishVolcano(GeologicalData geo)
+    {
+        geo.IsVolcano = false;
+        geo.IsHotSpot = false;
+        geo.VolcanicActivity = 0;
+        geo.MagmaPressure = 0;
+        geo.EruptionIntensity = 0;
+        geo.LastEruptionType = EruptionType.Effusive;
+    }
+
+    private bool TrySpawnNewVolcano(int currentYear)
+    {
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            int x = _random.Next(_map.Width);
+            int y = _random.Next(_map.Height);
+            var cell = _map.Cells[x, y];
+            var geo = cell.GetGeology();
+
+            if (geo.IsVolcano)
+                continue;
+
+            bool tectonicTrigger = geo.BoundaryType == PlateBoundaryType.Convergent ||
+                                   geo.BoundaryType == PlateBoundaryType.Divergent;
+            bool hasHighRelief = cell.Elevation > 0.65f;
+
+            if (!tectonicTrigger && !geo.IsHotSpot && !hasHighRelief)
+                continue;
+
+            if (cell.IsWater && _random.NextDouble() > 0.35)
+                continue;
+
+            geo.IsVolcano = true;
+            geo.VolcanicActivity = 0.25f + (float)_random.NextDouble() * 0.4f;
+            geo.MagmaPressure = 0.1f + (float)_random.NextDouble() * 0.2f;
+            geo.LastEruptionYear = currentYear;
+            geo.LastEruptionType = EruptionType.Effusive;
+            geo.EruptionIntensity = 1;
+            return true;
+        }
+
+        return false;
     }
 
     private void VolcanicEruption(int x, int y, int year)
