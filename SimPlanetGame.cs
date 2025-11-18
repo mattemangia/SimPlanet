@@ -87,6 +87,7 @@ public class SimPlanetGame : Game
     // Performance optimization: throttle expensive operations
     private float _globalStatsTimer = 0;
     private float _visualUpdateTimer = 0;
+    private float _overlayRefreshTimer = 0;
     private const float GlobalStatsInterval = 1.0f; // Update global stats every 1 second
     private const float VisualUpdateInterval = 0.1f; // Update visuals 10 times per second
 
@@ -316,6 +317,7 @@ public class SimPlanetGame : Game
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
         _eventsUI.InitializeOverlayTexture(_map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
+        UpdateRiverOverlayMode();
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
         _sedimentViewer.SetCivilizationManager(_civilizationManager);
@@ -448,6 +450,13 @@ public class SimPlanetGame : Game
             _terrainRenderer.MarkDirty();
             _minimap3D.MarkDirty();
             _visualUpdateTimer = 0;
+        }
+
+        _overlayRefreshTimer += realDeltaTime;
+        if (_overlayRefreshTimer >= 0.5f)
+        {
+            _eventsUI?.MarkOverlayDirty();
+            _overlayRefreshTimer = 0f;
         }
 
         // Update UI systems
@@ -599,54 +608,54 @@ public class SimPlanetGame : Game
         }
 
         // View mode controls
-        if (keyState.IsKeyDown(Keys.D1)) _currentRenderMode = RenderMode.Terrain;
-        if (keyState.IsKeyDown(Keys.D2)) _currentRenderMode = RenderMode.Temperature;
-        if (keyState.IsKeyDown(Keys.D3)) _currentRenderMode = RenderMode.Rainfall;
-        if (keyState.IsKeyDown(Keys.D4)) _currentRenderMode = RenderMode.Life;
-        if (keyState.IsKeyDown(Keys.D5)) _currentRenderMode = RenderMode.Oxygen;
-        if (keyState.IsKeyDown(Keys.D6)) _currentRenderMode = RenderMode.CO2;
-        if (keyState.IsKeyDown(Keys.D7)) _currentRenderMode = RenderMode.Elevation;
-        if (keyState.IsKeyDown(Keys.D8)) _currentRenderMode = RenderMode.Geological;
-        if (keyState.IsKeyDown(Keys.D9)) _currentRenderMode = RenderMode.TectonicPlates;
-        if (keyState.IsKeyDown(Keys.D0)) _currentRenderMode = RenderMode.Volcanoes;
+        if (keyState.IsKeyDown(Keys.D1)) SetRenderMode(RenderMode.Terrain);
+        if (keyState.IsKeyDown(Keys.D2)) SetRenderMode(RenderMode.Temperature);
+        if (keyState.IsKeyDown(Keys.D3)) SetRenderMode(RenderMode.Rainfall);
+        if (keyState.IsKeyDown(Keys.D4)) SetRenderMode(RenderMode.Life);
+        if (keyState.IsKeyDown(Keys.D5)) SetRenderMode(RenderMode.Oxygen);
+        if (keyState.IsKeyDown(Keys.D6)) SetRenderMode(RenderMode.CO2);
+        if (keyState.IsKeyDown(Keys.D7)) SetRenderMode(RenderMode.Elevation);
+        if (keyState.IsKeyDown(Keys.D8)) SetRenderMode(RenderMode.Geological);
+        if (keyState.IsKeyDown(Keys.D9)) SetRenderMode(RenderMode.TectonicPlates);
+        if (keyState.IsKeyDown(Keys.D0)) SetRenderMode(RenderMode.Volcanoes);
 
         // Meteorology view modes (F1-F4)
         if (keyState.IsKeyDown(Keys.F1) && _previousKeyState.IsKeyUp(Keys.F1))
-            _currentRenderMode = RenderMode.Clouds;
+            SetRenderMode(RenderMode.Clouds);
         if (keyState.IsKeyDown(Keys.F2) && _previousKeyState.IsKeyUp(Keys.F2))
-            _currentRenderMode = RenderMode.Wind;
+            SetRenderMode(RenderMode.Wind);
         if (keyState.IsKeyDown(Keys.F3) && _previousKeyState.IsKeyUp(Keys.F3))
-            _currentRenderMode = RenderMode.Pressure;
+            SetRenderMode(RenderMode.Pressure);
         if (keyState.IsKeyDown(Keys.F4) && _previousKeyState.IsKeyUp(Keys.F4))
-            _currentRenderMode = RenderMode.Storms;
+            SetRenderMode(RenderMode.Storms);
 
         // Geological hazards view modes (E, Q, U)
         if (keyState.IsKeyDown(Keys.E) && _previousKeyState.IsKeyUp(Keys.E))
-            _currentRenderMode = RenderMode.Earthquakes;
+            SetRenderMode(RenderMode.Earthquakes);
         if (keyState.IsKeyDown(Keys.Q) && _previousKeyState.IsKeyUp(Keys.Q))
-            _currentRenderMode = RenderMode.Faults;
+            SetRenderMode(RenderMode.Faults);
         if (keyState.IsKeyDown(Keys.U) && _previousKeyState.IsKeyUp(Keys.U))
-            _currentRenderMode = RenderMode.Tsunamis;
+            SetRenderMode(RenderMode.Tsunamis);
 
         // Biome view mode (F10)
         if (keyState.IsKeyDown(Keys.F10) && _previousKeyState.IsKeyUp(Keys.F10))
-            _currentRenderMode = RenderMode.Biomes;
+            SetRenderMode(RenderMode.Biomes);
 
         // Albedo view mode (A key) - surface reflectivity and ice-albedo feedback
         if (keyState.IsKeyDown(Keys.A) && _previousKeyState.IsKeyUp(Keys.A))
-            _currentRenderMode = RenderMode.Albedo;
+            SetRenderMode(RenderMode.Albedo);
 
         // Radiation view mode (F12) - cosmic rays and solar radiation levels
         if (keyState.IsKeyDown(Keys.F12) && _previousKeyState.IsKeyUp(Keys.F12))
-            _currentRenderMode = RenderMode.Radiation;
+            SetRenderMode(RenderMode.Radiation);
 
         // Resources view mode (J key)
         if (keyState.IsKeyDown(Keys.J) && _previousKeyState.IsKeyUp(Keys.J))
-            _currentRenderMode = RenderMode.Resources;
+            SetRenderMode(RenderMode.Resources);
 
         // Infrastructure view mode (O key) - civilization infrastructure
         if (keyState.IsKeyDown(Keys.O) && _previousKeyState.IsKeyUp(Keys.O))
-            _currentRenderMode = RenderMode.Infrastructure;
+            SetRenderMode(RenderMode.Infrastructure);
 
         // Apply render mode to terrain renderer (triggers texture update when mode changes)
         _terrainRenderer.Mode = _currentRenderMode;
@@ -1505,6 +1514,14 @@ public class SimPlanetGame : Game
     {
         _currentRenderMode = mode;
         _terrainRenderer.Mode = mode;
+        UpdateRiverOverlayMode();
+    }
+
+    private void UpdateRiverOverlayMode()
+    {
+        if (_eventsUI == null) return;
+        bool allowRivers = _currentRenderMode == RenderMode.Terrain || _currentRenderMode == RenderMode.Rainfall;
+        _eventsUI.SetRiverDisplayMode(allowRivers);
     }
 
     public void TogglePause()
@@ -1549,16 +1566,19 @@ public class SimPlanetGame : Game
     public void ToggleVolcanoes()
     {
         _eventsUI.ShowVolcanoes = !_eventsUI.ShowVolcanoes;
+        _eventsUI.MarkOverlayDirty();
     }
 
     public void ToggleRivers()
     {
         _eventsUI.ShowRivers = !_eventsUI.ShowRivers;
+        _eventsUI.MarkOverlayDirty();
     }
 
     public void TogglePlates()
     {
         _eventsUI.ShowPlates = !_eventsUI.ShowPlates;
+        _eventsUI.MarkOverlayDirty();
     }
 
     public void SeedLife()

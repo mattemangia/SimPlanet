@@ -28,8 +28,18 @@ public class GeologicalEventsUI
     public bool ShowRivers { get; set; } = true;
     public bool ShowPlates { get; set; } = false;
     public bool ShowVolcanoes { get; set; } = true;
+    private bool _riversAllowedInCurrentView = true;
 
     public void MarkOverlayDirty() => _overlayDirty = true;
+
+    public void SetRiverDisplayMode(bool allowRivers)
+    {
+        if (_riversAllowedInCurrentView != allowRivers)
+        {
+            _riversAllowedInCurrentView = allowRivers;
+            _overlayDirty = true;
+        }
+    }
 
     public GeologicalEventsUI(SpriteBatch spriteBatch, FontRenderer font,
                               GraphicsDevice graphicsDevice)
@@ -129,7 +139,7 @@ public class GeologicalEventsUI
         }
 
         // Render rivers to texture at 1:1 scale with thickness for visibility
-        if (ShowRivers && _hydrologySim != null)
+        if (ShowRivers && _hydrologySim != null && _riversAllowedInCurrentView)
         {
             // BUGFIX: Create a copy of the collection to prevent modification during enumeration.
             foreach (var river in _hydrologySim.Rivers.ToList())
@@ -318,7 +328,7 @@ public class GeologicalEventsUI
         }
 
         // River LOD effects (shimmer, flow indicators, source markers)
-        if (ShowRivers && _hydrologySim != null && zoomLevel > 2.0f)
+        if (ShowRivers && _hydrologySim != null && _riversAllowedInCurrentView && zoomLevel > 2.0f)
         {
             // BUGFIX: Create a copy of the collection to prevent modification during enumeration.
             foreach (var river in _hydrologySim.Rivers.ToList())
