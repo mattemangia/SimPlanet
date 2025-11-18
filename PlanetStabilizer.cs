@@ -11,7 +11,7 @@ public class PlanetStabilizer
     private readonly PlanetMap _map;
     private readonly MagnetosphereSimulator _magnetosphere;
     private float _adjustmentTimer = 0f;
-    private const float AdjustmentInterval = 2.0f; // Adjust every 2 seconds
+    private const float AdjustmentInterval = 2.0f; // Baseline adjustment cadence
     private float _responseMultiplier = 1f;
 
     // Stabilization targets (Earth-like conditions)
@@ -42,18 +42,26 @@ public class PlanetStabilizer
         _responseMultiplier = CalculateResponseMultiplier(timeSpeed);
         _adjustmentTimer += deltaTime;
 
-        if (_adjustmentTimer >= AdjustmentInterval)
+        float effectiveInterval = AdjustmentInterval / MathF.Max(1f, _responseMultiplier);
+        effectiveInterval = Math.Max(0.2f, effectiveInterval); // prevent runaway loops
+
+        if (_adjustmentTimer >= effectiveInterval)
         {
-            PerformStabilization();
-            _adjustmentTimer = 0f;
+            int adjustmentsNeeded = (int)(_adjustmentTimer / effectiveInterval);
+            _adjustmentTimer -= adjustmentsNeeded * effectiveInterval;
+
+            for (int i = 0; i < adjustmentsNeeded; i++)
+            {
+                PerformStabilization();
+            }
         }
     }
 
     private float CalculateResponseMultiplier(float timeSpeed)
     {
         float clampedSpeed = Math.Clamp(timeSpeed, 0.25f, 64f);
-        float multiplier = MathF.Sqrt(clampedSpeed);
-        return Math.Clamp(multiplier, 0.5f, 6f);
+        float multiplier = MathF.Pow(clampedSpeed, 0.85f);
+        return Math.Clamp(multiplier, 0.5f, 10f);
     }
 
     private void PerformStabilization()
@@ -76,10 +84,13 @@ public class PlanetStabilizer
         // Priority 4: Stabilize water levels
         StabilizeWaterCycle();
 
-        // Priority 5: Prevent runaway ice ages or greenhouse effects
+        // Priority 5: Reverse fast-forming deserts during high-speed play
+        CombatRapidDesertification();
+
+        // Priority 6: Prevent runaway ice ages or greenhouse effects
         PreventExtremeFeedbacks();
 
-        // Priority 6: ACTIVELY PROTECT LIFE from disasters and harsh conditions
+        // Priority 7: ACTIVELY PROTECT LIFE from disasters and harsh conditions
         ProtectAndNurtureLife();
     }
 
@@ -515,6 +526,45 @@ public class PlanetStabilizer
                     cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost, 0, 1f);
                 }
             }
+        }
+    }
+
+    private void CombatRapidDesertification()
+    {
+        int assistedCells = 0;
+        float rainfallBoost = 0.08f * _responseMultiplier;
+        float humidityBoost = 0.1f * _responseMultiplier;
+        float cooling = 0.4f * _responseMultiplier;
+        float biomassBoost = 0.04f * _responseMultiplier;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (!cell.IsLand) continue;
+
+                bool isDesertifying = cell.Rainfall < 0.15f && cell.Humidity < 0.25f && cell.Temperature > 25f;
+                if (!isDesertifying) continue;
+
+                assistedCells++;
+                cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallBoost, 0f, 1f);
+                cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost, 0f, 1f);
+                cell.Temperature = MathF.Max(cell.Temperature - cooling, 15f);
+
+                if (cell.LifeType == LifeForm.None)
+                {
+                    cell.LifeType = LifeForm.PlantLife;
+                }
+
+                cell.Biomass = Math.Min(cell.Biomass + biomassBoost, 0.5f);
+            }
+        }
+
+        if (assistedCells > 0)
+        {
+            LastAction = $"Rehydrating {assistedCells} desertifying cells";
+            AdjustmentsMade++;
         }
     }
 
