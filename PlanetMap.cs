@@ -378,7 +378,7 @@ public class PlanetMap
 
                 // Temperature based on latitude (distance from equator)
                 float latitude = Math.Abs((y - Height / 2.0f) / (Height / 2.0f));
-                float baseTemp = 30 - (latitude * 40); // 30Â°C at equator, -10Â°C at poles
+                float baseTemp = 30 - (latitude * 40); // 30°C at equator, -10°C at poles
 
                 // Elevation affects temperature (cooler at higher elevations)
                 if (cell.Elevation > 0)

@@ -47,7 +47,7 @@ public class ClimateSimulator
                 if (cell.IsWater)
                 {
                     // Warm currents on west coasts in mid-latitudes, cold currents on east coasts
-                    float currentPattern = MathF.Sin(x * 0.15f + signedLatitude * 3f) * 8.0f; // Up to Â±8Â°C
+                    float currentPattern = MathF.Sin(x * 0.15f + signedLatitude * 3f) * 8.0f; // Up to ±8°C
                     oceanCurrentEffect = currentPattern;
                 }
 
@@ -71,7 +71,7 @@ public class ClimateSimulator
                 float topographicVariation = MathF.Sin(x * 0.4f) * MathF.Cos(y * 0.35f) * 3.0f;
 
                 // Realistic temperature gradient: hot equator, freezing poles
-                // Equator (lat=0): ~30Â°C, Poles (lat=1): ~-40Â°C
+                // Equator (lat=0): ~30°C, Poles (lat=1): ~-40°C
                 float baseTemp = 30 - (latitude * latitude * 70) + oceanCurrentEffect +
                                 continentalityEffect + topographicVariation;
 
@@ -94,7 +94,7 @@ public class ClimateSimulator
                 if (float.IsNaN(solarHeating) || float.IsInfinity(solarHeating))
                     solarHeating = 15.0f;
 
-                // Elevation cooling (6.5Â°C per km, roughly 0.65Â°C per 0.1 elevation)
+                // Elevation cooling (6.5°C per km, roughly 0.65°C per 0.1 elevation)
                 float elevation = cell.Elevation;
                 if (float.IsNaN(elevation) || float.IsInfinity(elevation))
                     elevation = 0;

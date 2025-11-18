@@ -48,7 +48,7 @@ public class AtmosphericColumn
     public float UpperTropTemp { get; set; } = 228f;    // 8-12 km (tropopause)
     public float StratosphereTemp { get; set; } = 220f; // 12-25 km (ozone layer)
 
-    // Spectral band fluxes (W/mÂ²)
+    // Spectral band fluxes (W/m²)
     // Shortwave (solar) radiation
     public float ShortwaveDownSurface { get; set; }     // Incoming solar at surface
     public float ShortwaveUpSurface { get; set; }       // Reflected solar from surface
@@ -60,7 +60,7 @@ public class AtmosphericColumn
 
     // Layer-specific gas concentrations (for absorption calculations)
     public float OzoneColumn { get; set; } = 300f;      // Dobson Units (DU), mostly in stratosphere
-    public float WaterVaporColumn { get; set; } = 25f;  // kg/mÂ² precipitable water
+    public float WaterVaporColumn { get; set; } = 25f;  // kg/m² precipitable water
 }
 
 /// <summary>
@@ -103,7 +103,7 @@ public class WeatherSystem
     private void UpdateSeasons(float deltaTime, int currentYear)
     {
         // REALISTIC SEASONAL PROGRESSION WITH PLANETARY AXIS TILT
-        // Axial tilt: 23.5Â° (like Earth) - causes seasons
+        // Axial tilt: 23.5° (like Earth) - causes seasons
         // Season progress: 0-4 represents one full orbit (year)
         _seasonProgress += deltaTime * 0.1f;
         if (_seasonProgress >= 4.0f)
@@ -111,11 +111,11 @@ public class WeatherSystem
 
         // Convert season progress to orbital angle (0-2Ï€)
         float orbitalAngle = _seasonProgress * MathF.PI / 2f; // 0-2Ï€ over 4 seasons
-        const float axialTilt = 23.5f * (MathF.PI / 180f); // 23.5Â° in radians
+        const float axialTilt = 23.5f * (MathF.PI / 180f); // 23.5° in radians
 
         // Solar declination varies with orbital position
         // Declination: angle between equatorial plane and sun's rays
-        // Summer solstice: +23.5Â°, Winter solstice: -23.5Â°, Equinoxes: 0Â°
+        // Summer solstice: +23.5°, Winter solstice: -23.5°, Equinoxes: 0°
         float solarDeclination = MathF.Sin(orbitalAngle) * axialTilt;
 
         for (int x = 0; x < _map.Width; x++)
@@ -145,7 +145,7 @@ public class WeatherSystem
 
                 // Convert to seasonal temperature effect
                 // Higher sun = more heating, lower sun = less heating
-                float seasonalHeating = maxSunElevation * 25f; // Â±25Â°C seasonal variation
+                float seasonalHeating = maxSunElevation * 25f; // ±25°C seasonal variation
 
                 // Apply stronger seasonal effects at higher latitudes
                 float latitudeEffect = Math.Abs(latitude);
@@ -436,7 +436,7 @@ public class WeatherSystem
             float latitude = (centerY - _map.Height / 2.0f) / (_map.Height / 2.0f);
             float absLatitude = Math.Abs(latitude);
 
-            // Pressure cells form mainly in mid-latitudes (30-60Â°), but allow some everywhere
+            // Pressure cells form mainly in mid-latitudes (30-60°), but allow some everywhere
             // Use smooth probability transition to eliminate banding
             float cellProbability = 0.3f; // Base probability everywhere
             
@@ -581,7 +581,7 @@ public class WeatherSystem
                 float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
                 float absLatitude = Math.Abs(latitude);
 
-                // Baroclinic instability strongest in mid-latitudes (30-60Â°)
+                // Baroclinic instability strongest in mid-latitudes (30-60°)
                 // Baroclinic instability strongest in mid-latitudes (30-60°)
                 // Smooth transition to eliminate banding
                 float baroclinicStrength = 0;
@@ -730,7 +730,7 @@ public class WeatherSystem
 
     private void UpdateStormIntensity(Storm storm, float deltaTime)
     {
-        // Tropical cyclones intensify over warm water (>26Â°C), weaken over land or cool water
+        // Tropical cyclones intensify over warm water (>26°C), weaken over land or cool water
         bool isTropical = storm.Type >= StormType.TropicalDepression &&
                          storm.Type <= StormType.HurricaneCategory5;
 
@@ -817,7 +817,7 @@ public class WeatherSystem
                               cell.Humidity > 0.7f &&
                               met.AirPressure < 1005 &&
                               absLatitude > 0.05f &&  // Smoothed: ~3° from equator
-                              absLatitude < 0.5f &&   // ~30Â° latitude
+                              absLatitude < 0.5f &&   // ~30° latitude
                               windConvergence > 0.02f;
 
         if (canFormTropical)
@@ -1031,7 +1031,7 @@ public class WeatherSystem
                 // Tropical cyclones cool sea surface temperature by mixing deep cold water
                 if (cell.IsWater && storm.Type >= StormType.TropicalStorm)
                 {
-                    float cooling = effectStrength * 2.0f; // Up to 2Â°C cooling
+                    float cooling = effectStrength * 2.0f; // Up to 2°C cooling
                     cell.Temperature -= cooling * 0.05f; // Gradual cooling
                 }
                 // Evaporative cooling from heavy rain
@@ -1141,7 +1141,7 @@ public class WeatherSystem
                     // 2. Wind speed (wind carries moisture away)
                     // 3. Low humidity (dry air can hold more moisture)
 
-                    float tempFactor = Math.Clamp((cell.Temperature + 10) / 40f, 0, 2); // Peak at 30Â°C
+                    float tempFactor = Math.Clamp((cell.Temperature + 10) / 40f, 0, 2); // Peak at 30°C
                     float windFactor = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY) * 0.05f;
                     float humidityFactor = (1.0f - cell.Humidity); // More evap when dry
 
