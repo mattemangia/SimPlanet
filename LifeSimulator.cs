@@ -274,8 +274,13 @@ public class LifeSimulator
         // Bacteria are extremely resilient
         float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.05f;
 
-        float lethalCold = cell.IsLand ? _lifeProfile.MinLandTemp - 10f : _lifeProfile.MinWaterTemp - 5f;
-        float lethalHeat = cell.IsLand ? _lifeProfile.MaxLandTemp + 10f : _lifeProfile.MaxWaterTemp + 5f;
+        var (minComfort, maxComfort) = cell.IsLand
+            ? ExpandTemperatureWindow(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, _lifeProfile.AvgLandTemp)
+            : ExpandTemperatureWindow(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, _lifeProfile.AvgWaterTemp);
+
+        float tolerance = MathF.Max(2f, (maxComfort - minComfort) * 0.15f);
+        float lethalCold = minComfort - tolerance;
+        float lethalHeat = maxComfort + tolerance;
 
         if (cell.LifeType == LifeForm.Bacteria)
         {
@@ -295,7 +300,8 @@ public class LifeSimulator
             float oxygenThreshold = Math.Max(2f, _lifeProfile.AvgOxygen * oxygenDemand * 0.8f);
             if (cell.Oxygen < oxygenThreshold)
             {
-                death += 0.2f;
+                float deficit = oxygenThreshold - cell.Oxygen;
+                death += MathF.Min(0.3f, 0.05f * deficit);
             }
         }
 
@@ -641,16 +647,68 @@ public class LifeSimulator
 
     private (float min, float max) GetLandTemperatureWindow(float normalizedMin, float normalizedMax)
     {
-        float min = LerpRange(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, normalizedMin);
-        float max = LerpRange(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, normalizedMax);
+        var (windowMin, windowMax) = ExpandTemperatureWindow(
+            _lifeProfile.MinLandTemp,
+            _lifeProfile.MaxLandTemp,
+            _lifeProfile.AvgLandTemp
+        );
+
+        float min = LerpRange(windowMin, windowMax, normalizedMin);
+        float max = LerpRange(windowMin, windowMax, normalizedMax);
         if (max < min) (min, max) = (max, min);
         return (min, max);
     }
 
     private (float min, float max) GetWaterTemperatureWindow(float normalizedMin, float normalizedMax)
     {
-        float min = LerpRange(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, normalizedMin);
-        float max = LerpRange(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, normalizedMax);
+        var (windowMin, windowMax) = ExpandTemperatureWindow(
+            _lifeProfile.MinWaterTemp,
+            _lifeProfile.MaxWaterTemp,
+            _lifeProfile.AvgWaterTemp
+        );
+
+        float min = LerpRange(windowMin, windowMax, normalizedMin);
+        float max = LerpRange(windowMin, windowMax, normalizedMax);
+        if (max < min) (min, max) = (max, min);
+        return (min, max);
+    }
+
+    private (float min, float max) ExpandTemperatureWindow(float observedMin, float observedMax, float average)
+    {
+        if (observedMin == float.MaxValue || observedMax == float.MinValue)
+        {
+            float fallback = Math.Max(5f, Math.Abs(_map.GlobalTemperature));
+            return (_map.GlobalTemperature - fallback, _map.GlobalTemperature + fallback);
+        }
+
+        float span = MathF.Max(1f, observedMax - observedMin);
+        // Scale tolerance with the climate we're simulating rather than hard-coded bands
+        float climateScale = MathF.Max(span, MathF.Max(5f, MathF.Abs(average) * 0.4f));
+        float padding = MathF.Max(2f, climateScale * 0.35f);
+
+        float min = observedMin - padding;
+        float max = observedMax + padding;
+        if (max < min) (min, max) = (max, min);
+        return (min, max);
+    }
+
+    private (float min, float max) GetRainfallWindow()
+    {
+        float observedMin = _lifeProfile.MinLandRain;
+        float observedMax = _lifeProfile.MaxLandRain;
+
+        if (observedMin == float.MaxValue || observedMax == float.MinValue)
+        {
+            float fallback = Math.Clamp(_lifeProfile.AvgLandRain, 0.05f, 0.95f);
+            return (Math.Max(0f, fallback - 0.25f), Math.Min(1f, fallback + 0.25f));
+        }
+
+        float span = MathF.Max(0.02f, observedMax - observedMin);
+        float humidityScale = MathF.Max(span, Math.Max(0.05f, _lifeProfile.AvgLandRain * 0.75f));
+        float padding = MathF.Max(0.03f, humidityScale * 0.35f);
+
+        float min = Math.Max(0f, observedMin - padding);
+        float max = Math.Min(1f, observedMax + padding);
         if (max < min) (min, max) = (max, min);
         return (min, max);
     }
@@ -666,8 +724,7 @@ public class LifeSimulator
 
     private float GetRainfallThreshold(float normalizedMin)
     {
-        float min = _lifeProfile.MinLandRain;
-        float max = Math.Max(min + 0.05f, _lifeProfile.MaxLandRain);
+        var (min, max) = GetRainfallWindow();
         return LerpRange(min, max, normalizedMin);
     }
 
@@ -682,7 +739,9 @@ public class LifeSimulator
         if (demand <= 0f)
             return true;
 
-        float target = Math.Max(2f, _lifeProfile.AvgOxygen * demand * multiplier);
+        float baseTarget = _lifeProfile.AvgOxygen * demand * multiplier;
+        float tolerance = Math.Max(1f, _lifeProfile.AvgOxygen * 0.15f);
+        float target = Math.Max(2f, baseTarget - tolerance);
         return cell.Oxygen >= target;
     }
 
