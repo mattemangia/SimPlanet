@@ -189,7 +189,7 @@ public class SimPlanetGame : Game
                     _disasterManager.Update(simDeltaTime, newYear);
                     _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager);
                     _magnetosphereSimulator.Update(simDeltaTime, newYear);
-                    _planetStabilizer.Update(simDeltaTime);
+                    _planetStabilizer.Update(simDeltaTime, gameStateCopy.TimeSpeed);
 
                     // Earthquake system (triggers tsunamis)
                     EarthquakeSystem.Update(_map, simDeltaTime, newYear, out bool tsunamiTriggered, out (int x, int y) tsunamiEpicenter, out float tsunamiMagnitude);

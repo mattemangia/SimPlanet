@@ -12,6 +12,7 @@ public class PlanetStabilizer
     private readonly MagnetosphereSimulator _magnetosphere;
     private float _adjustmentTimer = 0f;
     private const float AdjustmentInterval = 2.0f; // Adjust every 2 seconds
+    private float _responseMultiplier = 1f;
 
     // Stabilization targets (Earth-like conditions)
     private const float TargetGlobalTemp = 15.0f; // 15Â°C average
@@ -34,10 +35,11 @@ public class PlanetStabilizer
         _magnetosphere = magnetosphere;
     }
 
-    public void Update(float deltaTime)
+    public void Update(float deltaTime, float timeSpeed)
     {
         if (!IsActive) return;
 
+        _responseMultiplier = CalculateResponseMultiplier(timeSpeed);
         _adjustmentTimer += deltaTime;
 
         if (_adjustmentTimer >= AdjustmentInterval)
@@ -45,6 +47,13 @@ public class PlanetStabilizer
             PerformStabilization();
             _adjustmentTimer = 0f;
         }
+    }
+
+    private float CalculateResponseMultiplier(float timeSpeed)
+    {
+        float clampedSpeed = Math.Clamp(timeSpeed, 0.25f, 64f);
+        float multiplier = MathF.Sqrt(clampedSpeed);
+        return Math.Clamp(multiplier, 0.5f, 6f);
     }
 
     private void PerformStabilization()
@@ -355,12 +364,13 @@ public class PlanetStabilizer
 
     private void AdjustCO2Globally(float amount)
     {
+        float scaledAmount = amount * _responseMultiplier;
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
-                cell.CO2 = Math.Max(0, cell.CO2 + amount);
+                cell.CO2 = Math.Max(0, cell.CO2 + scaledAmount);
 
                 // Update greenhouse effect
                 cell.Greenhouse = cell.CO2 * 10f + (cell.Temperature - 15f) * 0.01f;
@@ -370,23 +380,25 @@ public class PlanetStabilizer
 
     private void ReduceOxygenGlobally(float amount)
     {
+        float scaledAmount = amount * _responseMultiplier;
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                _map.Cells[x, y].Oxygen = Math.Max(0, _map.Cells[x, y].Oxygen - amount);
+                _map.Cells[x, y].Oxygen = Math.Max(0, _map.Cells[x, y].Oxygen - scaledAmount);
             }
         }
     }
 
     private void ReduceMethaneGlobally(float amount)
     {
+        float scaledAmount = amount * _responseMultiplier;
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
-                cell.Methane = Math.Max(0, cell.Methane - amount);
+                cell.Methane = Math.Max(0, cell.Methane - scaledAmount);
 
                 // Update greenhouse effect after reducing methane
                 UpdateCellGreenhouse(cell);
@@ -396,12 +408,13 @@ public class PlanetStabilizer
 
     private void ReduceN2OGlobally(float amount)
     {
+        float scaledAmount = amount * _responseMultiplier;
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
-                cell.NitrousOxide = Math.Max(0, cell.NitrousOxide - amount);
+                cell.NitrousOxide = Math.Max(0, cell.NitrousOxide - scaledAmount);
 
                 // Update greenhouse effect after reducing N2O
                 UpdateCellGreenhouse(cell);
@@ -435,6 +448,8 @@ public class PlanetStabilizer
     private void BoostPlantGrowth()
     {
         // Enhance plant life to produce more oxygen
+        float biomassBoost = 0.05f * _responseMultiplier;
+        float oxygenBoost = 0.1f * _responseMultiplier;
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -443,8 +458,8 @@ public class PlanetStabilizer
                 if (cell.LifeType == LifeForm.PlantLife ||
                     cell.LifeType == LifeForm.Algae)
                 {
-                    cell.Biomass = Math.Min(cell.Biomass + 0.05f, 1.0f);
-                    cell.Oxygen += 0.1f;
+                    cell.Biomass = Math.Min(cell.Biomass + biomassBoost, 1.0f);
+                    cell.Oxygen = Math.Min(cell.Oxygen + oxygenBoost, 35f);
                 }
             }
         }
@@ -452,6 +467,7 @@ public class PlanetStabilizer
 
     private void RaiseLandMasses()
     {
+        float elevationChange = 0.05f * _responseMultiplier;
         // Raise the lowest land areas
         for (int x = 0; x < _map.Width; x++)
         {
@@ -460,7 +476,7 @@ public class PlanetStabilizer
                 var cell = _map.Cells[x, y];
                 if (cell.IsWater && cell.Elevation > -0.3f)
                 {
-                    cell.Elevation += 0.05f;
+                    cell.Elevation += elevationChange;
                 }
             }
         }
@@ -468,6 +484,7 @@ public class PlanetStabilizer
 
     private void AddWaterToLowlands()
     {
+        float elevationChange = 0.05f * _responseMultiplier;
         // Lower some land areas to create seas
         for (int x = 0; x < _map.Width; x++)
         {
@@ -476,7 +493,7 @@ public class PlanetStabilizer
                 var cell = _map.Cells[x, y];
                 if (cell.IsLand && cell.Elevation < 0.2f)
                 {
-                    cell.Elevation -= 0.05f;
+                    cell.Elevation -= elevationChange;
                 }
             }
         }
@@ -484,6 +501,8 @@ public class PlanetStabilizer
 
     private void EnsureRainfallDistribution()
     {
+        float rainfallBoost = 0.05f * _responseMultiplier;
+        float humidityBoost = 0.05f * _responseMultiplier;
         // Boost rainfall in dry areas with plant life
         for (int x = 0; x < _map.Width; x++)
         {
@@ -492,8 +511,8 @@ public class PlanetStabilizer
                 var cell = _map.Cells[x, y];
                 if (cell.IsLand && cell.Rainfall < 0.2f && cell.LifeType != LifeForm.None)
                 {
-                    cell.Rainfall += 0.05f;
-                    cell.Humidity += 0.05f;
+                    cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallBoost, 0, 1f);
+                    cell.Humidity = Math.Clamp(cell.Humidity + humidityBoost, 0, 1f);
                 }
             }
         }
@@ -589,21 +608,23 @@ public class PlanetStabilizer
                         if (goodConditions)
                         {
                             // Give life a boost to help it recover
-                            cell.Biomass = Math.Min(cell.Biomass + 0.1f, 0.5f);
+                            float biomassBoost = 0.1f * _responseMultiplier;
+                            cell.Biomass = Math.Min(cell.Biomass + biomassBoost, 0.5f);
                         }
                     }
 
                     // Prevent catastrophic die-off from temperature extremes
                     if (cell.LifeType != LifeForm.Bacteria && cell.LifeType != LifeForm.None)
                     {
+                        float tempDelta = 2f * _responseMultiplier;
                         // Moderate extreme temperatures where life exists
                         if (cell.Temperature > 50f)
                         {
-                            cell.Temperature = Math.Max(cell.Temperature - 2f, 45f);
+                            cell.Temperature = Math.Max(cell.Temperature - tempDelta, 45f);
                         }
                         else if (cell.Temperature < -25f)
                         {
-                            cell.Temperature = Math.Min(cell.Temperature + 2f, -20f);
+                            cell.Temperature = Math.Min(cell.Temperature + tempDelta, -20f);
                         }
                     }
 
@@ -612,14 +633,16 @@ public class PlanetStabilizer
                     {
                         if (cell.Oxygen < 12f)
                         {
-                            cell.Oxygen = Math.Min(cell.Oxygen + 1f, 15f);
+                            float oxygenBoost = 1f * _responseMultiplier;
+                            cell.Oxygen = Math.Min(cell.Oxygen + oxygenBoost, 15f);
                         }
                     }
 
                     // Reduce toxic CO2 where life exists
                     if (cell.CO2 > 10f && cell.LifeType != LifeForm.Bacteria)
                     {
-                        cell.CO2 = Math.Max(cell.CO2 - 0.5f, 8f);
+                        float co2Reduction = 0.5f * _responseMultiplier;
+                        cell.CO2 = Math.Max(cell.CO2 - co2Reduction, 8f);
                     }
                 }
             }
@@ -645,7 +668,8 @@ public class PlanetStabilizer
                     var cell = _map.Cells[x, y];
                     if (cell.LifeType != LifeForm.None && cell.Biomass > 0)
                     {
-                        cell.Biomass = Math.Min(cell.Biomass + 0.15f, 0.8f); // Major boost
+                        float biomassBoost = 0.15f * _responseMultiplier;
+                        cell.Biomass = Math.Min(cell.Biomass + biomassBoost, 0.8f); // Major boost
                     }
                 }
             }
