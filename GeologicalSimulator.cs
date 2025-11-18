@@ -824,6 +824,9 @@ public class GeologicalSimulator
         }
 
         float erosionScale = ErosionScale;
+        
+        // Add sediment compaction and removal mechanism
+        float compactionRate = 0.01f; // Sediment compacts over time
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -831,6 +834,26 @@ public class GeologicalSimulator
             {
                 var cell = _map.Cells[x, y];
                 var geo = cell.GetGeology();
+
+                // Apply sediment compaction - converts sediment to rock over time
+                if (geo.SedimentLayer > 2.0f)
+                {
+                    float compaction = (geo.SedimentLayer - 2.0f) * compactionRate * deltaTime;
+                    geo.SedimentLayer -= compaction;
+                    geo.SedimentaryRock += compaction * 0.5f; // 50% becomes rock
+                    geo.SedimentaryRock = Math.Clamp(geo.SedimentaryRock, 0f, 5f);
+                }
+                
+                // Ocean sediment removal at subduction zones and deep burial
+                if (!cell.IsLand && cell.Elevation < -0.5f)
+                {
+                    // Deep ocean sediments get subducted or deeply buried
+                    if (geo.BoundaryType == PlateBoundaryType.Convergent || geo.SedimentLayer > 5.0f)
+                    {
+                        float removalRate = 0.02f * deltaTime;
+                        geo.SedimentLayer *= (1.0f - removalRate);
+                    }
+                }
 
                 if (!cell.IsLand) continue;
 
@@ -858,25 +881,25 @@ public class GeologicalSimulator
                 slope = float.IsNaN(slope) ? 0.0f : Math.Max(0, slope);
                 slope = Math.Clamp(slope, 0f, 10f); // Max slope
 
-                geo.ErosionRate = rainfall * 0.1f * (1.0f + slope * 2.0f);
+                geo.ErosionRate = rainfall * 0.05f * (1.0f + slope * 1.5f); // Reduced from 0.1f and 2.0f
                 geo.ErosionRate *= erosionScale;
 
                 // Temperature affects weathering
                 if (temperature > 20)
                 {
-                    geo.ErosionRate *= 1.5f;
+                    geo.ErosionRate *= 1.2f; // Reduced from 1.5f
                 }
 
                 // Ice erosion
                 if (cell.IsIce)
                 {
-                    geo.ErosionRate *= 2.0f;
+                    geo.ErosionRate *= 1.5f; // Reduced from 2.0f
                 }
 
                 geo.ErosionRate = Math.Clamp(geo.ErosionRate, 0f, 10f);
 
-                // Apply erosion
-                float erosion = geo.ErosionRate * deltaTime * 0.0001f;
+                // Apply erosion - reduced rate
+                float erosion = geo.ErosionRate * deltaTime * 0.00005f; // Reduced from 0.0001f
 
                 // Validate erosion value and clamp
                 if (float.IsNaN(erosion) || float.IsInfinity(erosion) || erosion < 0)
@@ -892,6 +915,7 @@ public class GeologicalSimulator
 
                     cell.Elevation -= erosion;
                     geo.SedimentLayer += erosion;
+                    geo.SedimentLayer = Math.Clamp(geo.SedimentLayer, 0f, 10f); // Clamp after erosion addition
 
                     // Clamp elevation and sediment to reasonable ranges
                     cell.Elevation = Math.Clamp(cell.Elevation, -2f, 2f); // Keep in reasonable range
@@ -928,7 +952,7 @@ public class GeologicalSimulator
                     }
                     waterCurrent = Math.Clamp(waterCurrent, 0f, 20f); // Max reasonable water current
 
-                    float transport = geo.SedimentLayer * 0.1f * waterCurrent;
+                    float transport = geo.SedimentLayer * 0.05f * waterCurrent; // Reduced from 0.1f to 0.05f
 
                     // Validate transport value AND CLAMP to prevent astronomical values
                     if (float.IsNaN(transport) || float.IsInfinity(transport) || transport < 0)
@@ -975,8 +999,10 @@ public class GeologicalSimulator
                     if (waterCurrent < 0.5f && transport > 0.01f) // Low current = deposition
                     {
                         targetGeo.SedimentLayer += transport;
+                        targetGeo.SedimentLayer = Math.Clamp(targetGeo.SedimentLayer, 0f, 10f); // Clamp after addition
                         targetGeo.SedimentColumn.Add(sedimentType); // Add to sediment column
                         targetGeo.SedimentaryRock += transport * 0.1f;
+                        targetGeo.SedimentaryRock = Math.Clamp(targetGeo.SedimentaryRock, 0f, 5f); // Also clamp rock accumulation
 
                         // Sediment builds up elevation in lowlands
                         if (_map.Cells[lx, ly].IsWater || _map.Cells[lx, ly].Elevation < 0.1f)
@@ -985,12 +1011,14 @@ public class GeologicalSimulator
                             if (!float.IsNaN(elevationIncrease) && !float.IsInfinity(elevationIncrease))
                             {
                                 _map.Cells[lx, ly].Elevation += elevationIncrease;
+                                _map.Cells[lx, ly].Elevation = Math.Clamp(_map.Cells[lx, ly].Elevation, -2f, 2f); // Clamp elevation
                             }
                         }
                     }
                     else // High current = sediment keeps moving
                     {
                         targetGeo.SedimentLayer += transport;
+                        targetGeo.SedimentLayer = Math.Clamp(targetGeo.SedimentLayer, 0f, 10f); // Clamp after addition
                     }
 
                     // Limit sediment column size (keep only recent layers)
@@ -1097,8 +1125,11 @@ public class GeologicalSimulator
 
                                 // Update sediment layers
                                 geo.SedimentLayer -= turbiditeThickness;
+                                geo.SedimentLayer = Math.Clamp(geo.SedimentLayer, 0f, 10f); // Clamp source after removal
                                 targetGeo.SedimentLayer += turbiditeThickness;
+                                targetGeo.SedimentLayer = Math.Clamp(targetGeo.SedimentLayer, 0f, 10f); // Clamp target after addition
                                 targetGeo.SedimentaryRock += turbiditeThickness * 0.15f;
+                                targetGeo.SedimentaryRock = Math.Clamp(targetGeo.SedimentaryRock, 0f, 5f); // Clamp rock accumulation
 
                                 // Turbidites can build up abyssal plains
                                 if (targetCell.Elevation < -0.3f && !float.IsNaN(turbiditeThickness))
