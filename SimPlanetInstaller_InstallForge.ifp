@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<InstallForgeProject>
+  <Metadata productVersion="1.5.0" projectFileVersion="2.0"/>
+  <ProductInformation>
+    <Name>SimPlanet</Name>
+    <Version>1.0</Version>
+    <CompanyName>Matteo Mangiagalli</CompanyName>
+    <WebURI>https://</WebURI>
+  </ProductInformation>
+  <InstallerConfiguration>
+    <Prerequisites>
+      <OperatingSystem check="true">
+        <WindowsXP>false</WindowsXP>
+        <WindowsServer2003>true</WindowsServer2003>
+        <WindowsVista>true</WindowsVista>
+        <WindowsServer2008>true</WindowsServer2008>
+        <Windows7>true</Windows7>
+        <Windows8>true</Windows8>
+        <Windows10>true</Windows10>
+        <WindowsServer2016>true</WindowsServer2016>
+        <WindowsServer2019>true</WindowsServer2019>
+        <WindowsServer2022>true</WindowsServer2022>
+        <Windows11>true</Windows11>
+      </OperatingSystem>
+    </Prerequisites>
+    <UserInterface>
+      <WizardImage filePath="&lt;main&gt;"/>
+      <HeaderImage filePath="&lt;main&gt;"/>
+      <Label isEnabled="true"/>
+      <VisualStyle isEnabled="true"/>
+    </UserInterface>
+    <InstallationFiles defaultInstallationPath="&lt;ProgramFiles&gt;\&lt;Company&gt;\&lt;AppName&gt;\" isDefaultInstallationPathAlterable ="true">
+      <InstallationFile size="303.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\clretwrc.dll</InstallationFile>
+      <InstallationFile size="652.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\clrgc.dll</InstallationFile>
+      <InstallationFile size="1.7 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\clrjit.dll</InstallationFile>
+      <InstallationFile size="4.8 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\coreclr.dll</InstallationFile>
+      <InstallationFile size="70.3 KB" type="exe">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\createdump.exe</InstallationFile>
+      <InstallationFile size="45.1 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\Cyotek.Drawing.BitmapFont.dll</InstallationFile>
+      <InstallationFile size="4.5 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\FontStashSharp.Base.dll</InstallationFile>
+      <InstallationFile size="68.5 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\FontStashSharp.MonoGame.dll</InstallationFile>
+      <InstallationFile size="12 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\FontStashSharp.Rasterizers.StbTrueTypeSharp.dll</InstallationFile>
+      <InstallationFile size="358.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\hostfxr.dll</InstallationFile>
+      <InstallationFile size="398.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\hostpolicy.dll</InstallationFile>
+      <InstallationFile size="982.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\Microsoft.CSharp.dll</InstallationFile>
+      <InstallationFile size="2.1 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\Microsoft.DiaSymReader.Native.amd64.dll</InstallationFile>
+      <InstallationFile size="1.2 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\Microsoft.VisualBasic.Core.dll</InstallationFile>
+      <InstallationFile size="17.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\Microsoft.VisualBasic.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\Microsoft.Win32.Primitives.dll</InstallationFile>
+      <InstallationFile size="118.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\Microsoft.Win32.Registry.dll</InstallationFile>
+      <InstallationFile size="1.8 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\MonoGame.Framework.dll</InstallationFile>
+      <InstallationFile size="1.3 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\mscordaccore.dll</InstallationFile>
+      <InstallationFile size="1.3 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\mscordaccore_amd64_amd64_8.0.2125.47513.dll</InstallationFile>
+      <InstallationFile size="1.2 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\mscordbi.dll</InstallationFile>
+      <InstallationFile size="58.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\mscorlib.dll</InstallationFile>
+      <InstallationFile size="133.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\mscorrc.dll</InstallationFile>
+      <InstallationFile size="517.1 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\msquic.dll</InstallationFile>
+      <InstallationFile size="98.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\netstandard.dll</InstallationFile>
+      <InstallationFile size="1.2 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\SDL2.dll</InstallationFile>
+      <InstallationFile size="32 KB" type="json">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\SimPlanet.deps.json</InstallationFile>
+      <InstallationFile size="4.3 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\SimPlanet.dll</InstallationFile>
+      <InstallationFile size="9.6 MB" type="exe">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\SimPlanet.exe</InstallationFile>
+      <InstallationFile size="372 Byte" type="json">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\SimPlanet.runtimeconfig.json</InstallationFile>
+      <InstallationFile size="938.5 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\soft_oal.dll</InstallationFile>
+      <InstallationFile size="74.5 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\StbImageSharp.dll</InstallationFile>
+      <InstallationFile size="53 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\StbTrueTypeSharp.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.AppContext.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Buffers.dll</InstallationFile>
+      <InstallationFile size="270.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Collections.Concurrent.dll</InstallationFile>
+      <InstallationFile size="254.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Collections.dll</InstallationFile>
+      <InstallationFile size="818.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Collections.Immutable.dll</InstallationFile>
+      <InstallationFile size="102.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Collections.NonGeneric.dll</InstallationFile>
+      <InstallationFile size="102.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Collections.Specialized.dll</InstallationFile>
+      <InstallationFile size="198.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ComponentModel.Annotations.dll</InstallationFile>
+      <InstallationFile size="16.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ComponentModel.DataAnnotations.dll</InstallationFile>
+      <InstallationFile size="30.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ComponentModel.dll</InstallationFile>
+      <InstallationFile size="46.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ComponentModel.EventBasedAsync.dll</InstallationFile>
+      <InstallationFile size="78.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ComponentModel.Primitives.dll</InstallationFile>
+      <InstallationFile size="730.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ComponentModel.TypeConverter.dll</InstallationFile>
+      <InstallationFile size="19.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Configuration.dll</InstallationFile>
+      <InstallationFile size="170.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Console.dll</InstallationFile>
+      <InstallationFile size="23.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Core.dll</InstallationFile>
+      <InstallationFile size="2.7 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Data.Common.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Data.DataSetExtensions.dll</InstallationFile>
+      <InstallationFile size="24.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Data.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.Contracts.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.Debug.dll</InstallationFile>
+      <InstallationFile size="406.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.DiagnosticSource.dll</InstallationFile>
+      <InstallationFile size="46.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.FileVersionInfo.dll</InstallationFile>
+      <InstallationFile size="330.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.Process.dll</InstallationFile>
+      <InstallationFile size="46.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.StackTrace.dll</InstallationFile>
+      <InstallationFile size="66.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.TextWriterTraceListener.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.Tools.dll</InstallationFile>
+      <InstallationFile size="142.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.TraceSource.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Diagnostics.Tracing.dll</InstallationFile>
+      <InstallationFile size="49.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.dll</InstallationFile>
+      <InstallationFile size="20.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Drawing.dll</InstallationFile>
+      <InstallationFile size="130.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Drawing.Primitives.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Dynamic.Runtime.dll</InstallationFile>
+      <InstallationFile size="238.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Formats.Asn1.dll</InstallationFile>
+      <InstallationFile size="266.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Formats.Tar.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Globalization.Calendars.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Globalization.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Globalization.Extensions.dll</InstallationFile>
+      <InstallationFile size="82.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.Compression.Brotli.dll</InstallationFile>
+      <InstallationFile size="258.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.Compression.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.Compression.FileSystem.dll</InstallationFile>
+      <InstallationFile size="809.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.Compression.Native.dll</InstallationFile>
+      <InstallationFile size="54.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.Compression.ZipFile.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.dll</InstallationFile>
+      <InstallationFile size="102.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.FileSystem.AccessControl.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.FileSystem.dll</InstallationFile>
+      <InstallationFile size="54.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.FileSystem.DriveInfo.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.FileSystem.Primitives.dll</InstallationFile>
+      <InstallationFile size="86.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.FileSystem.Watcher.dll</InstallationFile>
+      <InstallationFile size="90.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.IsolatedStorage.dll</InstallationFile>
+      <InstallationFile size="82.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.MemoryMappedFiles.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.Pipes.AccessControl.dll</InstallationFile>
+      <InstallationFile size="162.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.Pipes.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.IO.UnmanagedMemoryStream.dll</InstallationFile>
+      <InstallationFile size="530.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Linq.dll</InstallationFile>
+      <InstallationFile size="3.5 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Linq.Expressions.dll</InstallationFile>
+      <InstallationFile size="786.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Linq.Parallel.dll</InstallationFile>
+      <InstallationFile size="170.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Linq.Queryable.dll</InstallationFile>
+      <InstallationFile size="154.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Memory.dll</InstallationFile>
+      <InstallationFile size="17.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.dll</InstallationFile>
+      <InstallationFile size="1.7 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Http.dll</InstallationFile>
+      <InstallationFile size="126.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Http.Json.dll</InstallationFile>
+      <InstallationFile size="538.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.HttpListener.dll</InstallationFile>
+      <InstallationFile size="422.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Mail.dll</InstallationFile>
+      <InstallationFile size="110.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.NameResolution.dll</InstallationFile>
+      <InstallationFile size="154.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.NetworkInformation.dll</InstallationFile>
+      <InstallationFile size="94.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Ping.dll</InstallationFile>
+      <InstallationFile size="226.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Primitives.dll</InstallationFile>
+      <InstallationFile size="278.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Quic.dll</InstallationFile>
+      <InstallationFile size="338.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Requests.dll</InstallationFile>
+      <InstallationFile size="654.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Security.dll</InstallationFile>
+      <InstallationFile size="46.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.ServicePoint.dll</InstallationFile>
+      <InstallationFile size="534.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.Sockets.dll</InstallationFile>
+      <InstallationFile size="166.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.WebClient.dll</InstallationFile>
+      <InstallationFile size="66.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.WebHeaderCollection.dll</InstallationFile>
+      <InstallationFile size="42.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.WebProxy.dll</InstallationFile>
+      <InstallationFile size="98.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.WebSockets.Client.dll</InstallationFile>
+      <InstallationFile size="186.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Net.WebSockets.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Numerics.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Numerics.Vectors.dll</InstallationFile>
+      <InstallationFile size="78.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ObjectModel.dll</InstallationFile>
+      <InstallationFile size="12.6 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Private.CoreLib.dll</InstallationFile>
+      <InstallationFile size="2 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Private.DataContractSerialization.dll</InstallationFile>
+      <InstallationFile size="254.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Private.Uri.dll</InstallationFile>
+      <InstallationFile size="7.6 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Private.Xml.dll</InstallationFile>
+      <InstallationFile size="394.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Private.Xml.Linq.dll</InstallationFile>
+      <InstallationFile size="74.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.DispatchProxy.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.dll</InstallationFile>
+      <InstallationFile size="126.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.Emit.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.Emit.ILGeneration.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.Emit.Lightweight.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.Extensions.dll</InstallationFile>
+      <InstallationFile size="1.1 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.Metadata.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.Primitives.dll</InstallationFile>
+      <InstallationFile size="42.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Reflection.TypeExtensions.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Resources.Reader.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Resources.ResourceManager.dll</InstallationFile>
+      <InstallationFile size="50.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Resources.Writer.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.CompilerServices.Unsafe.dll</InstallationFile>
+      <InstallationFile size="30.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.CompilerServices.VisualC.dll</InstallationFile>
+      <InstallationFile size="42.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.dll</InstallationFile>
+      <InstallationFile size="17.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Extensions.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Handles.dll</InstallationFile>
+      <InstallationFile size="94.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.InteropServices.dll</InstallationFile>
+      <InstallationFile size="50.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.InteropServices.JavaScript.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.InteropServices.RuntimeInformation.dll</InstallationFile>
+      <InstallationFile size="16.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Intrinsics.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Loader.dll</InstallationFile>
+      <InstallationFile size="322.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Numerics.dll</InstallationFile>
+      <InstallationFile size="16.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Serialization.dll</InstallationFile>
+      <InstallationFile size="302.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Serialization.Formatters.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Serialization.Json.dll</InstallationFile>
+      <InstallationFile size="38.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Serialization.Primitives.dll</InstallationFile>
+      <InstallationFile size="16.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Runtime.Serialization.Xml.dll</InstallationFile>
+      <InstallationFile size="226.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.AccessControl.dll</InstallationFile>
+      <InstallationFile size="98.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Claims.dll</InstallationFile>
+      <InstallationFile size="17.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Cryptography.Algorithms.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Cryptography.Cng.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Cryptography.Csp.dll</InstallationFile>
+      <InstallationFile size="2 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Cryptography.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Cryptography.Encoding.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Cryptography.OpenSsl.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Cryptography.Primitives.dll</InstallationFile>
+      <InstallationFile size="16.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Cryptography.X509Certificates.dll</InstallationFile>
+      <InstallationFile size="18.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Principal.dll</InstallationFile>
+      <InstallationFile size="182.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.Principal.Windows.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Security.SecureString.dll</InstallationFile>
+      <InstallationFile size="16.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ServiceModel.Web.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ServiceProcess.dll</InstallationFile>
+      <InstallationFile size="842.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Text.Encoding.CodePages.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Text.Encoding.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Text.Encoding.Extensions.dll</InstallationFile>
+      <InstallationFile size="130.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Text.Encodings.Web.dll</InstallationFile>
+      <InstallationFile size="1.4 MB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Text.Json.dll</InstallationFile>
+      <InstallationFile size="998.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Text.RegularExpressions.dll</InstallationFile>
+      <InstallationFile size="130.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.Channels.dll</InstallationFile>
+      <InstallationFile size="82.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.Overlapped.dll</InstallationFile>
+      <InstallationFile size="478.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.Tasks.Dataflow.dll</InstallationFile>
+      <InstallationFile size="16.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.Tasks.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.Tasks.Extensions.dll</InstallationFile>
+      <InstallationFile size="130.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.Tasks.Parallel.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.Thread.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.ThreadPool.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Threading.Timer.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Transactions.dll</InstallationFile>
+      <InstallationFile size="646.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Transactions.Local.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.ValueTuple.dll</InstallationFile>
+      <InstallationFile size="15.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Web.dll</InstallationFile>
+      <InstallationFile size="58.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Web.HttpUtility.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Windows.dll</InstallationFile>
+      <InstallationFile size="23.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.Linq.dll</InstallationFile>
+      <InstallationFile size="21.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.ReaderWriter.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.Serialization.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.XDocument.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.XmlDocument.dll</InstallationFile>
+      <InstallationFile size="17.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.XmlSerializer.dll</InstallationFile>
+      <InstallationFile size="15.8 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.XPath.dll</InstallationFile>
+      <InstallationFile size="30.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\System.Xml.XPath.XDocument.dll</InstallationFile>
+      <InstallationFile size="16.3 KB" type="dll">C:\Users\Mineralogia\RiderProjects\SimPlanet\bin\Release\net8.0\win-x64\WindowsBase.dll</InstallationFile>
+    </InstallationFiles>
+    <Languages>
+      <Language>English</Language>
+    </Languages>
+    <Variables/>
+    <Commands/>
+    <Registry/>
+    <Shortcuts defaultPath="&lt;AppName&gt;\" isDefaultPathAlterable="true" isCreateStartmenuShortcutsForAllUsers="true" isCreateDesktopShortcutsForAllUsers="true">
+      <Shortcut destination="Desktop" name="SimPlanet" targetFile="&lt;InstallPath&gt;\SimPlanet.exe" commandLineArguments="" iconFilePath="" iconIndex="0"/>
+    </Shortcuts>
+    <Serials isDialogEnabled="false" count="1000" mask ="#####-#####-#####-#####"/>
+    <SplashScreen isDialogEnabled="true" delayTime="3">
+      <Image filePath="C:\Users\Mineralogia\Documents\splash.bmp"/>
+      <Sound isEnabled="false" filePath=""/>
+    </SplashScreen>
+    <License isDialogEnabled="false">
+      <Data>e1xydGYxXGZiaWRpc1xhbnNpXGRlZmYwXG5vdWljb21wYXR7XGZvbnR0Ymx7XGYwXGZuaWwgQXJpYWw7fX0NCntcKlxnZW5lcmF0b3IgUmljaGVkMjAgMTAuMC4xOTA0MX1cdmlld2tpbmQ0XHVjMSANClxwYXJkXGx0cnBhclxmMFxmczIwXGxhbmcxMDQwIE1JVCBMaWNlbnNlXHBhcg0KXHBhcg0KQ29weXJpZ2h0IChjKSAyMDI1IE1hdHRlbyBNYW5naWFnYWxsaSAobS5tYW5naWFnYWxsaUBjYW1wdXMudW5pdXJiLml0KVxwYXINClxwYXINClBlcm1pc3Npb24gaXMgaGVyZWJ5IGdyYW50ZWQsIGZyZWUgb2YgY2hhcmdlLCB0byBhbnkgcGVyc29uIG9idGFpbmluZyBhIGNvcHkgb2YgdGhpcyBzb2Z0d2FyZSBhbmQgYXNzb2NpYXRlZCBkb2N1bWVudGF0aW9uIGZpbGVzICh0aGUgIlNvZnR3YXJlIiksIHRvIGRlYWwgaW4gdGhlIFNvZnR3YXJlIHdpdGhvdXQgcmVzdHJpY3Rpb24sIGluY2x1ZGluZyB3aXRob3V0IGxpbWl0YXRpb24gdGhlIHJpZ2h0cyB0byB1c2UsIGNvcHksIG1vZGlmeSwgbWVyZ2UsIHB1Ymxpc2gsIGRpc3RyaWJ1dGUsIHN1YmxpY2Vuc2UsIGFuZC9vciBzZWxsIGNvcGllcyBvZiB0aGUgU29mdHdhcmUsIGFuZCB0byBwZXJtaXQgcGVyc29ucyB0byB3aG9tIHRoZSBTb2Z0d2FyZSBpcyBmdXJuaXNoZWQgdG8gZG8gc28sIHN1YmplY3QgdG8gdGhlIGZvbGxvd2luZyBjb25kaXRpb25zOlxwYXINClxwYXINClRoZSBhYm92ZSBjb3B5cmlnaHQgbm90aWNlIGFuZCB0aGlzIHBlcm1pc3Npb24gbm90aWNlIHNoYWxsIGJlIGluY2x1ZGVkIGluIGFsbCBjb3BpZXMgb3Igc3Vic3RhbnRpYWwgcG9ydGlvbnMgb2YgdGhlIFNvZnR3YXJlLlxwYXINClxwYXINClRIRSBTT0ZUV0FSRSBJUyBQUk9WSURFRCAiQVMgSVMiLCBXSVRIT1VUIFdBUlJBTlRZIE9GIEFOWSBLSU5ELCBFWFBSRVNTIE9SIElNUExJRUQsIElOQ0xVRElORyBCVVQgTk9UIExJTUlURUQgVE8gVEhFIFdBUlJBTlRJRVMgT0YgTUVSQ0hBTlRBQklMSVRZLCBGSVRORVNTIEZPUiBBIFBBUlRJQ1VMQVIgUFVSUE9TRSBBTkQgTk9OSU5GUklOR0VNRU5ULiBJTiBOTyBFVkVOVCBTSEFMTCBUSEUgQVVUSE9SUyBPUiBDT1BZUklHSFQgSE9MREVSUyBCRSBMSUFCTEUgRk9SIEFOWSBDTEFJTSwgREFNQUdFUyBPUiBPVEhFUiBMSUFCSUxJVFksIFdIRVRIRVIgSU4gQU4gQUNUSU9OIE9GIENPTlRSQUNULCBUT1JUIE9SIE9USEVSV0lTRSwgQVJJU0lORyBGUk9NLCBPVVQgT0YgT1IgSU4gQ09OTkVDVElPTiBXSVRIIFRIRSBTT0ZUV0FSRSBPUiBUSEUgVVNFIE9SIE9USEVSIERFQUxJTkdTIElOIFRIRSBTT0ZUV0FSRS5ccGFyDQp9DQoA</Data>
+    </License>
+    <Finish isRebootMachineEnabled="false">
+      <Program executableFilePath="&lt;InstallPath&gt;\SimPlanet.exe" isLaunchEnabled="true" arguments=""/>
+    </Finish>
+  </InstallerConfiguration>
+  <UninstallerConfiguration isPackaged="true">
+    <UninstallerExecutableFileName>Uninstall</UninstallerExecutableFileName>
+    <OpenWebURIAfterUninstallation isEnabled="false">https://</OpenWebURIAfterUninstallation>
+    <CustomDisplayIcon isEnabled="false" iconFilePath="&lt;InstallPath&gt;\"/>
+  </UninstallerConfiguration>
+  <VisualUpdateConfiguration isPackaged="false">
+    <ProductName>&lt;AppName&gt;</ProductName>
+    <ProductVersion>&lt;AppVersion&gt;</ProductVersion>
+    <Language>0</Language>
+    <UpdateScriptURIs>
+      <MainURI>https://</MainURI>
+      <FirstMirrorURI>https://</FirstMirrorURI>
+      <SecondMirrorURI>https://</SecondMirrorURI>
+    </UpdateScriptURIs>
+    <updateExecutableFileName>Update</updateExecutableFileName>
+    <proEditionLicenseKey/>
+    <Program executableFilePath="" isLaunchEnabled="false" isTerminationEnabled="false"/>
+  </VisualUpdateConfiguration>
+  <BuildConfiguration>
+    <SetupFilePath/>
+    <SetupIconPath>..\icons\ancient.ico</SetupIconPath>
+    <UninstallerIconPath>..\icons\ancient.ico</UninstallerIconPath>
+    <Compression method="0" level="2"/>
+    <CodeSigning isEnabled="false" signToolCommandLine="/n &quot;Subject&quot; /tr http://timestamp.digicert.com /td sha256 /fd sha256 &quot;&lt;ExecutableFilePath&gt;&quot;"/>
+  </BuildConfiguration>
+</InstallForgeProject>
