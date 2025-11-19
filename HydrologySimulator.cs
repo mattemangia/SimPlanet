@@ -686,7 +686,7 @@ public class HydrologySimulator
                     }
                 }
             }
-        }
+        });
 
         foreach (var change in tempChanges)
         {
