@@ -1690,7 +1690,7 @@ public class SimPlanetGame : Game
         _ui.IsFastForwarding = true;
         _simulationRunning = false;
 
-        await _updateManager.FastForward(10000, (progress, year) =>
+        await _updateManager.FastForward(10000, _gameState.Year, (progress, year) =>
         {
             _ui.FastForwardProgress = progress;
             _ui.FastForwardCurrentYear = year;

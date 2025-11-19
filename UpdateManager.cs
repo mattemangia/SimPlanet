@@ -101,12 +101,11 @@ namespace SimPlanet
             TsunamiSystem.DrainFloodWaters(_map, simDeltaTime);
         }
 
-        public async Task FastForward(int years, Action<float, int> onProgress)
+        public async Task FastForward(int years, int startYear, Action<float, int> onProgress)
         {
             await Task.Run(() =>
             {
                 float simDeltaTime = 1.0f;
-                int startYear = _map.Year;
                 for (int i = 0; i < years; i++)
                 {
                     int currentYear = startYear + i;
