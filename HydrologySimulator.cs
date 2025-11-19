@@ -248,7 +248,7 @@ public class HydrologySimulator
                     }
                 }
             }
-        });
+        };
     }
 
     private void CreateRiver(int sourceX, int sourceY)
@@ -630,7 +630,8 @@ public class HydrologySimulator
                 // Upwelling regions (low latitudes, coastal areas)
                 // Smooth probability based on latitude
                 float upwellingProbability = Math.Max(0, 1.0f - (latitude / 0.35f));
-                if (upwellingProbability > 0 && cell.Elevation > -0.3f && cell.Elevation < 0 && _random.NextDouble() < upwellingProbability)
+                if (upwellingProbability > 0 && cell.Elevation > -0.3f && cell.Elevation < 0 &&
+                    _random.NextDouble() < upwellingProbability)
                 {
                     // Nutrient-rich deep water rises to surface
                     foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
@@ -644,7 +645,7 @@ public class HydrologySimulator
                     }
                 }
             }
-        }
+        });
     }
 
     private void UpdateTides(float deltaTime)
