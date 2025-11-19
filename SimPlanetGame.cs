@@ -270,6 +270,10 @@ public class SimPlanetGame : Game
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
+        
+        // Protect initial life
+        _lifeSimulator.ActivatePlantingGracePeriod();
+        _planetStabilizer.ActivateEmergencyLifeProtection();
 
         // Initialize save/load manager
         _saveLoadManager = new SaveLoadManager();
@@ -350,199 +354,213 @@ public class SimPlanetGame : Game
     }
 
     protected override void Update(GameTime gameTime)
-{
-    var keyState = Keyboard.GetState();
-    var mouseState = Mouse.GetState();
-
-    // Check if world generation is in progress
-    if (_isGenerating)
     {
-        // Update loading screen with generation progress
-        _loadingScreen.IsVisible = true;
-        _loadingScreen.Progress = PlanetMap.GenerationProgress;
-        _loadingScreen.CurrentTask = PlanetMap.GenerationTask;
+        var keyState = Keyboard.GetState();
+        var mouseState = Mouse.GetState();
 
-        // Check if generation is complete
-        if (_generationThread != null && !_generationThread.IsAlive && _newMap != null)
+        // Check if world generation is in progress
+        if (_isGenerating)
         {
-            // Generation finished - finalize the new world
-            FinalizeNewWorld(_newMap);
-            _isGenerating = false;
-            _loadingScreen.IsVisible = false;
-            _generationThread = null;
-            _newMap = null;
-        }
+            // Update loading screen with generation progress
+            _loadingScreen.IsVisible = true;
+            _loadingScreen.Progress = PlanetMap.GenerationProgress;
+            _loadingScreen.CurrentTask = PlanetMap.GenerationTask;
 
-        base.Update(gameTime);
-        return;
-    }
+            // Check if generation is complete
+            if (_generationThread != null && !_generationThread.IsAlive && _newMap != null)
+            {
+                // Generation finished - finalize the new world
+                FinalizeNewWorld(_newMap);
+                _isGenerating = false;
+                _loadingScreen.IsVisible = false;
+                _generationThread = null;
+                _newMap = null;
+            }
 
-    // Handle menu navigation
-    if (_mainMenu.CurrentScreen != GameScreen.InGame)
-    {
-        // Update about dialog (if visible) - this should block other input
-        _aboutDialog.Update(mouseState, _previousMouseState);
-        
-        // If about dialog is visible, don't process other menu input
-        if (_aboutDialog.IsVisible)
-        {
-            _previousMouseState = mouseState;
-            _previousKeyState = keyState;
+            base.Update(gameTime);
             return;
         }
 
-        // Show map options UI when on NewGame screen
-        if (_mainMenu.CurrentScreen == GameScreen.NewGame)
+        // Handle menu navigation
+        if (_mainMenu.CurrentScreen != GameScreen.InGame)
         {
-            _mapOptionsUI.IsVisible = true;
-
-            // Update map options UI (handles mouse interactions)
-            if (_mapOptionsUI.Update(mouseState, _mapOptions))
-            {
-                _mainMenu.CurrentScreen = GameScreen.MainMenu;
-            }
-
-            // Check if Generate button was clicked
-            if (_mapOptionsUI.GenerateRequested)
-            {
-                StartNewGame();
-            }
-
-            // Update preview
-            _mapOptionsUI.UpdatePreview(_mapOptions);
-        }
-        else
-        {
-            _mapOptionsUI.IsVisible = false;
-        }
-
-        var menuAction = _mainMenu.HandleInput(keyState, _previousKeyState, mouseState);
-        HandleMenuAction(menuAction);
-
-        _previousKeyState = keyState;
-        _previousMouseState = mouseState;
-        base.Update(gameTime);
-        return;
-    }
-
-    // Handle in-game input
-    HandleInput(keyState);
-
-    _previousKeyState = keyState;
-
-    // Simulation now runs on background thread - UI thread just handles input/rendering
-    // Enable simulation when in-game
-    lock (_simulationLock)
-    {
-        _simulationRunning = (_mainMenu.CurrentScreen == GameScreen.InGame);
-    }
-
-    // Update global stats periodically (UI thread)
-    if (_mainMenu.CurrentScreen == GameScreen.InGame)
-    {
-        float realDeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        _globalStatsTimer += realDeltaTime;
-        if (_globalStatsTimer >= GlobalStatsInterval)
-        {
-            UpdateGlobalStats();
-            _globalStatsTimer = 0;
-        }
-
-        // Performance optimization: Mark terrain for visual update periodically
-        _visualUpdateTimer += realDeltaTime;
-        if (_visualUpdateTimer >= VisualUpdateInterval)
-        {
-            _terrainRenderer.MarkDirty();
-            _minimap3D.MarkDirty();
-            _visualUpdateTimer = 0;
-        }
-
-        _overlayRefreshTimer += realDeltaTime;
-        if (_overlayRefreshTimer >= 0.5f)
-        {
-            _eventsUI?.MarkOverlayDirty();
-            _overlayRefreshTimer = 0f;
-        }
-
-        // Update UI systems
-        _toolbar.Update(mouseState);
-        _aboutDialog.Update(mouseState, _previousMouseState);
-        
-        // If about dialog is visible, block other input
-        if (_aboutDialog.IsVisible)
-        {
-            _previousMouseState = mouseState;
-            base.Update(gameTime); // Call base.Update before returning
-            return;
-        }
-        
-        // BUGFIX: If Map Options UI is visible, it should consume all input and block other UI.
-        if (_mapOptionsUI.IsVisible)
-        {
-            // Let the UI handle mouse interactions
-            _mapOptionsUI.Update(mouseState, _mapOptions);
-
-            // Check if the user clicked the "Generate" button inside the UI
-            if (_mapOptionsUI.GenerateRequested)
-            {
-                // Use the new options to regenerate the world
-                StartWorldGeneration();
-                _mapOptionsUI.IsVisible = false; // Hide UI after starting generation
-            }
-
-            // Keep the preview map updated with any changes
-            _mapOptionsUI.UpdatePreview(_mapOptions);
+            // Update about dialog (if visible) - this should block other input
+            _aboutDialog.Update(mouseState, _previousMouseState);
             
-            // Store mouse state and return to prevent other UI from processing input
+            // If about dialog is visible, don't process other menu input
+            if (_aboutDialog.IsVisible)
+            {
+                _previousMouseState = mouseState;
+                _previousKeyState = keyState;
+                return;
+            }
+
+            // Show map options UI when on NewGame screen
+            if (_mainMenu.CurrentScreen == GameScreen.NewGame)
+            {
+                _mapOptionsUI.IsVisible = true;
+
+                // Update map options UI (handles mouse interactions)
+                if (_mapOptionsUI.Update(mouseState, _mapOptions))
+                {
+                    _mainMenu.CurrentScreen = GameScreen.MainMenu;
+                }
+
+                // Check if Generate button was clicked
+                if (_mapOptionsUI.GenerateRequested)
+                {
+                    StartNewGame();
+                }
+
+                // Update preview
+                _mapOptionsUI.UpdatePreview(_mapOptions);
+            }
+            else
+            {
+                _mapOptionsUI.IsVisible = false;
+            }
+
+            var menuAction = _mainMenu.HandleInput(keyState, _previousKeyState, mouseState);
+            HandleMenuAction(menuAction);
+
+            _previousKeyState = keyState;
             _previousMouseState = mouseState;
             base.Update(gameTime);
             return;
         }
-        
-        _minimap3D.Update(realDeltaTime);
-        _eventsUI.Update(_gameState.Year);
-        _interactiveControls.Update(realDeltaTime);
-        // Check if any tools are active that need map clicks
-        bool toolsActive = _plantingTool.IsActive || _disasterControlUI.IsVisible ||
-                          _divinePowersUI.IsOpen || _diseaseControlUI.IsVisible ||
-                          _planetaryControlsUI.IsVisible;
-        _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
-            _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
-            _mapRenderOffsetX, _mapRenderOffsetY, toolsActive);
-        _playerCivControl.Update(Mouse.GetState());
-        _divinePowersUI.Update(Mouse.GetState(), realDeltaTime);
-        _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
-            _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
-            _mapRenderOffsetX, _mapRenderOffsetY);
-        _diseaseControlUI.Update(Mouse.GetState(), _previousMouseState, keyState);
-        _plantingTool.Update(Mouse.GetState(), _terrainRenderer.CellSize,
-            _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
-            _civilizationManager, _gameState.Year, _mapRenderOffsetX, _mapRenderOffsetY, 
-            _lifeSimulator, _planetStabilizer);
-        _planetaryControlsUI.Update(Mouse.GetState());
 
-        // Update day/night cycle (24 hours = 1 day)
-        _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
-        if (_terrainRenderer.DayNightTime >= 24.0f)
+        // Handle in-game input
+        HandleInput(keyState);
+
+        _previousKeyState = keyState;
+
+        // Simulation now runs on background thread - UI thread just handles input/rendering
+        // Enable simulation when in-game
+        lock (_simulationLock)
         {
-            _terrainRenderer.DayNightTime -= 24.0f;
+            _simulationRunning = (_mainMenu.CurrentScreen == GameScreen.InGame);
         }
 
-        // Auto-enable/disable day/night based on time speed
-        // Only show day/night cycle when simulation is slow enough to appreciate it
-        if (_gameState.TimeSpeed <= 0.5f)
+        // Update global stats periodically (UI thread)
+        if (_mainMenu.CurrentScreen == GameScreen.InGame)
         {
-            _terrainRenderer.ShowDayNight = true;
+            float realDeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            _globalStatsTimer += realDeltaTime;
+            if (_globalStatsTimer >= GlobalStatsInterval)
+            {
+                UpdateGlobalStats();
+                _globalStatsTimer = 0;
+            }
+
+            // Performance optimization: Mark terrain for visual update periodically
+            _visualUpdateTimer += realDeltaTime;
+            if (_visualUpdateTimer >= VisualUpdateInterval)
+            {
+                _terrainRenderer.MarkDirty();
+                _minimap3D.MarkDirty();
+                _visualUpdateTimer = 0;
+            }
+
+            _overlayRefreshTimer += realDeltaTime;
+            if (_overlayRefreshTimer >= 0.5f)
+            {
+                _eventsUI?.MarkOverlayDirty();
+                _overlayRefreshTimer = 0f;
+            }
+
+            // Update UI systems
+            _toolbar.Update(mouseState);
+            _aboutDialog.Update(mouseState, _previousMouseState);
+            
+            // If about dialog is visible, block other input
+            if (_aboutDialog.IsVisible)
+            {
+                _previousMouseState = mouseState;
+                base.Update(gameTime); // Call base.Update before returning
+                return;
+            }
+            
+            // BUGFIX: If Map Options UI is visible, it should consume all input and block other UI.
+            if (_mapOptionsUI.IsVisible)
+            {
+                // Let the UI handle mouse interactions
+                _mapOptionsUI.Update(mouseState, _mapOptions);
+
+                // Check if the user clicked the "Generate" button inside the UI
+                if (_mapOptionsUI.GenerateRequested)
+                {
+                    // Use the new options to regenerate the world
+                    StartWorldGeneration();
+                    _mapOptionsUI.IsVisible = false; // Hide UI after starting generation
+                }
+
+                // Keep the preview map updated with any changes
+                _mapOptionsUI.UpdatePreview(_mapOptions);
+                
+                // Store mouse state and return to prevent other UI from processing input
+                _previousMouseState = mouseState;
+                base.Update(gameTime);
+                return;
+            }
+            
+            _minimap3D.Update(realDeltaTime);
+            _eventsUI.Update(_gameState.Year);
+            _interactiveControls.Update(realDeltaTime);
+            // Check if any tools are active that need map clicks
+            bool toolsActive = _plantingTool.IsActive || _disasterControlUI.IsVisible ||
+                              _divinePowersUI.IsOpen || _diseaseControlUI.IsVisible ||
+                              _planetaryControlsUI.IsVisible;
+            _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
+                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
+                _mapRenderOffsetX, _mapRenderOffsetY, toolsActive);
+            _playerCivControl.Update(Mouse.GetState());
+            _divinePowersUI.Update(Mouse.GetState(), realDeltaTime);
+            _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
+                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
+                _mapRenderOffsetX, _mapRenderOffsetY);
+            _diseaseControlUI.Update(Mouse.GetState(), _previousMouseState, keyState);
+            
+            // Planting tool update with safety hook
+            _plantingTool.Update(Mouse.GetState(), _terrainRenderer.CellSize,
+                _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
+                _civilizationManager, _gameState.Year, _mapRenderOffsetX, _mapRenderOffsetY, 
+                _lifeSimulator, _planetStabilizer);
+                
+            // SAFETY HOOK: If using planting tool, enforce grace period to prevent instant death
+            if (_plantingTool.IsActive && Mouse.GetState().LeftButton == ButtonState.Pressed)
+            {
+                lock (_mapDataLock)
+                {
+                    _lifeSimulator.ActivatePlantingGracePeriod();
+                    _planetStabilizer.ActivateEmergencyLifeProtection();
+                }
+            }
+            
+            _planetaryControlsUI.Update(Mouse.GetState());
+
+            // Update day/night cycle (24 hours = 1 day)
+            _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
+            if (_terrainRenderer.DayNightTime >= 24.0f)
+            {
+                _terrainRenderer.DayNightTime -= 24.0f;
+            }
+
+            // Auto-enable/disable day/night based on time speed
+            // Only show day/night cycle when simulation is slow enough to appreciate it
+            if (_gameState.TimeSpeed <= 0.5f)
+            {
+                _terrainRenderer.ShowDayNight = true;
+            }
+            else if (_gameState.TimeSpeed > 1.0f)
+            {
+                // Disable day/night at faster speeds (user manually toggling with 'C' overrides this)
+                _terrainRenderer.ShowDayNight = false;
+            }
         }
-        else if (_gameState.TimeSpeed > 1.0f)
-        {
-            // Disable day/night at faster speeds (user manually toggling with 'C' overrides this)
-            _terrainRenderer.ShowDayNight = false;
-        }
+
+        base.Update(gameTime);
     }
 
-    base.Update(gameTime);
-}
     private void HandleInput(KeyboardState keyState)
     {
         // ESC opens pause menu (not quit)
@@ -699,7 +717,13 @@ public class SimPlanetGame : Game
             else
             {
                 // Seed the selected life form
-                _lifeSimulator.SeedSpecificLife(_selectedLifeFormForSeeding);
+                lock (_mapDataLock)
+                {
+                    _lifeSimulator.SeedSpecificLife(_selectedLifeFormForSeeding);
+                    // Activate grace period to ensure survival
+                    _lifeSimulator.ActivatePlantingGracePeriod();
+                    _planetStabilizer.ActivateEmergencyLifeProtection();
+                }
             }
         }
 
@@ -1014,6 +1038,20 @@ public class SimPlanetGame : Game
             _eventsUI.InitializeOverlayTexture(_map);
             _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
 
+            // Update sediment viewer with new map reference
+            _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
+            _sedimentViewer.SetCivilizationManager(_civilizationManager);
+
+            // Update other interactive tools with new map
+            _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
+            _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font, _mapDataLock, MarkMapVisualsDirty);
+            _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphereSimulator, _planetStabilizer);
+            _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
+            
+            // Protect life after load
+            _lifeSimulator.ActivatePlantingGracePeriod();
+            _planetStabilizer.ActivateEmergencyLifeProtection();
+
             _mainMenu.CurrentScreen = GameScreen.InGame;
         }
     }
@@ -1089,6 +1127,10 @@ public class SimPlanetGame : Game
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
+        
+        // Protect initial life
+        _lifeSimulator.ActivatePlantingGracePeriod();
+        _planetStabilizer.ActivateEmergencyLifeProtection();
 
         // Update renderer
         _terrainRenderer.Dispose();
@@ -1610,7 +1652,12 @@ public class SimPlanetGame : Game
 
     public void SeedLife()
     {
-        _lifeSimulator.SeedInitialLife();
+        lock (_mapDataLock)
+        {
+            _lifeSimulator.SeedInitialLife();
+            _lifeSimulator.ActivatePlantingGracePeriod();
+            _planetStabilizer.ActivateEmergencyLifeProtection();
+        }
     }
 
     public void ToggleCivilization()

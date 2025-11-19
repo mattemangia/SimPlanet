@@ -42,24 +42,23 @@ public class LifeSimulator
         _map = map;
         _random = new Random();
         
-        // Initialize life profile with reasonable default values based on Earth-like conditions
-        // This prevents instant death when life is first seeded
+        // Initialize life profile with broad default values to prevent instant death on new worlds
         _lifeProfile = new LifeSupportProfile
         {
-            AvgOxygen = 20f,  // Default 20% oxygen
+            AvgOxygen = 20f,
             OxygenStdDev = 5f,
-            AvgLandTemp = 15f,  // 15°C average land temp
-            MinLandTemp = -20f,  // Reasonable min temp
-            MaxLandTemp = 40f,   // Reasonable max temp
-            LandTempStdDev = 10f,
-            AvgLandRain = 0.5f,  // 50% average rainfall
-            MinLandRain = 0.1f,
-            MaxLandRain = 0.9f,
-            LandRainStdDev = 0.2f,
-            AvgWaterTemp = 10f,  // 10°C average water temp
-            MinWaterTemp = -2f,  // Near freezing
-            MaxWaterTemp = 30f,  // Warm tropical waters
-            WaterTempStdDev = 8f
+            AvgLandTemp = 15f,
+            MinLandTemp = -30f,  // Widened from -20
+            MaxLandTemp = 50f,   // Widened from 40
+            LandTempStdDev = 15f, // Increased variance tolerance
+            AvgLandRain = 0.5f,
+            MinLandRain = 0.0f,
+            MaxLandRain = 1.0f,
+            LandRainStdDev = 0.25f,
+            AvgWaterTemp = 10f,
+            MinWaterTemp = -5f,
+            MaxWaterTemp = 35f,
+            WaterTempStdDev = 10f
         };
         
         // Mark as initialized so we don't get invalid windows
@@ -92,7 +91,11 @@ public class LifeSimulator
             ReactToStorms(weatherSys);
         }
 
-        ReactToClimateChanges(deltaTime);
+        // Only apply climate stress if NOT in grace period
+        if (_plantingGracePeriod <= 0f)
+        {
+            ReactToClimateChanges(deltaTime);
+        }
 
         // Then normal life processes
         SimulateBiomassGrowth(deltaTime);
@@ -126,10 +129,9 @@ public class LifeSimulator
         UpdateLifeSupportProfile();
 
         // Seed the specified life form in appropriate locations
-        // Try many more times to ensure good coverage
-        int attempts = lifeForm == LifeForm.Bacteria ? 2000 : 500; // Bacteria should spread widely
+        int attempts = lifeForm == LifeForm.Bacteria ? 2000 : 500;
         int successfulSeeds = 0;
-        int maxSeeds = lifeForm == LifeForm.Bacteria ? 1000 : 200; // Cap total seeds
+        int maxSeeds = lifeForm == LifeForm.Bacteria ? 1000 : 200;
 
         for (int i = 0; i < attempts && successfulSeeds < maxSeeds; i++)
         {
@@ -138,17 +140,20 @@ public class LifeSimulator
 
             var cell = _map.Cells[x, y];
 
-            // Don't overwrite existing life
-            if (cell.LifeType != LifeForm.None)
+            // Don't overwrite existing life unless it's very weak
+            if (cell.LifeType != LifeForm.None && cell.Biomass > 0.1f)
                 continue;
 
-            // Check if location is suitable for this life form based on the current planet profile
+            // Check if location is suitable, but use relaxed check for initial seeding
             bool suitable = CanLifeSurvive(lifeForm, cell);
 
-            if (suitable)
+            // Force planting if we are manually seeding (implied by calling this method directly usually)
+            // OR if chance is high enough
+            if (suitable || _random.NextDouble() < 0.05) 
             {
                 cell.LifeType = lifeForm;
-                cell.Biomass = lifeForm == LifeForm.Bacteria ? 0.3f : 0.4f; // Start with higher biomass for faster spread
+                // Start with high biomass to survive initial fluctuations
+                cell.Biomass = lifeForm == LifeForm.Bacteria ? 0.5f : 0.6f; 
                 cell.Evolution = 0.0f;
                 successfulSeeds++;
             }
@@ -172,12 +177,18 @@ public class LifeSimulator
                 float deathRate = CalculateDeathRate(cell);
 
                 float netGrowth = (growthRate - deathRate) * deltaTime;
+                
+                // If in grace period, prevent negative growth (death)
+                if (_plantingGracePeriod > 0f && netGrowth < 0f)
+                {
+                    netGrowth = 0.01f * deltaTime; // Slight positive growth during grace
+                }
+
                 cell.Biomass = Math.Clamp(cell.Biomass + netGrowth, 0, 1);
 
-                // Note: Gas exchange (O2/CO2) handled by AtmosphereSimulator
-
-                // Die off if conditions are too harsh
-                if (cell.Biomass < 0.01f)
+                // Die off if conditions are too harsh AND biomass hits zero
+                // Lower threshold slightly to 0.005 to prevent flickering
+                if (cell.Biomass < 0.005f)
                 {
                     cell.LifeType = LifeForm.None;
                     cell.Biomass = 0;
@@ -190,140 +201,90 @@ public class LifeSimulator
     private float CalculateGrowthRate(TerrainCell cell, int x, int y)
     {
         float growth = 0;
-
+        
+        // Boosted growth rates to ensure life establishment
         switch (cell.LifeType)
         {
             case LifeForm.Bacteria:
-                float bacteriaMin = Math.Min(_lifeProfile.MinLandTemp, _lifeProfile.MinWaterTemp) - 30f;
-                float bacteriaMax = Math.Max(_lifeProfile.MaxLandTemp, _lifeProfile.MaxWaterTemp) + 40f;
-                if (cell.Temperature > bacteriaMin && cell.Temperature < bacteriaMax)
-                {
-                    growth = 0.15f;
-                }
+                // Bacteria is very resilient
+                growth = 0.4f; // Increased from 0.15f
                 break;
 
             case LifeForm.Algae:
-                if (cell.IsWater && WaterTempBetween(cell, 0.2f, 0.85f))
+                if (cell.IsWater && WaterTempBetween(cell, 0.1f, 0.95f))
                 {
-                    growth = 0.3f * (GetOxygenEfficiency(cell) + 0.5f);
+                    growth = 0.6f * (GetOxygenEfficiency(cell) + 0.5f); // Doubled base growth
                 }
                 break;
 
             case LifeForm.PlantLife:
-                if (cell.IsLand && LandTempBetween(cell, 0.25f, 0.85f) &&
-                    MeetsRainfall(cell, 0.35f) && MeetsOxygenRequirement(cell, LifeForm.PlantLife))
+                // Plants need to be robust
+                if (cell.IsLand)
                 {
-                    float rainEfficiency = Math.Clamp(cell.Rainfall / Math.Max(0.05f, _lifeProfile.AvgLandRain), 0f, 1.2f);
-                    // CO2 fertilization effect - plants thrive in CO2-rich atmosphere (up to 3%)
+                     // CO2 fertilization effect
                     float co2Boost = 1.0f;
                     if (cell.CO2 > 0.5f)
                     {
-                        co2Boost = Math.Min(2.0f, 1.0f + (cell.CO2 - 0.5f) * 0.3f);
+                        co2Boost = Math.Min(2.5f, 1.0f + (cell.CO2 - 0.5f) * 0.4f);
                     }
-                    growth = 0.5f * rainEfficiency * GetOxygenEfficiency(cell) * co2Boost; // Increased base from 0.4f
+                    
+                    // Basic suitability check for growth calculation (less strict than survival)
+                    float suitability = 1.0f;
+                    if (cell.Rainfall < 0.1f) suitability *= 0.5f;
+                    if (cell.Temperature < -5f || cell.Temperature > 45f) suitability *= 0.5f;
+
+                    growth = 0.8f * suitability * co2Boost; // Significantly increased from 0.5f
                 }
                 break;
 
+            // Animal growth rates boosted slightly
             case LifeForm.SimpleAnimals:
-                if (LandTempBetween(cell, 0.2f, 0.85f) && MeetsOxygenRequirement(cell, LifeForm.SimpleAnimals))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.2f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.4f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.Fish:
-                if (cell.IsWater && WaterTempBetween(cell, 0.2f, 0.75f) && MeetsOxygenRequirement(cell, LifeForm.Fish))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.25f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                if (cell.IsWater) growth = 0.45f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.Amphibians:
-                if (LandTempBetween(cell, 0.3f, 0.8f) && MeetsRainfall(cell, 0.3f) &&
-                    MeetsOxygenRequirement(cell, LifeForm.Amphibians))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.2f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.4f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.Reptiles:
-                if (cell.IsLand && LandTempBetween(cell, 0.35f, 0.95f) &&
-                    MeetsOxygenRequirement(cell, LifeForm.Reptiles))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.22f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.35f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.Dinosaurs:
-                if (cell.IsLand && LandTempBetween(cell, 0.45f, 0.95f) &&
-                    MeetsOxygenRequirement(cell, LifeForm.Dinosaurs))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.3f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.45f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.MarineDinosaurs:
-                if (cell.IsWater && WaterTempBetween(cell, 0.4f, 0.9f) &&
-                    MeetsOxygenRequirement(cell, LifeForm.MarineDinosaurs))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.28f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.4f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.Pterosaurs:
-                if (LandTempBetween(cell, 0.4f, 0.9f) && MeetsOxygenRequirement(cell, LifeForm.Pterosaurs))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.25f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.35f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.Mammals:
-                if (LandTempBetween(cell, 0.2f, 0.9f) && MeetsOxygenRequirement(cell, LifeForm.Mammals))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.27f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.4f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.Birds:
-                if (LandTempBetween(cell, 0.3f, 0.95f) && MeetsOxygenRequirement(cell, LifeForm.Birds))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.26f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.45f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.ComplexAnimals:
-                if (LandTempBetween(cell, 0.2f, 0.85f) && MeetsOxygenRequirement(cell, LifeForm.ComplexAnimals))
-                {
-                    float foodAvailable = GetNearbyBiomass(x, y);
-                    growth = 0.15f * Math.Min(foodAvailable, 1.0f) * GetOxygenEfficiency(cell);
-                }
+                growth = 0.3f * Math.Min(GetNearbyBiomass(x, y), 1.0f);
                 break;
 
             case LifeForm.Intelligence:
-                if (LandTempBetween(cell, 0.25f, 0.8f) && MeetsOxygenRequirement(cell, LifeForm.Intelligence))
-                {
-                    float ecosystemHealth = GetEcosystemDiversity(x, y);
-                    growth = 0.1f * ecosystemHealth;
-                }
+                growth = 0.2f * GetEcosystemDiversity(x, y);
                 break;
 
             case LifeForm.Civilization:
-                if (LandTempBetween(cell, 0.2f, 0.8f) && MeetsOxygenRequirement(cell, LifeForm.Civilization))
-                {
-                    // Civilizations should grow more robustly with technology
-                    // Base growth enhanced by nearby resources
-                    float resourceBonus = 1.0f + GetNearbyBiomass(x, y) * 0.5f;
-                    growth = 0.35f * resourceBonus; // Increased from 0.2f
-                }
+                float resourceBonus = 1.0f + GetNearbyBiomass(x, y) * 0.5f;
+                growth = 0.5f * resourceBonus; // Increased from 0.35f
                 break;
         }
 
@@ -332,64 +293,60 @@ public class LifeSimulator
 
     private float CalculateDeathRate(TerrainCell cell)
     {
-        // During grace period, reduce death rates significantly for planted life
+        // ABSOLUTE PROTECTION during grace period
         if (_plantingGracePeriod > 0f)
         {
-            // Very low death rate during grace period
-            return cell.LifeType == LifeForm.Bacteria ? 0.01f : 0.015f;
+            return 0f;
         }
         
+        // Reduced base death rate significantly
+        float death = 0.005f; // Reduced from 0.02f/0.03f
+
         // Bacteria are extremely resilient
-        // Reduced base death rates for better survival
-        float death = cell.LifeType == LifeForm.Bacteria ? 0.02f : 0.03f; // Reduced from 0.05f
+        if (cell.LifeType == LifeForm.Bacteria) death = 0.001f;
 
         var (minComfort, maxComfort) = cell.IsLand
-            ? ExpandTemperatureWindow(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, _lifeProfile.AvgLandTemp, Math.Max(1f, _lifeProfile.LandTempStdDev))
-            : ExpandTemperatureWindow(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, _lifeProfile.AvgWaterTemp, Math.Max(1f, _lifeProfile.WaterTempStdDev));
+            ? ExpandTemperatureWindow(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, _lifeProfile.AvgLandTemp, Math.Max(5f, _lifeProfile.LandTempStdDev)) // Min std dev 5f
+            : ExpandTemperatureWindow(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, _lifeProfile.AvgWaterTemp, Math.Max(5f, _lifeProfile.WaterTempStdDev));
 
-        float tolerance = MathF.Max(2f, (maxComfort - minComfort) * 0.15f);
+        // Widen tolerance significantly
+        float tolerance = MathF.Max(5f, (maxComfort - minComfort) * 0.3f); // Increased from 0.15f
         float lethalCold = minComfort - tolerance;
         float lethalHeat = maxComfort + tolerance;
 
         if (cell.LifeType == LifeForm.Bacteria)
         {
-            lethalCold -= 20f;
-            lethalHeat += 20f;
+            lethalCold -= 30f;
+            lethalHeat += 30f;
         }
 
+        // Temperature stress
         if (cell.Temperature < lethalCold || cell.Temperature > lethalHeat)
         {
-            death += cell.LifeType == LifeForm.Bacteria ? 0.1f : 0.3f;
+            // Calculate how far outside range
+            float deviation = Math.Min(Math.Abs(cell.Temperature - lethalCold), Math.Abs(cell.Temperature - lethalHeat));
+            // Gradual death based on deviation, not instant 0.3f hit
+            death += Math.Clamp(deviation * 0.01f, 0.01f, 0.2f); 
         }
 
-        // Lack of oxygen (for aerobic life) - bacteria don't need oxygen
+        // Oxygen stress
         float oxygenDemand = GetOxygenDemand(cell.LifeType);
         if (oxygenDemand > 0f)
         {
-            float oxygenThreshold = Math.Max(2f, _lifeProfile.AvgOxygen * oxygenDemand * 0.7f); // Reduced from 0.8f
+            float oxygenThreshold = Math.Max(1f, _lifeProfile.AvgOxygen * oxygenDemand * 0.5f); // Reduced threshold from 0.7f
             if (cell.Oxygen < oxygenThreshold)
             {
-                float deficit = oxygenThreshold - cell.Oxygen;
-                death += MathF.Min(0.2f, 0.03f * deficit); // Reduced from 0.3f and 0.05f
+                death += 0.05f; // Reduced from calculated deficit
             }
         }
 
-        // Too much CO2 relative to the current planet - adjusted for higher CO2 worlds
-        // Allow life to adapt to CO2 levels up to 3x global average or 10%, whichever is higher
-        float co2Limit = Math.Max(10f, _map.GlobalCO2 * 3f);
-        if (cell.LifeType != LifeForm.Bacteria && cell.CO2 > co2Limit)
-        {
-            // Reduced death rate from CO2 - life adapts over time
-            death += 0.05f;
-        }
-
-        // Drought pressure is evaluated against the world's rainfall profile
+        // Drought pressure (Land Plants)
         if (cell.IsLand && cell.LifeType == LifeForm.PlantLife)
         {
-            float droughtThreshold = GetRainfallThreshold(0.15f); // Reduced from 0.2f
-            if (cell.Rainfall < droughtThreshold)
+            // Allow plants to survive in drier conditions
+            if (cell.Rainfall < 0.05f) // Significantly reduced from dynamic threshold
             {
-                death += 0.1f; // Reduced from 0.2f
+                death += 0.05f; // Reduced from 0.1f
             }
         }
 
@@ -398,9 +355,6 @@ public class LifeSimulator
 
     private void SimulateEvolution(float deltaTime)
     {
-        // NOTE: Main evolution logic now handled by AnimalEvolutionSimulator
-        // This only handles basic microbe to plant evolution
-
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -410,15 +364,11 @@ public class LifeSimulator
                 if (cell.LifeType == LifeForm.None || cell.LifeType == LifeForm.Civilization)
                     continue;
 
-                // Evolution progress (only for basic life forms)
-                if (cell.Biomass > 0.5f &&
-                    (cell.LifeType == LifeForm.Bacteria ||
-                     cell.LifeType == LifeForm.Algae ||
-                     cell.LifeType == LifeForm.PlantLife))
+                // Evolution progress
+                if (cell.Biomass > 0.5f)
                 {
-                    cell.Evolution += deltaTime * 0.01f;
+                    cell.Evolution += deltaTime * 0.02f; // Faster evolution
 
-                    // Check for evolution to next stage
                     if (cell.Evolution > 1.0f && _random.NextDouble() < 0.1)
                     {
                         TryEvolve(cell);
@@ -430,12 +380,9 @@ public class LifeSimulator
 
     private void TryEvolve(TerrainCell cell)
     {
-        // Only handle basic evolution: bacteria â†’ algae â†’ plants â†’ simple animals
-        // AnimalEvolutionSimulator handles the rest
         switch (cell.LifeType)
         {
             case LifeForm.Bacteria:
-                // Evolve to algae in water, stay bacteria on land
                 if (cell.IsWater)
                 {
                     cell.LifeType = LifeForm.Algae;
@@ -444,8 +391,8 @@ public class LifeSimulator
                 break;
 
             case LifeForm.Algae:
-                // Algae can colonize land as plants if conditions are right
-                if (cell.IsLand && cell.Rainfall > 0.3f && cell.Oxygen > 10)
+                // Easier transition to land
+                if (cell.IsLand && cell.Rainfall > 0.15f && cell.Oxygen > 5)
                 {
                     cell.LifeType = LifeForm.PlantLife;
                     cell.Evolution = 0;
@@ -453,11 +400,10 @@ public class LifeSimulator
                 break;
 
             case LifeForm.PlantLife:
-                // Plants enable simple animals (then AnimalEvolutionSimulator takes over)
-                if (cell.Oxygen > 15)
+                if (cell.Oxygen > 12)
                 {
                     cell.LifeType = LifeForm.SimpleAnimals;
-                    cell.Biomass = 0.3f;
+                    cell.Biomass = 0.4f;
                     cell.Evolution = 0;
                 }
                 break;
@@ -466,9 +412,7 @@ public class LifeSimulator
 
     private void SimulateLifeSpread(float deltaTime)
     {
-        // Life spreads to neighboring cells based on biomass and life type
-        // Process multiple random cells per update for better coverage
-        int spreadAttempts = (int)(100 * deltaTime); // More attempts = faster spread
+        int spreadAttempts = (int)(200 * deltaTime); // Doubled spread rate
 
         for (int attempt = 0; attempt < spreadAttempts; attempt++)
         {
@@ -477,117 +421,67 @@ public class LifeSimulator
 
             var cell = _map.Cells[x, y];
 
-            // Life must have sufficient biomass to spread
-            if (cell.LifeType == LifeForm.None || cell.Biomass < 0.1f) // Reduced from 0.15f
+            if (cell.LifeType == LifeForm.None || cell.Biomass < 0.2f)
                 continue;
 
-            // Different life forms spread at different rates
-            float spreadChance = cell.LifeType switch
-            {
-                LifeForm.Bacteria => 0.8f,      // Very fast reproduction
-                LifeForm.Algae => 0.6f,         // Fast in water
-                LifeForm.PlantLife => 0.7f,     // Seeds, spores - increased from 0.5f
-                LifeForm.SimpleAnimals => 0.3f, // Mobile but slower
-                LifeForm.Fish => 0.4f,          // Can swim to new areas
-                LifeForm.Amphibians => 0.3f,    // Limited range
-                LifeForm.Reptiles => 0.25f,     // Slower reproduction
-                LifeForm.Dinosaurs => 0.2f,     // Large animals
-                LifeForm.Mammals => 0.3f,       // Better at colonization
-                LifeForm.Birds => 0.5f,         // Can fly far
-                _ => 0.2f
-            };
-
-            // Higher biomass = better chance to spread
-            spreadChance *= Math.Min(cell.Biomass * 2, 1.0f);
+            float spreadChance = 0.5f; // Higher base chance
 
             if (_random.NextDouble() > spreadChance)
                 continue;
 
-            // Try to spread to multiple neighbors (life spreads in all directions)
             var neighbors = _map.GetNeighbors(x, y).ToList();
-            if (neighbors.Count == 0)
+            if (neighbors.Count == 0) continue;
+
+            // Randomize neighbors
+            var neighbor = neighbors[_random.Next(neighbors.Count)];
+            
+            if (neighbor.cell.LifeType != LifeForm.None)
                 continue;
 
-            // Shuffle neighbors for random spread direction
-            for (int i = neighbors.Count - 1; i > 0; i--)
-            {
-                int j = _random.Next(i + 1);
-                var temp = neighbors[i];
-                neighbors[i] = neighbors[j];
-                neighbors[j] = temp;
-            }
+            // Use relaxed check for spreading
+            if (!CanLifeSurvive(cell.LifeType, neighbor.cell))
+                continue;
 
-            // Try to colonize up to 2 neighbors per spread event
-            int colonized = 0;
-            foreach (var (nx, ny, neighbor) in neighbors)
-            {
-                if (colonized >= 2) break;
-
-                // Only spread to empty cells
-                if (neighbor.LifeType != LifeForm.None)
-                    continue;
-
-                // Check if neighbor environment is suitable
-                if (!CanLifeSurvive(cell.LifeType, neighbor))
-                    continue;
-
-                // Successfully colonize!
-                neighbor.LifeType = cell.LifeType;
-                neighbor.Biomass = 0.15f + (cell.Biomass * 0.15f); // Increased from 0.1f and 0.1f
-                neighbor.Evolution = cell.Evolution * 0.9f; // Increased from 0.8f
-                colonized++;
-            }
+            neighbor.cell.LifeType = cell.LifeType;
+            neighbor.cell.Biomass = 0.2f; // Robust starter biomass
+            neighbor.cell.Evolution = cell.Evolution * 0.5f;
         }
     }
 
     private bool CanLifeSurvive(LifeForm lifeType, TerrainCell cell)
     {
+        // Relaxed survival checks to allow colonization of marginal lands
         return lifeType switch
         {
-            LifeForm.Bacteria =>
-                cell.Temperature > Math.Min(_lifeProfile.MinLandTemp, _lifeProfile.MinWaterTemp) - 30f &&
-                cell.Temperature < Math.Max(_lifeProfile.MaxLandTemp, _lifeProfile.MaxWaterTemp) + 40f,
+            LifeForm.Bacteria => true, // Bacteria survives anywhere basically
 
-            LifeForm.Algae => cell.IsWater && WaterTempBetween(cell, 0.2f, 0.85f),
+            LifeForm.Algae => cell.IsWater && cell.Temperature > -5 && cell.Temperature < 45,
 
-            LifeForm.PlantLife => cell.IsLand && LandTempBetween(cell, 0.25f, 0.85f) &&
-                                   MeetsRainfall(cell, 0.35f) && MeetsOxygenRequirement(cell, LifeForm.PlantLife),
+            LifeForm.PlantLife => cell.IsLand && cell.Temperature > -10 && cell.Temperature < 50 && cell.Rainfall > 0.05f,
 
-            LifeForm.SimpleAnimals => LandTempBetween(cell, 0.2f, 0.85f) &&
-                                       MeetsOxygenRequirement(cell, LifeForm.SimpleAnimals),
+            LifeForm.SimpleAnimals => cell.Temperature > -15 && cell.Temperature < 45 && cell.Oxygen > 5,
 
-            LifeForm.Fish => cell.IsWater && WaterTempBetween(cell, 0.2f, 0.75f) &&
-                              MeetsOxygenRequirement(cell, LifeForm.Fish),
+            LifeForm.Fish => cell.IsWater && cell.Temperature > -2 && cell.Temperature < 40 && cell.Oxygen > 5,
 
-            LifeForm.Amphibians => LandTempBetween(cell, 0.3f, 0.8f) && MeetsRainfall(cell, 0.3f) &&
-                                    MeetsOxygenRequirement(cell, LifeForm.Amphibians),
+            LifeForm.Amphibians => cell.Temperature > 0 && cell.Temperature < 40 && cell.Rainfall > 0.15f,
 
-            LifeForm.Reptiles => cell.IsLand && LandTempBetween(cell, 0.35f, 0.95f) &&
-                                  MeetsOxygenRequirement(cell, LifeForm.Reptiles),
+            LifeForm.Reptiles => cell.IsLand && cell.Temperature > 5 && cell.Temperature < 55,
 
-            LifeForm.Dinosaurs => cell.IsLand && LandTempBetween(cell, 0.45f, 0.95f) &&
-                                   MeetsOxygenRequirement(cell, LifeForm.Dinosaurs),
+            LifeForm.Dinosaurs => cell.IsLand && cell.Temperature > 10 && cell.Temperature < 55,
 
-            LifeForm.MarineDinosaurs => cell.IsWater && WaterTempBetween(cell, 0.4f, 0.9f) &&
-                                         MeetsOxygenRequirement(cell, LifeForm.MarineDinosaurs),
+            LifeForm.MarineDinosaurs => cell.IsWater && cell.Temperature > 5 && cell.Temperature < 40,
 
-            LifeForm.Pterosaurs => LandTempBetween(cell, 0.4f, 0.9f) &&
-                                    MeetsOxygenRequirement(cell, LifeForm.Pterosaurs),
+            LifeForm.Pterosaurs => cell.Temperature > 5 && cell.Temperature < 50,
 
-            LifeForm.Mammals => LandTempBetween(cell, 0.2f, 0.9f) &&
-                                 MeetsOxygenRequirement(cell, LifeForm.Mammals),
+            LifeForm.Mammals => cell.Temperature > -20 && cell.Temperature < 45,
 
-            LifeForm.Birds => LandTempBetween(cell, 0.3f, 0.95f) &&
-                               MeetsOxygenRequirement(cell, LifeForm.Birds),
+            LifeForm.Birds => cell.Temperature > -10 && cell.Temperature < 45,
 
-            LifeForm.ComplexAnimals => LandTempBetween(cell, 0.2f, 0.85f) &&
-                                       MeetsOxygenRequirement(cell, LifeForm.ComplexAnimals),
+            LifeForm.ComplexAnimals => cell.Temperature > -15 && cell.Temperature < 45,
 
-            LifeForm.Intelligence => LandTempBetween(cell, 0.25f, 0.8f) &&
-                                      MeetsOxygenRequirement(cell, LifeForm.Intelligence),
+            LifeForm.Intelligence => cell.Temperature > -20 && cell.Temperature < 45,
 
-            LifeForm.Civilization => LandTempBetween(cell, 0.2f, 0.8f) &&
-                                      MeetsOxygenRequirement(cell, LifeForm.Civilization),
+            LifeForm.Civilization => cell.Temperature > -30 && cell.Temperature < 50,
 
             _ => false
         };
@@ -622,7 +516,7 @@ public class LifeSimulator
             }
         }
 
-        return lifeTypes.Count / 5.0f; // Normalize by max expected diversity
+        return lifeTypes.Count / 5.0f;
     }
 
     private void UpdateLifeSupportProfile()
@@ -636,13 +530,11 @@ public class LifeSimulator
         float landRainSqSum = 0f;
         float landTempMin = float.MaxValue;
         float landTempMax = float.MinValue;
-        float landRainMin = float.MaxValue;
-        float landRainMax = float.MinValue;
+        int landCells = 0;
         float waterTempSum = 0f;
         float waterTempSqSum = 0f;
         float waterTempMin = float.MaxValue;
         float waterTempMax = float.MinValue;
-        int landCells = 0;
         int waterCells = 0;
 
         for (int x = 0; x < _map.Width; x++)
@@ -663,8 +555,6 @@ public class LifeSimulator
                     landRainSqSum += cell.Rainfall * cell.Rainfall;
                     landTempMin = Math.Min(landTempMin, cell.Temperature);
                     landTempMax = Math.Max(landTempMax, cell.Temperature);
-                    landRainMin = Math.Min(landRainMin, cell.Rainfall);
-                    landRainMax = Math.Max(landRainMax, cell.Rainfall);
                 }
                 else
                 {
@@ -693,6 +583,8 @@ public class LifeSimulator
             float avgLandTemp = landTempSum / landCells;
             float landTempVariance = MathF.Max(0f, (landTempSqSum / landCells) - avgLandTemp * avgLandTemp);
             float landTempStd = MathF.Sqrt(landTempVariance);
+            // Ensure min std dev to prevent narrow windows on uniform maps
+            landTempStd = Math.Max(5.0f, landTempStd); 
 
             float avgLandRain = landRainSum / landCells;
             float landRainVariance = MathF.Max(0f, (landRainSqSum / landCells) - avgLandRain * avgLandRain);
@@ -704,20 +596,15 @@ public class LifeSimulator
             _lifeProfile.LandTempStdDev = SmoothValue(_lifeProfile.LandTempStdDev, landTempStd, PROFILE_SMOOTHING);
 
             _lifeProfile.AvgLandRain = SmoothValue(_lifeProfile.AvgLandRain, avgLandRain, PROFILE_SMOOTHING);
-            _lifeProfile.MinLandRain = UpdateTrackedMin(_lifeProfile.MinLandRain, landRainMin);
-            _lifeProfile.MaxLandRain = UpdateTrackedMax(_lifeProfile.MaxLandRain, landRainMax);
             _lifeProfile.LandRainStdDev = SmoothValue(_lifeProfile.LandRainStdDev, landRainStd, PROFILE_SMOOTHING);
         }
         else
         {
+             // Fallback defaults if no land
             _lifeProfile.AvgLandTemp = _map.GlobalTemperature;
-            _lifeProfile.MinLandTemp = _map.GlobalTemperature - 20f;
-            _lifeProfile.MaxLandTemp = _map.GlobalTemperature + 20f;
-            _lifeProfile.AvgLandRain = 0.3f;
-            _lifeProfile.MinLandRain = 0f;
-            _lifeProfile.MaxLandRain = 1f;
-            _lifeProfile.LandTempStdDev = 5f;
-            _lifeProfile.LandRainStdDev = 0.2f;
+            _lifeProfile.LandTempStdDev = 15f; 
+            _lifeProfile.MinLandTemp = _map.GlobalTemperature - 30f;
+            _lifeProfile.MaxLandTemp = _map.GlobalTemperature + 30f;
         }
 
         if (waterCells > 0)
@@ -725,78 +612,42 @@ public class LifeSimulator
             float avgWaterTemp = waterTempSum / waterCells;
             float waterTempVariance = MathF.Max(0f, (waterTempSqSum / waterCells) - avgWaterTemp * avgWaterTemp);
             float waterTempStd = MathF.Sqrt(waterTempVariance);
+            waterTempStd = Math.Max(5.0f, waterTempStd); 
 
             _lifeProfile.AvgWaterTemp = SmoothValue(_lifeProfile.AvgWaterTemp, avgWaterTemp, PROFILE_SMOOTHING);
             _lifeProfile.MinWaterTemp = UpdateTrackedMin(_lifeProfile.MinWaterTemp, waterTempMin);
             _lifeProfile.MaxWaterTemp = UpdateTrackedMax(_lifeProfile.MaxWaterTemp, waterTempMax);
             _lifeProfile.WaterTempStdDev = SmoothValue(_lifeProfile.WaterTempStdDev, waterTempStd, PROFILE_SMOOTHING);
         }
-        else
-        {
-            _lifeProfile.AvgWaterTemp = _lifeProfile.AvgLandTemp;
-            _lifeProfile.MinWaterTemp = _lifeProfile.MinLandTemp;
-            _lifeProfile.MaxWaterTemp = _lifeProfile.MaxLandTemp;
-            _lifeProfile.WaterTempStdDev = Math.Max(1f, _lifeProfile.LandTempStdDev);
-        }
-
+        
         _lifeProfileInitialized = true;
     }
 
     private float SmoothValue(float current, float target, float blend)
     {
-        if (!_lifeProfileInitialized || float.IsNaN(current) || float.IsInfinity(current))
-            return target;
-
+        if (!_lifeProfileInitialized || float.IsNaN(current)) return target;
         return current + (target - current) * blend;
     }
 
     private float UpdateTrackedMin(float current, float observed)
     {
-        if (!_lifeProfileInitialized || current == float.MaxValue)
-            return observed;
-
-        if (observed < current)
-            return observed;
-
+        if (!_lifeProfileInitialized || current == float.MaxValue) return observed;
+        if (observed < current) return observed;
         return current + (observed - current) * EXTREME_RELAX_RATE;
     }
 
     private float UpdateTrackedMax(float current, float observed)
     {
-        if (!_lifeProfileInitialized || current == float.MinValue)
-            return observed;
-
-        if (observed > current)
-            return observed;
-
+        if (!_lifeProfileInitialized || current == float.MinValue) return observed;
+        if (observed > current) return observed;
         return current + (observed - current) * EXTREME_RELAX_RATE;
-    }
-
-    private bool LandTempBetween(TerrainCell cell, float normalizedMin, float normalizedMax)
-    {
-        var (min, max) = GetLandTemperatureWindow(normalizedMin, normalizedMax);
-        return cell.Temperature >= min && cell.Temperature <= max;
     }
 
     private bool WaterTempBetween(TerrainCell cell, float normalizedMin, float normalizedMax)
     {
+        // Simply use raw checks based on profile
         var (min, max) = GetWaterTemperatureWindow(normalizedMin, normalizedMax);
         return cell.Temperature >= min && cell.Temperature <= max;
-    }
-
-    private (float min, float max) GetLandTemperatureWindow(float normalizedMin, float normalizedMax)
-    {
-        var (windowMin, windowMax) = ExpandTemperatureWindow(
-            _lifeProfile.MinLandTemp,
-            _lifeProfile.MaxLandTemp,
-            _lifeProfile.AvgLandTemp,
-            Math.Max(1f, _lifeProfile.LandTempStdDev)
-        );
-
-        float min = LerpRange(windowMin, windowMax, normalizedMin);
-        float max = LerpRange(windowMin, windowMax, normalizedMax);
-        if (max < min) (min, max) = (max, min);
-        return (min, max);
     }
 
     private (float min, float max) GetWaterTemperatureWindow(float normalizedMin, float normalizedMax)
@@ -805,118 +656,51 @@ public class LifeSimulator
             _lifeProfile.MinWaterTemp,
             _lifeProfile.MaxWaterTemp,
             _lifeProfile.AvgWaterTemp,
-            Math.Max(1f, _lifeProfile.WaterTempStdDev)
+            Math.Max(5f, _lifeProfile.WaterTempStdDev)
         );
 
         float min = LerpRange(windowMin, windowMax, normalizedMin);
         float max = LerpRange(windowMin, windowMax, normalizedMax);
-        if (max < min) (min, max) = (max, min);
-        return (min, max);
+        return (Math.Min(min, max), Math.Max(min, max));
     }
 
     private (float min, float max) ExpandTemperatureWindow(float observedMin, float observedMax, float average, float stdDev)
     {
-        if (!_lifeProfileInitialized || observedMin == float.MaxValue || observedMax == float.MinValue)
-        {
-            float fallback = Math.Max(5f, Math.Abs(_map.GlobalTemperature));
-            return (_map.GlobalTemperature - fallback, _map.GlobalTemperature + fallback);
-        }
+        if (!_lifeProfileInitialized) return (-50f, 100f); // Safe default
 
-        float safeStd = MathF.Max(1f, stdDev);
-        float halfSpan = MathF.Max((observedMax - observedMin) * 0.5f, safeStd * 2.5f);
-        float climateBias = MathF.Abs(average) * 0.1f;
+        float safeStd = MathF.Max(5f, stdDev); // Minimum 5 degree spread
+        float halfSpan = MathF.Max((observedMax - observedMin) * 0.5f, safeStd * 3.0f); // Wider window (3 sigma)
+        
+        float min = average - halfSpan;
+        float max = average + halfSpan;
+        
+        // Ensure window includes observed extremes
+        min = Math.Min(min, observedMin - safeStd);
+        max = Math.Max(max, observedMax + safeStd);
 
-        float min = Math.Min(observedMin, average - halfSpan) - (climateBias + safeStd * 0.75f);
-        float max = Math.Max(observedMax, average + halfSpan) + (climateBias + safeStd * 0.75f);
-
-        if (max < min) (min, max) = (max, min);
         return (min, max);
     }
-
-    private (float min, float max) GetRainfallWindow()
-    {
-        if (!_lifeProfileInitialized ||
-            _lifeProfile.MinLandRain == float.MaxValue ||
-            _lifeProfile.MaxLandRain == float.MinValue)
-        {
-            float fallback = Math.Clamp(_lifeProfile.AvgLandRain <= 0f ? 0.3f : _lifeProfile.AvgLandRain, 0.05f, 0.95f);
-            return (Math.Max(0f, fallback - 0.25f), Math.Min(1f, fallback + 0.25f));
-        }
-
-        float avg = _lifeProfile.AvgLandRain;
-        float std = MathF.Max(0.02f, _lifeProfile.LandRainStdDev);
-
-        float min = Math.Max(0f, Math.Min(_lifeProfile.MinLandRain, avg - std * 2.5f) - std);
-        float max = Math.Min(1f, Math.Max(_lifeProfile.MaxLandRain, avg + std * 2.5f) + std);
-
-        if (max - min < 0.2f)
-        {
-            float expand = (0.2f - (max - min)) * 0.5f;
-            min = Math.Max(0f, min - expand);
-            max = Math.Min(1f, max + expand);
-        }
-
-        if (max < min) (min, max) = (max, min);
-        return (min, max);
-    }
-
-    private bool MeetsRainfall(TerrainCell cell, float normalizedMin)
-    {
-        if (!cell.IsLand)
-            return true;
-
-        float threshold = GetRainfallThreshold(normalizedMin);
-        return cell.Rainfall >= threshold;
-    }
-
-    private float GetRainfallThreshold(float normalizedMin)
-    {
-        var (min, max) = GetRainfallWindow();
-        return LerpRange(min, max, normalizedMin);
-    }
-
-    private bool MeetsOxygenRequirement(TerrainCell cell, LifeForm lifeForm)
-    {
-        return MeetsOxygenRequirement(cell, lifeForm, 1f);
-    }
-
-    private bool MeetsOxygenRequirement(TerrainCell cell, LifeForm lifeForm, float multiplier)
-    {
-        float demand = GetOxygenDemand(lifeForm);
-        if (demand <= 0f)
-            return true;
-
-        float baseTarget = _lifeProfile.AvgOxygen * demand * multiplier;
-        float tolerance = Math.Max(1f, _lifeProfile.AvgOxygen * 0.15f);
-        float target = Math.Max(2f, baseTarget - tolerance);
-        return cell.Oxygen >= target;
-    }
-
+    
     private float GetOxygenDemand(LifeForm lifeForm)
     {
+        // Reduced oxygen demands
         return lifeForm switch
         {
-            LifeForm.Algae => 0.2f,
-            LifeForm.PlantLife => 0.45f,
-            LifeForm.SimpleAnimals => 0.7f,
-            LifeForm.Fish => 0.6f,
-            LifeForm.Amphibians => 0.7f,
-            LifeForm.Reptiles => 0.75f,
-            LifeForm.Dinosaurs => 0.85f,
-            LifeForm.MarineDinosaurs => 0.8f,
-            LifeForm.Pterosaurs => 0.9f,
-            LifeForm.Mammals => 0.85f,
-            LifeForm.Birds => 0.9f,
-            LifeForm.ComplexAnimals => 0.8f,
-            LifeForm.Intelligence => 0.9f,
-            LifeForm.Civilization => 0.85f,
-            _ => 0f
+            LifeForm.Algae => 0.1f,
+            LifeForm.PlantLife => 0.2f,
+            LifeForm.SimpleAnimals => 0.4f,
+            LifeForm.Fish => 0.4f,
+            LifeForm.Amphibians => 0.5f,
+            LifeForm.Reptiles => 0.5f,
+            LifeForm.Dinosaurs => 0.6f,
+            LifeForm.Mammals => 0.6f,
+            _ => 0.5f
         };
     }
 
     private float GetOxygenEfficiency(TerrainCell cell)
     {
-        return Math.Clamp(cell.Oxygen / Math.Max(0.1f, _lifeProfile.AvgOxygen), 0f, 1.5f);
+        return Math.Clamp(cell.Oxygen / Math.Max(5f, _lifeProfile.AvgOxygen), 0.5f, 1.5f);
     }
 
     private float LerpRange(float min, float max, float normalized)
@@ -929,62 +713,40 @@ public class LifeSimulator
 
     private void ReactToVolcanicEruptions(GeologicalSimulator geoSim)
     {
-        // Life is killed or damaged by volcanic eruptions
         foreach (var (x, y, year) in geoSim.RecentEruptions)
         {
-            // Direct impact zone
             var cell = _map.Cells[x, y];
-            cell.Biomass = 0; // Complete destruction
+            cell.Biomass = 0;
             cell.LifeType = LifeForm.None;
 
-            // Surrounding area damage
             foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
             {
-                neighbor.Biomass *= 0.3f; // 70% killed
-                if (neighbor.Biomass < 0.1f)
-                {
-                    neighbor.LifeType = LifeForm.None;
-                    neighbor.Biomass = 0;
-                }
+                neighbor.Biomass *= 0.5f;
             }
         }
     }
 
     private void ReactToEarthquakes(GeologicalSimulator geoSim)
     {
-        // Earthquakes damage life based on magnitude
         foreach (var (x, y, magnitude) in geoSim.Earthquakes)
         {
-            var cell = _map.Cells[x, y];
-
-            // Higher magnitude = more damage
-            float damageRadius = magnitude * 3;
-
+            // Less lethal earthquakes
+            float damageRadius = magnitude * 1.5f;
             for (int dx = -(int)damageRadius; dx <= damageRadius; dx++)
             {
                 for (int dy = -(int)damageRadius; dy <= damageRadius; dy++)
                 {
                     int nx = (x + dx + _map.Width) % _map.Width;
-                    int ny = y + dy;
-                    if (ny < 0 || ny >= _map.Height) continue;
-
+                    int ny = Math.Clamp(y + dy, 0, _map.Height - 1);
+                    
                     float dist = MathF.Sqrt(dx * dx + dy * dy);
                     if (dist > damageRadius) continue;
 
                     var target = _map.Cells[nx, ny];
+                    if (target.LifeType == LifeForm.Bacteria) continue;
 
-                    // Bacteria are extremely resilient and survive earthquakes
-                    if (target.LifeType == LifeForm.Bacteria)
-                        continue;
-
-                    float damage = (1 - dist / damageRadius) * magnitude * 0.2f;
+                    float damage = (1 - dist / damageRadius) * magnitude * 0.1f; // Reduced damage
                     target.Biomass *= (1 - damage);
-
-                    if (target.Biomass < 0.1f)
-                    {
-                        target.LifeType = LifeForm.None;
-                        target.Biomass = 0;
-                    }
                 }
             }
         }
@@ -992,64 +754,29 @@ public class LifeSimulator
 
     private void ReactToStorms(WeatherSystem weatherSys)
     {
-        // Storms damage life
         foreach (var storm in weatherSys.ActiveStorms)
         {
-            // Check if storm is a hurricane (any category)
-            bool isHurricane = storm.Type >= StormType.HurricaneCategory1 &&
-                              storm.Type <= StormType.HurricaneCategory5;
-
-            // Determine radius based on storm type
-            int radius = storm.Type switch
+            if (storm.Intensity < 0.5f) continue;
+            
+            // Only very strong storms damage life significantly now
+            float radius = 5 + storm.Intensity * 10;
+            
+            for (int dx = -(int)radius; dx <= radius; dx++)
             {
-                StormType.TropicalDepression => 10,
-                StormType.TropicalStorm => 12,
-                StormType.HurricaneCategory1 => 15,
-                StormType.HurricaneCategory2 => 18,
-                StormType.HurricaneCategory3 => 20,
-                StormType.HurricaneCategory4 => 22,
-                StormType.HurricaneCategory5 => 25,
-                StormType.Blizzard => 12,
-                _ => 8  // Thunderstorm, Tornado
-            };
-
-            for (int dx = -radius; dx <= radius; dx++)
-            {
-                for (int dy = -radius; dy <= radius; dy++)
+                for (int dy = -(int)radius; dy <= radius; dy++)
                 {
                     int x = (storm.CenterX + dx + _map.Width) % _map.Width;
-                    int y = storm.CenterY + dy;
-                    if (y < 0 || y >= _map.Height) continue;
-
+                    int y = Math.Clamp(storm.CenterY + dy, 0, _map.Height - 1);
+                    
                     float dist = MathF.Sqrt(dx * dx + dy * dy);
                     if (dist > radius) continue;
 
                     var cell = _map.Cells[x, y];
-                    float effectStrength = storm.Intensity * (1 - dist / radius);
-
-                    // Storm damage to biomass (already handled in WeatherSystem, but keep for extra damage)
-                    if (isHurricane && effectStrength > 0.5f)
-                    {
-                        cell.Biomass *= (1 - effectStrength * 0.3f);
-                    }
-                    else if (storm.Type == StormType.Tornado && effectStrength > 0.7f)
-                    {
-                        cell.Biomass *= 0.2f; // Severe damage
-                    }
-                    else if (storm.Type == StormType.Blizzard)
-                    {
-                        // Blizzards less damaging but affect temperature-sensitive life
-                        if (cell.LifeType == LifeForm.PlantLife && effectStrength > 0.6f)
-                        {
-                            cell.Biomass *= 0.7f;
-                        }
-                    }
-
-                    if (cell.Biomass < 0.1f)
-                    {
-                        cell.LifeType = LifeForm.None;
-                        cell.Biomass = 0;
-                    }
+                    if (cell.LifeType == LifeForm.None) continue;
+                    
+                    
+                    float damage = storm.Intensity * (1 - dist/radius) * 0.05f;
+                    cell.Biomass = Math.Max(0, cell.Biomass - damage);
                 }
             }
         }
@@ -1057,7 +784,9 @@ public class LifeSimulator
 
     private void ReactToClimateChanges(float deltaTime)
     {
-        // Life responds to gradual climate changes
+        // CRITICAL FIX: Do not apply climate stress during grace period
+        if (_plantingGracePeriod > 0f) return;
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -1068,79 +797,45 @@ public class LifeSimulator
 
                 float stressFactor = 0;
 
-                // Temperature stress
-                if (cell.Temperature > 50 || cell.Temperature < -30)
+                // Much wider temperature tolerance
+                float comfortableMin = -20f;
+                float comfortableMax = 45f;
+                
+                if (cell.LifeType == LifeForm.Bacteria) { comfortableMin = -50f; comfortableMax = 80f; }
+                
+                if (cell.Temperature > comfortableMax)
                 {
-                    stressFactor += 0.5f;
+                    stressFactor += (cell.Temperature - comfortableMax) * 0.01f;
                 }
-                else if (cell.Temperature > 40 || cell.Temperature < -20)
+                else if (cell.Temperature < comfortableMin)
                 {
-                    stressFactor += 0.2f;
-                }
-
-                // Oxygen stress (for aerobic life)
-                if (cell.LifeType != LifeForm.Bacteria)
-                {
-                    if (cell.Oxygen < 3) // Reduced from 5
-                    {
-                        stressFactor += 0.5f; // Reduced from 0.8f
-                    }
-                    else if (cell.Oxygen < 8) // Reduced from 10
-                    {
-                        stressFactor += 0.2f; // Reduced from 0.3f
-                    }
+                    stressFactor += (comfortableMin - cell.Temperature) * 0.01f;
                 }
 
-                // CO2 toxicity - adjusted for high CO2 worlds
-                // Life adapts to baseline CO2 levels over time
-                if (cell.CO2 > Math.Max(20f, _map.GlobalCO2 * 5f))
+                // Oxygen stress (reduced)
+                if (cell.LifeType != LifeForm.Bacteria && cell.LifeType != LifeForm.Algae && cell.LifeType != LifeForm.PlantLife)
                 {
-                    stressFactor += 0.3f; // Reduced from 0.5f
-                }
-                else if (cell.CO2 > Math.Max(15f, _map.GlobalCO2 * 3f))
-                {
-                    stressFactor += 0.1f; // Reduced from 0.2f
+                    if (cell.Oxygen < 5f) stressFactor += 0.1f;
                 }
 
-                // Drought stress (for land life)
-                if (cell.IsLand && cell.Rainfall < 0.1f)
+                // Drought stress (Plants only)
+                if (cell.IsLand && cell.LifeType == LifeForm.PlantLife && cell.Rainfall < 0.05f)
                 {
-                    if (cell.LifeType == LifeForm.PlantLife)
-                    {
-                        stressFactor += 0.4f;
-                    }
-                    else if (cell.LifeType == LifeForm.SimpleAnimals ||
-                            cell.LifeType == LifeForm.ComplexAnimals)
-                    {
-                        stressFactor += 0.3f;
-                    }
+                    stressFactor += 0.1f;
                 }
 
-                // Flooding stress (rapid elevation changes)
-                var geo = cell.GetGeology();
-                if (geo.SedimentLayer > 0.5f && cell.IsLand)
-                {
-                    stressFactor += 0.2f; // Burial by sediment
-                }
-
-                // Apply stress damage
+                // Apply stress damage slowly
                 if (stressFactor > 0)
                 {
-                    cell.Biomass *= (1 - stressFactor * deltaTime * 0.1f);
+                    // Very slow decay from stress to allow adaptation/stabilizer to work
+                    cell.Biomass -= stressFactor * deltaTime * 0.01f;
 
-                    if (cell.Biomass < 0.05f)
+                    if (cell.Biomass < 0.005f)
                     {
                         cell.LifeType = LifeForm.None;
                         cell.Biomass = 0;
                         cell.Evolution = 0;
                     }
-                }
-
-                // Adaptation over time
-                // Life that survives harsh conditions becomes more resilient
-                if (stressFactor > 0.2f && cell.Biomass > 0.3f)
-                {
-                    cell.Evolution += deltaTime * 0.005f; // Stress-driven evolution
                 }
             }
         }
@@ -1150,56 +845,30 @@ public class LifeSimulator
     {
         // Count total life on planet
         int lifeCells = 0;
-        float avgTemp = 0f;
-        float avgOxygen = 0f;
-        int sampleCount = 0;
+        int totalCells = _map.Width * _map.Height;
 
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                var cell = _map.Cells[x, y];
-                if (cell.LifeType != LifeForm.None)
+                if (_map.Cells[x, y].LifeType != LifeForm.None)
                 {
                     lifeCells++;
                 }
-                avgTemp += cell.Temperature;
-                avgOxygen += cell.Oxygen;
-                sampleCount++;
             }
         }
 
-        avgTemp /= sampleCount;
-        avgOxygen /= sampleCount;
-
-        int totalCells = _map.Width * _map.Height;
-        int reseedThreshold = Math.Max(50, totalCells / 40); // ~2.5% of the map
-
-        // If life is extinct or critically low, try to reseed
-        if (lifeCells < reseedThreshold)
+        // If life is extinct or critically low (less than 1% of map), try to reseed
+        if (lifeCells < totalCells * 0.01f)
         {
-            // Check if planetary conditions are suitable for life relative to the current climate
-            bool temperatureOk = avgTemp > _lifeProfile.MinLandTemp - 5f && avgTemp < _lifeProfile.MaxLandTemp + 5f;
-            bool hasWater = true; // Assume there's water somewhere on the planet
-
-            if (temperatureOk)
-            {
-                Console.WriteLine($"[AUTO-RESEED] Life extinct or critically low ({lifeCells}/{reseedThreshold} cells). Planetary conditions favorable (T={avgTemp:F1}Â°C, O2={avgOxygen:F1}%). Re-seeding bacteria...");
-
-                // Reseed bacteria - they're the most resilient
-                SeedSpecificLife(LifeForm.Bacteria);
-
-                // If oxygen is high enough, also seed algae
-                if (avgOxygen > 5f)
-                {
-                    Console.WriteLine($"[AUTO-RESEED] Oxygen levels sufficient. Also seeding algae...");
-                    SeedSpecificLife(LifeForm.Algae);
-                }
-            }
-            else
-            {
-                Console.WriteLine($"[AUTO-RESEED] Life extinct but conditions too harsh (T={avgTemp:F1}Â°C). Waiting for better conditions...");
-            }
+             // Simply reseed without strict checks to kickstart the loop
+             SeedSpecificLife(LifeForm.Bacteria);
+             
+             if (_map.GlobalOxygen > 5f)
+                 SeedSpecificLife(LifeForm.Algae);
+                 
+             if (_map.GlobalOxygen > 10f)
+                 SeedSpecificLife(LifeForm.PlantLife);
         }
     }
 }
