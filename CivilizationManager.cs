@@ -8,6 +8,7 @@ public class CivilizationManager
     private readonly PlanetMap _map;
     private readonly Random _random;
     private List<Civilization> _civilizations;
+    private readonly object _civLock = new object();
     private int _nextCivId = 1;
     private DivinePowers _divinePowers;
     private int _nextRulerId = 1;
@@ -43,58 +44,64 @@ public class CivilizationManager
 
     public void Update(float deltaTime, int currentYear)
     {
-        // Check for new civilization emergence
-        CheckForNewCivilizations(currentYear);
-
-        // Update existing civilizations
-        foreach (var civ in _civilizations.ToList())
+        lock (_civLock)
         {
-            UpdateCivilization(civ, deltaTime, currentYear);
+            // Check for new civilization emergence
+            CheckForNewCivilizations(currentYear);
+
+            // Update existing civilizations
+            foreach (var civ in _civilizations.ToList())
+            {
+                UpdateCivilization(civ, deltaTime, currentYear);
+            }
+
+            // Update governments and rulers
+            UpdateGovernments(currentYear);
+
+            // Handle interactions between civilizations
+            HandleCivilizationInteractions(currentYear);
+
+            // Update diplomatic relations
+            UpdateDiplomacy(currentYear);
+
+            // Check disaster impacts
+            UpdateDisasterResponse(currentYear);
         }
-
-        // Update governments and rulers
-        UpdateGovernments(currentYear);
-
-        // Handle interactions between civilizations
-        HandleCivilizationInteractions(currentYear);
-
-        // Update diplomatic relations
-        UpdateDiplomacy(currentYear);
-
-        // Check disaster impacts
-        UpdateDisasterResponse(currentYear);
     }
 
     public bool TryCreateCivilizationAt(int x, int y, int currentYear)
     {
-        if (x < 0 || x >= _map.Width || y < 0 || y >= _map.Height)
-            return false;
-
-        var cell = _map.Cells[x, y];
-
-        if (!cell.IsLand)
-            return false;
-        if (cell.Temperature < -10 || cell.Temperature > 45)
-            return false;
-        if (cell.Oxygen < 15) // Reduced from 18 - civilizations can adapt to lower oxygen
-            return false;
-
-        if (IsCellInCivilization(x, y))
-            return false;
-
-        foreach (var civ in _civilizations)
+        lock (_civLock)
         {
-            if (Math.Abs(civ.CenterX - x) < 20 && Math.Abs(civ.CenterY - y) < 20)
+            if (x < 0 || x >= _map.Width || y < 0 || y >= _map.Height)
                 return false;
+
+            var cell = _map.Cells[x, y];
+
+            if (!cell.IsLand)
+                return false;
+            if (cell.Temperature < -10 || cell.Temperature > 45)
+                return false;
+            if (cell.Oxygen < 15) // Reduced from 18 - civilizations can adapt to lower oxygen
+                return false;
+
+            if (IsCellInCivilization(x, y))
+                return false;
+
+            foreach (var civ in _civilizations)
+            {
+                if (Math.Abs(civ.CenterX - x) < 20 && Math.Abs(civ.CenterY - y) < 20)
+                    return false;
+            }
+
+            cell.LifeType = LifeForm.Civilization;
+            cell.Biomass = Math.Max(cell.Biomass, 0.5f);
+            cell.Rainfall = Math.Max(cell.Rainfall, 0.3f);
+            cell.Temperature = Math.Clamp(cell.Temperature, 0, 35);
+
+            CreateCivilization(x, y, currentYear);
+            return true;
         }
-
-        cell.LifeType = LifeForm.Civilization;
-        cell.Biomass = Math.Max(cell.Biomass, 0.5f);
-        cell.Rainfall = Math.Max(cell.Rainfall, 0.3f);
-        cell.Temperature = Math.Clamp(cell.Temperature, 0, 35);
-
-        CreateCivilization(x, y, currentYear);
-        return true;
     }
 
     private void CheckForNewCivilizations(int currentYear)
@@ -444,7 +451,7 @@ public class CivilizationManager
             1f);
 
         // Stability trends toward prosperity but is penalized by war and disasters
-        float stabilityTarget = 0.35f + civ.Prosperity * 0.5f;
+        float stabilityTarget = 0.4f + civ.Prosperity * 0.5f; // Increased base stability
         stabilityTarget += civ.DisasterPreparedness * 0.1f;
         stabilityTarget += civ.AtWar ? -0.1f : 0.1f;
 
@@ -456,16 +463,16 @@ public class CivilizationManager
         // Collapse risk slowly accumulates only if stability remains low
         float riskDelta = 0f;
         if (civ.Stability < 0.4f)
-            riskDelta += (0.4f - civ.Stability) * 0.6f * deltaTime;
+            riskDelta += (0.4f - civ.Stability) * 0.4f * deltaTime; // Reduced penalty
         else
-            riskDelta -= (civ.Stability - 0.4f) * 0.4f * deltaTime;
+            riskDelta -= (civ.Stability - 0.4f) * 0.5f * deltaTime; // Increased bonus
 
         if (civ.Food <= civ.FoodConsumption)
-            riskDelta += 0.04f * deltaTime;
+            riskDelta += 0.02f * deltaTime; // Reduced penalty
         if (civ.Population < 1000)
-            riskDelta += 0.05f * deltaTime;
+            riskDelta += 0.02f * deltaTime; // Reduced penalty
         if (!civ.AtWar && civ.Stability > 0.6f)
-            riskDelta -= 0.03f * deltaTime;
+            riskDelta -= 0.04f * deltaTime; // Increased bonus
 
         civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + riskDelta, 0f, 1f);
     }
@@ -757,23 +764,23 @@ public class CivilizationManager
         bool harshClimate = avgCO2 > 10 || avgTemp > 45 || avgTemp < -15;
         if (harshClimate)
         {
-            civ.Population = (int)(civ.Population * 0.9f);
+            civ.Population = (int)(civ.Population * 0.98f); // Less severe population loss
             civ.Stability = Math.Max(civ.Stability - 0.05f, 0f);
-            civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + 0.08f, 0f, 1f);
+            civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + 0.05f, 0f, 1f); // Slower risk increase
         }
         else
         {
-            civ.CollapseRisk = Math.Max(civ.CollapseRisk - 0.01f, 0f);
+            civ.CollapseRisk = Math.Max(civ.CollapseRisk - 0.02f, 0f); // Faster risk decrease
         }
 
         // Check if all territory lost
-        if (civ.Territory.Count == 0)
+        if (civ.Territory.Count == 0 && civ.Population < 100)
         {
             CollapseCivilization(civ);
             return;
         }
 
-        if (civ.CollapseRisk >= 0.95f || (civ.CollapseRisk > 0.7f && civ.Population < 200))
+        if (civ.CollapseRisk >= 1.0f || (civ.CollapseRisk > 0.8f && civ.Population < 100))
         {
             CollapseCivilization(civ);
         }
@@ -1018,7 +1025,13 @@ public class CivilizationManager
         attacker.Population = (int)(attacker.Population * 0.95f); // Some losses from retaliation
     }
 
-    public List<Civilization> GetAllCivilizations() => _civilizations;
+    public List<Civilization> GetAllCivilizations()
+    {
+        lock (_civLock)
+        {
+            return _civilizations.ToList();
+        }
+    }
 
     /// <summary>
     /// Build roads connecting cities and resources
@@ -1501,29 +1514,32 @@ public class CivilizationManager
 
     public void LoadCivilizations(List<CivilizationData> civData)
     {
-        _civilizations.Clear();
-        foreach (var data in civData)
+        lock (_civLock)
         {
-            var civ = new Civilization
+            _civilizations.Clear();
+            foreach (var data in civData)
             {
-                Id = data.Id,
-                Name = data.Name,
-                CenterX = data.CenterX,
-                CenterY = data.CenterY,
-                Population = data.Population,
-                TechLevel = data.TechLevel,
-                CivType = data.CivilizationType,
-                Aggression = data.Aggression,
-                EcoFriendliness = data.EcoFriendliness,
-                Prosperity = data.Prosperity,
-                Stability = data.Stability,
-                CollapseRisk = data.CollapseRisk
-            };
-            civ.Territory.UnionWith(data.Territory);
-            _civilizations.Add(civ);
-        }
+                var civ = new Civilization
+                {
+                    Id = data.Id,
+                    Name = data.Name,
+                    CenterX = data.CenterX,
+                    CenterY = data.CenterY,
+                    Population = data.Population,
+                    TechLevel = data.TechLevel,
+                    CivType = data.CivilizationType,
+                    Aggression = data.Aggression,
+                    EcoFriendliness = data.EcoFriendliness,
+                    Prosperity = data.Prosperity,
+                    Stability = data.Stability,
+                    CollapseRisk = data.CollapseRisk
+                };
+                civ.Territory.UnionWith(data.Territory);
+                _civilizations.Add(civ);
+            }
 
-        _nextCivId = _civilizations.Any() ? _civilizations.Max(c => c.Id) + 1 : 1;
+            _nextCivId = _civilizations.Any() ? _civilizations.Max(c => c.Id) + 1 : 1;
+        }
     }
 
     /// <summary>

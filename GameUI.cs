@@ -25,6 +25,9 @@ public class GameUI
     private const double StatsUpdateIntervalMs = 100; // Update stats every 100ms
 
     public bool ShowHelp { get; set; } = false;
+    public bool IsFastForwarding { get; set; } = false;
+    public float FastForwardProgress { get; set; } = 0f;
+    public int FastForwardCurrentYear { get; set; } = 0;
 
     public GameUI(SpriteBatch spriteBatch, FontRenderer font, PlanetMap map, GraphicsDevice graphicsDevice)
     {
@@ -61,6 +64,29 @@ public class GameUI
         {
             DrawHelpPanel(toolbarHeight);
         }
+
+        if (IsFastForwarding)
+        {
+            DrawFastForwardProgressBar();
+        }
+    }
+
+    private void DrawFastForwardProgressBar()
+    {
+        int barWidth = 600;
+        int barHeight = 40;
+        int barX = (_graphicsDevice.Viewport.Width - barWidth) / 2;
+        int barY = _graphicsDevice.Viewport.Height - barHeight - 20;
+
+        DrawRectangle(barX, barY, barWidth, barHeight, new Color(0, 0, 0, 200));
+        DrawBorder(barX, barY, barWidth, barHeight, Color.Yellow, 2);
+
+        int progressWidth = (int)(barWidth * FastForwardProgress);
+        DrawRectangle(barX, barY, progressWidth, barHeight, Color.Green);
+
+        string text = $"Fast Forwarding... {FastForwardProgress:P0} (Year: {FastForwardCurrentYear}) - Press ESC to cancel";
+        var textSize = _font.MeasureString(text);
+        _font.DrawString(_spriteBatch, text, new Vector2(barX + (barWidth - textSize.X) / 2, barY + (barHeight - textSize.Y) / 2), Color.White);
     }
 
     private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates, int toolbarHeight)
@@ -312,6 +338,8 @@ public class GameUI
         DrawTextAt("H: Toggle Help", Color.White, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("R: Regenerate planet", Color.White, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("L: Seed life", Color.White, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("F: Fast Forward 10,000 years", Color.Cyan, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("ESC: Cancel Fast Forward", Color.Cyan, leftColX, leftY); leftY += lineHeight;
         leftY += 5;
 
         DrawTextAt("=== VIEW MODES (1-0) ===", Color.Yellow, leftColX, leftY);

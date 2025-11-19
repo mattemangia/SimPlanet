@@ -1,3 +1,7 @@
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
+using System.Threading;
+
 namespace SimPlanet;
 
 /// <summary>
@@ -7,6 +11,8 @@ public class LifeSimulator
 {
     private readonly PlanetMap _map;
     private readonly Random _random;
+    private readonly ThreadLocal<Random> _threadRandom = new(() => new Random(Interlocked.Increment(ref _seed)));
+    private static int _seed;
     private float _autoReseedTimer = 0f;
     private const float AUTO_RESEED_CHECK_INTERVAL = 5.0f; // Check every 5 seconds
     private LifeSupportProfile _lifeProfile;
@@ -41,6 +47,7 @@ public class LifeSimulator
     {
         _map = map;
         _random = new Random();
+        _seed = Environment.TickCount;
         
         // Initialize life profile with broad default values to prevent instant death on new worlds
         _lifeProfile = new LifeSupportProfile
@@ -165,11 +172,18 @@ public class LifeSimulator
 
     private void SimulateBiomassGrowth(float deltaTime)
     {
-        for (int x = 0; x < _map.Width; x++)
+        var newBiomass = new float[_map.Width, _map.Height];
+        var newLifeType = new LifeForm[_map.Width, _map.Height];
+        var newEvolution = new float[_map.Width, _map.Height];
+
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
+                newBiomass[x, y] = cell.Biomass;
+                newLifeType[x, y] = cell.LifeType;
+                newEvolution[x, y] = cell.Evolution;
 
                 if (cell.LifeType == LifeForm.None)
                     continue;
@@ -185,16 +199,26 @@ public class LifeSimulator
                     netGrowth = 0.01f * deltaTime; // Slight positive growth during grace
                 }
 
-                cell.Biomass = Math.Clamp(cell.Biomass + netGrowth, 0, 1);
+                newBiomass[x, y] = Math.Clamp(cell.Biomass + netGrowth, 0, 1);
 
                 // Die off if conditions are too harsh AND biomass hits zero
                 // Lower threshold slightly to 0.005 to prevent flickering
-                if (cell.Biomass < 0.005f)
+                if (newBiomass[x, y] < 0.005f)
                 {
-                    cell.LifeType = LifeForm.None;
-                    cell.Biomass = 0;
-                    cell.Evolution = 0;
+                    newLifeType[x, y] = LifeForm.None;
+                    newBiomass[x, y] = 0;
+                    newEvolution[x, y] = 0;
                 }
+            }
+        });
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                _map.Cells[x, y].Biomass = newBiomass[x, y];
+                _map.Cells[x, y].LifeType = newLifeType[x, y];
+                _map.Cells[x, y].Evolution = newEvolution[x, y];
             }
         }
     }
@@ -356,11 +380,18 @@ public class LifeSimulator
 
     private void SimulateEvolution(float deltaTime)
     {
-        for (int x = 0; x < _map.Width; x++)
+        var newEvolution = new float[_map.Width, _map.Height];
+        var newLifeType = new LifeForm[_map.Width, _map.Height];
+        var newBiomass = new float[_map.Width, _map.Height];
+
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
+                newEvolution[x, y] = cell.Evolution;
+                newLifeType[x, y] = cell.LifeType;
+                newBiomass[x, y] = cell.Biomass;
 
                 if (cell.LifeType == LifeForm.None || cell.LifeType == LifeForm.Civilization)
                     continue;
@@ -368,26 +399,41 @@ public class LifeSimulator
                 // Evolution progress
                 if (cell.Biomass > 0.5f)
                 {
-                    cell.Evolution += deltaTime * 0.02f; // Faster evolution
+                    newEvolution[x, y] += deltaTime * 0.02f; // Faster evolution
 
-                    if (cell.Evolution > 1.0f && _random.NextDouble() < 0.1)
+                    if (newEvolution[x, y] > 1.0f && _threadRandom.Value.NextDouble() < 0.1)
                     {
-                        TryEvolve(cell);
+                        TryEvolve(cell, out var evolvedLifeType, out var evolvedBiomass);
+                        newLifeType[x, y] = evolvedLifeType;
+                        newBiomass[x, y] = evolvedBiomass;
+                        newEvolution[x, y] = 0;
                     }
                 }
+            }
+        });
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                _map.Cells[x, y].Evolution = newEvolution[x, y];
+                _map.Cells[x, y].LifeType = newLifeType[x, y];
+                _map.Cells[x, y].Biomass = newBiomass[x, y];
             }
         }
     }
 
-    private void TryEvolve(TerrainCell cell)
+    private void TryEvolve(TerrainCell cell, out LifeForm evolvedLifeType, out float evolvedBiomass)
     {
+        evolvedLifeType = cell.LifeType;
+        evolvedBiomass = cell.Biomass;
+
         switch (cell.LifeType)
         {
             case LifeForm.Bacteria:
                 if (cell.IsWater)
                 {
-                    cell.LifeType = LifeForm.Algae;
-                    cell.Evolution = 0;
+                    evolvedLifeType = LifeForm.Algae;
                 }
                 break;
 
@@ -395,17 +441,15 @@ public class LifeSimulator
                 // Easier transition to land
                 if (cell.IsLand && cell.Rainfall > 0.15f && cell.Oxygen > 5)
                 {
-                    cell.LifeType = LifeForm.PlantLife;
-                    cell.Evolution = 0;
+                    evolvedLifeType = LifeForm.PlantLife;
                 }
                 break;
 
             case LifeForm.PlantLife:
                 if (cell.Oxygen > 12)
                 {
-                    cell.LifeType = LifeForm.SimpleAnimals;
-                    cell.Biomass = 0.4f;
-                    cell.Evolution = 0;
+                    evolvedLifeType = LifeForm.SimpleAnimals;
+                    evolvedBiomass = 0.4f;
                 }
                 break;
         }
@@ -791,11 +835,18 @@ public class LifeSimulator
         // CRITICAL FIX: Do not apply climate stress during grace period
         if (_plantingGracePeriodYears > 0f) return;
 
-        for (int x = 0; x < _map.Width; x++)
+        var newBiomass = new float[_map.Width, _map.Height];
+        var newLifeType = new LifeForm[_map.Width, _map.Height];
+        var newEvolution = new float[_map.Width, _map.Height];
+
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
+                newBiomass[x, y] = cell.Biomass;
+                newLifeType[x, y] = cell.LifeType;
+                newEvolution[x, y] = cell.Evolution;
 
                 if (cell.LifeType == LifeForm.None) continue;
 
@@ -843,15 +894,25 @@ public class LifeSimulator
                 // Apply stress damage slowly
                 if (stressFactor > 0)
                 {
-                    cell.Biomass -= stressFactor * deltaTime * 0.01f;
+                    newBiomass[x, y] -= stressFactor * deltaTime * 0.01f;
 
-                    if (cell.Biomass < 0.005f)
+                    if (newBiomass[x, y] < 0.005f)
                     {
-                        cell.LifeType = LifeForm.None;
-                        cell.Biomass = 0;
-                        cell.Evolution = 0;
+                        newLifeType[x, y] = LifeForm.None;
+                        newBiomass[x, y] = 0;
+                        newEvolution[x, y] = 0;
                     }
                 }
+            }
+        });
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                _map.Cells[x, y].Biomass = newBiomass[x, y];
+                _map.Cells[x, y].LifeType = newLifeType[x, y];
+                _map.Cells[x, y].Evolution = newEvolution[x, y];
             }
         }
     }
