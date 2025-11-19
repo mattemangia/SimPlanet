@@ -41,7 +41,7 @@ public class Graphs
     private Texture2D _pixelTexture;
     private Texture2D _backgroundTexture;
 
-    public bool IsVisible { get; set; } = true;
+    public bool IsVisible { get; set; } = false;
 
     public Graphs(GraphicsDevice graphicsDevice, FontRenderer font, PlanetMap map, CivilizationManager civManager)
     {
