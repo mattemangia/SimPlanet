@@ -1,3 +1,8 @@
+using System;
+using System.Numerics;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
+
 namespace SimPlanet;
 
 /// <summary>
@@ -30,11 +35,169 @@ public class ClimateSimulator
             _distanceMapRecalculateTimer = 0f;
         }
 
-        SimulateTemperature(deltaTime);
+        if (Avx.IsSupported)
+        {
+            SimulateTemperatureSimd(deltaTime);
+        }
+        else
+        {
+            SimulateTemperature(deltaTime);
+        }
         SimulateRainfall(deltaTime);
         SimulateHumidity(deltaTime);
         UpdateIceCycles(deltaTime);
         UpdateWaterLevelFromIce(); // Adjust sea level based on ice sheet changes
+    }
+
+    private void SimulateTemperatureSimd(float deltaTime)
+    {
+        int width = _map.Width;
+        int height = _map.Height;
+        int size = width * height;
+        float temperatureOffset = _map.PlanetaryControls?.TemperatureOffsetCelsius ?? 0f;
+
+        // 1. Data Extraction (AoS to SoA)
+        var temperatures = new float[size];
+        var elevations = new float[size];
+        var greenhouses = new float[size];
+        var windSpeedX = new float[size];
+        var windSpeedY = new float[size];
+        var albedos = new float[size];
+        var isWater = new float[size]; // Use float for SIMD masking
+
+        for (int i = 0; i < size; i++)
+        {
+            int x = i % width;
+            int y = i / width;
+            var cell = _map.Cells[x, y];
+            var met = cell.GetMeteorology();
+
+            temperatures[i] = float.IsNaN(cell.Temperature) ? 15.0f : cell.Temperature;
+            elevations[i] = cell.Elevation;
+            greenhouses[i] = cell.Greenhouse;
+            windSpeedX[i] = met.WindSpeedX;
+            windSpeedY[i] = met.WindSpeedY;
+            albedos[i] = CalculateAlbedo(cell);
+            isWater[i] = cell.IsWater ? 1.0f : 0.0f;
+        }
+
+        var newTemperatures = new float[size];
+        int vectorSize = Vector<float>.Count;
+
+        // 2. Parallel Processing of Rows
+        Parallel.For(0, height, y =>
+        {
+            var yVec = new Vector<float>((float)y);
+            var halfHeightVec = new Vector<float>(height / 2.0f);
+            var widthVec = new Vector<float>((float)width);
+
+            for (int x = 0; x < width; x += vectorSize)
+            {
+                int remaining = width - x;
+                if (remaining < vectorSize && x > 0)
+                {
+                    // Handle edge cases for rows not perfectly divisible by vectorSize
+                    // by shifting the last vector to align with the end of the row.
+                    x = width - vectorSize;
+                }
+
+                int baseIndex = y * width + x;
+                var xIndices = new float[vectorSize];
+                for (int i = 0; i < vectorSize; i++) xIndices[i] = x + i;
+                var xVec = new Vector<float>(xIndices);
+
+                // Load data into vectors
+                var currentTempVec = new Vector<float>(temperatures, baseIndex);
+                var elevationVec = new Vector<float>(elevations, baseIndex);
+                var greenhouseVec = new Vector<float>(greenhouses, baseIndex);
+                var albedoVec = new Vector<float>(albedos, baseIndex);
+                var isWaterVec = new Vector<float>(isWater, baseIndex);
+
+                // Base temperature from latitude
+                var signedLatitudeVec = (yVec - halfHeightVec) / halfHeightVec;
+                var latitudeVec = Vector.Abs(signedLatitudeVec);
+                var baseTempVec = Vector<float>.One * 30.0f - (latitudeVec * latitudeVec * 70.0f);
+
+                // Continentality/Ocean Currents (Simplified for SIMD)
+                var continentalityEffect = (Vector<float>.One - isWaterVec) * latitudeVec * 10.0f;
+                baseTempVec -= continentalityEffect;
+
+                // Solar Heating
+                var solarHeatingVec = baseTempVec * _map.SolarEnergy * (Vector<float>.One - albedoVec);
+
+                // Elevation Cooling
+                solarHeatingVec -= Vector.Max(Vector<float>.Zero, elevationVec) * 20.0f;
+
+                // Greenhouse effect
+                solarHeatingVec += greenhouseVec * 20.0f;
+
+                // Water moderation
+                solarHeatingVec += isWaterVec * 5.0f;
+
+                // Wind Advection
+                var windSpeedXVec = new Vector<float>(windSpeedX, baseIndex);
+                var windSpeedYVec = new Vector<float>(windSpeedY, baseIndex);
+                var windSpeedMag = Vector.SquareRoot(windSpeedXVec * windSpeedXVec + windSpeedYVec * windSpeedYVec);
+                var advectionStrength = Vector.Min(Vector<float>.One * 0.6f, Vector.Max(Vector<float>.Zero, windSpeedMag / 10.0f));
+
+                // Upwind neighbor calculation (simplified for SIMD)
+                // This is an approximation; true upwind sampling is complex in SIMD.
+                // We'll use the immediate neighbor in the general wind direction.
+                var upwindTemp = new float[vectorSize];
+                for(int i = 0; i < vectorSize; i++)
+                {
+                    int currentX = x + i;
+                    int upwindX = currentX - (int)Math.Sign(windSpeedX[baseIndex + i]);
+                    int upwindY = y - (int)Math.Sign(windSpeedY[baseIndex + i]);
+                    upwindX = (upwindX + width) % width;
+                    upwindY = Math.Clamp(upwindY, 0, height - 1);
+                    upwindTemp[i] = temperatures[upwindY * width + upwindX];
+                }
+                var upwindTempVec = new Vector<float>(upwindTemp);
+                var windTempVec = currentTempVec * (Vector<float>.One - advectionStrength) + upwindTempVec * advectionStrength;
+
+                // Neighbor Diffusion
+                var n_up = new float[vectorSize];
+                var n_down = new float[vectorSize];
+                var n_left = new float[vectorSize];
+                var n_right = new float[vectorSize];
+
+                for(int i=0; i<vectorSize; ++i)
+                {
+                    int currentX = x+i;
+                    int prevY = Math.Max(0, y - 1);
+                    int nextY = Math.Min(height - 1, y + 1);
+                    int prevX = (currentX - 1 + width) % width;
+                    int nextX = (currentX + 1) % width;
+                    n_up[i] = temperatures[prevY * width + currentX];
+                    n_down[i] = temperatures[nextY * width + currentX];
+                    n_left[i] = temperatures[y * width + prevX];
+                    n_right[i] = temperatures[y * width + nextX];
+                }
+                var neighborTempVec = (new Vector<float>(n_up) + new Vector<float>(n_down) + new Vector<float>(n_left) + new Vector<float>(n_right)) / 4.0f;
+
+                // Combine influences
+                var targetTempVec = solarHeatingVec * 0.5f + windTempVec * 0.2f + neighborTempVec * 0.3f;
+
+                // Lerp towards target
+                var finalTempVec = currentTempVec + (targetTempVec - currentTempVec) * deltaTime * 0.1f;
+
+                // Clamp and store
+                finalTempVec = Vector.Min(Vector<float>.One * 100.0f, Vector.Max(Vector<float>.One * -100.0f, finalTempVec));
+                finalTempVec.CopyTo(newTemperatures, baseIndex);
+            }
+        });
+
+        // 3. Write back to map
+        for (int i = 0; i < size; i++)
+        {
+            int x = i % width;
+            int y = i / width;
+            if (!float.IsNaN(newTemperatures[i]))
+            {
+                _map.Cells[x, y].Temperature = newTemperatures[i] + temperatureOffset;
+            }
+        }
     }
 
     private void SimulateTemperature(float deltaTime)

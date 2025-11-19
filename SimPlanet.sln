@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimPlanet", "SimPlanet\SimPlanet.csproj", "{9B4B00A0-6F8A-41AA-850D-15150220AEE5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimPlanet", "SimPlanet.csproj", "{9B4B00A0-6F8A-41AA-850D-15150220AEE5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

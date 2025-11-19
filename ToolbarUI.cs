@@ -98,6 +98,7 @@ namespace SimPlanet
             AddButton(ref x, y, "F5", "Quick Save", "Control", () => game.QuickSave());
             AddButton(ref x, y, "F9", "Quick Load", "Control", () => game.QuickLoad());
             AddButton(ref x, y, "R", "Regenerate Planet", "Control", () => game.RegeneratePlanet());
+            AddButton(ref x, y, "FF", "Fast Forward 10,000 Years", "Control", () => game.ToggleFastForward());
 
             x += categorySpacing;
 
