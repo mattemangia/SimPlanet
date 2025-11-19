@@ -277,7 +277,7 @@ public class HydrologySimulator
                     }
                 }
             }
-        });
+        }
     }
 
     private void CreateRiver(int sourceX, int sourceY)
