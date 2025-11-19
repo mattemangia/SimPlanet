@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace SimPlanet
 {
@@ -101,18 +102,19 @@ namespace SimPlanet
             TsunamiSystem.DrainFloodWaters(_map, simDeltaTime);
         }
 
-        public async Task FastForward(int years, int startYear, Action<float, int> onProgress)
+        public async Task FastForward(int years, int startYear, Action<float, int> onProgress, CancellationToken cancellationToken)
         {
             await Task.Run(() =>
             {
                 float simDeltaTime = 1.0f;
                 for (int i = 0; i < years; i++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     int currentYear = startYear + i;
                     Update(simDeltaTime, currentYear, 32.0f);
                     onProgress?.Invoke((float)(i + 1) / years, currentYear + 1);
                 }
-            });
+            }, cancellationToken);
         }
     }
 }

@@ -43,6 +43,9 @@ public class HydrologySimulator
 
     private void UpdateSoilMoisture()
     {
+        var newMoisture = new float[_map.Width, _map.Height];
+        var newHumidity = new float[_map.Width, _map.Height];
+
         Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
@@ -52,12 +55,16 @@ public class HydrologySimulator
 
                 if (cell.IsWater)
                 {
-                    geo.SoilMoisture = 1.0f;
+                    newMoisture[x, y] = 1.0f;
+                    newHumidity[x, y] = cell.Humidity;
                     continue;
                 }
 
+                float moisture = geo.SoilMoisture;
+                float humidity = cell.Humidity;
+
                 // Moisture from rainfall
-                geo.SoilMoisture += cell.Rainfall * 0.1f;
+                moisture += cell.Rainfall * 0.1f;
 
                 // Evaporation
                 float evaporation = 0.05f;
@@ -65,22 +72,31 @@ public class HydrologySimulator
                 {
                     evaporation += (cell.Temperature - 20) * 0.01f;
                 }
-                float evaporatedWater = Math.Min(geo.SoilMoisture, evaporation);
-                geo.SoilMoisture -= evaporatedWater;
-                cell.Humidity += evaporatedWater * 0.5f; // Add evaporated water back to atmosphere
+                float evaporatedWater = Math.Min(moisture, evaporation);
+                moisture -= evaporatedWater;
+                humidity += evaporatedWater * 0.5f; // Add evaporated water back to atmosphere
 
                 // Plant water uptake (transpiration)
                 if (cell.Biomass > 0.2f)
                 {
-                    float transpiredWater = Math.Min(geo.SoilMoisture, cell.Biomass * 0.05f);
-                    geo.SoilMoisture -= transpiredWater;
-                    cell.Humidity += transpiredWater * 0.5f; // Add transpired water back to atmosphere
+                    float transpiredWater = Math.Min(moisture, cell.Biomass * 0.05f);
+                    moisture -= transpiredWater;
+                    humidity += transpiredWater * 0.5f; // Add transpired water back to atmosphere
                 }
 
-                geo.SoilMoisture = Math.Clamp(geo.SoilMoisture, 0, 1);
-                cell.Humidity = Math.Clamp(cell.Humidity, 0, 1);
+                newMoisture[x, y] = Math.Clamp(moisture, 0, 1);
+                newHumidity[x, y] = Math.Clamp(humidity, 0, 1);
             }
         });
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                _map.Cells[x, y].GetGeology().SoilMoisture = newMoisture[x, y];
+                _map.Cells[x, y].Humidity = newHumidity[x, y];
+            }
+        }
     }
 
     private void UpdateAccumulatedFlow()
@@ -114,6 +130,9 @@ public class HydrologySimulator
 
     private void UpdateWaterFlow()
     {
+        var newFlow = new float[_map.Width, _map.Height];
+        var newFlowDir = new (int, int)[_map.Width, _map.Height];
+
         // Calculate water flow direction for each cell
         Parallel.For(0, _map.Width, x =>
         {
@@ -126,7 +145,7 @@ public class HydrologySimulator
 
                 // Find steepest downhill direction
                 float steepestGradient = 0;
-                (int x, int y) flowDir = (0, 0);
+                (int, int) flowDir = (0, 0);
 
                 foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
                 {
@@ -138,13 +157,13 @@ public class HydrologySimulator
                     }
                 }
 
-                geo.FlowDirection = flowDir;
+                newFlowDir[x, y] = flowDir;
 
                 // Calculate water flow based on rainfall and soil moisture
                 // Frozen cells have no water flow
                 if (cell.IsIce || cell.Temperature < 0)
                 {
-                    geo.WaterFlow = 0;
+                    newFlow[x, y] = 0;
                 }
                 else
                 {
@@ -163,15 +182,25 @@ public class HydrologySimulator
                         steepestGradient = 0;
                     steepestGradient = Math.Clamp(steepestGradient, 0f, 10f);
 
-                    geo.WaterFlow = (rainfall + soilMoisture) * steepestGradient;
+                    float waterFlow = (rainfall + soilMoisture) * steepestGradient;
 
                     // Validate result and clamp to reasonable range
-                    if (float.IsNaN(geo.WaterFlow) || float.IsInfinity(geo.WaterFlow))
-                        geo.WaterFlow = 0;
-                    geo.WaterFlow = Math.Clamp(geo.WaterFlow, 0f, 10f);
+                    if (float.IsNaN(waterFlow) || float.IsInfinity(waterFlow))
+                        waterFlow = 0;
+                    newFlow[x, y] = Math.Clamp(waterFlow, 0f, 10f);
                 }
             }
         });
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var geo = _map.Cells[x, y].GetGeology();
+                geo.WaterFlow = newFlow[x, y];
+                geo.FlowDirection = newFlowDir[x, y];
+            }
+        }
     }
 
     private void UpdateRiverFreezing()
@@ -453,9 +482,11 @@ public class HydrologySimulator
 
     private void UpdateOceanCurrents()
     {
+        var tempChanges = new ConcurrentDictionary<(int, int), float>();
+        var saltChanges = new ConcurrentDictionary<(int, int), float>();
+
         // Wind-driven surface ocean currents
         // Based on atmospheric circulation and Coriolis effect
-
         Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
@@ -519,25 +550,36 @@ public class HydrologySimulator
                     {
                         // Heat and salt transport
                         float tempDiff = cell.Temperature - targetCell.Temperature;
-                        cell.Temperature -= tempDiff * currentStrength * 0.05f;
-                        targetCell.Temperature += tempDiff * currentStrength * 0.05f;
+                        tempChanges.AddOrUpdate((x, y), -tempDiff * currentStrength * 0.05f, (key, old) => old - tempDiff * currentStrength * 0.05f);
+                        tempChanges.AddOrUpdate((targetX, targetY), tempDiff * currentStrength * 0.05f, (key, old) => old + tempDiff * currentStrength * 0.05f);
 
                         float saltDiff = geo.Salinity - targetCell.GetGeology().Salinity;
-                        geo.Salinity -= saltDiff * currentStrength * 0.03f;
-                        targetCell.GetGeology().Salinity += saltDiff * currentStrength * 0.03f;
+                        saltChanges.AddOrUpdate((x, y), -saltDiff * currentStrength * 0.03f, (key, old) => old - saltDiff * currentStrength * 0.03f);
+                        saltChanges.AddOrUpdate((targetX, targetY), saltDiff * currentStrength * 0.03f, (key, old) => old + saltDiff * currentStrength * 0.03f);
                     }
                 }
             }
         });
+
+        foreach (var change in tempChanges)
+        {
+            _map.Cells[change.Key.Item1, change.Key.Item2].Temperature += change.Value;
+        }
+        foreach (var change in saltChanges)
+        {
+            _map.Cells[change.Key.Item1, change.Key.Item2].GetGeology().Salinity += change.Value;
+        }
     }
 
     private void UpdateThermohalineCirculation(float deltaTime)
     {
+        var tempChanges = new ConcurrentDictionary<(int, int), float>();
+        var saltChanges = new ConcurrentDictionary<(int, int), float>();
+
         // Thermohaline circulation: density-driven deep ocean currents
         // Dense water sinks at high latitudes (North Atlantic, Antarctica)
         // Forms global "conveyor belt" circulation
         // Source: Broecker (1991), The Great Ocean Conveyor
-
         Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
@@ -572,10 +614,10 @@ public class HydrologySimulator
                                     float sinkingRate = densityDiff * 0.5f * deltaTime;
 
                                     // Cool the deeper water
-                                    neighbor.Temperature -= sinkingRate * 2.0f;
+                                    tempChanges.AddOrUpdate((nx, ny), -sinkingRate * 2.0f, (key, old) => old - sinkingRate * 2.0f);
 
                                     // Increase salinity in deeper water
-                                    nGeo.Salinity += sinkingRate * 0.5f;
+                                    saltChanges.AddOrUpdate((nx, ny), sinkingRate * 0.5f, (key, old) => old + sinkingRate * 0.5f);
                                 }
                             }
                         }
@@ -587,7 +629,7 @@ public class HydrologySimulator
                 {
                     // Find direction of highest density gradient
                     float maxDensityGradient = 0;
-                    (int x, int y) flowDir = (0, 0);
+                    (int, int) flowDir = (0, 0);
 
                     foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
                     {
@@ -607,8 +649,8 @@ public class HydrologySimulator
                     // Deep current transport (very slow)
                     if (flowDir != (0, 0))
                     {
-                        int targetX = (x + flowDir.x + _map.Width) % _map.Width;
-                        int targetY = Math.Clamp(y + flowDir.y, 0, _map.Height - 1);
+                        int targetX = (x + flowDir.Item1 + _map.Width) % _map.Width;
+                        int targetY = Math.Clamp(y + flowDir.Item2, 0, _map.Height - 1);
 
                         var targetCell = _map.Cells[targetX, targetY];
                         if (targetCell.IsWater)
@@ -617,12 +659,12 @@ public class HydrologySimulator
 
                             // Transport heat and salt
                             float tempDiff = cell.Temperature - targetCell.Temperature;
-                            cell.Temperature -= tempDiff * deepCurrentStrength;
-                            targetCell.Temperature += tempDiff * deepCurrentStrength;
+                            tempChanges.AddOrUpdate((x, y), -tempDiff * deepCurrentStrength, (key, old) => old - tempDiff * deepCurrentStrength);
+                            tempChanges.AddOrUpdate((targetX, targetY), tempDiff * deepCurrentStrength, (key, old) => old + tempDiff * deepCurrentStrength);
 
                             float saltDiff = geo.Salinity - targetCell.GetGeology().Salinity;
-                            geo.Salinity -= saltDiff * deepCurrentStrength;
-                            targetCell.GetGeology().Salinity += saltDiff * deepCurrentStrength;
+                            saltChanges.AddOrUpdate((x, y), -saltDiff * deepCurrentStrength, (key, old) => old - saltDiff * deepCurrentStrength);
+                            saltChanges.AddOrUpdate((targetX, targetY), saltDiff * deepCurrentStrength, (key, old) => old + saltDiff * deepCurrentStrength);
                         }
                     }
                 }
@@ -639,11 +681,20 @@ public class HydrologySimulator
                         {
                             // Bring up cooler, nutrient-rich water
                             float upwellingRate = 0.01f * deltaTime;
-                            cell.Temperature -= upwellingRate * 0.5f;
+                            tempChanges.AddOrUpdate((x, y), -upwellingRate * 0.5f, (key, old) => old - upwellingRate * 0.5f);
                         }
                     }
                 }
             }
+        }
+
+        foreach (var change in tempChanges)
+        {
+            _map.Cells[change.Key.Item1, change.Key.Item2].Temperature += change.Value;
+        }
+        foreach (var change in saltChanges)
+        {
+            _map.Cells[change.Key.Item1, change.Key.Item2].GetGeology().Salinity += change.Value;
         }
     }
 

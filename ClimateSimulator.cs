@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-
 namespace SimPlanet;
 
 /// <summary>
@@ -41,14 +39,10 @@ public class ClimateSimulator
 
     private void SimulateTemperature(float deltaTime)
     {
-        var newTemperatures = new float[_map.Width][];
-        for (int i = 0; i < _map.Width; i++)
-        {
-            newTemperatures[i] = new float[_map.Height];
-        }
+        var newTemperatures = new float[_map.Width, _map.Height];
         float temperatureOffset = _map.PlanetaryControls?.TemperatureOffsetCelsius ?? 0f;
 
-        Parallel.For(0, _map.Width, x =>
+        for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -233,16 +227,16 @@ public class ClimateSimulator
                 // Clamp to physically possible range (-100Â°C to 100Â°C)
                 newTemp = Math.Clamp(newTemp + temperatureOffset, -100f, 100f);
 
-                newTemperatures[x][y] = newTemp;
+                newTemperatures[x, y] = newTemp;
             }
-        });
+        }
 
         // Apply new temperatures
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                _map.Cells[x, y].Temperature = newTemperatures[x][y];
+                _map.Cells[x, y].Temperature = newTemperatures[x, y];
             }
         }
     }
@@ -251,7 +245,7 @@ public class ClimateSimulator
     {
         float rainfallMultiplier = _map.PlanetaryControls?.RainfallMultiplier ?? 1f;
 
-        Parallel.For(0, _map.Width, x =>
+        for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -283,18 +277,14 @@ public class ClimateSimulator
                 // Faster transition for stability
                 cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.5f;
             }
-        });
+        }
     }
 
     private void SimulateHumidity(float deltaTime)
     {
-        var newHumidity = new float[_map.Width][];
-        for (int i = 0; i < _map.Width; i++)
-        {
-            newHumidity[i] = new float[_map.Height];
-        }
+        var newHumidity = new float[_map.Width, _map.Height];
 
-        Parallel.For(0, _map.Width, x =>
+        for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -303,7 +293,7 @@ public class ClimateSimulator
                 // Water bodies are always humid
                 if (cell.IsWater)
                 {
-                    newHumidity[x][y] = 0.9f;
+                    newHumidity[x, y] = 0.9f;
                     continue;
                 }
 
@@ -354,23 +344,23 @@ public class ClimateSimulator
                     newHum = 0.5f;
 
                 newHum = Math.Clamp(newHum, 0f, 1f);
-                newHumidity[x][y] = newHum;
+                newHumidity[x, y] = newHum;
             }
-        });
+        }
 
         // Apply new humidity
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                _map.Cells[x, y].Humidity = newHumidity[x][y];
+                _map.Cells[x, y].Humidity = newHumidity[x, y];
             }
         }
     }
 
     private void UpdateIceCycles(float deltaTime)
     {
-        Parallel.For(0, _map.Width, x =>
+        for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -494,7 +484,7 @@ public class ClimateSimulator
                     cell.Temperature = Math.Max(cell.Temperature, minTemp);
                 }
             }
-        });
+        }
     }
 
     private float CalculateAlbedo(TerrainCell cell)

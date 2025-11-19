@@ -84,7 +84,7 @@ public class GameUI
         int progressWidth = (int)(barWidth * FastForwardProgress);
         DrawRectangle(barX, barY, progressWidth, barHeight, Color.Green);
 
-        string text = $"Fast Forwarding... {FastForwardProgress:P0} (Year: {FastForwardCurrentYear})";
+        string text = $"Fast Forwarding... {FastForwardProgress:P0} (Year: {FastForwardCurrentYear}) - Press ESC to cancel";
         var textSize = _font.MeasureString(text);
         _font.DrawString(_spriteBatch, text, new Vector2(barX + (barWidth - textSize.X) / 2, barY + (barHeight - textSize.Y) / 2), Color.White);
     }
@@ -339,6 +339,7 @@ public class GameUI
         DrawTextAt("R: Regenerate planet", Color.White, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("L: Seed life", Color.White, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F: Fast Forward 10,000 years", Color.Cyan, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("ESC: Cancel Fast Forward", Color.Cyan, leftColX, leftY); leftY += lineHeight;
         leftY += 5;
 
         DrawTextAt("=== VIEW MODES (1-0) ===", Color.Yellow, leftColX, leftY);

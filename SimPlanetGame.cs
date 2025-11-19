@@ -110,6 +110,7 @@ public class SimPlanetGame : Game
     private bool _isGenerating = false;
     private PlanetMap _newMap;
     private bool _isFastForwarding = false;
+    private CancellationTokenSource _fastForwardCts;
 
     public SimPlanetGame()
     {
@@ -542,6 +543,12 @@ public class SimPlanetGame : Game
 
     private void HandleInput(KeyboardState keyState)
     {
+        if (_isFastForwarding && keyState.IsKeyDown(Keys.Escape) && _previousKeyState.IsKeyUp(Keys.Escape))
+        {
+            _fastForwardCts?.Cancel();
+            return;
+        }
+
         // ESC opens pause menu (not quit)
         if (keyState.IsKeyDown(Keys.Escape) && _previousKeyState.IsKeyUp(Keys.Escape))
         {
@@ -1689,17 +1696,29 @@ public class SimPlanetGame : Game
         _isFastForwarding = true;
         _ui.IsFastForwarding = true;
         _simulationRunning = false;
+        _fastForwardCts = new CancellationTokenSource();
 
-        await _updateManager.FastForward(10000, _gameState.Year, (progress, year) =>
+        try
         {
-            _ui.FastForwardProgress = progress;
-            _ui.FastForwardCurrentYear = year;
-            _gameState.Year = year;
-        });
-
-        _ui.IsFastForwarding = false;
-        _isFastForwarding = false;
-        _simulationRunning = true;
+            await _updateManager.FastForward(10000, _gameState.Year, (progress, year) =>
+            {
+                _ui.FastForwardProgress = progress;
+                _ui.FastForwardCurrentYear = year;
+                _gameState.Year = year;
+            }, _fastForwardCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Fast forward was cancelled, which is fine.
+        }
+        finally
+        {
+            _ui.IsFastForwarding = false;
+            _isFastForwarding = false;
+            _simulationRunning = true;
+            _fastForwardCts.Dispose();
+            _fastForwardCts = null;
+        }
     }
 
     public new void Exit()

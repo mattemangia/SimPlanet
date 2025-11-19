@@ -472,7 +472,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **I** | Open divine powers menu (god mode - control civilizations) |
 | **X** | Open planetary controls (SimEarth-style parameter adjustment) |
 | **R** | Regenerate planet with current settings |
-| **F** | Fast Forward 10,000 years |
+| **F** | Fast Forward 10,000 years (Press ESC to cancel) |
 | **F5** | Quick save game |
 | **F6** | Apply Earth preset (in map options) |
 | **F7** | Apply Mars preset (in map options) |
