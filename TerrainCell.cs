@@ -5,6 +5,10 @@ namespace SimPlanet;
 /// </summary>
 public class TerrainCell
 {
+    // New properties for cell coordinates
+    public int X { get; set; }
+    public int Y { get; set; }
+
     // Terrain properties
     public float Elevation { get; set; }        // -1.0 (deep ocean) to 1.0 (high mountain)
     public float Temperature { get; set; }      // In Celsius

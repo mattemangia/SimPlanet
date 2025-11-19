@@ -60,6 +60,8 @@ public class PlanetMap
             {
                 Cells[x, y] = new TerrainCell
                 {
+                    X = x,
+                    Y = y,
                     LifeType = LifeForm.None,
                     Oxygen = GlobalOxygen,
                     CO2 = GlobalCO2
