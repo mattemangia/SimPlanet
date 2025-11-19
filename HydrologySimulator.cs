@@ -207,7 +207,7 @@ public class HydrologySimulator
                     // Calculate accumulated flow from upstream
                     float accumulatedFlow = CalculateAccumulatedFlow(x, y);
 
-                    if (accumulatedFlow > 0.5f && _random.NextDouble() < 0.001 * deltaTime)
+                    if (accumulatedFlow > 0.5f && _random.NextDouble() < 0.001)
                     {
                         CreateRiver(x, y);
                     }

@@ -72,7 +72,7 @@ public class ClimateSimulator
 
                 // Realistic temperature gradient: hot equator, freezing poles
                 // Equator (lat=0): ~30Â°C, Poles (lat=1): ~-40Â°C
-                float baseTemp = 30 - (latitude * latitude * 70) + oceanCurrentEffect +
+                float baseTemp = 30 - (latitude * latitude * 70) + oceanCurrentEffect -
                                 continentalityEffect + topographicVariation;
 
                 // Calculate surface albedo (reflection coefficient)
@@ -265,17 +265,41 @@ public class ClimateSimulator
                 // Add longitude variation to break up perfect bands
                 float rainfallVariation = MathF.Sin(x * 0.2f + y * 0.1f) * 0.15f;
 
-                // Simplified and more robust latitude-based rainfall
-                float latitudeEffect = 1.2f * MathF.Pow(1f - latitude, 0.8f); // wetter at equator
-                latitudeEffect -= 0.5f * MathF.Pow(latitude, 2f); // a bit drier at poles
+                // SMOOTH latitude-based rainfall with continuous transitions
+                float latitudeEffect;
                 
+                // ITCZ effect (peak at equator, fade by 15Â°)
+                float itczEffect = Math.Max(0, 1.0f - (latitude / 0.15f));
+
+                // Subtropical desert effect (peak around 25-30Â°)
+                float desertPeak = 0.28f;
+                float desertWidth = 0.2f;
+                float distanceFromPeak = Math.Abs(latitude - desertPeak);
+                float desertEffect = Math.Max(0, 1.0f - (distanceFromPeak / desertWidth));
+
+                // Mid-latitude effect (peak around 45-55Â°)
+                float midLatPeak = 0.5f;
+                float midLatWidth = 0.25f;
+                float distanceFromMidLat = Math.Abs(latitude - midLatPeak);
+                float midLatEffect = Math.Max(0, 1.0f - (distanceFromMidLat / midLatWidth));
+
+                // Polar desert effect (increase dryness toward poles)
+                float polarEffect = Math.Max(0, (latitude - 0.65f) / 0.35f);
+
+                // Blend all effects smoothly
+                latitudeEffect = 1.3f * itczEffect +                    // Wetter equator
+                                0.15f * desertEffect +                  // Drier subtropics
+                                0.9f * midLatEffect +                   // Wetter mid-latitudes
+                                0.3f * (1.0f - desertEffect - midLatEffect - itczEffect) + // Moderate transitions
+                                -0.5f * polarEffect;                    // Drier poles
+
                 latitudeEffect = Math.Max(0.1f, latitudeEffect + rainfallVariation);
 
-                float targetRainfall = (evaporation + orographicEffect + 0.1f) * latitudeEffect; // Added base rainfall
+                float targetRainfall = (evaporation + orographicEffect) * latitudeEffect;
                 targetRainfall = Math.Clamp(targetRainfall * rainfallMultiplier, 0, 1);
 
-                // Smooth transition - increased speed from 0.05 to 0.25 for high-speed stability
-                cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.25f;
+                // Smooth transition
+                cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.05f;
             }
         }
     }
