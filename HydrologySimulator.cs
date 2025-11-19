@@ -11,6 +11,7 @@ public class HydrologySimulator
     private int _nextRiverId = 1;
     private float _tidalCycle = 0;  // 0 to 2Ï€ for tidal cycle
     private const float TidalPeriod = 12.4f; // Hours for one tidal cycle
+    private float[,] _accumulatedFlowMap;
 
     public List<River> Rivers => _rivers;
 
@@ -19,12 +20,14 @@ public class HydrologySimulator
         _map = map;
         _random = new Random(seed + 2000);
         _rivers = new List<River>();
+        _accumulatedFlowMap = new float[map.Width, map.Height];
     }
 
     public void Update(float deltaTime)
     {
         UpdateSoilMoisture();
         UpdateWaterFlow();
+        UpdateAccumulatedFlow();
         UpdateRiverFreezing(); // Check for frozen rivers
         FormRivers(deltaTime);
         UpdateSalinity(deltaTime);
@@ -59,16 +62,50 @@ public class HydrologySimulator
                 {
                     evaporation += (cell.Temperature - 20) * 0.01f;
                 }
-                geo.SoilMoisture -= evaporation;
+                float evaporatedWater = Math.Min(geo.SoilMoisture, evaporation);
+                geo.SoilMoisture -= evaporatedWater;
+                cell.Humidity += evaporatedWater * 0.5f; // Add evaporated water back to atmosphere
 
-                // Plant water uptake
+                // Plant water uptake (transpiration)
                 if (cell.Biomass > 0.2f)
                 {
-                    geo.SoilMoisture -= cell.Biomass * 0.05f;
+                    float transpiredWater = Math.Min(geo.SoilMoisture, cell.Biomass * 0.05f);
+                    geo.SoilMoisture -= transpiredWater;
+                    cell.Humidity += transpiredWater * 0.5f; // Add transpired water back to atmosphere
                 }
 
                 geo.SoilMoisture = Math.Clamp(geo.SoilMoisture, 0, 1);
+                cell.Humidity = Math.Clamp(cell.Humidity, 0, 1);
             }
+        }
+    }
+
+    private void UpdateAccumulatedFlow()
+    {
+        var cellsByElevation = new List<TerrainCell>();
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                cellsByElevation.Add(_map.Cells[x, y]);
+            }
+        }
+        cellsByElevation.Sort((a, b) => b.Elevation.CompareTo(a.Elevation));
+
+        Array.Clear(_accumulatedFlowMap, 0, _accumulatedFlowMap.Length);
+
+        foreach (var cell in cellsByElevation)
+        {
+            var geo = cell.GetGeology();
+            if (!cell.IsLand || geo.WaterFlow <= 0) continue;
+
+            var (flowX, flowY) = geo.FlowDirection;
+            if (flowX == 0 && flowY == 0) continue;
+
+            int nextX = (cell.X + flowX + _map.Width) % _map.Width;
+            int nextY = Math.Clamp(cell.Y + flowY, 0, _map.Height - 1);
+
+            _accumulatedFlowMap[nextX, nextY] += geo.WaterFlow + _accumulatedFlowMap[cell.X, cell.Y];
         }
     }
 
@@ -199,8 +236,8 @@ public class HydrologySimulator
                 // Check if this could be a river source
                 if (cell.Elevation > 0.3f && cell.Rainfall > 0.5f && geo.WaterFlow > 0.1f)
                 {
-                    // Calculate accumulated flow from upstream
-                    float accumulatedFlow = CalculateAccumulatedFlow(x, y);
+                    // Use the cached accumulated flow map for high performance
+                    float accumulatedFlow = _accumulatedFlowMap[x, y];
 
                     if (accumulatedFlow > 0.5f && _random.NextDouble() < 0.001)
                     {
@@ -209,43 +246,6 @@ public class HydrologySimulator
                 }
             }
         }
-    }
-
-    private float CalculateAccumulatedFlow(int x, int y)
-    {
-        float accumulated = _map.Cells[x, y].GetGeology().WaterFlow;
-        var visited = new HashSet<(int, int)>();
-        var queue = new Queue<(int x, int y)>();
-
-        queue.Enqueue((x, y));
-        visited.Add((x, y));
-
-        // Check upstream neighbors
-        while (queue.Count > 0 && visited.Count < 20)
-        {
-            var (cx, cy) = queue.Dequeue();
-
-            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(cx, cy))
-            {
-                if (visited.Contains((nx, ny))) continue;
-
-                var nGeo = neighbor.GetGeology();
-                var (fx, fy) = nGeo.FlowDirection;
-
-                // Check if neighbor flows into current cell
-                int targetX = (nx + fx + _map.Width) % _map.Width;
-                int targetY = Math.Clamp(ny + fy, 0, _map.Height - 1);
-
-                if (targetX == cx && targetY == cy)
-                {
-                    accumulated += nGeo.WaterFlow;
-                    visited.Add((nx, ny));
-                    queue.Enqueue((nx, ny));
-                }
-            }
-        }
-
-        return accumulated;
     }
 
     private void CreateRiver(int sourceX, int sourceY)

@@ -8,16 +8,28 @@ public class ClimateSimulator
     private readonly PlanetMap _map;
     private readonly Random _random;
     private float _previousIceVolume = 0f; // Track ice volume to adjust water levels
+    private int[,] _distanceToWaterMap;
+    private float _distanceMapRecalculateTimer = 0f;
+    private const float DISTANCE_MAP_RECALCULATE_INTERVAL = 10f; // Recalculate every 10 game years
 
     public ClimateSimulator(PlanetMap map)
     {
         _map = map;
         _random = new Random();
+        _distanceToWaterMap = new int[map.Width, map.Height];
+        RecalculateDistanceToWaterMap();
         _previousIceVolume = CalculateLandIceVolume(); // Initialize
     }
 
     public void Update(float deltaTime)
     {
+        _distanceMapRecalculateTimer += deltaTime;
+        if (_distanceMapRecalculateTimer > DISTANCE_MAP_RECALCULATE_INTERVAL)
+        {
+            RecalculateDistanceToWaterMap();
+            _distanceMapRecalculateTimer = 0f;
+        }
+
         SimulateTemperature(deltaTime);
         SimulateRainfall(deltaTime);
         SimulateHumidity(deltaTime);
@@ -238,68 +250,32 @@ public class ClimateSimulator
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
-
-                // Evaporation from water
-                float evaporation = 0;
-                if (cell.IsWater && cell.Temperature > 0)
+                if (cell.IsWater)
                 {
-                    evaporation = 0.8f * (cell.Temperature / 30.0f);
+                    cell.Rainfall = Math.Clamp(cell.Temperature / 30f, 0.1f, 1f);
+                    continue;
                 }
 
-                // Evapotranspiration from plants
-                if (cell.LifeType == LifeForm.PlantLife || cell.IsForest)
-                {
-                    evaporation += cell.Biomass * 0.3f;
-                }
+                // 1. Distance to ocean is the primary driver of rainfall
+                int distanceToWater = _distanceToWaterMap[x, y];
+                float distanceEffect = MathF.Pow(1f / (1f + distanceToWater * 0.1f), 2f);
 
-                // Mountains increase rainfall
+                // 2. Temperature effect (warmer air holds more moisture)
+                float temperatureEffect = 1f + Math.Clamp(cell.Temperature / 40f, -0.5f, 1.5f);
+
+                // 3. Orographic lift (mountains force rain)
                 float orographicEffect = 0;
                 if (cell.Elevation > 0.4f)
                 {
-                    orographicEffect = (cell.Elevation - 0.4f) * 0.5f;
+                    orographicEffect = (cell.Elevation - 0.4f) * 1.5f;
                 }
 
-                // Realistic atmospheric circulation patterns (Hadley, Ferrel, Polar cells)
-                float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+                float baseRainfall = 0.8f;
+                float targetRainfall = baseRainfall * distanceEffect * temperatureEffect + orographicEffect;
+                targetRainfall = Math.Clamp(targetRainfall * rainfallMultiplier, 0.05f, 1f);
 
-                // Add longitude variation to break up perfect bands
-                float rainfallVariation = MathF.Sin(x * 0.2f + y * 0.1f) * 0.15f;
-
-                // SMOOTH latitude-based rainfall with continuous transitions
-                float latitudeEffect;
-                
-                // ITCZ effect (peak at equator, fade by 15Â°)
-                float itczEffect = Math.Max(0, 1.0f - (latitude / 0.15f));
-
-                // Subtropical desert effect (peak around 25-30Â°)
-                float desertPeak = 0.28f;
-                float desertWidth = 0.2f;
-                float distanceFromPeak = Math.Abs(latitude - desertPeak);
-                float desertEffect = Math.Max(0, 1.0f - (distanceFromPeak / desertWidth));
-
-                // Mid-latitude effect (peak around 45-55Â°)
-                float midLatPeak = 0.5f;
-                float midLatWidth = 0.25f;
-                float distanceFromMidLat = Math.Abs(latitude - midLatPeak);
-                float midLatEffect = Math.Max(0, 1.0f - (distanceFromMidLat / midLatWidth));
-
-                // Polar desert effect (increase dryness toward poles)
-                float polarEffect = Math.Max(0, (latitude - 0.65f) / 0.35f);
-
-                // Blend all effects smoothly
-                latitudeEffect = 1.3f * itczEffect +                    // Wetter equator
-                                0.15f * desertEffect +                  // Drier subtropics
-                                0.9f * midLatEffect +                   // Wetter mid-latitudes
-                                0.3f * (1.0f - desertEffect - midLatEffect - itczEffect) + // Moderate transitions
-                                -0.5f * polarEffect;                    // Drier poles
-
-                latitudeEffect = Math.Max(0.1f, latitudeEffect + rainfallVariation);
-
-                float targetRainfall = (evaporation + orographicEffect) * latitudeEffect;
-                targetRainfall = Math.Clamp(targetRainfall * rainfallMultiplier, 0, 1);
-
-                // Smooth transition
-                cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.05f;
+                // Faster transition for stability
+                cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.5f;
             }
         }
     }
@@ -642,5 +618,44 @@ public class ClimateSimulator
 
         // Update tracking
         _previousIceVolume = currentIceVolume;
+    }
+
+    private void RecalculateDistanceToWaterMap()
+    {
+        var queue = new Queue<(int x, int y)>();
+        var visited = new bool[_map.Width, _map.Height];
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                if (_map.Cells[x, y].IsWater)
+                {
+                    queue.Enqueue((x, y));
+                    visited[x, y] = true;
+                    _distanceToWaterMap[x, y] = 0;
+                }
+                else
+                {
+                    _distanceToWaterMap[x, y] = int.MaxValue;
+                }
+            }
+        }
+
+        while (queue.Count > 0)
+        {
+            var (x, y) = queue.Dequeue();
+            int currentDist = _distanceToWaterMap[x, y];
+
+            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+            {
+                if (!visited[nx, ny])
+                {
+                    visited[nx, ny] = true;
+                    _distanceToWaterMap[nx, ny] = currentDist + 1;
+                    queue.Enqueue((nx, ny));
+                }
+            }
+        }
     }
 }
