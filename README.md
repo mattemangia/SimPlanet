@@ -314,6 +314,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Full menu system with save slots and timestamps
   - Serializes entire game state (terrain, life, civilizations, weather, geology)
 - **Time Control**: Adjustable simulation speed (0.25x to 32x)
+- **Fast Forward**: Skip 10,000 years in a single click with a progress bar.
 - **3D Minimap**: Interactive rotating sphere with accurate spherical projection, realistic ice caps, and manual rotation/tilt controls (SimEarth-style!)
 
 ### Visualization Modes
@@ -362,6 +363,7 @@ SimPlanet uses **true multithreading** for maximum performance and responsivenes
 - **UI Thread Independence**: Main thread handles ONLY input and rendering - always responsive
 - **Thread-Safe Synchronization**: Lock-based data access prevents race conditions
 - **Clean Separation**: Simulation never blocks UI, UI never blocks simulation
+- **Parallel Simulation**: Independent simulators run in parallel, and loops within simulators are parallelized for maximum performance.
 
 ### Additional Optimizations
 - **Cached Statistics**: UI data cached at 100ms intervals (prevents scanning 20,000 cells every frame)
@@ -470,6 +472,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **I** | Open divine powers menu (god mode - control civilizations) |
 | **X** | Open planetary controls (SimEarth-style parameter adjustment) |
 | **R** | Regenerate planet with current settings |
+| **F** | Fast Forward 10,000 years |
 | **F5** | Quick save game |
 | **F6** | Apply Earth preset (in map options) |
 | **F7** | Apply Mars preset (in map options) |

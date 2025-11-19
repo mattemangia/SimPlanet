@@ -1,3 +1,6 @@
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
+
 namespace SimPlanet;
 
 /// <summary>
@@ -40,7 +43,7 @@ public class HydrologySimulator
 
     private void UpdateSoilMoisture()
     {
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -77,7 +80,7 @@ public class HydrologySimulator
                 geo.SoilMoisture = Math.Clamp(geo.SoilMoisture, 0, 1);
                 cell.Humidity = Math.Clamp(cell.Humidity, 0, 1);
             }
-        }
+        });
     }
 
     private void UpdateAccumulatedFlow()
@@ -112,7 +115,7 @@ public class HydrologySimulator
     private void UpdateWaterFlow()
     {
         // Calculate water flow direction for each cell
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -168,7 +171,7 @@ public class HydrologySimulator
                     geo.WaterFlow = Math.Clamp(geo.WaterFlow, 0f, 10f);
                 }
             }
-        }
+        });
     }
 
     private void UpdateRiverFreezing()
@@ -245,7 +248,7 @@ public class HydrologySimulator
                     }
                 }
             }
-        }
+        });
     }
 
     private void CreateRiver(int sourceX, int sourceY)
@@ -313,7 +316,7 @@ public class HydrologySimulator
     private void UpdateSalinity(float deltaTime)
     {
         // Salinity affected by evaporation, precipitation, river input, and ice formation
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -357,10 +360,14 @@ public class HydrologySimulator
 
                 geo.Salinity = Math.Clamp(geo.Salinity + salinityChange, 0, 42); // 0-42 ppt range
             }
-        }
+        });
 
         // Salinity mixing through diffusion
-        var newSalinity = new float[_map.Width, _map.Height];
+        var newSalinity = new float[_map.Width][];
+        for (int i = 0; i < _map.Width; i++)
+        {
+            newSalinity[i] = new float[_map.Height];
+        }
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -368,7 +375,7 @@ public class HydrologySimulator
                 var cell = _map.Cells[x, y];
                 if (!cell.IsWater)
                 {
-                    newSalinity[x, y] = cell.GetGeology().Salinity;
+                    newSalinity[x][y] = cell.GetGeology().Salinity;
                     continue;
                 }
 
@@ -388,11 +395,11 @@ public class HydrologySimulator
                 {
                     neighborSalinity /= waterNeighbors;
                     float currentSalinity = cell.GetGeology().Salinity;
-                    newSalinity[x, y] = currentSalinity + (neighborSalinity - currentSalinity) * 0.1f * deltaTime;
+                    newSalinity[x][y] = currentSalinity + (neighborSalinity - currentSalinity) * 0.1f * deltaTime;
                 }
                 else
                 {
-                    newSalinity[x, y] = cell.GetGeology().Salinity;
+                    newSalinity[x][y] = cell.GetGeology().Salinity;
                 }
             }
         }
@@ -404,7 +411,7 @@ public class HydrologySimulator
             {
                 if (_map.Cells[x, y].IsWater)
                 {
-                    _map.Cells[x, y].GetGeology().Salinity = newSalinity[x, y];
+                    _map.Cells[x, y].GetGeology().Salinity = newSalinity[x][y];
                 }
             }
         }
@@ -417,7 +424,7 @@ public class HydrologySimulator
         // Approximate equation of state for seawater
         // Source: UNESCO equation of state (simplified)
 
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -441,7 +448,7 @@ public class HydrologySimulator
                 geo.WaterDensity = baseDensity + tempEffect + salinityEffect;
                 geo.WaterDensity = Math.Clamp(geo.WaterDensity, 0.95f, 1.05f);
             }
-        }
+        });
     }
 
     private void UpdateOceanCurrents()
@@ -449,7 +456,7 @@ public class HydrologySimulator
         // Wind-driven surface ocean currents
         // Based on atmospheric circulation and Coriolis effect
 
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -521,7 +528,7 @@ public class HydrologySimulator
                     }
                 }
             }
-        }
+        });
     }
 
     private void UpdateThermohalineCirculation(float deltaTime)
@@ -531,7 +538,7 @@ public class HydrologySimulator
         // Forms global "conveyor belt" circulation
         // Source: Broecker (1991), The Great Ocean Conveyor
 
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -650,7 +657,7 @@ public class HydrologySimulator
         float tidalHeight = MathF.Sin(_tidalCycle) * 0.05f; // ±0.05 elevation units
 
         // Apply tides to coastal and ocean cells
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -673,7 +680,7 @@ public class HydrologySimulator
                     }
                 }
             }
-        }
+        });
     }
 
     private void UpdateFlooding(float deltaTime)
@@ -682,7 +689,7 @@ public class HydrologySimulator
         var floodWater = new float[_map.Width, _map.Height];
 
         // Add water from rainfall
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -740,7 +747,7 @@ public class HydrologySimulator
                     geo.FloodLevel = Math.Clamp(geo.FloodLevel, 0f, 10f);
                 }
             }
-        }
+        });
 
         // Water flows downhill
         for (int iteration = 0; iteration < 3; iteration++)

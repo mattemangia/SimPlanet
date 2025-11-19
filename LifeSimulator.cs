@@ -1,3 +1,6 @@
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
+
 namespace SimPlanet;
 
 /// <summary>
@@ -165,7 +168,7 @@ public class LifeSimulator
 
     private void SimulateBiomassGrowth(float deltaTime)
     {
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -196,7 +199,7 @@ public class LifeSimulator
                     cell.Evolution = 0;
                 }
             }
-        }
+        });
     }
 
     private float CalculateGrowthRate(TerrainCell cell, int x, int y)
@@ -356,7 +359,7 @@ public class LifeSimulator
 
     private void SimulateEvolution(float deltaTime)
     {
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -370,13 +373,13 @@ public class LifeSimulator
                 {
                     cell.Evolution += deltaTime * 0.02f; // Faster evolution
 
-                    if (cell.Evolution > 1.0f && _random.NextDouble() < 0.1)
+                    if (cell.Evolution > 1.0f && new Random().NextDouble() < 0.1)
                     {
                         TryEvolve(cell);
                     }
                 }
             }
-        }
+        });
     }
 
     private void TryEvolve(TerrainCell cell)
@@ -791,7 +794,7 @@ public class LifeSimulator
         // CRITICAL FIX: Do not apply climate stress during grace period
         if (_plantingGracePeriodYears > 0f) return;
 
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -853,7 +856,7 @@ public class LifeSimulator
                     }
                 }
             }
-        }
+        });
     }
 
     private void CheckAndAutoReseedLife()

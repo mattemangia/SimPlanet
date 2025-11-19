@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 using System.Threading;
 using System.Runtime.InteropServices;
 
@@ -47,6 +48,7 @@ public class SimPlanetGame : Game
     private MagnetosphereSimulator _magnetosphereSimulator;
     private PlanetStabilizer _planetStabilizer;
     private DiseaseManager _diseaseManager;
+    private UpdateManager _updateManager;
 
     // Menu and save/load
     private MainMenu _mainMenu;
@@ -107,6 +109,7 @@ public class SimPlanetGame : Game
     private Thread _generationThread;
     private bool _isGenerating = false;
     private PlanetMap _newMap;
+    private bool _isFastForwarding = false;
 
     public SimPlanetGame()
     {
@@ -179,32 +182,7 @@ public class SimPlanetGame : Game
 
                     lock (_mapDataLock)
                     {
-                        // Run all simulators (thread-safe, they only modify map data)
-                        _climateSimulator.Update(simDeltaTime);
-                        _atmosphereSimulator.Update(simDeltaTime);
-                        _weatherSystem.Update(simDeltaTime, newYear);
-                        _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem);
-                        _animalEvolutionSimulator.Update(simDeltaTime, newYear);
-                        _geologicalSimulator.Update(simDeltaTime, newYear);
-                        _hydrologySimulator.Update(simDeltaTime);
-                        _civilizationManager.Update(simDeltaTime, newYear);
-                        _diseaseManager.Update(simDeltaTime, newYear);
-                        _biomeSimulator.Update(simDeltaTime);
-                        _disasterManager.Update(simDeltaTime, newYear);
-                        _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager);
-                        _magnetosphereSimulator.Update(simDeltaTime, newYear);
-                        _planetStabilizer.Update(simDeltaTime, gameStateCopy.TimeSpeed);
-
-                        // Earthquake system (triggers tsunamis)
-                        EarthquakeSystem.Update(_map, simDeltaTime, newYear, out bool tsunamiTriggered, out (int x, int y) tsunamiEpicenter, out float tsunamiMagnitude);
-                        if (tsunamiTriggered)
-                        {
-                            TsunamiSystem.InitiateTsunami(_map, tsunamiEpicenter.x, tsunamiEpicenter.y, tsunamiMagnitude, newYear);
-                        }
-
-                        // Tsunami wave propagation and flooding
-                        TsunamiSystem.Update(_map, simDeltaTime, newYear);
-                        TsunamiSystem.DrainFloodWaters(_map, simDeltaTime);
+                        _updateManager.Update(simDeltaTime, newYear, gameStateCopy.TimeSpeed);
                     }
 
                     // Update game state (thread-safe)
@@ -264,6 +242,7 @@ public class SimPlanetGame : Game
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
         _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
+        _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager);
 
         // Generate initial geological features
         EarthquakeSystem.GenerateInitialFaults(_map); // Create fault lines at plate boundaries
@@ -829,6 +808,12 @@ public class SimPlanetGame : Game
         {
             QuickLoad();
         }
+
+        // Fast forward (F)
+        if (keyState.IsKeyDown(Keys.F) && _previousKeyState.IsKeyUp(Keys.F))
+        {
+            ToggleFastForward();
+        }
     }
 
     private void HandleMenuAction(MenuAction action)
@@ -1017,6 +1002,7 @@ public class SimPlanetGame : Game
             _disasterManager = new DisasterManager(_map, _geologicalSimulator, saveData.MapOptions.Seed);
             _forestFireManager = new ForestFireManager(_map, saveData.MapOptions.Seed);
             _magnetosphereSimulator = new MagnetosphereSimulator(_map, saveData.MapOptions.Seed);
+            _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager);
 
             // Apply save data
             _saveLoadManager.ApplySaveData(saveData, _map, _gameState,
@@ -1124,6 +1110,7 @@ public class SimPlanetGame : Game
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
+        _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();
@@ -1693,6 +1680,26 @@ public class SimPlanetGame : Game
     public void TogglePlanetControls()
     {
         _planetaryControlsUI.IsVisible = !_planetaryControlsUI.IsVisible;
+    }
+
+    public async void ToggleFastForward()
+    {
+        if (_isFastForwarding) return;
+
+        _isFastForwarding = true;
+        _ui.IsFastForwarding = true;
+        _simulationRunning = false;
+
+        await _updateManager.FastForward(10000, (progress, year) =>
+        {
+            _ui.FastForwardProgress = progress;
+            _ui.FastForwardCurrentYear = year;
+            _gameState.Year = year;
+        });
+
+        _ui.IsFastForwarding = false;
+        _isFastForwarding = false;
+        _simulationRunning = true;
     }
 
     public new void Exit()
