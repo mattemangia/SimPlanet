@@ -116,14 +116,11 @@ public class PlanetStabilizer
 
         if (_adjustmentTimer >= effectiveInterval)
         {
-            int adjustmentsNeeded = (int)(_adjustmentTimer / effectiveInterval);
-            // Cap adjustments to prevent lag spikes
-            adjustmentsNeeded = Math.Min(adjustmentsNeeded, 5);
-            _adjustmentTimer = 0; // Reset instead of subtract to prevent debt loop
-
-            for (int i = 0; i < adjustmentsNeeded; i++)
+            // Use a while loop to catch up on missed adjustments at high speed
+            while (_adjustmentTimer >= effectiveInterval)
             {
                 PerformStabilization();
+                _adjustmentTimer -= effectiveInterval;
             }
         }
     }

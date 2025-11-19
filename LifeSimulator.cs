@@ -13,8 +13,8 @@ public class LifeSimulator
     private bool _lifeProfileInitialized = false;
     
     // Grace period after manual planting to allow life to establish
-    private float _plantingGracePeriod = 0f;
-    private const float PLANTING_GRACE_DURATION = 5f; // 5 seconds of protection
+    private float _plantingGracePeriodYears = 0f;
+    private const float PLANTING_GRACE_DURATION_YEARS = 10f; // 10 years of protection
 
     private const float PROFILE_SMOOTHING = 0.05f;
     private const float EXTREME_RELAX_RATE = 0.015f;
@@ -69,11 +69,12 @@ public class LifeSimulator
     {
         UpdateLifeSupportProfile();
         
-        // Countdown grace period
-        if (_plantingGracePeriod > 0f)
+        // Countdown grace period in game years
+        if (_plantingGracePeriodYears > 0f)
         {
-            _plantingGracePeriod -= deltaTime;
-            if (_plantingGracePeriod <= 0f)
+            // deltaTime is already scaled by timeSpeed, and 1 second of sim time is 1 year
+            _plantingGracePeriodYears -= deltaTime;
+            if (_plantingGracePeriodYears <= 0f)
             {
                 Console.WriteLine("[LifeSimulator] Grace period ended");
             }
@@ -92,7 +93,7 @@ public class LifeSimulator
         }
 
         // Only apply climate stress if NOT in grace period
-        if (_plantingGracePeriod <= 0f)
+        if (_plantingGracePeriodYears <= 0f)
         {
             ReactToClimateChanges(deltaTime);
         }
@@ -120,7 +121,7 @@ public class LifeSimulator
     public void ActivatePlantingGracePeriod()
     {
         // Called when manual planting happens
-        _plantingGracePeriod = PLANTING_GRACE_DURATION;
+        _plantingGracePeriodYears = PLANTING_GRACE_DURATION_YEARS;
         Console.WriteLine("[LifeSimulator] Grace period activated for planted life");
     }
 
@@ -179,7 +180,7 @@ public class LifeSimulator
                 float netGrowth = (growthRate - deathRate) * deltaTime;
                 
                 // If in grace period, prevent negative growth (death)
-                if (_plantingGracePeriod > 0f && netGrowth < 0f)
+                if (_plantingGracePeriodYears > 0f && netGrowth < 0f)
                 {
                     netGrowth = 0.01f * deltaTime; // Slight positive growth during grace
                 }
@@ -294,7 +295,7 @@ public class LifeSimulator
     private float CalculateDeathRate(TerrainCell cell)
     {
         // ABSOLUTE PROTECTION during grace period
-        if (_plantingGracePeriod > 0f)
+        if (_plantingGracePeriodYears > 0f)
         {
             return 0f;
         }
@@ -450,41 +451,44 @@ public class LifeSimulator
 
     private bool CanLifeSurvive(LifeForm lifeType, TerrainCell cell)
     {
-        // Relaxed survival checks to allow colonization of marginal lands
-        return lifeType switch
+        if (!_lifeProfileInitialized) return false;
+
+        var (minTemp, maxTemp) = cell.IsLand
+            ? ExpandTemperatureWindow(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, _lifeProfile.AvgLandTemp, _lifeProfile.LandTempStdDev)
+            : ExpandTemperatureWindow(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, _lifeProfile.AvgWaterTemp, _lifeProfile.WaterTempStdDev);
+
+        // Widen the "survivable" window beyond the comfort zone by 3 standard deviations
+        float tempTolerance = Math.Max(10f, (cell.IsLand ? _lifeProfile.LandTempStdDev : _lifeProfile.WaterTempStdDev) * 3);
+        minTemp -= tempTolerance;
+        maxTemp += tempTolerance;
+
+        // Bacteria are extremophiles
+        if (lifeType == LifeForm.Bacteria)
         {
-            LifeForm.Bacteria => true, // Bacteria survives anywhere basically
+            minTemp -= 40f;
+            maxTemp += 40f;
+        }
 
-            LifeForm.Algae => cell.IsWater && cell.Temperature > -5 && cell.Temperature < 45,
+        bool tempOK = cell.Temperature >= minTemp && cell.Temperature <= maxTemp;
+        if (!tempOK) return false;
 
-            LifeForm.PlantLife => cell.IsLand && cell.Temperature > -10 && cell.Temperature < 50 && cell.Rainfall > 0.05f,
+        // Oxygen check for aerobic life
+        float oxygenDemand = GetOxygenDemand(lifeType);
+        if (oxygenDemand > 0)
+        {
+            // Life can survive at 30% of the planet's average oxygen level
+            float minOxygen = _lifeProfile.AvgOxygen * 0.3f;
+            if (cell.Oxygen < minOxygen) return false;
+        }
 
-            LifeForm.SimpleAnimals => cell.Temperature > -15 && cell.Temperature < 45 && cell.Oxygen > 5,
+        // Water check for land plants
+        if (lifeType == LifeForm.PlantLife)
+        {
+            // Plants can survive at 20% of the planet's average rainfall
+            if (cell.Rainfall < _lifeProfile.AvgLandRain * 0.2f) return false;
+        }
 
-            LifeForm.Fish => cell.IsWater && cell.Temperature > -2 && cell.Temperature < 40 && cell.Oxygen > 5,
-
-            LifeForm.Amphibians => cell.Temperature > 0 && cell.Temperature < 40 && cell.Rainfall > 0.15f,
-
-            LifeForm.Reptiles => cell.IsLand && cell.Temperature > 5 && cell.Temperature < 55,
-
-            LifeForm.Dinosaurs => cell.IsLand && cell.Temperature > 10 && cell.Temperature < 55,
-
-            LifeForm.MarineDinosaurs => cell.IsWater && cell.Temperature > 5 && cell.Temperature < 40,
-
-            LifeForm.Pterosaurs => cell.Temperature > 5 && cell.Temperature < 50,
-
-            LifeForm.Mammals => cell.Temperature > -20 && cell.Temperature < 45,
-
-            LifeForm.Birds => cell.Temperature > -10 && cell.Temperature < 45,
-
-            LifeForm.ComplexAnimals => cell.Temperature > -15 && cell.Temperature < 45,
-
-            LifeForm.Intelligence => cell.Temperature > -20 && cell.Temperature < 45,
-
-            LifeForm.Civilization => cell.Temperature > -30 && cell.Temperature < 50,
-
-            _ => false
-        };
+        return true;
     }
 
     private float GetNearbyBiomass(int x, int y)
@@ -785,7 +789,7 @@ public class LifeSimulator
     private void ReactToClimateChanges(float deltaTime)
     {
         // CRITICAL FIX: Do not apply climate stress during grace period
-        if (_plantingGracePeriod > 0f) return;
+        if (_plantingGracePeriodYears > 0f) return;
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -797,37 +801,48 @@ public class LifeSimulator
 
                 float stressFactor = 0;
 
-                // Much wider temperature tolerance
-                float comfortableMin = -20f;
-                float comfortableMax = 45f;
+                // Use adaptive comfort windows from the life profile
+                var (minComfort, maxComfort) = cell.IsLand
+                    ? ExpandTemperatureWindow(_lifeProfile.MinLandTemp, _lifeProfile.MaxLandTemp, _lifeProfile.AvgLandTemp, _lifeProfile.LandTempStdDev)
+                    : ExpandTemperatureWindow(_lifeProfile.MinWaterTemp, _lifeProfile.MaxWaterTemp, _lifeProfile.AvgWaterTemp, _lifeProfile.WaterTempStdDev);
                 
-                if (cell.LifeType == LifeForm.Bacteria) { comfortableMin = -50f; comfortableMax = 80f; }
-                
-                if (cell.Temperature > comfortableMax)
+                if (cell.LifeType == LifeForm.Bacteria) { minComfort -= 40f; maxComfort += 40f; }
+
+                if (cell.Temperature > maxComfort)
                 {
-                    stressFactor += (cell.Temperature - comfortableMax) * 0.01f;
+                    stressFactor += (cell.Temperature - maxComfort) * 0.01f;
                 }
-                else if (cell.Temperature < comfortableMin)
+                else if (cell.Temperature < minComfort)
                 {
-                    stressFactor += (comfortableMin - cell.Temperature) * 0.01f;
+                    stressFactor += (minComfort - cell.Temperature) * 0.01f;
                 }
 
-                // Oxygen stress (reduced)
-                if (cell.LifeType != LifeForm.Bacteria && cell.LifeType != LifeForm.Algae && cell.LifeType != LifeForm.PlantLife)
+                // Oxygen stress based on planetary average
+                float oxygenDemand = GetOxygenDemand(cell.LifeType);
+                if (oxygenDemand > 0)
                 {
-                    if (cell.Oxygen < 5f) stressFactor += 0.1f;
+                    // Stress occurs below 50% of average oxygen
+                    float oxygenThreshold = _lifeProfile.AvgOxygen * 0.5f;
+                    if (cell.Oxygen < oxygenThreshold)
+                    {
+                        stressFactor += (oxygenThreshold - cell.Oxygen) / oxygenThreshold * 0.1f;
+                    }
                 }
 
-                // Drought stress (Plants only)
-                if (cell.IsLand && cell.LifeType == LifeForm.PlantLife && cell.Rainfall < 0.05f)
+                // Drought stress for plants based on average rainfall
+                if (cell.IsLand && cell.LifeType == LifeForm.PlantLife)
                 {
-                    stressFactor += 0.1f;
+                    // Stress occurs below 30% of average rainfall
+                    float droughtThreshold = _lifeProfile.AvgLandRain * 0.3f;
+                    if (cell.Rainfall < droughtThreshold)
+                    {
+                        stressFactor += (droughtThreshold - cell.Rainfall) / droughtThreshold * 0.1f;
+                    }
                 }
 
                 // Apply stress damage slowly
                 if (stressFactor > 0)
                 {
-                    // Very slow decay from stress to allow adaptation/stabilizer to work
                     cell.Biomass -= stressFactor * deltaTime * 0.01f;
 
                     if (cell.Biomass < 0.005f)
