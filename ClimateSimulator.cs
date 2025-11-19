@@ -270,29 +270,29 @@ public class ClimateSimulator
                 
                 // ITCZ effect (peak at equator, fade by 15Â°)
                 float itczEffect = Math.Max(0, 1.0f - (latitude / 0.15f));
-                
+
                 // Subtropical desert effect (peak around 25-30Â°)
                 float desertPeak = 0.28f;
                 float desertWidth = 0.2f;
                 float distanceFromPeak = Math.Abs(latitude - desertPeak);
                 float desertEffect = Math.Max(0, 1.0f - (distanceFromPeak / desertWidth));
-                
+
                 // Mid-latitude effect (peak around 45-55Â°)
                 float midLatPeak = 0.5f;
                 float midLatWidth = 0.25f;
                 float distanceFromMidLat = Math.Abs(latitude - midLatPeak);
                 float midLatEffect = Math.Max(0, 1.0f - (distanceFromMidLat / midLatWidth));
-                
+
                 // Polar desert effect (increase dryness toward poles)
                 float polarEffect = Math.Max(0, (latitude - 0.65f) / 0.35f);
-                
+
                 // Blend all effects smoothly
                 latitudeEffect = 1.3f * itczEffect +                    // Wetter equator
                                 0.15f * desertEffect +                  // Drier subtropics
                                 0.9f * midLatEffect +                   // Wetter mid-latitudes
                                 0.3f * (1.0f - desertEffect - midLatEffect - itczEffect) + // Moderate transitions
                                 -0.5f * polarEffect;                    // Drier poles
-                                
+
                 latitudeEffect = Math.Max(0.1f, latitudeEffect + rainfallVariation);
 
                 float targetRainfall = (evaporation + orographicEffect) * latitudeEffect;
