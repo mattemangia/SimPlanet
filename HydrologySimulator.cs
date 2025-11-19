@@ -26,7 +26,7 @@ public class HydrologySimulator
         UpdateSoilMoisture();
         UpdateWaterFlow();
         UpdateRiverFreezing(); // Check for frozen rivers
-        FormRivers();
+        FormRivers(deltaTime);
         UpdateSalinity(deltaTime);
         UpdateWaterDensity();
         UpdateOceanCurrents();
@@ -59,15 +59,20 @@ public class HydrologySimulator
                 {
                     evaporation += (cell.Temperature - 20) * 0.01f;
                 }
-                geo.SoilMoisture -= evaporation;
+                float evaporatedWater = Math.Min(geo.SoilMoisture, evaporation);
+                geo.SoilMoisture -= evaporatedWater;
+                cell.Humidity += evaporatedWater * 0.5f; // Add evaporated water back to atmosphere
 
-                // Plant water uptake
+                // Plant water uptake (transpiration)
                 if (cell.Biomass > 0.2f)
                 {
-                    geo.SoilMoisture -= cell.Biomass * 0.05f;
+                    float transpiredWater = Math.Min(geo.SoilMoisture, cell.Biomass * 0.05f);
+                    geo.SoilMoisture -= transpiredWater;
+                    cell.Humidity += transpiredWater * 0.5f; // Add transpired water back to atmosphere
                 }
 
                 geo.SoilMoisture = Math.Clamp(geo.SoilMoisture, 0, 1);
+                cell.Humidity = Math.Clamp(cell.Humidity, 0, 1);
             }
         }
     }
@@ -181,7 +186,7 @@ public class HydrologySimulator
         }
     }
 
-    private void FormRivers()
+    private void FormRivers(float deltaTime)
     {
         // Form rivers in areas with high water accumulation
         for (int x = 0; x < _map.Width; x++)

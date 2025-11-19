@@ -188,30 +188,21 @@ public class GeologicalSimulator
 
     public void Update(float deltaTime, int currentYear)
     {
-        _geologicalTime += deltaTime;
+        // Geological processes are slow, but must scale with simulation time.
+        // The deltaTime passed in is already scaled by TimeSpeed in the main loop.
+        UpdatePlateTectonics(currentYear, deltaTime);
+        UpdateVolcanicActivity(currentYear, deltaTime);
+        UpdateErosionAndSedimentation(deltaTime);
+        UpdateCarbonatePlatforms(deltaTime);
+        UpdateTurbidites(deltaTime);
+        UpdateFiningUpwardSequences(deltaTime);
 
-        // Geological processes are slow - update less frequently
-        if (_geologicalTime > 1.0f) // Every second of real time
-        {
-            // Use the actual accumulated geological time, not frame deltaTime
-            float geologicalDeltaTime = _geologicalTime; // This is the actual time elapsed
-            
-            UpdatePlateTectonics(currentYear);
-            UpdateVolcanicActivity(currentYear);
-            UpdateErosionAndSedimentation(geologicalDeltaTime);
-            UpdateCarbonatePlatforms(geologicalDeltaTime);
-            UpdateTurbidites(geologicalDeltaTime);
-            UpdateFiningUpwardSequences(geologicalDeltaTime);
-            
-            // Safety check: Ensure all sediment layers are within bounds
-            ClampAllSedimentLayers();
+        // Safety check: Ensure all sediment layers are within bounds
+        ClampAllSedimentLayers();
 
-            _geologicalTime = 0;
-
-            // Clean up old events
-            RecentEruptions.RemoveAll(e => currentYear - e.year > 10);
-            if (Earthquakes.Count > 20) Earthquakes.Clear();
-        }
+        // Clean up old events
+        RecentEruptions.RemoveAll(e => currentYear - e.year > 10);
+        if (Earthquakes.Count > 20) Earthquakes.Clear();
     }
     
     private void ClampAllSedimentLayers()
@@ -292,10 +283,10 @@ public class GeologicalSimulator
         }
     }
 
-    private void UpdatePlateTectonics(int currentYear)
+    private void UpdatePlateTectonics(int currentYear, float deltaTime)
     {
-        float tectonicScale = TectonicScale;
-        float volcanicScale = VolcanicScale;
+        float tectonicScale = TectonicScale * deltaTime;
+        float volcanicScale = VolcanicScale * deltaTime;
 
         // Identify plate boundaries and calculate interactions
         for (int x = 0; x < _map.Width; x++)
@@ -456,9 +447,9 @@ public class GeologicalSimulator
         }
     }
 
-    private void UpdateVolcanicActivity(int currentYear)
+    private void UpdateVolcanicActivity(int currentYear, float deltaTime)
     {
-        float volcanicScale = VolcanicScale;
+        float volcanicScale = VolcanicScale * deltaTime;
 
         for (int x = 0; x < _map.Width; x++)
         {
