@@ -591,6 +591,12 @@ public class SimPlanetGame : Game
                 float dy = mouseState.Y - _previousMouseState.Y;
                 _terrainRenderer.CameraX -= dx;
                 _terrainRenderer.CameraY -= dy;
+
+                // Clamp camera position to prevent panning off-screen
+                float maxCamX = _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferWidth;
+                float maxCamY = _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferHeight;
+                _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, 0, maxCamX);
+                _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, 0, maxCamY);
             }
         }
 
@@ -603,6 +609,12 @@ public class SimPlanetGame : Game
                 float dy = mouseState.Y - _previousMouseState.Y;
                 _terrainRenderer.CameraX -= dx;
                 _terrainRenderer.CameraY -= dy;
+
+                // Clamp camera position to prevent panning off-screen
+                float maxCamX = _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferWidth;
+                float maxCamY = _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferHeight;
+                _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, 0, maxCamX);
+                _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, 0, maxCamY);
             }
         }
 
@@ -790,8 +802,8 @@ public class SimPlanetGame : Game
             _graphs.IsVisible = !_graphs.IsVisible;
         }
 
-        // Toggle planet stabilizer (F11 key)
-        if (keyState.IsKeyDown(Keys.F11) && _previousKeyState.IsKeyUp(Keys.F11))
+        // Toggle planet stabilizer (Ctrl+Y)
+        if (keyState.IsKeyDown(Keys.Y) && (keyState.IsKeyDown(Keys.LeftControl) || keyState.IsKeyDown(Keys.RightControl)) && !(_previousKeyState.IsKeyDown(Keys.LeftControl) || _previousKeyState.IsKeyDown(Keys.RightControl)))
         {
             _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
         }

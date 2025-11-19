@@ -41,7 +41,7 @@ public class Graphs
     private Texture2D _pixelTexture;
     private Texture2D _backgroundTexture;
 
-    public bool IsVisible { get; set; } = false;
+    public bool IsVisible { get; set; } = true;
 
     public Graphs(GraphicsDevice graphicsDevice, FontRenderer font, PlanetMap map, CivilizationManager civManager)
     {
@@ -149,7 +149,7 @@ public class Graphs
 
     private void DrawGraphLine(SpriteBatch spriteBatch, GraphData data, int x, int y, int width, int height)
     {
-        if (data.Values.Count < 2) return;
+        if (data.Values.Count == 0) return;
 
         float min = data.Values.Min();
         float max = data.Values.Max();
@@ -182,6 +182,7 @@ public class Graphs
 
     private void DrawLine(SpriteBatch spriteBatch, Texture2D texture, Vector2 point1, Vector2 point2, Color color, float thickness)
     {
+        if (point1 == point2) return;
         float distance = Vector2.Distance(point1, point2);
         float angle = (float)System.Math.Atan2(point2.Y - point1.Y, point2.X - point1.X);
         spriteBatch.Draw(texture, point1, null, color, angle, Vector2.Zero, new Vector2(distance, thickness), SpriteEffects.None, 0);

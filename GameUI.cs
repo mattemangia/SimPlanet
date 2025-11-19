@@ -419,7 +419,7 @@ public class GameUI
         DrawTextAt("L: Life Painter", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("M: Resource placement", Color.Orange, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Y: Graphs", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("F11: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("Ctrl+Y: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
 
         // Footer
         int footerY = panelY + panelHeight - 25;

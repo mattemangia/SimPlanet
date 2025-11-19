@@ -122,7 +122,7 @@ namespace SimPlanet
             AddButton(ref x, y, "T", "Terraforming Tool (T)", "Feature", () => game.ToggleTerraformingTool());
             AddButton(ref x, y, "Y", "Graphs (Y)", "Feature", () => game.ToggleGraphs());
             AddButton(ref x, y, "X", "Planet Controls (X)", "Feature", () => game.TogglePlanetControls());
-            AddButton(ref x, y, "F11", "Stabilizer (F11)", "Feature", () => game.ToggleStabilizer());
+            AddButton(ref x, y, "Ctrl+Y", "Stabilizer (Ctrl+Y)", "Feature", () => game.ToggleStabilizer());
 
             // Generate icons for all buttons
             foreach (var button in buttons)
@@ -246,6 +246,12 @@ namespace SimPlanet
                 DrawPlantIcon(data, size);
             else if (tooltip.Contains("Stabilizer"))
                 DrawStabilizerIcon(data, size);
+            else if (tooltip.Contains("Graphs"))
+                DrawGraphIcon(data, size);
+            else if (tooltip.Contains("Terraforming"))
+                DrawTerraformingIcon(data, size);
+            else if (tooltip.Contains("Planet Controls"))
+                DrawPlanetControlsIcon(data, size);
 
             icon.SetData(data);
             return icon;
@@ -962,6 +968,59 @@ namespace SimPlanet
             // Balance points
             DrawCircle(data, size, size / 4, size / 2, 3, cyan);
             DrawCircle(data, size, size * 3 / 4, size / 2, 3, cyan);
+        }
+
+        private void DrawGraphIcon(Color[] data, int size)
+        {
+            // Draw line graph
+            Color green = Color.LimeGreen;
+            for (int x = 2; x < size - 2; x++)
+            {
+                int y = size - 4 - (int)(Math.Sin(x * 0.5) * 4);
+                if (y >= 0 && y < size)
+                {
+                    data[y * size + x] = green;
+                }
+            }
+        }
+
+        private void DrawTerraformingIcon(Color[] data, int size)
+        {
+            // Draw mountain with arrow
+            Color brown = new Color(139, 69, 19);
+            Color green = Color.LimeGreen;
+            // Mountain
+            for (int y = size / 2; y < size; y++)
+            {
+                int width = (y - size / 2) / 2;
+                for (int x = size / 2 - width; x <= size / 2 + width; x++)
+                {
+                    if (x >= 0 && x < size)
+                        data[y * size + x] = brown;
+                }
+            }
+            // Arrow
+            for (int y = 2; y < size / 2; y++)
+            {
+                data[y * size + size / 2] = green;
+            }
+            data[2 * size + size / 2 - 2] = green;
+            data[2 * size + size / 2 + 2] = green;
+        }
+
+        private void DrawPlanetControlsIcon(Color[] data, int size)
+        {
+            // Draw sliders
+            Color gray = Color.Gray;
+            Color blue = Color.Blue;
+            for (int y = 4; y < size - 4; y += 6)
+            {
+                for (int x = 4; x < size - 4; x++)
+                {
+                    data[y * size + x] = gray;
+                }
+                data[y * size + size / 2] = blue;
+            }
         }
 
         // Helper methods for drawing shapes

@@ -550,43 +550,20 @@ public class TerrainRenderer
 
     private Color GetResourcesColor(TerrainCell cell)
     {
-        // Show all resources at this location
         var resources = cell.GetResources();
-
         if (resources.Count == 0)
         {
-            // No resources - show terrain base color
-            if (cell.IsWater)
-                return new Color(30, 60, 100);
-            else
-                return new Color(60, 50, 40);
+            return cell.IsWater ? new Color(30, 60, 100) : new Color(60, 50, 40);
         }
 
-        // Find the most valuable/abundant resource
-        ResourceDeposit? dominantResource = null;
-        float maxValue = 0;
-
-        foreach (var deposit in resources)
-        {
-            float value = deposit.Amount * deposit.Concentration;
-            if (value > maxValue)
-            {
-                maxValue = value;
-                dominantResource = deposit;
-            }
-        }
-
+        ResourceDeposit? dominantResource = resources.OrderByDescending(r => r.Amount * r.Concentration).FirstOrDefault();
         if (dominantResource == null)
+        {
             return new Color(60, 50, 40);
+        }
 
-        // Get resource color and blend with amount/concentration
         Color resourceColor = ResourceExtensions.GetResourceColor(dominantResource.Type);
-
-        // Intensity based on amount and concentration
-        float intensity = dominantResource.Amount * dominantResource.Concentration;
-        intensity = Math.Clamp(intensity, 0.3f, 1.0f);
-
-        // Blend with base terrain
+        float intensity = Math.Clamp(dominantResource.Amount * dominantResource.Concentration, 0.3f, 1.0f);
         Color baseColor = cell.IsWater ? new Color(30, 60, 100) : new Color(60, 50, 40);
         return Color.Lerp(baseColor, resourceColor, intensity);
     }
@@ -807,7 +784,7 @@ public class TerrainRenderer
         var geo = cell.Geology;
 
         // Tsunami wave height visualization
-        if (geo.TsunamiWaveHeight > 0.1f)
+        if (geo.TsunamiWaveHeight > 0.0f)
         {
             // Wave height: 0m (calm) to 30m+ (catastrophic)
             float height = Math.Clamp(geo.TsunamiWaveHeight, 0, 30);
@@ -1157,6 +1134,36 @@ public class TerrainRenderer
     {
         return Mode switch
         {
+            RenderMode.Biomes => new List<(Color, string)>
+            {
+                (new Color(240, 250, 255), "Glacier"),
+                (new Color(200, 210, 220), "Alpine Tundra"),
+                (new Color(180, 190, 160), "Tundra"),
+                (new Color(10, 100, 20), "Tropical Rainforest"),
+                (new Color(34, 139, 34), "Temperate Forest"),
+                (new Color(20, 80, 40), "Boreal Forest"),
+                (new Color(200, 180, 100), "Savanna"),
+                (new Color(100, 160, 80), "Grassland"),
+                (new Color(140, 140, 80), "Shrubland"),
+                (new Color(230, 200, 140), "Desert"),
+                (new Color(140, 130, 120), "Mountain"),
+                (new Color(60, 120, 90), "Wetland"),
+                (new Color(20, 100, 180), "Shallow Water"),
+                (new Color(0, 50, 120), "Deep Ocean"),
+            },
+            RenderMode.Resources => new List<(Color, string)>
+            {
+                (ResourceExtensions.GetResourceColor(ResourceType.Iron), "Iron"),
+                (ResourceExtensions.GetResourceColor(ResourceType.Copper), "Copper"),
+                (ResourceExtensions.GetResourceColor(ResourceType.Coal), "Coal"),
+                (ResourceExtensions.GetResourceColor(ResourceType.Gold), "Gold"),
+                (ResourceExtensions.GetResourceColor(ResourceType.Silver), "Silver"),
+                (ResourceExtensions.GetResourceColor(ResourceType.Oil), "Oil"),
+                (ResourceExtensions.GetResourceColor(ResourceType.NaturalGas), "Natural Gas"),
+                (ResourceExtensions.GetResourceColor(ResourceType.Uranium), "Uranium"),
+                (ResourceExtensions.GetResourceColor(ResourceType.Platinum), "Platinum"),
+                (ResourceExtensions.GetResourceColor(ResourceType.Diamond), "Diamond"),
+            },
             RenderMode.Infrastructure => new List<(Color, string)>
             {
                 (new Color(150, 0, 150), "Nuclear Plant (Stable)"),
@@ -1307,10 +1314,8 @@ public class TerrainRenderer
 
     private Color GetLifeGradientColor(float t)
     {
-        if (t < 0.25f) return Color.Lerp(new Color(80, 80, 80), new Color(150, 100, 50), t * 4);
-        if (t < 0.5f) return Color.Lerp(new Color(150, 100, 50), new Color(100, 200, 100), (t - 0.25f) * 4);
-        if (t < 0.75f) return Color.Lerp(new Color(100, 200, 100), new Color(255, 150, 50), (t - 0.5f) * 4);
-        return Color.Lerp(new Color(255, 150, 50), new Color(255, 255, 100), (t - 0.75f) * 4);
+        if (t < 0.5f) return Color.Lerp(new Color(139, 69, 19), new Color(0, 255, 0), t * 2);
+        return Color.Lerp(new Color(0, 255, 0), new Color(0, 100, 0), (t - 0.5f) * 2);
     }
 
     private Color GetGeologicalGradientColor(float t)

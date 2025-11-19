@@ -466,7 +466,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **M** | Toggle resource placement tool (R to cycle) |
 | **T** | Toggle Terraforming Tool |
 | **Y** | Toggle Graphs |
-| **F11** | Toggle auto-stabilization system |
+| **Ctrl+Y** | Toggle auto-stabilization system |
 | **P** | Toggle 3D rotating minimap |
 | **V** | Toggle volcano overlay |
 | **B** | Toggle river overlay |
