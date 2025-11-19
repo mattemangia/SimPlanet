@@ -47,7 +47,7 @@ public class ClimateSimulator
                 if (cell.IsWater)
                 {
                     // Warm currents on west coasts in mid-latitudes, cold currents on east coasts
-                    float currentPattern = MathF.Sin(x * 0.15f + signedLatitude * 3f) * 8.0f; // Up to ±8°C
+                    float currentPattern = MathF.Sin(x * 0.15f + signedLatitude * 3f) * 8.0f; // Up to Â±8Â°C
                     oceanCurrentEffect = currentPattern;
                 }
 
@@ -71,7 +71,7 @@ public class ClimateSimulator
                 float topographicVariation = MathF.Sin(x * 0.4f) * MathF.Cos(y * 0.35f) * 3.0f;
 
                 // Realistic temperature gradient: hot equator, freezing poles
-                // Equator (lat=0): ~30°C, Poles (lat=1): ~-40°C
+                // Equator (lat=0): ~30Â°C, Poles (lat=1): ~-40Â°C
                 float baseTemp = 30 - (latitude * latitude * 70) + oceanCurrentEffect +
                                 continentalityEffect + topographicVariation;
 
@@ -94,7 +94,7 @@ public class ClimateSimulator
                 if (float.IsNaN(solarHeating) || float.IsInfinity(solarHeating))
                     solarHeating = 15.0f;
 
-                // Elevation cooling (6.5°C per km, roughly 0.65°C per 0.1 elevation)
+                // Elevation cooling (6.5Â°C per km, roughly 0.65Â°C per 0.1 elevation)
                 float elevation = cell.Elevation;
                 if (float.IsNaN(elevation) || float.IsInfinity(elevation))
                     elevation = 0;
@@ -212,7 +212,7 @@ public class ClimateSimulator
                 if (float.IsNaN(newTemp) || float.IsInfinity(newTemp))
                     newTemp = 15.0f; // Default to moderate temperature
 
-                // Clamp to physically possible range (-100°C to 100°C)
+                // Clamp to physically possible range (-100Â°C to 100Â°C)
                 newTemp = Math.Clamp(newTemp + temperatureOffset, -100f, 100f);
 
                 newTemperatures[x, y] = newTemp;
@@ -268,16 +268,16 @@ public class ClimateSimulator
                 // SMOOTH latitude-based rainfall with continuous transitions
                 float latitudeEffect;
                 
-                // ITCZ effect (peak at equator, fade by 15°)
+                // ITCZ effect (peak at equator, fade by 15Â°)
                 float itczEffect = Math.Max(0, 1.0f - (latitude / 0.15f));
                 
-                // Subtropical desert effect (peak around 25-30°)
+                // Subtropical desert effect (peak around 25-30Â°)
                 float desertPeak = 0.28f;
                 float desertWidth = 0.2f;
                 float distanceFromPeak = Math.Abs(latitude - desertPeak);
                 float desertEffect = Math.Max(0, 1.0f - (distanceFromPeak / desertWidth));
                 
-                // Mid-latitude effect (peak around 45-55°)
+                // Mid-latitude effect (peak around 45-55Â°)
                 float midLatPeak = 0.5f;
                 float midLatWidth = 0.25f;
                 float distanceFromMidLat = Math.Abs(latitude - midLatPeak);
@@ -287,11 +287,11 @@ public class ClimateSimulator
                 float polarEffect = Math.Max(0, (latitude - 0.65f) / 0.35f);
                 
                 // Blend all effects smoothly
-                latitudeEffect = 1.3f * itczEffect +                    // Wet equator
-                                0.15f * desertEffect +                  // Dry subtropics
-                                0.9f * midLatEffect +                   // Wet mid-latitudes
-                                0.3f * (1.0f - desertEffect - midLatEffect - itczEffect) + // Transition zones
-                                -0.5f * polarEffect;                    // Dry poles
+                latitudeEffect = 1.5f * itczEffect +                    // Wetter equator (was 1.3f)
+                                0.05f * desertEffect +                  // Much less dry subtropics (was 0.15f)
+                                1.2f * midLatEffect +                   // Much wetter mid-latitudes (was 0.9f)
+                                0.5f * (1.0f - desertEffect - midLatEffect - itczEffect) + // Wetter transitions (was 0.3f)
+                                -0.3f * polarEffect;                    // Less dry poles (was -0.5f)
                                 
                 latitudeEffect = Math.Max(0.1f, latitudeEffect + rainfallVariation);
 

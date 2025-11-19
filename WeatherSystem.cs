@@ -48,7 +48,7 @@ public class AtmosphericColumn
     public float UpperTropTemp { get; set; } = 228f;    // 8-12 km (tropopause)
     public float StratosphereTemp { get; set; } = 220f; // 12-25 km (ozone layer)
 
-    // Spectral band fluxes (W/m²)
+    // Spectral band fluxes (W/mÂ²)
     // Shortwave (solar) radiation
     public float ShortwaveDownSurface { get; set; }     // Incoming solar at surface
     public float ShortwaveUpSurface { get; set; }       // Reflected solar from surface
@@ -60,7 +60,7 @@ public class AtmosphericColumn
 
     // Layer-specific gas concentrations (for absorption calculations)
     public float OzoneColumn { get; set; } = 300f;      // Dobson Units (DU), mostly in stratosphere
-    public float WaterVaporColumn { get; set; } = 25f;  // kg/m² precipitable water
+    public float WaterVaporColumn { get; set; } = 25f;  // kg/mÂ² precipitable water
 }
 
 /// <summary>
@@ -71,9 +71,13 @@ public class WeatherSystem
     private readonly PlanetMap _map;
     private readonly Random _random;
     private List<Storm> _storms;
+    private const int MaxConcurrentStorms = 40;
+    private const float MaxStormCheckDelta = 0.5f;
     private float _seasonProgress = 0; // 0-4, wraps around
     private const float SeasonLength = 100.0f; // Years per season
     private float _turbulenceTime = 0; // Time variable for dynamic turbulence
+    private const float MaxPrecipitationStep = 0.35f;
+    private const int MaxPrecipitationIterations = 16;
 
     public List<Storm> ActiveStorms => _storms;
 
@@ -96,26 +100,28 @@ public class WeatherSystem
         UpdateBaroclinicInstability(deltaTime); // Mid-latitude eddy formation
         UpdateEvaporation(deltaTime); // Continuous water evaporation
         UpdateCloudCover();
-        UpdateStorms(deltaTime, currentYear);
-        UpdatePrecipitation();
+
+        float rainfallMultiplier = _map.PlanetaryControls?.RainfallMultiplier ?? 1f;
+        UpdateStorms(deltaTime, currentYear, rainfallMultiplier);
+        UpdatePrecipitation(deltaTime, rainfallMultiplier);
     }
 
     private void UpdateSeasons(float deltaTime, int currentYear)
     {
         // REALISTIC SEASONAL PROGRESSION WITH PLANETARY AXIS TILT
-        // Axial tilt: 23.5° (like Earth) - causes seasons
+        // Axial tilt: 23.5Â° (like Earth) - causes seasons
         // Season progress: 0-4 represents one full orbit (year)
         _seasonProgress += deltaTime * 0.1f;
         if (_seasonProgress >= 4.0f)
             _seasonProgress -= 4.0f;
 
-        // Convert season progress to orbital angle (0-2Ï€)
-        float orbitalAngle = _seasonProgress * MathF.PI / 2f; // 0-2Ï€ over 4 seasons
-        const float axialTilt = 23.5f * (MathF.PI / 180f); // 23.5° in radians
+        // Convert season progress to orbital angle (0-2Ãâ‚¬)
+        float orbitalAngle = _seasonProgress * MathF.PI / 2f; // 0-2Ãâ‚¬ over 4 seasons
+        const float axialTilt = 23.5f * (MathF.PI / 180f); // 23.5Â° in radians
 
         // Solar declination varies with orbital position
         // Declination: angle between equatorial plane and sun's rays
-        // Summer solstice: +23.5°, Winter solstice: -23.5°, Equinoxes: 0°
+        // Summer solstice: +23.5Â°, Winter solstice: -23.5Â°, Equinoxes: 0Â°
         float solarDeclination = MathF.Sin(orbitalAngle) * axialTilt;
 
         for (int x = 0; x < _map.Width; x++)
@@ -145,7 +151,7 @@ public class WeatherSystem
 
                 // Convert to seasonal temperature effect
                 // Higher sun = more heating, lower sun = less heating
-                float seasonalHeating = maxSunElevation * 25f; // ±25°C seasonal variation
+                float seasonalHeating = maxSunElevation * 25f; // Â±25Â°C seasonal variation
 
                 // Apply stronger seasonal effects at higher latitudes
                 float latitudeEffect = Math.Abs(latitude);
@@ -263,7 +269,7 @@ public class WeatherSystem
                 float baseWindX = 0;
                 float baseWindY = 0;
 
-                // Trade winds (0-30° latitude) - easterlies
+                // Trade winds (0-30Â° latitude) - easterlies
                 // SMOOTHED transitions to eliminate banding
                 float tradeWindZone = 1.0f - Math.Clamp((absLatitude - 0.25f) / 0.1f, 0, 1);
                 float westerliesZone = 0;
@@ -308,7 +314,7 @@ public class WeatherSystem
                 baseWindY += turbulenceY;
 
                 // Apply Coriolis effect (deflects winds based on latitude and hemisphere)
-                // Coriolis parameter: f = 2 * Î© * sin(latitude)
+                // Coriolis parameter: f = 2 * ÃŽÂ© * sin(latitude)
                 // Simplified: deflection proportional to latitude and wind speed
                 float coriolisStrength = signedLatitude * 0.3f; // Stronger at poles, zero at equator
 
@@ -423,9 +429,9 @@ public class WeatherSystem
         // Create semi-permanent rotating pressure systems (highs and lows)
         // This breaks up zonal banding and creates cellular patterns
 
-        // *** STRENGTHENED: More frequent and stronger pressure perturbations ***
-        // Add random pressure perturbations to seed cyclone/anticyclone formation
-        int numCells = Math.Max(3, (int)(8 * deltaTime)); // Create 3-8 pressure anomalies per update
+        // Cap how quickly perturbations accumulate so accelerated time does not constantly seed new cyclones
+        float scaledDelta = Math.Min(deltaTime, 1f);
+        int numCells = Math.Max(2, (int)MathF.Round(6f * scaledDelta));
 
         for (int i = 0; i < numCells; i++)
         {
@@ -436,7 +442,7 @@ public class WeatherSystem
             float latitude = (centerY - _map.Height / 2.0f) / (_map.Height / 2.0f);
             float absLatitude = Math.Abs(latitude);
 
-            // Pressure cells form mainly in mid-latitudes (30-60°), but allow some everywhere
+            // Pressure cells form mainly in mid-latitudes (30-60Â°), but allow some everywhere
             // Use smooth probability transition to eliminate banding
             float cellProbability = 0.3f; // Base probability everywhere
             
@@ -480,8 +486,8 @@ public class WeatherSystem
                     // Gaussian pressure distribution with stronger central core
                     float strength = MathF.Exp(-(dist * dist) / (radius * radius / 1.8f)); // Stronger core
 
-                    // *** INCREASED application rate (was 2f, now 5f) ***
-                    met.AirPressure += pressureAnomaly * strength * deltaTime * 5f;
+                    // Apply anomaly using the capped delta time so we do not create unrealistic gradients
+                    met.AirPressure += pressureAnomaly * strength * scaledDelta * 3f;
                     met.AirPressure = Math.Clamp(met.AirPressure, 950, 1050);
                 }
             }
@@ -501,7 +507,7 @@ public class WeatherSystem
                 var met = _map.Cells[x, y].GetMeteorology();
 
                 // Calculate wind shear (change in wind across space)
-                // Vorticity = âˆ‚v/âˆ‚x - âˆ‚u/âˆ‚y (v=east-west wind, u=north-south wind)
+                // Vorticity = Ã¢Ë†â€šv/Ã¢Ë†â€šx - Ã¢Ë†â€šu/Ã¢Ë†â€šy (v=east-west wind, u=north-south wind)
 
                 float dvdx = 0, dudy = 0;
                 int count = 0;
@@ -540,7 +546,7 @@ public class WeatherSystem
 
                 // Add planetary vorticity (Coriolis effect)
                 float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
-                float planetaryVorticity = latitude * 2f; // f = 2Î© sin(lat)
+                float planetaryVorticity = latitude * 2f; // f = 2ÃŽÂ© sin(lat)
 
                 // Total vorticity
                 met.Vorticity = relativeVorticity + planetaryVorticity;
@@ -581,8 +587,8 @@ public class WeatherSystem
                 float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
                 float absLatitude = Math.Abs(latitude);
 
-                // Baroclinic instability strongest in mid-latitudes (30-60°)
-                // Baroclinic instability strongest in mid-latitudes (30-60°)
+                // Baroclinic instability strongest in mid-latitudes (30-60Â°)
+                // Baroclinic instability strongest in mid-latitudes (30-60Â°)
                 // Smooth transition to eliminate banding
                 float baroclinicStrength = 0;
                 if (absLatitude >= 0.25f && absLatitude <= 0.75f)
@@ -660,14 +666,18 @@ public class WeatherSystem
         }
     }
 
-    private void UpdateStorms(float deltaTime, int currentYear)
+    private void UpdateStorms(float deltaTime, int currentYear, float rainfallMultiplier)
     {
         // CONTINUOUS storm generation based on weather conditions (not random!)
         // Check multiple locations per update for storm formation potential
-        int checksPerUpdate = (int)(30 * deltaTime); // Check 30 locations per frame
+        float cappedDelta = Math.Min(deltaTime, MaxStormCheckDelta);
+        int checksPerUpdate = Math.Max(1, (int)MathF.Round(30 * cappedDelta));
 
         for (int check = 0; check < checksPerUpdate; check++)
         {
+            if (_storms.Count >= MaxConcurrentStorms)
+                break;
+
             int x = _random.Next(_map.Width);
             int y = _random.Next(_map.Height);
 
@@ -724,13 +734,13 @@ public class WeatherSystem
             }
 
             // Apply storm effects
-            ApplyStormEffects(storm);
+            ApplyStormEffects(storm, deltaTime, rainfallMultiplier);
         }
     }
 
     private void UpdateStormIntensity(Storm storm, float deltaTime)
     {
-        // Tropical cyclones intensify over warm water (>26°C), weaken over land or cool water
+        // Tropical cyclones intensify over warm water (>26Â°C), weaken over land or cool water
         bool isTropical = storm.Type >= StormType.TropicalDepression &&
                          storm.Type <= StormType.HurricaneCategory5;
 
@@ -799,12 +809,16 @@ public class WeatherSystem
 
     private void CheckAndGenerateStorm(int x, int y)
     {
+        if (_storms.Count >= MaxConcurrentStorms)
+            return;
+
         var cell = _map.Cells[x, y];
         var met = cell.GetMeteorology();
 
         // Get latitude for storm type determination
         float latitude = (y - _map.Height / 2.0f) / (_map.Height / 2.0f);
         float absLatitude = Math.Abs(latitude);
+        float absVorticity = Math.Abs(met.Vorticity);
 
         // Calculate wind convergence (check if winds are converging)
         float windConvergence = CalculateWindConvergence(x, y);
@@ -816,9 +830,10 @@ public class WeatherSystem
                               met.CloudCover > 0.7f &&
                               cell.Humidity > 0.7f &&
                               met.AirPressure < 1005 &&
-                              absLatitude > 0.05f &&  // Smoothed: ~3° from equator
-                              absLatitude < 0.5f &&   // ~30° latitude
-                              windConvergence > 0.02f;
+                              absLatitude > 0.05f &&  // Smoothed: ~3Â° from equator
+                              absLatitude < 0.5f &&   // ~30Â° latitude
+                              windConvergence > 0.02f &&
+                              absVorticity > 0.2f;
 
         if (canFormTropical)
         {
@@ -860,7 +875,8 @@ public class WeatherSystem
             }
         }
         // THUNDERSTORM FORMATION (continuous process)
-        else if (met.AirPressure < 1000 && cell.Humidity > 0.6f && met.CloudCover > 0.6f)
+        else if (met.AirPressure < 1000 && cell.Humidity > 0.6f && met.CloudCover > 0.6f &&
+                 windConvergence > 0.01f)
         {
             bool hasNearbyStorm = _storms.Any(s =>
             {
@@ -962,7 +978,7 @@ public class WeatherSystem
         return count > 0 ? convergence / count : 0;
     }
 
-    private void ApplyStormEffects(Storm storm)
+    private void ApplyStormEffects(Storm storm, float deltaTime, float rainfallMultiplier)
     {
         // Determine radius based on storm type
         int radius = storm.Type switch
@@ -1018,7 +1034,12 @@ public class WeatherSystem
                 // Heavy precipitation (strongest in eye wall)
                 float rainIntensity = dist < radius * 0.3f ? effectStrength * 1.5f : effectStrength;
                 met.Precipitation = Math.Max(met.Precipitation, rainIntensity);
-                cell.Rainfall += rainIntensity * 0.08f;
+
+                float rainfallContribution = rainIntensity * 0.08f * deltaTime * rainfallMultiplier;
+                if (rainfallContribution > 0)
+                {
+                    cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallContribution, 0f, 1f);
+                }
 
                 // Lower pressure (lowest at center)
                 float pressureDrop = effectStrength * (1013.25f - storm.CentralPressure);
@@ -1031,7 +1052,7 @@ public class WeatherSystem
                 // Tropical cyclones cool sea surface temperature by mixing deep cold water
                 if (cell.IsWater && storm.Type >= StormType.TropicalStorm)
                 {
-                    float cooling = effectStrength * 2.0f; // Up to 2°C cooling
+                    float cooling = effectStrength * 2.0f; // Up to 2Â°C cooling
                     cell.Temperature -= cooling * 0.05f; // Gradual cooling
                 }
                 // Evaporative cooling from heavy rain
@@ -1093,7 +1114,24 @@ public class WeatherSystem
         }
     }
 
-    private void UpdatePrecipitation()
+    private void UpdatePrecipitation(float deltaTime, float rainfallMultiplier)
+    {
+        if (deltaTime <= 0f)
+            return;
+
+        float remaining = deltaTime;
+        int iterations = 0;
+
+        while (remaining > 0f && iterations < MaxPrecipitationIterations)
+        {
+            float stepDelta = Math.Min(remaining, MaxPrecipitationStep);
+            ApplyPrecipitationStep(stepDelta, rainfallMultiplier);
+            remaining -= stepDelta;
+            iterations++;
+        }
+    }
+
+    private void ApplyPrecipitationStep(float deltaTime, float rainfallMultiplier)
     {
         for (int x = 0; x < _map.Width; x++)
         {
@@ -1101,16 +1139,105 @@ public class WeatherSystem
             {
                 var cell = _map.Cells[x, y];
                 var met = cell.GetMeteorology();
+                float landDryness = cell.IsLand ? Math.Clamp((0.35f - cell.Rainfall) / 0.35f, 0f, 1.2f) : 0f;
 
-                // Natural precipitation decay
-                met.Precipitation *= 0.9f;
+                // Allow humid air to condense into light precipitation even without storms
+                float humiditySurplus = Math.Max(0f, cell.Humidity - 0.45f);
+                float cloudSupport = Math.Max(0f, met.CloudCover - 0.3f);
+                float gentleRain = humiditySurplus * cloudSupport * 0.04f * deltaTime * rainfallMultiplier;
+                if (landDryness > 0f)
+                {
+                    gentleRain *= 1f + landDryness * 1.5f;
+                }
+                if (gentleRain > 0)
+                {
+                    met.Precipitation += gentleRain;
+                    cell.Humidity = Math.Max(0f, cell.Humidity - gentleRain * 0.4f);
+                }
+
+                if (cell.IsLand && landDryness > 0.15f)
+                {
+                    float moistureRecycle = Math.Max(0f, cell.Humidity - 0.3f) * landDryness * 0.02f * rainfallMultiplier * deltaTime;
+                    if (moistureRecycle > 0)
+                    {
+                        met.Precipitation += moistureRecycle;
+                        cell.Humidity = Math.Max(0f, cell.Humidity - moistureRecycle * 0.35f);
+                    }
+                }
+
+                // Allow moist sea air to precipitate once it reaches land (prevents coastal deserts)
+                if (cell.IsLand && !cell.IsIce)
+                {
+                    float neighborHumidity = 0f;
+                    int neighborCount = 0;
+                    int coastalNeighbors = 0;
+                    foreach (var (_, _, neighbor) in _map.GetNeighbors(x, y))
+                    {
+                        neighborHumidity += neighbor.Humidity;
+                        neighborCount++;
+                        if (neighbor.IsWater)
+                            coastalNeighbors++;
+                    }
+
+                    float avgNeighborHumidity = neighborCount > 0 ? neighborHumidity / neighborCount : cell.Humidity;
+                    float coastalFeed = coastalNeighbors / 8f;
+                    float orographicLift = Math.Max(0f, cell.Elevation - 0.25f);
+                    float advectedMoisture = Math.Max(0f, (avgNeighborHumidity * 0.6f + cell.Humidity * 0.4f + coastalFeed * 0.8f) - 0.35f);
+                    float inlandRain = advectedMoisture * (0.03f + orographicLift * 0.07f) * rainfallMultiplier * deltaTime;
+                    inlandRain *= 1f + landDryness * 1.8f;
+                    if (inlandRain > 0)
+                    {
+                        met.Precipitation += inlandRain;
+                        cell.Humidity = Math.Max(0f, cell.Humidity - inlandRain * 0.25f);
+                    }
+                }
+
+                // Natural precipitation decay scaled by elapsed time
+                float precipitationDecay = MathF.Exp(-deltaTime * 2.0f);
+                met.Precipitation *= precipitationDecay;
 
                 // Rain from clouds and humidity
-                if (met.CloudCover > 0.7f && cell.Humidity > 0.6f)
+                if (met.CloudCover > 0.4f && cell.Humidity > 0.4f)
                 {
-                    met.Precipitation += 0.1f * met.CloudCover;
-                    cell.Rainfall += met.Precipitation * 0.01f;
+                    float cloudFactor = (met.CloudCover - 0.3f) / 0.7f;
+                    float humidityFactor = (cell.Humidity - 0.3f) / 0.7f;
+                    float rainRate = 0.25f * cloudFactor * humidityFactor * deltaTime * rainfallMultiplier;
+                    // Extra boost for land areas
+                    if (cell.IsLand) { rainRate *= 1.5f; }
+                    met.Precipitation += rainRate;
                 }
+
+                // Apply gentle drying to keep rainfall bounded, tied to local humidity
+                float drynessFactor = 0.5f + (1f - cell.Humidity) * 0.6f;
+                float effectiveDelta = Math.Min(deltaTime, 0.5f); // Cap for high speeds
+                float rainfallDrying = 0.002f * effectiveDelta * drynessFactor; // Reduced from 0.003f
+                if (landDryness > 0f)
+                {
+                    rainfallDrying *= 1f - Math.Min(0.85f, landDryness * 0.7f);
+                }
+                rainfallDrying /= MathF.Max(0.5f, rainfallMultiplier);
+                cell.Rainfall = Math.Max(0f, cell.Rainfall - rainfallDrying);
+
+                // Extremely humid regions slowly recharge soil moisture even without active rain
+                float soilRecharge = Math.Max(0f, cell.Humidity - 0.75f) * 0.006f * deltaTime * rainfallMultiplier;
+                if (soilRecharge > 0)
+                {
+                    cell.Rainfall = Math.Clamp(cell.Rainfall + soilRecharge, 0f, 1f);
+                    cell.Humidity = Math.Max(0f, cell.Humidity - soilRecharge * 0.5f);
+                }
+
+                // Convert active precipitation into the long-term rainfall metric
+                float rainfallGain = met.Precipitation * 0.08f * deltaTime * rainfallMultiplier; // Was 0.025f
+                if (cell.IsLand && cell.Rainfall < 0.3f)
+                {
+                    rainfallGain *= 1.5f; // Extra boost for dry land
+                }
+                if (rainfallGain > 0)
+                {
+                    cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallGain, 0f, 1f);
+                }
+
+                met.Precipitation = Math.Clamp(met.Precipitation, 0f, 5f);
 
                 // Snow instead of rain in freezing temps
                 if (cell.Temperature < 0)
@@ -1125,7 +1252,7 @@ public class WeatherSystem
     private void UpdateEvaporation(float deltaTime)
     {
         // CONTINUOUS WATER EVAPORATION PROCESS
-        // This is critical for the water cycle: evaporation â†’ clouds â†’ rain â†’ runoff â†’ ocean
+        // This is critical for the water cycle: evaporation Ã¢â€ â€™ clouds Ã¢â€ â€™ rain Ã¢â€ â€™ runoff Ã¢â€ â€™ ocean
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -1141,7 +1268,7 @@ public class WeatherSystem
                     // 2. Wind speed (wind carries moisture away)
                     // 3. Low humidity (dry air can hold more moisture)
 
-                    float tempFactor = Math.Clamp((cell.Temperature + 10) / 40f, 0, 2); // Peak at 30°C
+                    float tempFactor = Math.Clamp((cell.Temperature + 10) / 40f, 0, 2); // Peak at 30Â°C
                     float windFactor = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY) * 0.05f;
                     float humidityFactor = (1.0f - cell.Humidity); // More evap when dry
 
@@ -1161,10 +1288,10 @@ public class WeatherSystem
                     cell.Temperature -= evaporationRate * 0.1f;
                 }
                 // Land also evaporates water (from soil moisture, vegetation)
-                else if (cell.IsLand && !cell.IsIce && cell.Rainfall > 0.1f)
+                else if (cell.IsLand && !cell.IsIce)
                 {
                     // Evapotranspiration from plants and soil
-                    float moistureFactor = cell.Rainfall;
+                    float moistureFactor = Math.Max(0.15f, cell.Rainfall); // Always some base moisture
                     float tempFactor = Math.Clamp((cell.Temperature + 5) / 35f, 0, 1.5f);
                     float biomassFactor = cell.Biomass * 0.5f; // Plants increase evapotranspiration
 
@@ -1187,7 +1314,7 @@ public class WeatherSystem
                         float windStrength = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
 
                         // Transport moisture downwind
-                        float moistureTransport = cell.Humidity * windStrength * 0.005f * deltaTime;
+                        float moistureTransport = cell.Humidity * windStrength * 0.02f * deltaTime; // Increased from 0.005f
                         cell.Humidity = Math.Max(0, cell.Humidity - moistureTransport);
                         targetCell.Humidity = Math.Min(1.0f, targetCell.Humidity + moistureTransport);
                     }
@@ -1213,7 +1340,7 @@ public class WeatherSystem
                 // High humidity = cloud formation
                 if (cell.Humidity > 0.6f)
                 {
-                    targetClouds = (cell.Humidity - 0.5f) * 2.0f; // Scale from 0.6-1.0 â†’ 0.2-1.0
+                    targetClouds = (cell.Humidity - 0.5f) * 2.0f; // Scale from 0.6-1.0 Ã¢â€ â€™ 0.2-1.0
                 }
 
                 // Low pressure enhances cloud formation (rising air)
