@@ -298,8 +298,8 @@ public class ClimateSimulator
                 float targetRainfall = (evaporation + orographicEffect) * latitudeEffect;
                 targetRainfall = Math.Clamp(targetRainfall * rainfallMultiplier, 0, 1);
 
-                // Smooth transition
-                cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.05f;
+                // Smooth transition - increased speed from 0.05 to 0.15 for high-speed stability
+                cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.15f;
             }
         }
     }
