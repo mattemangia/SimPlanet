@@ -26,7 +26,7 @@ public class HydrologySimulator
         UpdateSoilMoisture();
         UpdateWaterFlow();
         UpdateRiverFreezing(); // Check for frozen rivers
-        FormRivers();
+        FormRivers(deltaTime);
         UpdateSalinity(deltaTime);
         UpdateWaterDensity();
         UpdateOceanCurrents();
@@ -181,7 +181,7 @@ public class HydrologySimulator
         }
     }
 
-    private void FormRivers()
+    private void FormRivers(float deltaTime)
     {
         // Form rivers in areas with high water accumulation
         for (int x = 0; x < _map.Width; x++)
@@ -202,7 +202,7 @@ public class HydrologySimulator
                     // Calculate accumulated flow from upstream
                     float accumulatedFlow = CalculateAccumulatedFlow(x, y);
 
-                    if (accumulatedFlow > 0.5f && _random.NextDouble() < 0.001)
+                    if (accumulatedFlow > 0.5f && _random.NextDouble() < 0.001 * deltaTime)
                     {
                         CreateRiver(x, y);
                     }
