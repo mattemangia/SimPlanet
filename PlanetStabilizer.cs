@@ -116,14 +116,11 @@ public class PlanetStabilizer
 
         if (_adjustmentTimer >= effectiveInterval)
         {
-            int adjustmentsNeeded = (int)(_adjustmentTimer / effectiveInterval);
-            // Cap adjustments to prevent lag spikes
-            adjustmentsNeeded = Math.Min(adjustmentsNeeded, 5);
-            _adjustmentTimer = 0; // Reset instead of subtract to prevent debt loop
-
-            for (int i = 0; i < adjustmentsNeeded; i++)
+            // Use a while loop to catch up on missed adjustments at high speed
+            while (_adjustmentTimer >= effectiveInterval)
             {
                 PerformStabilization();
+                _adjustmentTimer -= effectiveInterval;
             }
         }
     }
@@ -132,8 +129,8 @@ public class PlanetStabilizer
     {
         // More aggressive scaling with time speed to keep up
         float clampedSpeed = Math.Clamp(timeSpeed, 0.25f, 128f);
-        float multiplier = MathF.Pow(clampedSpeed, 1.1f); 
-        return Math.Clamp(multiplier, 1.0f, 50f);
+        float multiplier = MathF.Pow(clampedSpeed, 1.5f);
+        return Math.Clamp(multiplier, 1.0f, 100f);
     }
 
     private void PerformStabilization()
@@ -669,52 +666,23 @@ public class PlanetStabilizer
         var controls = _map.PlanetaryControls;
         if (controls == null) return;
 
-        float targetComfortRainfall = 0.35f; // Was 0.32f - higher target
-        float floodThreshold = 0.65f; // Was 0.48f - allow more rain
-        float oceanRainfall = CalculateAverageOceanRainfall();
-        float landOceanGap = Math.Max(0f, oceanRainfall - avgLandRainfall);
-        float droughtSeverity = Math.Clamp((targetComfortRainfall - avgLandRainfall) / 0.22f, 0f, 1f);
-        float oceanBias = Math.Clamp(landOceanGap / 0.25f, 0f, 1f);
-        float timeAcceleration = Math.Clamp((_currentTimeSpeed - 1f) / 16f, 0f, 1f);
-
+        float droughtThreshold = 0.25f; // Slightly higher threshold
+        float floodThreshold = 0.7f;
         float responseScale = MathF.Sqrt(MathF.Max(1f, _responseMultiplier));
 
-        float fastTimeBias = Math.Clamp((_currentTimeSpeed - 4f) / 28f, 0f, 1f);
-        if (fastTimeBias > 0f && avgLandRainfall < floodThreshold)
+        if (avgLandRainfall < droughtThreshold)
         {
-            float safetyFloor = Math.Clamp(0.9f + fastTimeBias * 0.9f, 0.25f, 3f);
-            if (controls.RainfallMultiplier < safetyFloor)
-            {
-                controls.RainfallMultiplier = safetyFloor;
-                LastAction = $"Holding rainfall multiplier at {controls.RainfallMultiplier:F2} for fast-time stability";
-                AdjustmentsMade++;
-            }
-        }
-
-        if (avgLandRainfall < targetComfortRainfall)
-        {
-            float urgency = droughtSeverity * 0.65f + oceanBias * 0.35f;
-            float adjustment = (0.06f + 0.25f * urgency) * (1f + timeAcceleration); // Increased rates
-            adjustment *= responseScale;
+            float adjustment = 0.2f * responseScale; // More aggressive adjustment
             controls.RainfallMultiplier = Math.Clamp(controls.RainfallMultiplier + adjustment, 0.25f, 3f);
-            LastAction = $"Boosting rainfall multiplier to {controls.RainfallMultiplier:F2}";
+            LastAction = $"Boosting rainfall to prevent drought ({controls.RainfallMultiplier:F2})";
             AdjustmentsMade++;
         }
         else if (avgLandRainfall > floodThreshold)
         {
-            float floodSeverity = Math.Clamp((avgLandRainfall - floodThreshold) / 0.2f, 0f, 1f);
-            float adjustment = (0.02f + 0.12f * floodSeverity) * responseScale;
+            float adjustment = 0.2f * responseScale; // More aggressive adjustment
             controls.RainfallMultiplier = Math.Clamp(controls.RainfallMultiplier - adjustment, 0.1f, 3f);
-            LastAction = $"Trimming rainfall multiplier to {controls.RainfallMultiplier:F2}";
+            LastAction = $"Reducing rainfall to prevent floods ({controls.RainfallMultiplier:F2})";
             AdjustmentsMade++;
-        }
-        else
-        {
-            float drift = (controls.RainfallMultiplier - 1f) * 0.04f * responseScale;
-            if (Math.Abs(drift) > 0.005f)
-            {
-                controls.RainfallMultiplier = Math.Clamp(controls.RainfallMultiplier - drift, 0.1f, 3f);
-            }
         }
     }
 
