@@ -279,57 +279,35 @@ public class TerrainRenderer
 
     private Color GetTemperatureColor(TerrainCell cell)
     {
-        // Map temperature to color gradient
-        // Blue (cold) -> Green (moderate) -> Red (hot)
+        // Use a more visually appealing and informative color gradient
         float temp = cell.Temperature;
-        float normalized = Math.Clamp((temp + 30) / 80.0f, 0, 1); // -30 to 50
-
-        if (normalized < 0.5f)
-        {
-            // Blue to cyan to green
-            return Color.Lerp(new Color(0, 0, 255), new Color(0, 255, 0), normalized * 2);
-        }
-        else
-        {
-            // Green to yellow to red
-            return Color.Lerp(new Color(0, 255, 0), new Color(255, 0, 0), (normalized - 0.5f) * 2);
-        }
+        if (temp < -30) return new Color(150, 150, 255); // Deep Blue/Purple for extreme cold
+        if (temp < -10) return Color.Lerp(new Color(150, 150, 255), Color.Cyan, (temp + 30) / 20f);
+        if (temp < 0) return Color.Lerp(Color.Cyan, Color.LightBlue, (temp + 10) / 10f);
+        if (temp < 10) return Color.Lerp(Color.LightBlue, Color.LightGreen, temp / 10f);
+        if (temp < 20) return Color.Lerp(Color.LightGreen, Color.Yellow, (temp - 10) / 10f);
+        if (temp < 30) return Color.Lerp(Color.Yellow, Color.Orange, (temp - 20) / 10f);
+        if (temp < 40) return Color.Lerp(Color.Orange, Color.Red, (temp - 30) / 10f);
+        return new Color(255, 50, 50); // Bright Red for extreme heat
     }
 
     private Color GetRainfallColor(TerrainCell cell)
     {
-        // Brown (dry) to Blue (wet)
+        // Use a more intuitive color gradient
         float rainfall = cell.Rainfall;
-        return Color.Lerp(new Color(139, 90, 43), new Color(0, 100, 200), rainfall);
+        if (rainfall < 0.1f) return Color.Lerp(Color.SandyBrown, Color.LightGreen, rainfall / 0.1f);
+        if (rainfall < 0.5f) return Color.Lerp(Color.LightGreen, Color.Green, (rainfall - 0.1f) / 0.4f);
+        if (rainfall < 0.8f) return Color.Lerp(Color.Green, Color.Blue, (rainfall - 0.5f) / 0.3f);
+        return Color.DarkBlue;
     }
 
     private Color GetLifeColor(TerrainCell cell)
     {
         if (cell.LifeType == LifeForm.None)
-            return Color.Black;
+            return new Color(139, 69, 19); // Barren brown
 
-        Color lifeColor = cell.LifeType switch
-        {
-            LifeForm.Bacteria => new Color(100, 100, 50),
-            LifeForm.Algae => new Color(50, 150, 100),
-            LifeForm.PlantLife => new Color(60, 200, 60),
-            LifeForm.SimpleAnimals => new Color(150, 150, 50),
-            LifeForm.Fish => new Color(100, 120, 200),
-            LifeForm.Amphibians => new Color(120, 160, 80),
-            LifeForm.Reptiles => new Color(140, 140, 60),
-            LifeForm.Dinosaurs => new Color(200, 100, 50),       // Bright red-orange for dinosaurs
-            LifeForm.MarineDinosaurs => new Color(120, 120, 220),
-            LifeForm.Pterosaurs => new Color(180, 160, 120),
-            LifeForm.Mammals => new Color(180, 140, 110),
-            LifeForm.Birds => new Color(170, 200, 170),
-            LifeForm.ComplexAnimals => new Color(200, 150, 60),
-            LifeForm.Intelligence => new Color(250, 200, 100),
-            LifeForm.Civilization => new Color(255, 255, 100),
-            _ => Color.Gray
-        };
-
-        // Modulate by biomass
-        return Color.Lerp(Color.Black, lifeColor, cell.Biomass);
+        // Use a gradient from brown to green based on biomass
+        return Color.Lerp(new Color(139, 69, 19), new Color(0, 100, 0), cell.Biomass);
     }
 
     private Color GetOxygenColor(TerrainCell cell)
@@ -1010,14 +988,14 @@ public class TerrainRenderer
         if (Mode == RenderMode.Terrain)
             return;
 
-        int legendWidth = 220;
+        int legendWidth = 250; // Increased width for better spacing
         bool isGeologicalLegend = Mode == RenderMode.Geological;
         var discreteEntries = GetDiscreteLegendEntries();
         int legendHeight = isGeologicalLegend
             ? 200
             : (discreteEntries != null && discreteEntries.Count > 0)
                 ? Math.Min(320, 60 + discreteEntries.Count * 22)
-                : 180;
+                : 200; // Increased height for more labels
         // Position legend in bottom-right corner (empty space)
         int legendX = screenWidth - legendWidth - 10;
         int legendY = screenHeight - legendHeight - 10;
@@ -1025,14 +1003,14 @@ public class TerrainRenderer
         // Background
         spriteBatch.Draw(_pixelTexture,
             new Rectangle(legendX, legendY, legendWidth, legendHeight),
-            new Color(0, 0, 0, 200));
+            new Color(0, 0, 0, 220)); // Darker background
 
         // Border
-        DrawBorder(spriteBatch, legendX, legendY, legendWidth, legendHeight, Color.White, 2);
+        DrawBorder(spriteBatch, legendX, legendY, legendWidth, legendHeight, Color.Gray, 1);
 
         // Title
         string title = GetLegendTitle();
-        font.DrawString(spriteBatch, title, new Vector2(legendX + 10, legendY + 10), Color.Yellow, 14);
+        font.DrawString(spriteBatch, title, new Vector2(legendX + 10, legendY + 10), Color.White, 16);
 
         if (isGeologicalLegend)
         {
@@ -1048,32 +1026,24 @@ public class TerrainRenderer
 
         // Draw color gradient and labels
         int gradientX = legendX + 15;
-        int gradientY = legendY + 35;
+        int gradientY = legendY + 45;
         int gradientWidth = legendWidth - 30;
-        int gradientHeight = 20;
+        int gradientHeight = 25; // Thicker gradient bar
 
         DrawGradientBar(spriteBatch, gradientX, gradientY, gradientWidth, gradientHeight);
 
-        // Labels below gradient
+        // Labels with more detail
         var labels = GetLegendLabels();
-        int labelY = gradientY + gradientHeight + 5;
+        int labelY = gradientY + gradientHeight + 10;
 
-        if (labels.Count == 2)
+        if (labels.Count >= 2)
         {
-            // Min and Max labels
-            font.DrawString(spriteBatch, labels[0], new Vector2(gradientX, labelY), Color.White, 11);
-            var maxSize = font.MeasureString(labels[1], 11);
-            font.DrawString(spriteBatch, labels[1], new Vector2(gradientX + gradientWidth - maxSize.X, labelY), Color.White, 11);
-        }
-        else if (labels.Count > 2)
-        {
-            // Category labels
-            int currentY = labelY;
-            foreach (var label in labels)
-            {
-                font.DrawString(spriteBatch, label, new Vector2(gradientX, currentY), Color.White, 10);
-                currentY += 15;
-            }
+            // Min, Max, and Mid labels for continuous data
+            font.DrawString(spriteBatch, labels[0], new Vector2(gradientX, labelY), Color.White, 12);
+            var midLabelSize = font.MeasureString(labels[1], 12);
+            font.DrawString(spriteBatch, labels[1], new Vector2(gradientX + (gradientWidth - midLabelSize.X) / 2, labelY), Color.White, 12);
+            var maxSize = font.MeasureString(labels[2], 12);
+            font.DrawString(spriteBatch, labels[2], new Vector2(gradientX + gradientWidth - maxSize.X, labelY), Color.White, 12);
         }
     }
 
@@ -1160,25 +1130,25 @@ public class TerrainRenderer
     {
         return Mode switch
         {
-            RenderMode.Temperature => new List<string> { "-50°C (Cold)", "50°C (Hot)" },
-            RenderMode.Rainfall => new List<string> { "0% (Arid)", "100% (Wet)" },
-            RenderMode.Life => new List<string> { "None", "Bacteria", "Plants", "Animals", "Intelligence" },
-            RenderMode.Oxygen => new List<string> { "0%", "25%" },
-            RenderMode.CO2 => new List<string> { "0%", "10%" },
-            RenderMode.Elevation => new List<string> { "- 1.0 (Ocean)", "1.0 (Mountain)" },
+            RenderMode.Temperature => new List<string> { "-50°C", "0°C", "50°C" },
+            RenderMode.Rainfall => new List<string> { "Arid", "Moderate", "Wet" },
+            RenderMode.Life => new List<string> { "None", "Plants", "Animals" },
+            RenderMode.Oxygen => new List<string> { "0%", "15%", "30%" },
+            RenderMode.CO2 => new List<string> { "0%", "5%", "10%" },
+            RenderMode.Elevation => new List<string> { "Ocean Floor", "Sea Level", "Mountain" },
             RenderMode.Geological => new List<string> { "Volcanic", "Sedimentary", "Crystalline" },
-            RenderMode.TectonicPlates => new List<string> { "8 Tectonic Plates", "Boundaries Highlighted" },
-            RenderMode.Volcanoes => new List<string> { "Inactive", "Active", "Erupting" },
-            RenderMode.Clouds => new List<string> { "Clear", "Cloudy" },
-            RenderMode.Wind => new List<string> { "Calm", "Extreme" },
-            RenderMode.Pressure => new List<string> { "Low", "High" },
-            RenderMode.Storms => new List<string> { "Clear", "Severe" },
-            RenderMode.Biomes => new List<string> { "Ocean", "Desert", "Forest", "Ice", "Mountain" },
-            RenderMode.Resources => new List<string> { "Coal", "Iron", "Oil", "Uranium", "Rare" },
-            RenderMode.Albedo => new List<string> { "0% (Dark/Absorbs)", "85% (Bright/Reflects)" },
-            RenderMode.Radiation => new List<string> { "0 (Safe)", "5+ (Deadly)" },
-            RenderMode.Infrastructure => new List<string> { "Roads", "Nuclear Plants", "Wind Turbines", "Solar Farms", "Tunnels" },
-            RenderMode.SpectralBands => new List<string> { "-200 W/m² (Cooling)", "+400 W/m² (Heating)" },
+            RenderMode.TectonicPlates => new List<string> { "Plate 1", "Plate 4", "Plate 8" },
+            RenderMode.Volcanoes => new List<string> { "Dormant", "Active", "Erupting" },
+            RenderMode.Clouds => new List<string> { "Clear", "Partly Cloudy", "Overcast" },
+            RenderMode.Wind => new List<string> { "Calm", "Breezy", "Gale Force" },
+            RenderMode.Pressure => new List<string> { "Low", "Normal", "High" },
+            RenderMode.Storms => new List<string> { "Clear", "Rain", "Severe Storm" },
+            RenderMode.Biomes => new List<string> { "Desert", "Grassland", "Forest" },
+            RenderMode.Resources => new List<string> { "Few", "Moderate", "Abundant" },
+            RenderMode.Albedo => new List<string> { "Absorptive", "Neutral", "Reflective" },
+            RenderMode.Radiation => new List<string> { "Safe", "Warning", "Deadly" },
+            RenderMode.Infrastructure => new List<string> { "Roads", "Energy", "Hubs" },
+            RenderMode.SpectralBands => new List<string> { "Cooling", "Balanced", "Heating" },
             _ => new List<string>()
         };
     }

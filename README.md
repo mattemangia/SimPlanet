@@ -317,6 +317,11 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Fast Forward**: Skip 10,000 years in a single click with a progress bar.
 - **3D Minimap**: Interactive rotating sphere with accurate spherical projection, realistic ice caps, and manual rotation/tilt controls (SimEarth-style!)
 
+### New Features
+- **Graphing System**: Press 'Y' to view graphs of key planetary metrics over time, including temperature, oxygen, CO2, population, and biomass.
+- **Life Painter**: Press 'L' to open the life painter tool. Left-click to paint the selected life form onto the planet, right-click to cycle through life forms, and use the scroll wheel to adjust the brush size.
+- **Terraforming Tool**: Press 'T' to open the terraforming tool. Left-click to raise or lower the terrain, right-click to toggle between raising and lowering, and use the scroll wheel to adjust the brush size.
+
 ### Visualization Modes
 **Standard Views (1-0 keys):**
 1. **Terrain**: See the planet surface (oceans, land, forests, deserts, mountains) with day/night cycle and city lights
@@ -457,10 +462,11 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **U** | Tsunamis view (geological hazards) |
 | **+/-** | Increase/Decrease time speed |
 | **C** | Toggle day/night cycle (auto-enabled at <0.5x speed) |
-| **L** | Seed new life forms |
+| **L** | Toggle Life Painter |
 | **M** | Toggle resource placement tool (R to cycle) |
-| **T** | Toggle manual terraforming tool |
-| **Y** | Toggle auto-stabilization system |
+| **T** | Toggle Terraforming Tool |
+| **Y** | Toggle Graphs |
+| **F11** | Toggle auto-stabilization system |
 | **P** | Toggle 3D rotating minimap |
 | **V** | Toggle volcano overlay |
 | **B** | Toggle river overlay |

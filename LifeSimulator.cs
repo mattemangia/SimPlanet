@@ -452,6 +452,22 @@ public class LifeSimulator
                     evolvedBiomass = 0.4f;
                 }
                 break;
+
+            case LifeForm.SimpleAnimals:
+                if (cell.Oxygen > 15)
+                {
+                    evolvedLifeType = LifeForm.ComplexAnimals;
+                    evolvedBiomass = 0.3f;
+                }
+                break;
+
+            case LifeForm.ComplexAnimals:
+                if (cell.Oxygen > 18)
+                {
+                    evolvedLifeType = LifeForm.Intelligence;
+                    evolvedBiomass = 0.2f;
+                }
+                break;
         }
     }
 

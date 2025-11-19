@@ -114,14 +114,15 @@ namespace SimPlanet
             x += categorySpacing;
 
             // Game Features
-            AddButton(ref x, y, "L", "Seed Life (L)", "Feature", () => game.SeedLife());
+            AddButton(ref x, y, "L", "Life Painter (L)", "Feature", () => game.ToggleLifePainter());
             AddButton(ref x, y, "G", "Civilization (G)", "Feature", () => game.ToggleCivilization());
             AddButton(ref x, y, "I", "Divine Powers (I)", "Feature", () => game.ToggleDivinePowers());
             AddButton(ref x, y, "D", "Disasters (D)", "Feature", () => game.ToggleDisasters());
             AddButton(ref x, y, "K", "Diseases (K)", "Feature", () => game.ToggleDiseases());
-            AddButton(ref x, y, "T", "Plant Tool (T)", "Feature", () => game.TogglePlantTool());
-            AddButton(ref x, y, "Y", "Stabilizer (Y)", "Feature", () => game.ToggleStabilizer());
+            AddButton(ref x, y, "T", "Terraforming Tool (T)", "Feature", () => game.ToggleTerraformingTool());
+            AddButton(ref x, y, "Y", "Graphs (Y)", "Feature", () => game.ToggleGraphs());
             AddButton(ref x, y, "X", "Planet Controls (X)", "Feature", () => game.TogglePlanetControls());
+            AddButton(ref x, y, "F11", "Stabilizer (F11)", "Feature", () => game.ToggleStabilizer());
 
             // Generate icons for all buttons
             foreach (var button in buttons)

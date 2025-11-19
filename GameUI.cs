@@ -415,9 +415,11 @@ public class GameUI
         rightY += lineHeight + 3;
         DrawTextAt("D: Disaster controls", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("K: Pandemic controls", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("T: Terraforming", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("T: Terraforming Tool", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("L: Life Painter", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("M: Resource placement", Color.Orange, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("Y: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("Y: Graphs", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("F11: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
 
         // Footer
         int footerY = panelY + panelHeight - 25;

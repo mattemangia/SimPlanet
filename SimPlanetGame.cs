@@ -72,6 +72,9 @@ public class SimPlanetGame : Game
     private AboutDialog _aboutDialog;
     private FontRenderer _font;
     private LoadingScreen _loadingScreen;
+    private Graphs _graphs;
+    private LifePainterUI _lifePainterUI;
+    private TerraformingTool _terraformingTool;
 
     // Game state
     private GameState _gameState;
@@ -331,6 +334,15 @@ public class SimPlanetGame : Game
 
         // Create loading screen
         _loadingScreen = new LoadingScreen(_spriteBatch, _font, GraphicsDevice);
+
+        // Create graphs
+        _graphs = new Graphs(GraphicsDevice, _font, _map, _civilizationManager);
+
+        // Create life painter UI
+        _lifePainterUI = new LifePainterUI(GraphicsDevice, _font, _map, _lifeSimulator);
+
+        // Create terraforming tool
+        _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
     }
 
     protected override void Update(GameTime gameTime)
@@ -518,6 +530,12 @@ public class SimPlanetGame : Game
             
             _planetaryControlsUI.Update(Mouse.GetState());
 
+            _graphs.Update(realDeltaTime);
+
+            _lifePainterUI.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+
+            _terraformingTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
             if (_terrainRenderer.DayNightTime >= 24.0f)
@@ -681,36 +699,10 @@ public class SimPlanetGame : Game
             _terrainRenderer.ShowDayNight = !_terrainRenderer.ShowDayNight;
         }
 
-        // Seed life (Shift+L cycles through life forms, L seeds selected form)
+        // Toggle life painter (L key)
         if (keyState.IsKeyDown(Keys.L) && _previousKeyState.IsKeyUp(Keys.L))
         {
-            if (keyState.IsKeyDown(Keys.LeftShift) || keyState.IsKeyDown(Keys.RightShift))
-            {
-                // Cycle through life forms
-                _selectedLifeFormForSeeding = _selectedLifeFormForSeeding switch
-                {
-                    LifeForm.Bacteria => LifeForm.Algae,
-                    LifeForm.Algae => LifeForm.PlantLife,
-                    LifeForm.PlantLife => LifeForm.SimpleAnimals,
-                    LifeForm.SimpleAnimals => LifeForm.ComplexAnimals,
-                    LifeForm.ComplexAnimals => LifeForm.Dinosaurs,
-                    LifeForm.Dinosaurs => LifeForm.Mammals,
-                    LifeForm.Mammals => LifeForm.Intelligence,
-                    LifeForm.Intelligence => LifeForm.Bacteria,
-                    _ => LifeForm.Bacteria
-                };
-            }
-            else
-            {
-                // Seed the selected life form
-                lock (_mapDataLock)
-                {
-                    _lifeSimulator.SeedSpecificLife(_selectedLifeFormForSeeding);
-                    // Activate grace period to ensure survival
-                    _lifeSimulator.ActivatePlantingGracePeriod();
-                    _planetStabilizer.ActivateEmergencyLifeProtection();
-                }
-            }
+            _lifePainterUI.IsVisible = !_lifePainterUI.IsVisible;
         }
 
         // Regenerate planet
@@ -786,14 +778,20 @@ public class SimPlanetGame : Game
             _diseaseControlUI.IsVisible = !_diseaseControlUI.IsVisible;
         }
 
-        // Toggle manual planting tool (T key)
+        // Toggle terraforming tool (T key)
         if (keyState.IsKeyDown(Keys.T) && _previousKeyState.IsKeyUp(Keys.T))
         {
-            _plantingTool.IsActive = !_plantingTool.IsActive;
+            _terraformingTool.IsVisible = !_terraformingTool.IsVisible;
         }
 
-        // Toggle planet stabilizer (Y key)
+        // Toggle graphs (Y key)
         if (keyState.IsKeyDown(Keys.Y) && _previousKeyState.IsKeyUp(Keys.Y))
+        {
+            _graphs.IsVisible = !_graphs.IsVisible;
+        }
+
+        // Toggle planet stabilizer (F11 key)
+        if (keyState.IsKeyDown(Keys.F11) && _previousKeyState.IsKeyUp(Keys.F11))
         {
             _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
         }
@@ -1314,6 +1312,15 @@ public class SimPlanetGame : Game
         // Draw about dialog (if visible) - on top of everything, regardless of game state
         _aboutDialog.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
+        // Draw graphs
+        _graphs.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw life painter UI
+        _lifePainterUI.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw terraforming tool UI
+        _terraformingTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
         _spriteBatch.End();
 
         base.Draw(gameTime);
@@ -1682,6 +1689,21 @@ public class SimPlanetGame : Game
     public void ToggleStabilizer()
     {
         _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
+    }
+
+    public void ToggleGraphs()
+    {
+        _graphs.IsVisible = !_graphs.IsVisible;
+    }
+
+    public void ToggleLifePainter()
+    {
+        _lifePainterUI.IsVisible = !_lifePainterUI.IsVisible;
+    }
+
+    public void ToggleTerraformingTool()
+    {
+        _terraformingTool.IsVisible = !_terraformingTool.IsVisible;
     }
 
     public void TogglePlanetControls()
