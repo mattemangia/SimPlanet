@@ -109,7 +109,18 @@ public class HydrologySimulator
                 cellsByElevation.Add(_map.Cells[x, y]);
             }
         }
-        cellsByElevation.Sort((a, b) => b.Elevation.CompareTo(a.Elevation));
+
+        // Sort using cell coordinates as a secondary key to ensure stable sorting
+        cellsByElevation.Sort((a, b) =>
+        {
+            int elevationComparison = b.Elevation.CompareTo(a.Elevation);
+            if (elevationComparison != 0) return elevationComparison;
+
+            int xComparison = a.X.CompareTo(b.X);
+            if (xComparison != 0) return xComparison;
+
+            return a.Y.CompareTo(b.Y);
+        });
 
         Array.Clear(_accumulatedFlowMap, 0, _accumulatedFlowMap.Length);
 
