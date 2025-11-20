@@ -273,7 +273,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Adjustable deposit amounts (5-100 units)
   - Scroll wheel adjusts amount, R key cycles resource type
   - Resources auto-discovered and ready for civilization extraction
-- **Auto-Stabilization System** (Press Y):
+- **Auto-Stabilization System** (Press \):
   - **ENABLED BY DEFAULT** to prevent runaway climate disasters and life extinction
   - Automatically maintains Earth-like habitable conditions
   - Monitors and adjusts: temperature (target 15°C), oxygen (21%), CO2 (0.04%)
@@ -288,7 +288,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
     - EMERGENCY MODE: Major biomass boost when life drops below 500 cells
   - Shows real-time status: adjustments made, last action
   - Perfect for hands-off planetary management while nurturing life evolution
-  - Press Y to toggle on/off during gameplay
+  - Press \ to toggle on/off during gameplay
 - **Planetary Controls UI** (Press X) - SimEarth-style Parameter Control:
   - **Complete Manual Control** - Adjust every planetary parameter in real-time
   - **15 Control Sliders**:
@@ -466,7 +466,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **M** | Toggle resource placement tool (R to cycle) |
 | **T** | Toggle Terraforming Tool |
 | **Y** | Toggle Graphs |
-| **Ctrl+Y** | Toggle auto-stabilization system |
+| **\** | Toggle auto-stabilization system |
 | **P** | Toggle 3D rotating minimap |
 | **V** | Toggle volcano overlay |
 | **B** | Toggle river overlay |

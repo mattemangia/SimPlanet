@@ -797,14 +797,13 @@ public class SimPlanetGame : Game
         }
 
         // Toggle graphs (Y key)
-        if (keyState.IsKeyDown(Keys.Y) && _previousKeyState.IsKeyUp(Keys.Y) &&
-            !keyState.IsKeyDown(Keys.LeftControl) && !keyState.IsKeyDown(Keys.RightControl))
+        if (keyState.IsKeyDown(Keys.Y) && _previousKeyState.IsKeyUp(Keys.Y))
         {
             _graphs.IsVisible = !_graphs.IsVisible;
         }
 
-        // Toggle planet stabilizer (Ctrl+Y)
-        if (keyState.IsKeyDown(Keys.Y) && (keyState.IsKeyDown(Keys.LeftControl) || keyState.IsKeyDown(Keys.RightControl)) && !(_previousKeyState.IsKeyDown(Keys.LeftControl) || _previousKeyState.IsKeyDown(Keys.RightControl)))
+        // Toggle planet stabilizer (Backslash key)
+        if (keyState.IsKeyDown(Keys.OemBackslash) && _previousKeyState.IsKeyUp(Keys.OemBackslash))
         {
             _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
         }

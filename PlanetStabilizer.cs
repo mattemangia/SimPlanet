@@ -217,7 +217,7 @@ public class PlanetStabilizer
             if (avgCO2 < _maxCO2 * 1.5f) // Allow overshoot to correct temp
             {
                 AdjustCO2Globally(0.05f); 
-                LastAction = $"Adding CO2 to warm planet (avg: {avgTemp:F1}Â°C)";
+                LastAction = $"Adding CO2 to warm planet (avg: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             
@@ -225,7 +225,7 @@ public class PlanetStabilizer
             if (_map.SolarEnergy < 1.5f)
             {
                 _map.SolarEnergy += 0.01f * _responseMultiplier;
-                LastAction = $"Increasing solar energy (avg: {avgTemp:F1}Â°C)";
+                LastAction = $"Increasing solar energy (avg: {avgTemp:F1}°C)";
             }
         }
         // Too hot - cool down
@@ -239,19 +239,19 @@ public class PlanetStabilizer
             if (avgN2O > 0.1f)
             {
                 ReduceN2OGlobally(0.5f); 
-                LastAction = $"Removing N2O to cool planet (avg: {avgTemp:F1}Â°C)";
+                LastAction = $"Removing N2O to cool planet (avg: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             else if (avgMethane > 0.2f)
             {
                 ReduceMethaneGlobally(0.5f); 
-                LastAction = $"Removing methane to cool planet (avg: {avgTemp:F1}Â°C)";
+                LastAction = $"Removing methane to cool planet (avg: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             else if (avgCO2 > 0.1f)
             {
                 AdjustCO2Globally(-0.2f);
-                LastAction = $"Removing CO2 to cool planet (avg: {avgTemp:F1}Â°C)";
+                LastAction = $"Removing CO2 to cool planet (avg: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             
@@ -259,7 +259,7 @@ public class PlanetStabilizer
             if (_map.SolarEnergy > 0.6f)
             {
                 _map.SolarEnergy -= 0.01f * _responseMultiplier;
-                LastAction = $"Decreasing solar energy (avg: {avgTemp:F1}Â°C)";
+                LastAction = $"Decreasing solar energy (avg: {avgTemp:F1}°C)";
             }
         }
 
