@@ -280,11 +280,11 @@ public class GameUI
                 DrawText("[ACTIVE] Maintaining equilibrium", Color.LightGreen);
                 DrawText($"Adjustments: {_planetStabilizer.AdjustmentsMade}", Color.White);
                 DrawText($"Last: {_planetStabilizer.LastAction}", Color.Gray);
-                DrawText("Press Y to disable", Color.DarkGray);
+                DrawText("Press \\ to disable", Color.DarkGray);
             }
             else
             {
-                DrawText("Auto-Stabilizer: OFF (Press Y)", Color.DarkGray);
+                DrawText("Auto-Stabilizer: OFF (Press \\)", Color.DarkGray);
             }
             textY += 5;
         }
@@ -419,7 +419,7 @@ public class GameUI
         DrawTextAt("L: Life Painter", Color.White, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("M: Resource placement", Color.Orange, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Y: Graphs", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("Ctrl+Y: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("\\: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
 
         // Footer
         int footerY = panelY + panelHeight - 25;
