@@ -88,7 +88,7 @@ public class LifePainterUI
         int panelWidth = (int)textSize.X + 20;
         int panelHeight = 40;
         int xPos = (screenWidth - panelWidth) / 2;
-        int yPos = screenHeight - panelHeight - 10;
+        int yPos = screenHeight - panelHeight - 75; // Moved up to avoid bottom button bar
 
         // Background
         spriteBatch.Draw(_pixelTexture, new Rectangle(xPos, yPos, panelWidth, panelHeight), new Color(0, 0, 0, 200));

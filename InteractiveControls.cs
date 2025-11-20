@@ -38,33 +38,41 @@ public class InteractiveControls
     {
         _buttons = new List<Button>();
 
-        // Terraforming button - restore planet to habitable state (smaller, positioned to avoid legend overlap)
+        // Position buttons at the top right or higher up to avoid bottom bar overlap
+        int startX = _graphicsDevice.Viewport.Width - 160;
+        int startY = 100;
+        int spacing = 40;
+
+        // Terraforming button - restore planet to habitable state
         _buttons.Add(new Button(
-            new Rectangle(220, 680, 140, 30),
+            new Rectangle(startX, startY, 140, 30),
             "Terraform",
             Color.Green,
             () => ActivateTerraforming()
         ));
+        startY += spacing;
 
         // Cool Planet button - reduce global temperature
         _buttons.Add(new Button(
-            new Rectangle(370, 680, 120, 30),
+            new Rectangle(startX, startY, 140, 30),
             "Cool Planet",
             Color.LightBlue,
             () => CoolPlanet()
         ));
+        startY += spacing;
 
         // Seed Life button - add bacteria to suitable areas
         _buttons.Add(new Button(
-            new Rectangle(500, 680, 110, 30),
+            new Rectangle(startX, startY, 140, 30),
             "Seed Life",
             Color.LightGreen,
             () => SeedLife()
         ));
+        startY += spacing;
 
         // Clear Pollution button - reduce CO2
         _buttons.Add(new Button(
-            new Rectangle(620, 680, 130, 30),
+            new Rectangle(startX, startY, 140, 30),
             "Clear CO2",
             Color.Cyan,
             () => ClearPollution()
@@ -245,10 +253,12 @@ public class InteractiveControls
         // Draw terraforming progress
         if (TerraformingActive)
         {
-            int progressX = 10;
-            int progressY = 650;
-            int progressWidth = 780;
+            int screenHeight = _graphicsDevice.Viewport.Height;
+            int screenWidth = _graphicsDevice.Viewport.Width;
+            int progressWidth = 600;
             int progressHeight = 30;
+            int progressX = (screenWidth - progressWidth) / 2;
+            int progressY = screenHeight - 125; // Positioned well above bottom bar
 
             // Background
             spriteBatch.Draw(_pixelTexture,
