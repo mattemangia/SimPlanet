@@ -225,7 +225,7 @@ public class SedimentColumnViewer
             new Vector2(panelX + 10, textY), Color.White);
         textY += lineHeight;
 
-        _font.DrawString(spriteBatch, $"Temperature: {cell.Temperature:F1}°C",
+        _font.DrawString(spriteBatch, $"Temperature: {cell.Temperature:F1} C",
             new Vector2(panelX + 10, textY), GetTempColor(cell.Temperature));
         textY += lineHeight;
 
@@ -408,7 +408,7 @@ public class SedimentColumnViewer
             DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, iceLayerHeight + 4, Color.White, 2);
 
             // Draw "Surface" label at top
-            _font.DrawString(spriteBatch, "← SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
+            _font.DrawString(spriteBatch, "<- SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
 
             Color iceColor = new Color(200, 230, 255);
 
@@ -431,7 +431,7 @@ public class SedimentColumnViewer
 
             // Draw "Bedrock" label at bottom
             int bottomY = columnStartY + iceLayerHeight;
-            _font.DrawString(spriteBatch, "← BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
+            _font.DrawString(spriteBatch, "<- BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
 
             // Draw legend
             int legendX = columnX + columnWidth + 90;
@@ -474,7 +474,7 @@ public class SedimentColumnViewer
             DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, totalColumnHeight + 4, Color.White, 2);
 
             // Draw "Surface" label at top
-            _font.DrawString(spriteBatch, "← SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
+            _font.DrawString(spriteBatch, "<- SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
 
             int currentY = columnStartY;
 
@@ -539,7 +539,7 @@ public class SedimentColumnViewer
 
             // Draw "Bedrock" label at bottom
             int bottomY = columnStartY + totalColumnHeight;
-            _font.DrawString(spriteBatch, "← BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
+            _font.DrawString(spriteBatch, "<- BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
 
             // Update textY for legend
             textY = columnStartY;

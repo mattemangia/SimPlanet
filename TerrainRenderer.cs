@@ -1107,7 +1107,7 @@ public class TerrainRenderer
     {
         return Mode switch
         {
-            RenderMode.Temperature => new List<string> { "-50°C", "0°C", "50°C" },
+            RenderMode.Temperature => new List<string> { "-50 C", "0 C", "50 C" },
             RenderMode.Rainfall => new List<string> { "Arid", "Moderate", "Wet" },
             RenderMode.Life => new List<string> { "None", "Plants", "Animals" },
             RenderMode.Oxygen => new List<string> { "0%", "15%", "30%" },

@@ -50,7 +50,7 @@ public class Graphs
         _map = map;
         _civManager = civManager;
 
-        _graphData.Add("Temperature", new GraphData("Global Temp (°C)", Color.Red));
+        _graphData.Add("Temperature", new GraphData("Global Temp (deg C)", Color.Red));
         _graphData.Add("Oxygen", new GraphData("Oxygen (%)", Color.Cyan));
         _graphData.Add("CO2", new GraphData("CO2 (ppm)", Color.Gray));
         _graphData.Add("Population", new GraphData("Total Population", Color.LawnGreen));
