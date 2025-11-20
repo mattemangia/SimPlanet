@@ -14,8 +14,18 @@ foreach (var arg in args)
 
 if (headless)
 {
-    var simulation = new HeadlessSimulation();
-    simulation.Run(args);
+    try
+    {
+        Console.WriteLine("Program started in headless mode.");
+        var simulation = new HeadlessSimulation();
+        simulation.Run(args);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"CRITICAL ERROR: {ex.Message}");
+        Console.WriteLine(ex.StackTrace);
+        Environment.Exit(1);
+    }
 }
 else
 {
