@@ -88,7 +88,7 @@ public class GameUI
         int barWidth = 600;
         int barHeight = 40;
         int barX = (_graphicsDevice.Viewport.Width - barWidth) / 2;
-        int barY = _graphicsDevice.Viewport.Height - barHeight - 40;
+        int barY = _graphicsDevice.Viewport.Height - barHeight - 75; // Moved up to avoid bottom button bar
 
         // Shadow
         DrawRectangle(barX + 4, barY + 4, barWidth, barHeight, new Color(0, 0, 0, 150));
@@ -312,7 +312,9 @@ public class GameUI
         int panelX = infoPanelWidth + 20; // Tighter margin
         int panelY = toolbarHeight + 20;
         int panelWidth = Math.Min(1000, _graphicsDevice.Viewport.Width - panelX - 20); // Adapt width
-        int panelHeight = Math.Min(700, _graphicsDevice.Viewport.Height - toolbarHeight - 40); // Fit height
+        // Ensure panel height doesn't overlap with bottom control bar (height ~55px)
+        int bottomMargin = 70;
+        int panelHeight = Math.Min(700, _graphicsDevice.Viewport.Height - toolbarHeight - bottomMargin); // Fit height
 
         // Shadow
         DrawRectangle(panelX + 6, panelY + 6, panelWidth, panelHeight, new Color(0, 0, 0, 150));

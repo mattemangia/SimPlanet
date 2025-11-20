@@ -90,7 +90,11 @@ public class BottomControlUI
         int screenHeight = _graphicsDevice.Viewport.Height;
 
         int totalWidth = _buttons.Count * (ButtonWidth + Spacing) + Spacing;
+        // Center horizontally but respect the left info panel (width 280)
         int panelX = (screenWidth - totalWidth) / 2;
+        // Ensure we don't overlap with the left info panel (280px width + 10px margin)
+        if (panelX < 290) panelX = 290;
+
         int panelY = screenHeight - PanelHeight - 10;
 
         int currentX = panelX + Spacing;
@@ -127,7 +131,11 @@ public class BottomControlUI
         int screenHeight = _graphicsDevice.Viewport.Height;
 
         int totalWidth = _buttons.Count * (ButtonWidth + Spacing) + Spacing;
+        // Center horizontally but respect the left info panel (width 280)
         int panelX = (screenWidth - totalWidth) / 2;
+        // Ensure we don't overlap with the left info panel (280px width + 10px margin)
+        if (panelX < 290) panelX = 290;
+
         int panelY = screenHeight - PanelHeight - 10;
 
         // Draw Panel Background
