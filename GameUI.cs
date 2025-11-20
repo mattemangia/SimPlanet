@@ -142,7 +142,7 @@ public class GameUI
             DrawText($"Era: {eraName}", eraColor);
         }
         DrawText($"Speed: {state.TimeSpeed}x", state.IsPaused ? new Color(255, 100, 100) : new Color(100, 255, 100));
-        if (state.IsPaused) DrawText("⏸ PAUSED", new Color(255, 200, 100));
+        if (state.IsPaused) DrawText("[||] PAUSED", new Color(255, 200, 100));
 
         DrawSectionHeader("ATMOSPHERE");
         DrawText($"Oxygen: {_map.GlobalOxygen:F1}%", GetOxygenColor(_map.GlobalOxygen));

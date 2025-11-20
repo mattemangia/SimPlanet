@@ -797,7 +797,8 @@ public class SimPlanetGame : Game
         }
 
         // Toggle graphs (Y key)
-        if (keyState.IsKeyDown(Keys.Y) && _previousKeyState.IsKeyUp(Keys.Y))
+        if (keyState.IsKeyDown(Keys.Y) && _previousKeyState.IsKeyUp(Keys.Y) &&
+            !keyState.IsKeyDown(Keys.LeftControl) && !keyState.IsKeyDown(Keys.RightControl))
         {
             _graphs.IsVisible = !_graphs.IsVisible;
         }
