@@ -40,12 +40,14 @@ public class HeadlessSimulation
     public void Run(string[] args)
     {
         Console.WriteLine("Starting Headless Simulation...");
+        Console.Out.Flush();
 
         Initialize();
 
         Console.WriteLine("Initialization Complete.");
         Console.WriteLine($"Map Size: {_map.Width}x{_map.Height}");
         Console.WriteLine($"Seed: {_mapOptions.Seed}");
+        Console.Out.Flush();
 
         // Define test phases
         var phases = new[]
@@ -58,10 +60,12 @@ public class HeadlessSimulation
         foreach (var phase in phases)
         {
             Console.WriteLine($"\n--- Starting Phase: Speed {phase.Speed}x for {phase.DurationYears} years ---");
+            Console.Out.Flush();
             RunPhase(phase.DurationYears, phase.Speed);
         }
 
         Console.WriteLine("\nSimulation Complete.");
+        Console.Out.Flush();
     }
 
     private void Initialize()
@@ -79,10 +83,12 @@ public class HeadlessSimulation
         };
 
         Console.WriteLine("Generating Planet Map...");
+        Console.Out.Flush();
         _map = new PlanetMap(240, 120, _mapOptions);
 
         // Initialize simulators
         Console.WriteLine("Initializing Simulators...");
+        Console.Out.Flush();
         _climateSimulator = new ClimateSimulator(_map);
         _atmosphereSimulator = new AtmosphereSimulator(_map);
         _lifeSimulator = new LifeSimulator(_map);
@@ -110,6 +116,7 @@ public class HeadlessSimulation
 
         // Seed initial life
         Console.WriteLine("Seeding Life...");
+        Console.Out.Flush();
         _lifeSimulator.SeedInitialLife();
 
         // Manually seed a civilization to test mechanics
@@ -124,6 +131,7 @@ public class HeadlessSimulation
     private void SeedCivilization()
     {
         Console.WriteLine("Attempting to seed a test civilization...");
+        Console.Out.Flush();
         // Find a suitable land spot
         for (int x = 0; x < _map.Width; x++)
         {
@@ -135,12 +143,14 @@ public class HeadlessSimulation
                     if (_civilizationManager.TryCreateCivilizationAt(x, y, 0))
                     {
                         Console.WriteLine($"Civilization created at {x}, {y}");
+                        Console.Out.Flush();
                         return;
                     }
                 }
             }
         }
         Console.WriteLine("Could not find suitable location for civilization.");
+        Console.Out.Flush();
     }
 
     private void RunPhase(int durationYears, float speed)
@@ -176,6 +186,7 @@ public class HeadlessSimulation
             if (float.IsNaN(_map.GlobalTemperature))
             {
                 Console.WriteLine("ERROR: Global Temperature is NaN!");
+                Console.Out.Flush();
                 Environment.Exit(1);
             }
 
@@ -187,11 +198,13 @@ public class HeadlessSimulation
                 lastLogYear = _year;
 
                 ValidateParameters();
+                Console.Out.Flush();
             }
         }
 
         sw.Stop();
         Console.WriteLine($"Phase finished in {sw.Elapsed.TotalSeconds:F2}s real time.");
+        Console.Out.Flush();
     }
 
     private void ValidateParameters()
