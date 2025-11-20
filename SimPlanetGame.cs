@@ -802,8 +802,9 @@ public class SimPlanetGame : Game
             _graphs.IsVisible = !_graphs.IsVisible;
         }
 
-        // Toggle planet stabilizer (Backslash key)
-        if (keyState.IsKeyDown(Keys.OemBackslash) && _previousKeyState.IsKeyUp(Keys.OemBackslash))
+        // Toggle planet stabilizer (Backslash key - supports both US and ISO layouts)
+        if ((keyState.IsKeyDown(Keys.OemBackslash) && _previousKeyState.IsKeyUp(Keys.OemBackslash)) ||
+            (keyState.IsKeyDown(Keys.OemPipe) && _previousKeyState.IsKeyUp(Keys.OemPipe)))
         {
             _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
         }
