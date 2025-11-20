@@ -59,6 +59,15 @@ namespace SimPlanet
             int x = leftMargin;
             int y = topMargin;
 
+            // System Controls (First as requested)
+            AddButton(ref x, y, "F5", "Quick Save", "Control", () => game.QuickSave());
+            AddButton(ref x, y, "F9", "Quick Load", "Control", () => game.QuickLoad());
+            AddButton(ref x, y, "⏯", "Pause/Resume (Space)", "Control", () => game.TogglePause());
+            AddButton(ref x, y, "+", "Speed Up (+)", "Control", () => game.IncreaseTimeSpeed());
+            AddButton(ref x, y, "-", "Speed Down (-)", "Control", () => game.DecreaseTimeSpeed());
+
+            x += categorySpacing;
+
             // View Modes (Numeric Keys 1-0)
             AddButton(ref x, y, "1", "Terrain View", "Terrain", () => SetViewMode(RenderMode.Terrain));
             AddButton(ref x, y, "2", "Temperature View", "Terrain", () => SetViewMode(RenderMode.Temperature));
@@ -88,27 +97,6 @@ namespace SimPlanet
 
             x += categorySpacing;
 
-            // Additional Views
-            AddButton(ref x, y, "F10", "Biomes", "Extra", () => SetViewMode(RenderMode.Biomes));
-            AddButton(ref x, y, "A", "Albedo", "Extra", () => SetViewMode(RenderMode.Albedo));
-            AddButton(ref x, y, "F12", "Radiation", "Extra", () => SetViewMode(RenderMode.Radiation));
-            AddButton(ref x, y, "J", "Resources", "Extra", () => SetViewMode(RenderMode.Resources));
-            AddButton(ref x, y, "O", "Infrastructure", "Extra", () => SetViewMode(RenderMode.Infrastructure));
-            AddButton(ref x, y, "S", "Spectral Bands - Net Radiation (S)", "Extra", () => SetViewMode(RenderMode.SpectralBands));
-
-            x += categorySpacing;
-
-            // Game Controls
-            AddButton(ref x, y, "⏯", "Pause/Resume (Space)", "Control", () => game.TogglePause());
-            AddButton(ref x, y, "+", "Speed Up (+)", "Control", () => game.IncreaseTimeSpeed());
-            AddButton(ref x, y, "-", "Speed Down (-)", "Control", () => game.DecreaseTimeSpeed());
-            AddButton(ref x, y, "F5", "Quick Save", "Control", () => game.QuickSave());
-            AddButton(ref x, y, "F9", "Quick Load", "Control", () => game.QuickLoad());
-            AddButton(ref x, y, "R", "Regenerate Planet", "Control", () => game.RegeneratePlanet());
-            AddButton(ref x, y, "FF", "Fast Forward 10,000 Years", "Control", () => game.ToggleFastForward());
-
-            x += categorySpacing;
-
             // UI Toggles
             AddButton(ref x, y, "H", "Toggle Help (H)", "UI", () => game.ToggleHelp());
             AddButton(ref x, y, "M", "Map Options (M)", "UI", () => game.ToggleMapOptions());
@@ -131,6 +119,19 @@ namespace SimPlanet
             AddButton(ref x, y, "X", "Planet Controls (X)", "Feature", () => game.TogglePlanetControls());
             AddButton(ref x, y, "Ctrl+Y", "Stabilizer (Ctrl+Y)", "Feature", () => game.ToggleStabilizer());
 
+            // Additional Views moved to end or possibly a secondary menu if we run out of space
+            // For now, let's add them but note they might be cut off on small screens
+            // We can implement a simple overflow check in Draw if needed
+            x += categorySpacing;
+
+            AddButton(ref x, y, "F10", "Biomes", "Extra", () => SetViewMode(RenderMode.Biomes));
+            AddButton(ref x, y, "A", "Albedo", "Extra", () => SetViewMode(RenderMode.Albedo));
+            AddButton(ref x, y, "F12", "Radiation", "Extra", () => SetViewMode(RenderMode.Radiation));
+            AddButton(ref x, y, "J", "Resources", "Extra", () => SetViewMode(RenderMode.Resources));
+            AddButton(ref x, y, "O", "Infrastructure", "Extra", () => SetViewMode(RenderMode.Infrastructure));
+            AddButton(ref x, y, "S", "Spectral Bands", "Extra", () => SetViewMode(RenderMode.SpectralBands));
+
+
             // Generate icons for all buttons
             foreach (var button in buttons)
             {
@@ -149,7 +150,7 @@ namespace SimPlanet
             };
 
             buttons.Add(button);
-            x += buttonSize + buttonSpacing;
+            x += buttonSize + buttonSpacing; // Tighter spacing (4px)
         }
 
         private void SetViewMode(RenderMode mode)
@@ -259,15 +260,31 @@ namespace SimPlanet
                 DrawTerraformingIcon(data, size);
             else if (tooltip.Contains("Planet Controls"))
                 DrawPlanetControlsIcon(data, size);
+            else if (tooltip.Contains("Spectral"))
+                DrawSpectralIcon(data, size);
 
             icon.SetData(data);
             return icon;
         }
 
         // Icon drawing methods
+        private void DrawSpectralIcon(Color[] data, int size)
+        {
+            // Rainbow spectrum
+            Color[] spectrum = { Color.Red, Color.Orange, Color.Yellow, Color.Green, Color.Blue, Color.Indigo, Color.Violet };
+            for (int x = 0; x < size; x++)
+            {
+                int colorIndex = (x * spectrum.Length) / size;
+                Color c = spectrum[Math.Clamp(colorIndex, 0, spectrum.Length - 1)];
+                for (int y = 0; y < size; y++)
+                {
+                    data[y * size + x] = c;
+                }
+            }
+        }
+
         private void DrawTerrainIcon(Color[] data, int size)
         {
-            // Draw layered terrain
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
@@ -284,14 +301,12 @@ namespace SimPlanet
 
         private void DrawTemperatureIcon(Color[] data, int size)
         {
-            // Draw thermometer
             int centerX = size / 2;
             for (int y = 2; y < size - 4; y++)
             {
                 data[y * size + centerX] = Color.Red;
                 data[y * size + centerX - 1] = Color.Red;
             }
-            // Bulb at bottom
             for (int y = size - 5; y < size - 1; y++)
             {
                 for (int x = centerX - 2; x <= centerX + 1; x++)
@@ -304,7 +319,6 @@ namespace SimPlanet
 
         private void DrawRainfallIcon(Color[] data, int size)
         {
-            // Draw rain drops
             Color blue = new Color(30, 144, 255);
             for (int i = 0; i < 4; i++)
             {
@@ -323,19 +337,14 @@ namespace SimPlanet
 
         private void DrawLifeIcon(Color[] data, int size)
         {
-            // Draw tree/plant shape
             Color green = new Color(0, 200, 0);
             Color brown = new Color(101, 67, 33);
             int centerX = size / 2;
-
-            // Trunk
             for (int y = size * 2 / 3; y < size - 2; y++)
             {
                 data[y * size + centerX] = brown;
                 data[y * size + centerX - 1] = brown;
             }
-
-            // Foliage (triangle)
             for (int y = 2; y < size * 2 / 3; y++)
             {
                 int width = (size * 2 / 3 - y) / 2;
@@ -349,11 +358,9 @@ namespace SimPlanet
 
         private void DrawOxygenIcon(Color[] data, int size)
         {
-            // Draw O2 molecule (two connected circles)
             Color cyan = new Color(0, 255, 255);
             DrawCircle(data, size, size / 3, size / 2, 4, cyan);
             DrawCircle(data, size, size * 2 / 3, size / 2, 4, cyan);
-            // Connection line
             for (int x = size / 3; x <= size * 2 / 3; x++)
             {
                 data[size / 2 * size + x] = cyan;
@@ -362,19 +369,16 @@ namespace SimPlanet
 
         private void DrawCO2Icon(Color[] data, int size)
         {
-            // Draw CO2 molecule
             Color gray = new Color(180, 180, 180);
             Color red = new Color(255, 100, 100);
-            DrawCircle(data, size, size / 2, size / 2, 4, gray); // Center C
-            DrawCircle(data, size, size / 4, size / 2, 3, red);  // Left O
-            DrawCircle(data, size, size * 3 / 4, size / 2, 3, red); // Right O
+            DrawCircle(data, size, size / 2, size / 2, 4, gray);
+            DrawCircle(data, size, size / 4, size / 2, 3, red);
+            DrawCircle(data, size, size * 3 / 4, size / 2, 3, red);
         }
 
         private void DrawElevationIcon(Color[] data, int size)
         {
-            // Draw mountain peaks
             Color mountain = new Color(139, 137, 137);
-            // First peak
             for (int y = 2; y < size - 2; y++)
             {
                 int width = (size - y) / 3;
@@ -384,7 +388,6 @@ namespace SimPlanet
                         data[y * size + x] = mountain;
                 }
             }
-            // Second peak
             for (int y = 5; y < size - 2; y++)
             {
                 int width = (size - y - 2) / 4;
@@ -398,7 +401,6 @@ namespace SimPlanet
 
         private void DrawGeologicalIcon(Color[] data, int size)
         {
-            // Draw layered rocks
             Color[] layers = { new Color(160, 82, 45), new Color(139, 69, 19), new Color(205, 133, 63) };
             int layerHeight = size / 3;
             for (int y = 0; y < size; y++)
@@ -413,7 +415,6 @@ namespace SimPlanet
 
         private void DrawTectonicIcon(Color[] data, int size)
         {
-            // Draw plate boundaries (zigzag line)
             Color red = Color.Red;
             int centerY = size / 2;
             for (int x = 0; x < size; x++)
@@ -430,13 +431,10 @@ namespace SimPlanet
 
         private void DrawVolcanoIcon(Color[] data, int size)
         {
-            // Draw volcano
             Color brown = new Color(101, 67, 33);
             Color red = Color.Red;
             Color orange = Color.Orange;
             int centerX = size / 2;
-
-            // Mountain
             for (int y = size / 3; y < size; y++)
             {
                 int width = (y - size / 3) / 2;
@@ -446,8 +444,6 @@ namespace SimPlanet
                         data[y * size + x] = brown;
                 }
             }
-
-            // Lava at top
             for (int y = 2; y < size / 3; y++)
             {
                 data[y * size + centerX] = y % 2 == 0 ? red : orange;
@@ -456,7 +452,6 @@ namespace SimPlanet
 
         private void DrawCloudsIcon(Color[] data, int size)
         {
-            // Draw cloud shape
             Color white = Color.White;
             DrawCircle(data, size, size / 3, size / 2, 4, white);
             DrawCircle(data, size, size / 2, size / 3, 5, white);
@@ -465,7 +460,6 @@ namespace SimPlanet
 
         private void DrawWindIcon(Color[] data, int size)
         {
-            // Draw wind lines
             Color cyan = new Color(173, 216, 230);
             for (int y = 0; y < size; y += 6)
             {
@@ -474,7 +468,6 @@ namespace SimPlanet
                     if (y + 2 < size)
                         data[(y + 2) * size + x] = cyan;
                 }
-                // Arrow head
                 if (y + 1 < size && size - 4 >= 0)
                     data[(y + 1) * size + (size - 4)] = cyan;
                 if (y + 3 < size && size - 4 >= 0)
@@ -484,10 +477,8 @@ namespace SimPlanet
 
         private void DrawPressureIcon(Color[] data, int size)
         {
-            // Draw pressure gauge (circle with pointer)
             Color gray = Color.Gray;
             DrawCircleOutline(data, size, size / 2, size / 2, size / 3, gray);
-            // Pointer
             int centerX = size / 2;
             int centerY = size / 2;
             for (int i = 0; i < size / 3; i++)
@@ -501,7 +492,6 @@ namespace SimPlanet
 
         private void DrawStormIcon(Color[] data, int size)
         {
-            // Draw lightning bolt
             Color yellow = Color.Yellow;
             int x = size / 2;
             for (int y = 2; y < size / 2; y++)
@@ -519,7 +509,6 @@ namespace SimPlanet
 
         private void DrawEarthquakeIcon(Color[] data, int size)
         {
-            // Draw seismic wave
             Color brown = new Color(139, 69, 19);
             for (int x = 0; x < size; x++)
             {
@@ -535,7 +524,6 @@ namespace SimPlanet
 
         private void DrawFaultIcon(Color[] data, int size)
         {
-            // Draw fault line (jagged diagonal)
             Color red = Color.Red;
             for (int i = 0; i < size; i++)
             {
@@ -548,7 +536,6 @@ namespace SimPlanet
 
         private void DrawTsunamiIcon(Color[] data, int size)
         {
-            // Draw wave
             Color blue = new Color(0, 105, 148);
             Color lightBlue = new Color(135, 206, 250);
             for (int x = 0; x < size; x++)
@@ -564,12 +551,11 @@ namespace SimPlanet
 
         private void DrawBiomesIcon(Color[] data, int size)
         {
-            // Draw different colored regions
             Color[] biomes = {
-                new Color(34, 139, 34),   // Forest green
-                new Color(210, 180, 140), // Desert tan
-                new Color(0, 100, 0),     // Dark green
-                new Color(152, 251, 152)  // Light green
+                new Color(34, 139, 34),
+                new Color(210, 180, 140),
+                new Color(0, 100, 0),
+                new Color(152, 251, 152)
             };
             for (int y = 0; y < size; y++)
             {
@@ -583,7 +569,6 @@ namespace SimPlanet
 
         private void DrawAlbedoIcon(Color[] data, int size)
         {
-            // Draw half white (ice) half dark (low albedo)
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
@@ -595,10 +580,8 @@ namespace SimPlanet
 
         private void DrawRadiationIcon(Color[] data, int size)
         {
-            // Draw radiation symbol
             Color yellow = Color.Yellow;
             DrawCircle(data, size, size / 2, size / 2, 2, yellow);
-            // Radiation lines
             for (int i = 0; i < 8; i++)
             {
                 double angle = i * Math.PI / 4;
@@ -614,7 +597,6 @@ namespace SimPlanet
 
         private void DrawResourcesIcon(Color[] data, int size)
         {
-            // Draw pickaxe or gems
             Color gold = new Color(255, 215, 0);
             Color silver = new Color(192, 192, 192);
             DrawCircle(data, size, size / 3, size / 3, 3, gold);
@@ -624,9 +606,7 @@ namespace SimPlanet
 
         private void DrawInfrastructureIcon(Color[] data, int size)
         {
-            // Draw buildings
             Color gray = new Color(128, 128, 128);
-            // Building 1
             for (int y = size / 3; y < size - 2; y++)
             {
                 for (int x = 2; x < size / 3; x++)
@@ -634,7 +614,6 @@ namespace SimPlanet
                     data[y * size + x] = gray;
                 }
             }
-            // Building 2
             for (int y = size / 2; y < size - 2; y++)
             {
                 for (int x = size / 2; x < size * 2 / 3; x++)
@@ -646,7 +625,6 @@ namespace SimPlanet
 
         private void DrawPauseIcon(Color[] data, int size)
         {
-            // Draw pause symbol (two bars)
             Color white = Color.White;
             for (int y = 4; y < size - 4; y++)
             {
@@ -659,7 +637,6 @@ namespace SimPlanet
 
         private void DrawSpeedUpIcon(Color[] data, int size)
         {
-            // Draw fast-forward (two triangles)
             Color green = Color.LimeGreen;
             for (int y = 0; y < size; y++)
             {
@@ -679,7 +656,6 @@ namespace SimPlanet
 
         private void DrawSpeedDownIcon(Color[] data, int size)
         {
-            // Draw rewind (two triangles pointing left)
             Color orange = Color.Orange;
             for (int y = 0; y < size; y++)
             {
@@ -699,10 +675,8 @@ namespace SimPlanet
 
         private void DrawSaveIcon(Color[] data, int size)
         {
-            // Draw floppy disk
             Color blue = new Color(100, 149, 237);
             Color gray = Color.Gray;
-            // Outline
             for (int y = 2; y < size - 2; y++)
             {
                 for (int x = 2; x < size - 2; x++)
@@ -717,7 +691,6 @@ namespace SimPlanet
 
         private void DrawLoadIcon(Color[] data, int size)
         {
-            // Draw folder
             Color yellow = new Color(255, 215, 0);
             for (int y = size / 3; y < size - 2; y++)
             {
@@ -726,7 +699,6 @@ namespace SimPlanet
                     data[y * size + x] = yellow;
                 }
             }
-            // Folder tab
             for (int x = 2; x < size / 2; x++)
             {
                 for (int y = size / 4; y < size / 3; y++)
@@ -738,10 +710,8 @@ namespace SimPlanet
 
         private void DrawRegenerateIcon(Color[] data, int size)
         {
-            // Draw circular arrow
             Color green = Color.LimeGreen;
             DrawCircleOutline(data, size, size / 2, size / 2, size / 3, green);
-            // Arrow head
             data[2 * size + size / 2] = green;
             data[2 * size + size / 2 + 1] = green;
             data[3 * size + size / 2 + 1] = green;
@@ -749,29 +719,23 @@ namespace SimPlanet
 
         private void DrawHelpIcon(Color[] data, int size)
         {
-            // Draw question mark
             Color white = Color.White;
             int centerX = size / 2;
-            // Top curve
             for (int x = centerX - 3; x <= centerX + 3; x++)
             {
                 data[4 * size + x] = white;
             }
-            // Right side
             for (int y = 4; y < size / 2; y++)
             {
                 data[y * size + centerX + 3] = white;
             }
-            // Middle
             data[(size / 2) * size + centerX] = white;
             data[(size / 2 + 2) * size + centerX] = white;
-            // Dot
             data[(size - 4) * size + centerX] = white;
         }
 
         private void DrawMapIcon(Color[] data, int size)
         {
-            // Draw map with fold lines
             Color tan = new Color(245, 222, 179);
             Color brown = new Color(139, 69, 19);
             for (int y = 2; y < size - 2; y++)
@@ -788,7 +752,6 @@ namespace SimPlanet
 
         private void DrawMinimapIcon(Color[] data, int size)
         {
-            // Draw small map in corner
             Color blue = new Color(100, 149, 237);
             Color green = new Color(34, 139, 34);
             for (int y = 0; y < size; y++)
@@ -801,13 +764,11 @@ namespace SimPlanet
                         data[y * size + x] = green;
                 }
             }
-            // Border
             DrawRectOutline(data, size, 0, 0, size, size, Color.White);
         }
 
         private void DrawDayNightIcon(Color[] data, int size)
         {
-            // Draw half sun, half moon
             Color yellow = Color.Yellow;
             Color darkBlue = new Color(25, 25, 112);
             for (int y = 0; y < size; y++)
@@ -816,7 +777,6 @@ namespace SimPlanet
                 {
                     if (x < size / 2)
                     {
-                        // Sun side
                         int dx = x - size / 4;
                         int dy = y - size / 2;
                         if (dx * dx + dy * dy < (size / 4) * (size / 4))
@@ -824,7 +784,6 @@ namespace SimPlanet
                     }
                     else
                     {
-                        // Moon side
                         int dx = x - size * 3 / 4;
                         int dy = y - size / 2;
                         if (dx * dx + dy * dy < (size / 4) * (size / 4))
@@ -843,7 +802,6 @@ namespace SimPlanet
 
         private void DrawRiversIcon(Color[] data, int size)
         {
-            // Draw winding river
             Color blue = new Color(65, 105, 225);
             for (int y = 0; y < size; y++)
             {
@@ -864,24 +822,19 @@ namespace SimPlanet
 
         private void DrawSeedLifeIcon(Color[] data, int size)
         {
-            // Draw seed/sprout
             Color brown = new Color(139, 69, 19);
             Color green = Color.LimeGreen;
-            // Seed
             DrawCircle(data, size, size / 2, size * 2 / 3, 4, brown);
-            // Sprout
             for (int y = size / 3; y < size * 2 / 3; y++)
             {
                 data[y * size + size / 2] = green;
             }
-            // Leaves
             data[(size / 3 + 2) * size + size / 2 - 2] = green;
             data[(size / 3 + 4) * size + size / 2 + 2] = green;
         }
 
         private void DrawCivilizationIcon(Color[] data, int size)
         {
-            // Draw city skyline
             Color gray = new Color(100, 100, 100);
             int[] heights = { size / 2, size * 2 / 3, size / 3, size - 4 };
             for (int i = 0; i < 4; i++)
@@ -900,9 +853,7 @@ namespace SimPlanet
 
         private void DrawDivineIcon(Color[] data, int size)
         {
-            // Draw hand/divine symbol
             Color gold = new Color(255, 215, 0);
-            // Lightning bolt
             int x = size / 2;
             for (int y = 2; y < size / 2; y++)
             {
@@ -919,11 +870,9 @@ namespace SimPlanet
 
         private void DrawDisasterIcon(Color[] data, int size)
         {
-            // Draw explosion/burst
             Color red = Color.Red;
             Color orange = Color.Orange;
             DrawCircle(data, size, size / 2, size / 2, 4, orange);
-            // Burst lines
             for (int i = 0; i < 8; i++)
             {
                 double angle = i * Math.PI / 4;
@@ -939,11 +888,9 @@ namespace SimPlanet
 
         private void DrawDiseaseIcon(Color[] data, int size)
         {
-            // Draw virus/bacteria
             Color green = new Color(0, 255, 0);
             Color darkGreen = new Color(0, 128, 0);
             DrawCircle(data, size, size / 2, size / 2, 5, green);
-            // Spikes
             for (int i = 0; i < 6; i++)
             {
                 double angle = i * Math.PI / 3;
@@ -959,27 +906,22 @@ namespace SimPlanet
 
         private void DrawPlantIcon(Color[] data, int size)
         {
-            // Draw tree
             DrawLifeIcon(data, size);
         }
 
         private void DrawStabilizerIcon(Color[] data, int size)
         {
-            // Draw balance/equilibrium symbol
             Color cyan = Color.Cyan;
-            // Horizontal line
             for (int x = 4; x < size - 4; x++)
             {
                 data[(size / 2) * size + x] = cyan;
             }
-            // Balance points
             DrawCircle(data, size, size / 4, size / 2, 3, cyan);
             DrawCircle(data, size, size * 3 / 4, size / 2, 3, cyan);
         }
 
         private void DrawGraphIcon(Color[] data, int size)
         {
-            // Draw line graph
             Color green = Color.LimeGreen;
             for (int x = 2; x < size - 2; x++)
             {
@@ -993,10 +935,8 @@ namespace SimPlanet
 
         private void DrawTerraformingIcon(Color[] data, int size)
         {
-            // Draw mountain with arrow
             Color brown = new Color(139, 69, 19);
             Color green = Color.LimeGreen;
-            // Mountain
             for (int y = size / 2; y < size; y++)
             {
                 int width = (y - size / 2) / 2;
@@ -1006,7 +946,6 @@ namespace SimPlanet
                         data[y * size + x] = brown;
                 }
             }
-            // Arrow
             for (int y = 2; y < size / 2; y++)
             {
                 data[y * size + size / 2] = green;
@@ -1017,7 +956,6 @@ namespace SimPlanet
 
         private void DrawPlanetControlsIcon(Color[] data, int size)
         {
-            // Draw sliders
             Color gray = Color.Gray;
             Color blue = Color.Blue;
             for (int y = 4; y < size - 4; y += 6)
@@ -1030,7 +968,6 @@ namespace SimPlanet
             }
         }
 
-        // Helper methods for drawing shapes
         private void DrawCircle(Color[] data, int size, int centerX, int centerY, int radius, Color color)
         {
             for (int y = 0; y < size; y++)
@@ -1080,13 +1017,11 @@ namespace SimPlanet
 
         public void Update(MouseState mouseState)
         {
-            // Update hover states
             foreach (var button in buttons)
             {
                 button.IsHovered = button.Bounds.Contains(mouseState.Position);
             }
 
-            // Handle clicks
             if (mouseState.LeftButton == ButtonState.Pressed &&
                 previousMouseState.LeftButton == ButtonState.Released)
             {
@@ -1114,6 +1049,9 @@ namespace SimPlanet
             // Draw buttons
             foreach (var button in buttons)
             {
+                // Don't draw buttons that are off-screen
+                if (button.Bounds.Right > screenWidth) continue;
+
                 // Button background
                 Color bgColor = button.IsHovered ? _buttonHoverColor : _buttonNormalColor;
                 spriteBatch.Draw(pixelTexture, button.Bounds, bgColor);
@@ -1135,8 +1073,16 @@ namespace SimPlanet
                 }
             }
 
+            // Draw overflow indicator if needed
+            if (buttons.Count > 0 && buttons[buttons.Count - 1].Bounds.Right > screenWidth)
+            {
+                int indicatorX = screenWidth - 20;
+                int indicatorY = toolbarHeight / 2 - 10;
+                fontRenderer.DrawString(spriteBatch, ">>", new Vector2(indicatorX, indicatorY), Color.Yellow);
+            }
+
             // Draw tooltip for hovered button
-            var hoveredButton = buttons.Find(b => b.IsHovered);
+            var hoveredButton = buttons.Find(b => b.IsHovered && b.Bounds.Right <= screenWidth);
             if (hoveredButton != null)
             {
                 DrawTooltip(spriteBatch, hoveredButton);
@@ -1157,7 +1103,6 @@ namespace SimPlanet
 
         private void DrawTooltip(SpriteBatch spriteBatch, ToolbarButton button)
         {
-            // Measure text (more accurate sizing)
             int textWidth = button.Tooltip.Length * 8;
             int textHeight = 20;
             int padding = 8;
@@ -1165,11 +1110,8 @@ namespace SimPlanet
             int tooltipWidth = textWidth + padding * 2;
             int tooltipHeight = textHeight + padding * 2;
             int tooltipX = button.Bounds.X;
-
-            // Position tooltip BELOW button (since buttons are at top of screen)
             int tooltipY = button.Bounds.Y + button.Bounds.Height + 4;
 
-            // Keep tooltip on screen horizontally
             if (tooltipX + tooltipWidth > graphicsDevice.Viewport.Width)
             {
                 tooltipX = graphicsDevice.Viewport.Width - tooltipWidth - 5;
@@ -1179,20 +1121,17 @@ namespace SimPlanet
                 tooltipX = 5;
             }
 
-            // Draw tooltip background (darker)
             spriteBatch.Draw(pixelTexture,
                 new Rectangle(tooltipX + 2, tooltipY + 2, tooltipWidth, tooltipHeight),
-                new Color(0, 0, 0, 100)); // Shadow
+                new Color(0, 0, 0, 100));
 
             spriteBatch.Draw(pixelTexture,
                 new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
                 new Color(20, 25, 35, 255));
 
-            // Draw tooltip border
             DrawBorder(spriteBatch, new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
                 new Color(255, 215, 80));
 
-            // Draw tooltip text
             fontRenderer.DrawString(spriteBatch, button.Tooltip,
                 new Vector2(tooltipX + padding, tooltipY + padding),
                 Color.White, 14);

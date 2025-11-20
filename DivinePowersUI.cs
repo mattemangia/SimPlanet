@@ -28,6 +28,12 @@ public class DivinePowersUI
     private string _statusMessage = "";
     private float _messageTimer = 0f;
 
+    // UI Style
+    private readonly Color _panelBgColor = new Color(20, 20, 40, 230);
+    private readonly Color _borderColor = Color.Gold;
+    private const int PanelWidth = 250;
+    private const int PanelHeight = 600;
+
     public DivinePowersUI(GraphicsDevice graphicsDevice, FontRenderer font, CivilizationManager civManager)
     {
         _graphicsDevice = graphicsDevice;
@@ -43,9 +49,10 @@ public class DivinePowersUI
     private void InitializeMainButtons()
     {
         int buttonWidth = 200;
-        int buttonHeight = 35;
-        int startX = 250;
-        int startY = 100;
+        int buttonHeight = 30;
+        // These coordinates are now relative to the panel
+        int startX = 25; // Panel padding
+        int startY = 50;
         int spacing = 5;
 
         _mainButtons = new List<Button>
@@ -75,7 +82,7 @@ public class DivinePowersUI
                 "Advance Civilization", Color.CornflowerBlue, () => OpenMode(DivinePowerMode.AdvanceCivilization)),
 
             new Button(new Rectangle(startX, startY + 8 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Close", Color.Gray, () => IsOpen = false)
+                "Close Menu", Color.Gray, () => IsOpen = false)
         };
     }
 
@@ -93,10 +100,10 @@ public class DivinePowersUI
     {
         _civButtons.Clear();
 
-        int buttonWidth = 300;
-        int buttonHeight = 35;
-        int startX = 500;
-        int startY = 100;
+        int buttonWidth = 220;
+        int buttonHeight = 30;
+        int startX = 25 + PanelWidth + 10; // Next to main panel
+        int startY = 50;
         int spacing = 5;
 
         var civilizations = _civManager.Civilizations;
@@ -105,10 +112,11 @@ public class DivinePowersUI
             var civ = civilizations[i];
             int index = i;
 
-            string buttonText = $"{civ.Name} - {civ.Government?.Type ?? GovernmentType.Tribal}";
+            string buttonText = $"{civ.Name}";
             if (civ.Government?.CurrentRuler != null)
             {
-                buttonText += $" ({civ.Government.CurrentRuler.Name})";
+                // Simplify text to fit button
+                buttonText = $"{civ.Name} ({civ.Government.Type})";
             }
 
             _civButtons.Add(new Button(
@@ -142,7 +150,7 @@ public class DivinePowersUI
         else if (_currentMode == DivinePowerMode.AdvanceCivilization)
         {
             _civManager.DivinePowers.AdvanceCivilization(civ);
-            ShowMessage($"Advanced {civ.Name} to Tech Level {civ.TechLevel}!");
+            ShowMessage($"Advanced {civ.Name}!");
             _currentMode = DivinePowerMode.None;
         }
         else if (_selectedCiv == null)
@@ -162,9 +170,9 @@ public class DivinePowersUI
         _govButtons.Clear();
 
         int buttonWidth = 200;
-        int buttonHeight = 35;
-        int startX = 850;
-        int startY = 100;
+        int buttonHeight = 30;
+        int startX = 25 + PanelWidth * 2 + 20; // Next to civ panel
+        int startY = 50;
         int spacing = 5;
 
         var govTypes = Enum.GetValues<GovernmentType>();
@@ -249,9 +257,9 @@ public class DivinePowersUI
         _spyButtons.Clear();
 
         int buttonWidth = 200;
-        int buttonHeight = 35;
-        int startX = 850;
-        int startY = 100;
+        int buttonHeight = 30;
+        int startX = 25 + PanelWidth * 2 + 20;
+        int startY = 50;
         int spacing = 5;
 
         var missions = Enum.GetValues<SpyMission>();
@@ -300,22 +308,42 @@ public class DivinePowersUI
         {
             var mousePos = new Point(mouseState.X, mouseState.Y);
 
+            // Update button positions based on panel position
+            int panelX = 440; // Similar offset to disaster control
+            int panelY = 45;  // Below toolbar
+
+            // We need to offset the button bounds for hit testing because we draw them relative to panel
+            Point relativeMousePos = new Point(mousePos.X - panelX, mousePos.Y - panelY);
+
             // Main buttons
             foreach (var button in _mainButtons)
             {
-                if (button.Bounds.Contains(mousePos))
-                {
-                    button.OnClick?.Invoke();
-                    break;
-                }
+                 // Check absolute bounds since buttons are stored with relative coords?
+                 // Actually, simpler to just store absolute bounds or adjust here.
+                 // Let's assume button bounds are stored relative to screen for now in previous code,
+                 // but I changed them to be relative to 0,0 in Initialize.
+                 // Wait, the previous code had hardcoded screen coordinates.
+                 // Let's adjust the bounds in Draw and hit test against those adjusted bounds.
+                 // Better: Update button bounds to be correct screen coordinates in Initialize/Update.
+
+                 // Correction: I will update button bounds dynamically in Draw/Update or make them relative.
+                 // Let's stick to absolute coordinates for simplicity in hit testing, but calculate them based on panel pos.
+
+                 Rectangle absBounds = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
+                 if (absBounds.Contains(mousePos))
+                 {
+                     button.OnClick?.Invoke();
+                     break;
+                 }
             }
 
-            // Civilization selection buttons
+            // Civilization selection buttons (Panel 2)
             if (_currentMode != DivinePowerMode.None)
             {
                 foreach (var button in _civButtons)
                 {
-                    if (button.Bounds.Contains(mousePos))
+                    Rectangle absBounds = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
+                    if (absBounds.Contains(mousePos))
                     {
                         button.OnClick?.Invoke();
                         break;
@@ -323,25 +351,15 @@ public class DivinePowersUI
                 }
             }
 
-            // Government buttons
-            if (_currentMode == DivinePowerMode.ChangeGovernment && _selectedCiv != null)
+            // Sub-menu buttons (Panel 3)
+            if ((_currentMode == DivinePowerMode.ChangeGovernment && _selectedCiv != null) ||
+                (_spyButtons.Count > 0 && _currentMode == DivinePowerMode.SendSpies)) // Fix logic here
             {
-                foreach (var button in _govButtons)
+                var buttonsToCheck = _currentMode == DivinePowerMode.ChangeGovernment ? _govButtons : _spyButtons;
+                foreach (var button in buttonsToCheck)
                 {
-                    if (button.Bounds.Contains(mousePos))
-                    {
-                        button.OnClick?.Invoke();
-                        break;
-                    }
-                }
-            }
-
-            // Spy mission buttons
-            if (_spyButtons.Count > 0)
-            {
-                foreach (var button in _spyButtons)
-                {
-                    if (button.Bounds.Contains(mousePos))
+                    Rectangle absBounds = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
+                    if (absBounds.Contains(mousePos))
                     {
                         button.OnClick?.Invoke();
                         break;
@@ -357,69 +375,46 @@ public class DivinePowersUI
     {
         if (!IsOpen) return;
 
-        // Background overlay
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(0, 0, 0, 200));
+        int panelX = 440; // Offset from left (info panel + gap)
+        int panelY = 45;  // Below toolbar
 
-        // Title
-        _font.DrawString(spriteBatch, "=== DIVINE POWERS ===",
-            new Vector2(screenWidth / 2 - 120, 30), Color.Gold);
-
-        // Instructions
-        string instruction = _currentMode switch
-        {
-            DivinePowerMode.None => "Select a divine power to use",
-            DivinePowerMode.ChangeGovernment when _selectedCiv == null => "Select civilization to change",
-            DivinePowerMode.ChangeGovernment => "Select new government type",
-            DivinePowerMode.SendSpies when _selectedCiv == null => "Select source civilization",
-            DivinePowerMode.SendSpies when _targetCiv == null => "Select target civilization",
-            DivinePowerMode.SendSpies => "Select spy mission",
-            DivinePowerMode.ForceBetray when _selectedCiv == null => "Select betrayer civilization",
-            DivinePowerMode.ForceBetray => "Select victim civilization",
-            DivinePowerMode.Bless => "Select civilization to bless",
-            DivinePowerMode.Curse => "Select civilization to curse",
-            DivinePowerMode.AdvanceCivilization => "Select civilization to advance",
-            DivinePowerMode.ForceAlliance when _selectedCiv == null => "Select first civilization",
-            DivinePowerMode.ForceAlliance => "Select second civilization",
-            DivinePowerMode.ForceWar when _selectedCiv == null => "Select aggressor",
-            DivinePowerMode.ForceWar => "Select target",
-            _ => ""
-        };
-
-        _font.DrawString(spriteBatch, instruction,
-            new Vector2(screenWidth / 2 - 150, 60), Color.White);
+        // Draw Main Panel
+        DrawPanel(spriteBatch, panelX, panelY, PanelWidth, PanelHeight, "DIVINE POWERS");
 
         // Draw main buttons
         foreach (var button in _mainButtons)
         {
-            DrawButton(spriteBatch, button);
+            // Offset button position by panel position
+            Rectangle drawRect = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
+            DrawButton(spriteBatch, drawRect, button.Text, button.Color);
         }
 
-        // Draw civilization buttons if in selection mode
+        // Draw Secondary Panel (Civ Selection)
         if (_currentMode != DivinePowerMode.None)
         {
+            int secPanelX = panelX + PanelWidth + 10;
+            DrawPanel(spriteBatch, secPanelX, panelY, PanelWidth, PanelHeight, "SELECT TARGET");
+
             foreach (var button in _civButtons)
             {
-                DrawButton(spriteBatch, button);
+                Rectangle drawRect = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
+                DrawButton(spriteBatch, drawRect, button.Text, button.Color);
             }
         }
 
-        // Draw government buttons if changing government
-        if (_currentMode == DivinePowerMode.ChangeGovernment && _selectedCiv != null)
+        // Draw Tertiary Panel (Details/Actions)
+        if ((_currentMode == DivinePowerMode.ChangeGovernment && _selectedCiv != null) ||
+            (_currentMode == DivinePowerMode.SendSpies && _selectedCiv != null && _targetCiv != null))
         {
-            foreach (var button in _govButtons)
-            {
-                DrawButton(spriteBatch, button);
-            }
-        }
+            int terPanelX = panelX + (PanelWidth + 10) * 2;
+            string title = _currentMode == DivinePowerMode.ChangeGovernment ? "NEW GOV" : "MISSION";
+            DrawPanel(spriteBatch, terPanelX, panelY, PanelWidth, PanelHeight, title);
 
-        // Draw spy mission buttons
-        if (_spyButtons.Count > 0)
-        {
-            foreach (var button in _spyButtons)
+            var buttonsToDraw = _currentMode == DivinePowerMode.ChangeGovernment ? _govButtons : _spyButtons;
+            foreach (var button in buttonsToDraw)
             {
-                DrawButton(spriteBatch, button);
+                Rectangle drawRect = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
+                DrawButton(spriteBatch, drawRect, button.Text, button.Color);
             }
         }
 
@@ -438,22 +433,44 @@ public class DivinePowersUI
         }
     }
 
-    private void DrawButton(SpriteBatch spriteBatch, Button button)
+    private void DrawPanel(SpriteBatch spriteBatch, int x, int y, int width, int height, string title)
+    {
+        // Background
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, height), _panelBgColor);
+
+        // Border
+        DrawBorder(spriteBatch, x, y, width, height, _borderColor, 2);
+
+        // Title
+        _font.DrawString(spriteBatch, title, new Vector2(x + 15, y + 10), _borderColor);
+
+        // Separator
+        spriteBatch.Draw(_pixelTexture, new Rectangle(x + 5, y + 35, width - 10, 1), _borderColor);
+    }
+
+    private void DrawButton(SpriteBatch spriteBatch, Rectangle bounds, string text, Color color)
     {
         // Button background
-        spriteBatch.Draw(_pixelTexture, button.Bounds, new Color(button.Color, 0.7f));
+        spriteBatch.Draw(_pixelTexture, bounds, new Color(color, 0.7f));
 
         // Button border
-        DrawBorder(spriteBatch, button.Bounds.X, button.Bounds.Y,
-            button.Bounds.Width, button.Bounds.Height, Color.White, 2);
+        DrawBorder(spriteBatch, bounds.X, bounds.Y, bounds.Width, bounds.Height, Color.White, 1);
 
         // Button text
-        var textSize = _font.MeasureString(button.Text);
+        var textSize = _font.MeasureString(text);
+        // Scale down text if too wide
+        float scale = 1.0f;
+        if (textSize.X > bounds.Width - 10)
+        {
+            // Simple workaround since font renderer doesn't support scaling yet: truncate
+            // Or just let it overflow slightly/clip
+        }
+
         var textPos = new Vector2(
-            button.Bounds.X + (button.Bounds.Width - textSize.X) / 2,
-            button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2
+            bounds.X + (bounds.Width - textSize.X) / 2,
+            bounds.Y + (bounds.Height - textSize.Y) / 2
         );
-        _font.DrawString(spriteBatch, button.Text, textPos, Color.White);
+        _font.DrawString(spriteBatch, text, textPos, Color.White);
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)

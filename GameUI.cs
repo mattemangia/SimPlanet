@@ -117,7 +117,7 @@ public class GameUI
 
         // Use full left side of screen, below toolbar
         int panelX = 0;
-        int panelY = toolbarHeight;
+        int panelY = toolbarHeight; // Start strictly below toolbar
         int panelWidth = 280;
         int panelHeight = _graphicsDevice.Viewport.Height - toolbarHeight;
 
@@ -288,6 +288,7 @@ public class GameUI
         }
 
         // Footer View Info
+        // Use dynamic height to ensure it sticks to bottom even if window is resized
         textY = panelY + panelHeight - 60;
         DrawRectangle(panelX + 10, textY - 5, panelWidth - 20, 1, _subHeaderBgColor);
         DrawLabelValue("View:", $"{renderMode}", Color.Magenta);
@@ -308,10 +309,10 @@ public class GameUI
     {
         // Position help panel in the map area (centered with 2 columns)
         int infoPanelWidth = 280;
-        int panelX = infoPanelWidth + 40;
-        int panelY = toolbarHeight + 40;
-        int panelWidth = 800;
-        int panelHeight = Math.Min(700, _graphicsDevice.Viewport.Height - toolbarHeight - 80);
+        int panelX = infoPanelWidth + 20; // Tighter margin
+        int panelY = toolbarHeight + 20;
+        int panelWidth = Math.Min(1000, _graphicsDevice.Viewport.Width - panelX - 20); // Adapt width
+        int panelHeight = Math.Min(700, _graphicsDevice.Viewport.Height - toolbarHeight - 40); // Fit height
 
         // Shadow
         DrawRectangle(panelX + 6, panelY + 6, panelWidth, panelHeight, new Color(0, 0, 0, 150));
@@ -321,21 +322,24 @@ public class GameUI
         DrawBorder(panelX, panelY, panelWidth, panelHeight, _goldColor, 2);
 
         // Header
-        DrawRectangle(panelX, panelY, panelWidth, 50, new Color(40, 40, 60, 255));
+        DrawRectangle(panelX, panelY, panelWidth, 40, new Color(40, 40, 60, 255));
         string title = "SIMPLANET COMMAND REFERENCE";
         var titleSize = _font.MeasureString(title);
-        _font.DrawString(_spriteBatch, title, new Vector2(panelX + (panelWidth - titleSize.X) / 2, panelY + 15), _goldColor);
+        _font.DrawString(_spriteBatch, title, new Vector2(panelX + (panelWidth - titleSize.X) / 2, panelY + 10), _goldColor);
 
-        int lineHeight = 20;
+        int lineHeight = 18; // Slightly more compact line height
         int columnWidth = (panelWidth - 60) / 2;
-        int leftColX = panelX + 25;
-        int rightColX = panelX + columnWidth + 35;
-        int startY = panelY + 70;
+        int leftColX = panelX + 20;
+        int rightColX = panelX + columnWidth + 40;
+        int startY = panelY + 50;
 
         // Helper to draw text in columns
         void DrawTextAt(string text, Color color, int x, int y)
         {
-            _font.DrawString(_spriteBatch, text, new Vector2(x, y), color);
+            if (y < panelY + panelHeight - 30) // Simple culling
+            {
+                _font.DrawString(_spriteBatch, text, new Vector2(x, y), color);
+            }
         }
 
         int leftY = startY;
@@ -343,100 +347,92 @@ public class GameUI
 
         // Left Column - Main Controls
         DrawTextAt("=== KEYBOARD CONTROLS ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 8;
+        leftY += lineHeight + 5;
         DrawTextAt("SPACE: Pause/Resume", _textValueColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("+/-: Time speed", _textValueColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("ESC: Pause/Menu", _textValueColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("H: Toggle Help", _textValueColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("R: Regenerate planet", _textValueColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("L: Seed life", _textValueColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("L: Seed life (or Life Painter)", _textValueColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F: Fast Forward 10,000 years", Color.Cyan, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("ESC: Cancel Fast Forward", Color.Cyan, leftColX, leftY); leftY += lineHeight;
-        leftY += 10;
+        leftY += 8;
 
         DrawTextAt("=== VIEW MODES (1-0) ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 8;
+        leftY += lineHeight + 5;
         DrawTextAt("1: Terrain  2: Temperature", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("3: Rainfall  4: Life forms", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("5: Oxygen  6: CO2", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("7: Elevation  8: Geology", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("9: Plates  0: Volcanoes", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        leftY += 10;
+        leftY += 8;
 
         DrawTextAt("=== WEATHER (F1-F4) ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 8;
+        leftY += lineHeight + 5;
         DrawTextAt("F1: Clouds  F2: Wind", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F3: Pressure  F4: Storms", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        leftY += 10;
+        leftY += 8;
 
         DrawTextAt("=== GEOLOGICAL HAZARDS ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 8;
+        leftY += lineHeight + 5;
         DrawTextAt("E: Earthquakes  Q: Faults", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("U: Tsunamis", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        leftY += 10;
+        leftY += 8;
 
         DrawTextAt("=== ADVANCED VIEWS ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 8;
+        leftY += lineHeight + 5;
         DrawTextAt("F10: Biomes  A: Albedo", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F12: Radiation  J: Resources", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("S: Spectral Band Energy", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("O: Infrastructure (Civ)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        leftY += 10;
+        leftY += 8;
 
         DrawTextAt("=== SAVE/LOAD ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 8;
+        leftY += lineHeight + 5;
         DrawTextAt("F5: Quick Save", Color.Cyan, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F9: Quick Load", Color.Cyan, leftColX, leftY); leftY += lineHeight;
 
         // Right Column - Mouse & Advanced Controls
         DrawTextAt("=== MOUSE CONTROLS ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 8;
+        rightY += lineHeight + 5;
         DrawTextAt("Mouse Wheel: Zoom in/out", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Left Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Middle Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Click Tile: View detailed info", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        rightY += 10;
+        rightY += 8;
 
         DrawTextAt("=== OVERLAYS & FEATURES ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 8;
+        rightY += lineHeight + 5;
         DrawTextAt("V: Toggle volcanoes", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("B: Toggle rivers", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("N: Toggle plate boundaries", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("P: Toggle 3D minimap", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("C: Day/Night cycle", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        rightY += 10;
-
-        DrawTextAt("=== MAP EDITOR (M key) ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 8;
-        DrawTextAt("F6: Earth preset", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("F7: Mars preset", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("F8: Water World preset", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("S: Desert World preset", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        rightY += 10;
-
-        DrawTextAt("=== CIVILIZATION TOOLS ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 8;
-        DrawTextAt("G: Control civilization", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("I: Divine powers menu", _goldColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  -Change governments", _textLabelColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  -Send spies, force wars", _textLabelColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  -Bless/curse/advance civs", _textLabelColor, rightColX, rightY); rightY += lineHeight;
         rightY += 8;
 
-        DrawTextAt("=== OTHER TOOLS ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 8;
-        DrawTextAt("D: Disaster controls", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("=== TOOLS & EDITORS ===", _accentColor, rightColX, rightY);
+        rightY += lineHeight + 5;
+        DrawTextAt("L: Life Painter - Paint life on map", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  - Left Click: Paint, Right Click: Cycle Life", Color.Gray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  - Scroll: Brush Size", Color.Gray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("T: Terraforming - Raise/Lower land", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  - Left Click: Apply, Right Click: Toggle Mode", Color.Gray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("D: Disaster Control - Trigger events", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("I: Divine Powers - Influence Civs", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("M: Map Options / Generator", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        rightY += 8;
+
+        DrawTextAt("=== CIVILIZATION TOOLS ===", _accentColor, rightColX, rightY);
+        rightY += lineHeight + 5;
+        DrawTextAt("G: Control civilization", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("I: Divine powers menu", _goldColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("K: Pandemic controls", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("T: Terraforming Tool", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("L: Life Painter", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("M: Resource placement", Color.Orange, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Y: Graphs", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("\\: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
 
         // Footer
-        int footerY = panelY + panelHeight - 25;
-        DrawTextAt("Watch your planet evolve from bacteria to civilizations with realistic geology and climate!",
-            Color.LightGray, leftColX, footerY);
+        int footerY = panelY + panelHeight - 20;
+        DrawTextAt("Use 'H' to toggle this help menu.", Color.LightGray, leftColX, footerY);
     }
 
     private void DrawRectangle(int x, int y, int width, int height, Color color)

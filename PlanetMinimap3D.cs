@@ -35,6 +35,28 @@ public class PlanetMinimap3D
     private MouseState _previousMouseState;
     private bool _isDragging = false;
 
+    // New: Bottom Right Anchor
+    private bool _isBottomRight = false;
+    private int _screenWidth = 1600;
+    private int _screenHeight = 900;
+
+    public void SetPositionBottomRight(int screenWidth, int screenHeight)
+    {
+        _isBottomRight = true;
+        _screenWidth = screenWidth;
+        _screenHeight = screenHeight;
+        UpdatePosition();
+    }
+
+    public void UpdatePosition()
+    {
+        if (_isBottomRight)
+        {
+            PosX = _screenWidth - MinimapSize - 20; // 20px margin from right
+            PosY = _screenHeight - MinimapSize - 20; // 20px margin from bottom
+        }
+    }
+
     /// <summary>
     /// Check if the mouse is currently over the minimap
     /// </summary>
