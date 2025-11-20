@@ -75,6 +75,7 @@ public class SimPlanetGame : Game
     private Graphs _graphs;
     private LifePainterUI _lifePainterUI;
     private TerraformingTool _terraformingTool;
+    private BottomControlUI _bottomControlUI;
 
     // Game state
     private GameState _gameState;
@@ -343,6 +344,9 @@ public class SimPlanetGame : Game
 
         // Create terraforming tool
         _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
+
+        // Create bottom controls
+        _bottomControlUI = new BottomControlUI(this, GraphicsDevice, _font);
     }
 
     protected override void Update(GameTime gameTime)
@@ -462,6 +466,7 @@ public class SimPlanetGame : Game
 
             // Update UI systems
             _toolbar.Update(mouseState);
+            _bottomControlUI.Update(mouseState);
             _aboutDialog.Update(mouseState, _previousMouseState);
             
             // If about dialog is visible, block other input
@@ -1281,9 +1286,7 @@ public class SimPlanetGame : Game
         // Note: Removed old overlay legend - overlay status now shown in info panel
         // and symbols are visible directly on map when enabled
 
-        // Update and draw 3D minimap (positioned at bottom of screen to avoid covering info panel text)
-        _minimap3D.PosX = 10;
-        _minimap3D.PosY = GraphicsDevice.Viewport.Height - 160; // 150px minimap + 10px margin
+        // Update and draw 3D minimap
         _minimap3D.UpdateTexture(_terrainRenderer);
         _minimap3D.Draw(_spriteBatch);
 
@@ -1327,6 +1330,7 @@ public class SimPlanetGame : Game
             if (_mainMenu.CurrentScreen == GameScreen.InGame)
             {
                 _toolbar.Draw(_spriteBatch, GraphicsDevice.Viewport.Width);
+                _bottomControlUI.Draw(_spriteBatch);
             }
         }
 
@@ -1545,6 +1549,9 @@ public class SimPlanetGame : Game
             _graphics.PreferredBackBufferWidth = Window.ClientBounds.Width;
             _graphics.PreferredBackBufferHeight = Window.ClientBounds.Height;
             _graphics.ApplyChanges();
+
+            // Update UI positions
+            _minimap3D?.SetPositionBottomRight(Window.ClientBounds.Width, Window.ClientBounds.Height);
         }
     }
 
