@@ -24,12 +24,19 @@ namespace SimPlanet
         private SimPlanetGame game;
         private FontRenderer fontRenderer;
         private MouseState previousMouseState;
-        private int toolbarHeight = 36;
-        private int buttonSize = 28;
-        private int buttonSpacing = 2;
-        private int categorySpacing = 8;
-        private int leftMargin = 5;
+        private int toolbarHeight = 44; // Increased height for better hit targets
+        private int buttonSize = 36; // Larger buttons
+        private int buttonSpacing = 4;
+        private int categorySpacing = 12;
+        private int leftMargin = 8;
         private int topMargin = 4;
+
+        // Toolbar Theme Colors
+        private readonly Color _toolbarBgColor = new Color(25, 30, 45, 250);
+        private readonly Color _buttonNormalColor = new Color(50, 60, 80);
+        private readonly Color _buttonHoverColor = new Color(80, 100, 140);
+        private readonly Color _buttonBorderColor = new Color(100, 120, 160);
+        private readonly Color _separatorColor = new Color(60, 80, 120);
 
         public ToolbarUI(SimPlanetGame game, GraphicsDevice graphicsDevice, FontRenderer fontRenderer)
         {
@@ -136,7 +143,7 @@ namespace SimPlanet
             var button = new ToolbarButton
             {
                 Bounds = new Rectangle(x, y, buttonSize, buttonSize),
-                Tooltip = $"{tooltip} ({label})",
+                Tooltip = $"{tooltip}", // Simplified tooltip
                 OnClick = onClick,
                 Category = category
             };
@@ -152,14 +159,14 @@ namespace SimPlanet
 
         private Texture2D GenerateIcon(string tooltip, string category)
         {
-            Texture2D icon = new Texture2D(graphicsDevice, buttonSize - 4, buttonSize - 4);
-            Color[] data = new Color[(buttonSize - 4) * (buttonSize - 4)];
+            Texture2D icon = new Texture2D(graphicsDevice, buttonSize - 8, buttonSize - 8);
+            Color[] data = new Color[(buttonSize - 8) * (buttonSize - 8)];
 
             // Fill with transparent background
             for (int i = 0; i < data.Length; i++)
                 data[i] = Color.Transparent;
 
-            int size = buttonSize - 4;
+            int size = buttonSize - 8;
 
             // Determine icon style based on category and tooltip
             if (tooltip.Contains("Terrain"))
@@ -1099,31 +1106,30 @@ namespace SimPlanet
         public void Draw(SpriteBatch spriteBatch, int screenWidth)
         {
             // Draw toolbar background
-            spriteBatch.Draw(pixelTexture, new Rectangle(0, 0, screenWidth, toolbarHeight),
-                new Color(40, 40, 40, 230));
+            spriteBatch.Draw(pixelTexture, new Rectangle(0, 0, screenWidth, toolbarHeight), _toolbarBgColor);
 
-            // Draw separator line
-            spriteBatch.Draw(pixelTexture, new Rectangle(0, toolbarHeight - 1, screenWidth, 1),
-                new Color(100, 100, 100));
+            // Draw bottom border
+            spriteBatch.Draw(pixelTexture, new Rectangle(0, toolbarHeight - 1, screenWidth, 1), _separatorColor);
 
             // Draw buttons
             foreach (var button in buttons)
             {
                 // Button background
-                Color bgColor = button.IsHovered ? new Color(80, 80, 80) : new Color(60, 60, 60);
+                Color bgColor = button.IsHovered ? _buttonHoverColor : _buttonNormalColor;
                 spriteBatch.Draw(pixelTexture, button.Bounds, bgColor);
 
-                // Button border
-                DrawBorder(spriteBatch, button.Bounds, button.IsHovered ? Color.White : new Color(100, 100, 100));
+                // Button border (highlighted on hover)
+                Color borderColor = button.IsHovered ? Color.White : _buttonBorderColor;
+                DrawBorder(spriteBatch, button.Bounds, borderColor);
 
                 // Button icon
                 if (button.Icon != null)
                 {
                     Rectangle iconRect = new Rectangle(
-                        button.Bounds.X + 2,
-                        button.Bounds.Y + 2,
-                        buttonSize - 4,
-                        buttonSize - 4
+                        button.Bounds.X + 4,
+                        button.Bounds.Y + 4,
+                        buttonSize - 8,
+                        buttonSize - 8
                     );
                     spriteBatch.Draw(button.Icon, iconRect, Color.White);
                 }
@@ -1173,16 +1179,20 @@ namespace SimPlanet
                 tooltipX = 5;
             }
 
-            // Draw tooltip background
+            // Draw tooltip background (darker)
+            spriteBatch.Draw(pixelTexture,
+                new Rectangle(tooltipX + 2, tooltipY + 2, tooltipWidth, tooltipHeight),
+                new Color(0, 0, 0, 100)); // Shadow
+
             spriteBatch.Draw(pixelTexture,
                 new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
-                new Color(20, 20, 20, 250));
+                new Color(20, 25, 35, 255));
 
             // Draw tooltip border
             DrawBorder(spriteBatch, new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
-                new Color(255, 200, 0));
+                new Color(255, 215, 80));
 
-            // Draw tooltip text with better visibility
+            // Draw tooltip text
             fontRenderer.DrawString(spriteBatch, button.Tooltip,
                 new Vector2(tooltipX + padding, tooltipY + padding),
                 Color.White, 14);
