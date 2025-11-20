@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 
 namespace SimPlanet;
 
@@ -35,6 +36,28 @@ public class PlanetMinimap3D
     private MouseState _previousMouseState;
     private bool _isDragging = false;
 
+    // New: Bottom Right Anchor
+    private bool _isBottomRight = true; // Default to true as requested
+    private int _screenWidth = 1600;
+    private int _screenHeight = 900;
+
+    public void SetPositionBottomRight(int screenWidth, int screenHeight)
+    {
+        _isBottomRight = true;
+        _screenWidth = screenWidth;
+        _screenHeight = screenHeight;
+        UpdatePosition();
+    }
+
+    public void UpdatePosition()
+    {
+        if (_isBottomRight)
+        {
+            PosX = _screenWidth - MinimapSize - 20; // 20px margin from right
+            PosY = _screenHeight - MinimapSize - 20; // 20px margin from bottom
+        }
+    }
+
     /// <summary>
     /// Check if the mouse is currently over the minimap
     /// </summary>
@@ -53,11 +76,16 @@ public class PlanetMinimap3D
     {
         _graphicsDevice = graphicsDevice;
         _map = map;
+        _screenWidth = graphicsDevice.Viewport.Width;
+        _screenHeight = graphicsDevice.Viewport.Height;
 
         _minimapTexture = new Texture2D(_graphicsDevice, MinimapSize, MinimapSize);
         _sphereTexture = new Texture2D(_graphicsDevice, _map.Width, _map.Height);
         _spherePixels = new Color[MinimapSize * MinimapSize];
         _previousMouseState = Mouse.GetState();
+
+        // Initialize position immediately
+        UpdatePosition();
     }
 
     public void SetWeatherSystem(WeatherSystem weatherSystem)

@@ -29,6 +29,18 @@ public class GameUI
     public float FastForwardProgress { get; set; } = 0f;
     public int FastForwardCurrentYear { get; set; } = 0;
 
+    // UI Theme Colors
+    private readonly Color _panelBgColor = new Color(12, 18, 28, 245);
+    private readonly Color _panelBorderColor = new Color(60, 90, 140);
+    private readonly Color _headerBgColor = new Color(25, 35, 55, 220);
+    private readonly Color _subHeaderBgColor = new Color(20, 30, 45, 180);
+    private readonly Color _textLabelColor = new Color(170, 185, 205);
+    private readonly Color _textValueColor = new Color(220, 235, 255);
+    private readonly Color _accentColor = new Color(100, 200, 255);
+    private readonly Color _alertColor = new Color(255, 100, 100);
+    private readonly Color _goodColor = new Color(100, 220, 120);
+    private readonly Color _goldColor = new Color(255, 215, 80);
+
     public GameUI(SpriteBatch spriteBatch, FontRenderer font, PlanetMap map, GraphicsDevice graphicsDevice)
     {
         _spriteBatch = spriteBatch;
@@ -76,17 +88,21 @@ public class GameUI
         int barWidth = 600;
         int barHeight = 40;
         int barX = (_graphicsDevice.Viewport.Width - barWidth) / 2;
-        int barY = _graphicsDevice.Viewport.Height - barHeight - 20;
+        int barY = _graphicsDevice.Viewport.Height - barHeight - 40;
 
-        DrawRectangle(barX, barY, barWidth, barHeight, new Color(0, 0, 0, 200));
-        DrawBorder(barX, barY, barWidth, barHeight, Color.Yellow, 2);
+        // Shadow
+        DrawRectangle(barX + 4, barY + 4, barWidth, barHeight, new Color(0, 0, 0, 150));
+
+        // Main bar
+        DrawRectangle(barX, barY, barWidth, barHeight, _panelBgColor);
+        DrawBorder(barX, barY, barWidth, barHeight, _accentColor, 1);
 
         int progressWidth = (int)(barWidth * FastForwardProgress);
-        DrawRectangle(barX, barY, progressWidth, barHeight, Color.Green);
+        DrawRectangle(barX + 2, barY + 2, Math.Max(0, progressWidth - 4), barHeight - 4, new Color(0, 100, 0, 200));
 
         string text = $"Fast Forwarding... {FastForwardProgress:P0} (Year: {FastForwardCurrentYear}) - Press ESC to cancel";
         var textSize = _font.MeasureString(text);
-        _font.DrawString(_spriteBatch, text, new Vector2(barX + (barWidth - textSize.X) / 2, barY + (barHeight - textSize.Y) / 2), Color.White);
+        _font.DrawString(_spriteBatch, text, new Vector2(barX + (barWidth - textSize.X) / 2, barY + (barHeight - textSize.Y) / 2), _textValueColor);
     }
 
     private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates, int toolbarHeight)
@@ -101,205 +117,191 @@ public class GameUI
 
         // Use full left side of screen, below toolbar
         int panelX = 0;
-        int panelY = toolbarHeight;
-        int panelWidth = 400;
+        int panelY = toolbarHeight; // Start strictly below toolbar
+        int panelWidth = 280;
         int panelHeight = _graphicsDevice.Viewport.Height - toolbarHeight;
 
         // Draw background with border
-        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(10, 15, 30, 230));
-        DrawBorder(panelX, panelY, panelWidth, panelHeight, new Color(80, 120, 200), 2);
+        DrawRectangle(panelX, panelY, panelWidth, panelHeight, _panelBgColor);
 
-        // Header bar
-        DrawRectangle(panelX, panelY, panelWidth, 30, new Color(30, 60, 120, 220));
+        // Right border only
+        DrawRectangle(panelX + panelWidth - 1, panelY, 1, panelHeight, _panelBorderColor);
 
-        int textY = panelY + 8;
-        int lineHeight = 20;
+        // Top Header
+        DrawRectangle(panelX, panelY, panelWidth, 40, _headerBgColor);
+        DrawRectangle(panelX, panelY + 39, panelWidth, 1, _panelBorderColor);
 
-        void DrawText(string text, Color color, int fontSize = 14)
+        int textX = panelX + 15;
+        int textY = panelY + 12;
+        int lineHeight = 22;
+
+        void DrawText(string text, Color color, int fontSize = 14, int offsetX = 0)
         {
-            _font.DrawString(_spriteBatch, text, new Vector2(panelX + 12, textY), color, fontSize);
+            _font.DrawString(_spriteBatch, text, new Vector2(textX + offsetX, textY), color, fontSize);
+            textY += lineHeight;
+        }
+
+        void DrawLabelValue(string label, string value, Color valueColor)
+        {
+            _font.DrawString(_spriteBatch, label, new Vector2(textX, textY), _textLabelColor, 14);
+            float labelWidth = _font.MeasureString(label).X;
+            _font.DrawString(_spriteBatch, value, new Vector2(textX + labelWidth + 5, textY), valueColor, 14);
             textY += lineHeight;
         }
 
         void DrawSectionHeader(string text)
         {
-            textY += 3;
-            DrawRectangle(panelX + 5, textY - 2, panelWidth - 10, 22, new Color(20, 40, 80, 150));
-            DrawText(text, new Color(255, 220, 100), 15);
-            textY += 3;
+            textY += 8;
+            // Subtle background for section header
+            DrawRectangle(panelX + 5, textY - 2, panelWidth - 10, 24, _subHeaderBgColor);
+
+            // Accent line on left
+            DrawRectangle(panelX + 5, textY - 2, 3, 24, _accentColor);
+
+            _font.DrawString(_spriteBatch, text, new Vector2(textX, textY), _accentColor, 14);
+            textY += 26;
         }
 
-        DrawText("SIMPLANET", new Color(255, 200, 50), 16);
-        textY = panelY + 35;
+        // Title and Game State
+        _font.DrawString(_spriteBatch, "SIMPLANET", new Vector2(textX, textY), _goldColor, 16);
+        textY += 30;
+
         float fractionalYear = state.Year + state.TimeAccumulator / GameState.SecondsPerGameYear;
-        DrawText($"Year: {fractionalYear:N1}", new Color(200, 220, 255));
+        DrawLabelValue("Year:", $"{fractionalYear:N1}", _textValueColor);
+
         if (_animalEvolutionSimulator != null)
         {
             string eraName = _animalEvolutionSimulator.GetCurrentEraName();
-            Color eraColor = _animalEvolutionSimulator.DinosaursDominant ? new Color(255, 150, 50) :
-                           _animalEvolutionSimulator.MammalsDominant ? new Color(150, 200, 255) :
-                           new Color(180, 180, 180);
-            DrawText($"Era: {eraName}", eraColor);
+            Color eraColor = _animalEvolutionSimulator.DinosaursDominant ? new Color(255, 160, 60) :
+                           _animalEvolutionSimulator.MammalsDominant ? new Color(160, 210, 255) :
+                           new Color(200, 200, 200);
+            DrawText($"{eraName}", eraColor, 14);
         }
-        DrawText($"Speed: {state.TimeSpeed}x", state.IsPaused ? new Color(255, 100, 100) : new Color(100, 255, 100));
-        if (state.IsPaused) DrawText("[||] PAUSED", new Color(255, 200, 100));
 
+        DrawLabelValue("Speed:", $"{state.TimeSpeed}x", state.IsPaused ? _alertColor : _goodColor);
+        if (state.IsPaused) DrawText("[||] PAUSED", _goldColor);
+
+        // Atmosphere Section
         DrawSectionHeader("ATMOSPHERE");
-        DrawText($"Oxygen: {_map.GlobalOxygen:F1}%", GetOxygenColor(_map.GlobalOxygen));
-        DrawText($"CO2: {_map.GlobalCO2:F2}%", GetCO2Color(_map.GlobalCO2));
-        DrawText($"Avg Temp: {_map.GlobalTemperature:F1}C", GetTempColor(_map.GlobalTemperature));
-        DrawText($"Solar: {_map.SolarEnergy:F2}", Color.Yellow);
-        textY += 5;
+        DrawLabelValue("Oxygen:", $"{_map.GlobalOxygen:F1}%", GetOxygenColor(_map.GlobalOxygen));
+        DrawLabelValue("CO2:", $"{_map.GlobalCO2:F2}%", GetCO2Color(_map.GlobalCO2));
+        DrawLabelValue("Temp:", $"{_map.GlobalTemperature:F1}C", GetTempColor(_map.GlobalTemperature));
+        DrawLabelValue("Solar:", $"{_map.SolarEnergy:F2}", Color.Yellow);
 
-        DrawSectionHeader("LIFE");
-        // Use cached stats to prevent per-frame cell scanning (20,000 cells)
-        DrawText($"Bacteria: {_cachedLifeStats.GetValueOrDefault(LifeForm.Bacteria, 0)}", Color.Gray);
-        DrawText($"Algae: {_cachedLifeStats.GetValueOrDefault(LifeForm.Algae, 0)}", Color.LightGreen);
-        DrawText($"Plants: {_cachedLifeStats.GetValueOrDefault(LifeForm.PlantLife, 0)}", Color.Green);
-        DrawText($"Simple Animals: {_cachedLifeStats.GetValueOrDefault(LifeForm.SimpleAnimals, 0)}", Color.SandyBrown);
+        // Life Section
+        DrawSectionHeader("BIOSPHERE");
 
-        // Vertebrate evolution
-        int fishCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Fish, 0);
-        if (fishCount > 0)
-            DrawText($"Fish: {fishCount}", new Color(100, 120, 200));
+        // Helper to draw life stats compactly
+        void DrawLifeStat(string name, LifeForm type, Color color)
+        {
+            int count = _cachedLifeStats.GetValueOrDefault(type, 0);
+            if (count > 0)
+            {
+                DrawLabelValue(name + ":", count.ToString(), color);
+            }
+        }
 
-        int amphibiansCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Amphibians, 0);
-        if (amphibiansCount > 0)
-            DrawText($"Amphibians: {amphibiansCount}", new Color(120, 160, 80));
+        DrawLifeStat("Bacteria", LifeForm.Bacteria, Color.Gray);
+        DrawLifeStat("Algae", LifeForm.Algae, Color.LightGreen);
+        DrawLifeStat("Plants", LifeForm.PlantLife, Color.Green);
+        DrawLifeStat("Simple Animals", LifeForm.SimpleAnimals, Color.SandyBrown);
+        DrawLifeStat("Fish", LifeForm.Fish, new Color(100, 120, 200));
+        DrawLifeStat("Amphibians", LifeForm.Amphibians, new Color(120, 160, 80));
+        DrawLifeStat("Reptiles", LifeForm.Reptiles, new Color(140, 140, 60));
+        DrawLifeStat("DINOSAURS", LifeForm.Dinosaurs, Color.Orange);
+        DrawLifeStat("Marine Dinos", LifeForm.MarineDinosaurs, new Color(100, 100, 180));
+        DrawLifeStat("Pterosaurs", LifeForm.Pterosaurs, new Color(160, 140, 100));
+        DrawLifeStat("Mammals", LifeForm.Mammals, new Color(160, 120, 90));
+        DrawLifeStat("Birds", LifeForm.Birds, new Color(150, 180, 150));
+        DrawLifeStat("Complex", LifeForm.ComplexAnimals, Color.Orange);
+        DrawLifeStat("Intelligent", LifeForm.Intelligence, Color.Gold);
+        DrawLifeStat("Civilization", LifeForm.Civilization, Color.Yellow);
 
-        int reptilesCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Reptiles, 0);
-        if (reptilesCount > 0)
-            DrawText($"Reptiles: {reptilesCount}", new Color(140, 140, 60));
-
-        // Age of Dinosaurs
-        int dinosaursCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Dinosaurs, 0);
-        if (dinosaursCount > 0)
-            DrawText($"DINOSAURS: {dinosaursCount}", Color.Orange);
-
-        int marineDinosaursCount = _cachedLifeStats.GetValueOrDefault(LifeForm.MarineDinosaurs, 0);
-        if (marineDinosaursCount > 0)
-            DrawText($"Marine Dinosaurs: {marineDinosaursCount}", new Color(100, 100, 180));
-
-        int pterosaursCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Pterosaurs, 0);
-        if (pterosaursCount > 0)
-            DrawText($"Pterosaurs: {pterosaursCount}", new Color(160, 140, 100));
-
-        // Age of Mammals
-        int mammalsCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Mammals, 0);
-        if (mammalsCount > 0)
-            DrawText($"Mammals: {mammalsCount}", new Color(160, 120, 90));
-
-        int birdsCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Birds, 0);
-        if (birdsCount > 0)
-            DrawText($"Birds: {birdsCount}", new Color(150, 180, 150));
-
-        int complexAnimalsCount = _cachedLifeStats.GetValueOrDefault(LifeForm.ComplexAnimals, 0);
-        if (complexAnimalsCount > 0)
-            DrawText($"Complex Animals: {complexAnimalsCount}", Color.Orange);
-
-        int intelligenceCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Intelligence, 0);
-        if (intelligenceCount > 0)
-            DrawText($"Intelligence: {intelligenceCount}", Color.Gold);
-
-        int civilizationCount = _cachedLifeStats.GetValueOrDefault(LifeForm.Civilization, 0);
-        if (civilizationCount > 0)
-            DrawText($"Civilization: {civilizationCount}", Color.Yellow);
-        textY += 5;
-
-        // Civilization statistics
+        // Civilization Section
         if (_civilizationManager != null && _civilizationManager.Civilizations.Count > 0)
         {
-            DrawText("=== Civilizations ===", Color.Gold);
+            DrawSectionHeader("CIVILIZATIONS");
             int civCount = Math.Min(3, _civilizationManager.Civilizations.Count);
             for (int i = 0; i < civCount; i++)
             {
                 var civ = _civilizationManager.Civilizations[i];
-                Color nameColor = civ.AtWar ? Color.Red : Color.Yellow;
+                Color nameColor = civ.AtWar ? _alertColor : _goldColor;
                 string warStatus = civ.AtWar ? " [WAR]" : "";
+
                 DrawText($"{civ.Name}{warStatus}", nameColor);
+
                 int popK = civ.Population / 1000;
-                DrawText($"  {civ.CivType} - Pop: {popK}K", Color.White);
+                DrawText($"Type: {civ.CivType} | Pop: {popK}K", _textLabelColor, 12, 10);
 
-                // Transportation icons
-                string transport = "  Transport: ";
-                if (civ.HasAirTransport) transport += "[Planes] ";
-                else if (civ.HasSeaTransport) transport += "[Ships] ";
-                else if (civ.HasLandTransport) transport += "[Land] ";
-                else transport += "[None]";
+                // Icons
+                string icons = "";
+                if (civ.HasAirTransport) icons += "[Air] ";
+                if (civ.HasSeaTransport) icons += "[Sea] ";
+                if (civ.HasNuclearWeapons) icons += "[Nuke] ";
 
-                if (civ.HasAirTransport || civ.HasSeaTransport || civ.HasLandTransport)
-                {
-                    DrawText(transport, Color.Cyan);
-                }
+                if(!string.IsNullOrEmpty(icons))
+                     DrawText(icons, Color.Cyan, 12, 10);
 
-                // Nuclear weapons
-                if (civ.HasNuclearWeapons)
-                {
-                    DrawText($"  Nukes: {civ.NuclearStockpile}", Color.Red);
-                }
-
-                // Climate agreements
                 if (civ.InClimateAgreement)
                 {
-                    int reduction = (int)(civ.EmissionReduction * 100);
-                    DrawText($"  Climate: -{reduction}% emissions", Color.LightGreen);
+                    DrawText($"Climate Pact (-{(int)(civ.EmissionReduction * 100)}%)", _goodColor, 12, 10);
                 }
+                textY += 2; // Extra spacing between civs
             }
+
             if (_civilizationManager.Civilizations.Count > 3)
             {
-                int moreCivs = _civilizationManager.Civilizations.Count - 3;
-                DrawText($"...and {moreCivs} more", Color.Gray);
+                DrawText($"...and {_civilizationManager.Civilizations.Count - 3} more", Color.Gray, 12);
             }
-            textY += 5;
         }
 
-        // Weather statistics
+        // Weather Alerts
         if (_weatherSystem != null)
         {
             var activeStorms = _weatherSystem.GetActiveStorms();
             if (activeStorms.Count > 0)
             {
-                DrawText($"=== Weather Alerts ===", Color.Orange);
-                DrawText($"Active Storms: {activeStorms.Count}", Color.Red);
+                DrawSectionHeader("ALERTS");
+                DrawText($"Active Storms: {activeStorms.Count}", _alertColor);
                 int stormCount = Math.Min(2, activeStorms.Count);
                 for (int i = 0; i < stormCount; i++)
                 {
                     var storm = activeStorms[i];
-                    DrawText($"{storm.Type} - Intensity {storm.Intensity:F1}", Color.Orange);
+                    DrawText($"{storm.Type} ({storm.Intensity:F1})", Color.Orange, 12);
                 }
-                textY += 5;
             }
         }
 
-        // Planet Stabilizer status
+        // Stabilizer
         if (_planetStabilizer != null)
         {
+            textY += 10;
             if (_planetStabilizer.IsActive)
             {
-                DrawText("=== AUTO-STABILIZER ===", Color.Cyan);
-                DrawText("[ACTIVE] Maintaining equilibrium", Color.LightGreen);
-                DrawText($"Adjustments: {_planetStabilizer.AdjustmentsMade}", Color.White);
-                DrawText($"Last: {_planetStabilizer.LastAction}", Color.Gray);
-                DrawText("Press \\ to disable", Color.DarkGray);
+                DrawText("AUTO-STABILIZER ACTIVE", _accentColor);
+                DrawText($"Adj: {_planetStabilizer.AdjustmentsMade} | Last: {_planetStabilizer.LastAction}", _textLabelColor, 12);
             }
             else
             {
-                DrawText("Auto-Stabilizer: OFF (Press \\)", Color.DarkGray);
+                DrawText("Stabilizer: OFF", Color.Gray);
             }
-            textY += 5;
         }
 
-        DrawText($"View Mode: {renderMode}", Color.Magenta);
-        DrawText($"Zoom: {zoomLevel:F1}x", Color.Cyan);
+        // Footer View Info
+        // Use dynamic height to ensure it sticks to bottom even if window is resized
+        textY = panelY + panelHeight - 60;
+        DrawRectangle(panelX + 10, textY - 5, panelWidth - 20, 1, _subHeaderBgColor);
+        DrawLabelValue("View:", $"{renderMode}", Color.Magenta);
+        DrawLabelValue("Zoom:", $"{zoomLevel:F1}x", Color.Cyan);
 
-        // Show active overlays
+        // Mini icons for overlays
         string overlays = "";
-        if (showVolcanoes) overlays += "[Volcanoes] ";
-        if (showRivers) overlays += "[Rivers] ";
-        if (showPlates) overlays += "[Plates] ";
+        if (showVolcanoes) overlays += "V ";
+        if (showRivers) overlays += "R ";
+        if (showPlates) overlays += "P ";
         if (!string.IsNullOrEmpty(overlays))
         {
-            DrawText($"Overlays: {overlays.Trim()}", Color.Yellow);
+             DrawLabelValue("Overlays:", overlays, Color.Yellow);
         }
     }
 
@@ -307,124 +309,130 @@ public class GameUI
     {
         // Position help panel in the map area (centered with 2 columns)
         int infoPanelWidth = 280;
-        int panelX = infoPanelWidth + 20;
+        int panelX = infoPanelWidth + 20; // Tighter margin
         int panelY = toolbarHeight + 20;
-        int panelWidth = 780;
-        int panelHeight = Math.Min(680, _graphicsDevice.Viewport.Height - toolbarHeight - 40);
+        int panelWidth = Math.Min(1000, _graphicsDevice.Viewport.Width - panelX - 20); // Adapt width
+        int panelHeight = Math.Min(700, _graphicsDevice.Viewport.Height - toolbarHeight - 40); // Fit height
 
-        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(0, 0, 0, 240));
-        DrawBorder(panelX, panelY, panelWidth, panelHeight, Color.Yellow, 2);
+        // Shadow
+        DrawRectangle(panelX + 6, panelY + 6, panelWidth, panelHeight, new Color(0, 0, 0, 150));
 
-        int lineHeight = 18;
-        int columnWidth = (panelWidth - 30) / 2;
-        int leftColX = panelX + 10;
-        int rightColX = panelX + columnWidth + 20;
+        // Main BG
+        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(15, 20, 30, 250));
+        DrawBorder(panelX, panelY, panelWidth, panelHeight, _goldColor, 2);
+
+        // Header
+        DrawRectangle(panelX, panelY, panelWidth, 40, new Color(40, 40, 60, 255));
+        string title = "SIMPLANET COMMAND REFERENCE";
+        var titleSize = _font.MeasureString(title);
+        _font.DrawString(_spriteBatch, title, new Vector2(panelX + (panelWidth - titleSize.X) / 2, panelY + 10), _goldColor);
+
+        int lineHeight = 18; // Slightly more compact line height
+        int columnWidth = (panelWidth - 60) / 2;
+        int leftColX = panelX + 20;
+        int rightColX = panelX + columnWidth + 40;
+        int startY = panelY + 50;
 
         // Helper to draw text in columns
         void DrawTextAt(string text, Color color, int x, int y)
         {
-            _font.DrawString(_spriteBatch, text, new Vector2(x, y), color);
+            if (y < panelY + panelHeight - 30) // Simple culling
+            {
+                _font.DrawString(_spriteBatch, text, new Vector2(x, y), color);
+            }
         }
 
-        int leftY = panelY + 10;
-        int rightY = panelY + 10;
+        int leftY = startY;
+        int rightY = startY;
 
         // Left Column - Main Controls
-        DrawTextAt("=== KEYBOARD CONTROLS ===", Color.Yellow, leftColX, leftY);
-        leftY += lineHeight + 3;
-        DrawTextAt("SPACE: Pause/Resume", Color.White, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("+/-: Time speed", Color.White, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("ESC: Pause/Menu", Color.White, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("H: Toggle Help", Color.White, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("R: Regenerate planet", Color.White, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("L: Seed life", Color.White, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("=== KEYBOARD CONTROLS ===", _accentColor, leftColX, leftY);
+        leftY += lineHeight + 5;
+        DrawTextAt("SPACE: Pause/Resume", _textValueColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("+/-: Time speed", _textValueColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("ESC: Pause/Menu", _textValueColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("H: Toggle Help", _textValueColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("R: Regenerate planet", _textValueColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("L: Seed life (or Life Painter)", _textValueColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F: Fast Forward 10,000 years", Color.Cyan, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("ESC: Cancel Fast Forward", Color.Cyan, leftColX, leftY); leftY += lineHeight;
-        leftY += 5;
+        leftY += 8;
 
-        DrawTextAt("=== VIEW MODES (1-0) ===", Color.Yellow, leftColX, leftY);
-        leftY += lineHeight + 3;
-        DrawTextAt("1: Terrain  2: Temperature", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("3: Rainfall  4: Life forms", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("5: Oxygen  6: CO2", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("7: Elevation  8: Geology", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("9: Plates  0: Volcanoes", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        leftY += 5;
+        DrawTextAt("=== VIEW MODES (1-0) ===", _accentColor, leftColX, leftY);
+        leftY += lineHeight + 5;
+        DrawTextAt("1: Terrain  2: Temperature", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("3: Rainfall  4: Life forms", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("5: Oxygen  6: CO2", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("7: Elevation  8: Geology", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("9: Plates  0: Volcanoes", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        leftY += 8;
 
-        DrawTextAt("=== WEATHER (F1-F4) ===", Color.Yellow, leftColX, leftY);
-        leftY += lineHeight + 3;
-        DrawTextAt("F1: Clouds  F2: Wind", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("F3: Pressure  F4: Storms", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        leftY += 5;
+        DrawTextAt("=== WEATHER (F1-F4) ===", _accentColor, leftColX, leftY);
+        leftY += lineHeight + 5;
+        DrawTextAt("F1: Clouds  F2: Wind", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("F3: Pressure  F4: Storms", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        leftY += 8;
 
-        DrawTextAt("=== GEOLOGICAL HAZARDS ===", Color.Yellow, leftColX, leftY);
-        leftY += lineHeight + 3;
-        DrawTextAt("E: Earthquakes  Q: Faults", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("U: Tsunamis", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        leftY += 5;
+        DrawTextAt("=== GEOLOGICAL HAZARDS ===", _accentColor, leftColX, leftY);
+        leftY += lineHeight + 5;
+        DrawTextAt("E: Earthquakes  Q: Faults", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("U: Tsunamis", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        leftY += 8;
 
-        DrawTextAt("=== ADVANCED VIEWS ===", Color.Yellow, leftColX, leftY);
-        leftY += lineHeight + 3;
-        DrawTextAt("F10: Biomes  A: Albedo", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("F12: Radiation  J: Resources", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("S: Spectral Band Energy", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("O: Infrastructure (Civ)", Color.Gray, leftColX, leftY); leftY += lineHeight;
-        leftY += 5;
+        DrawTextAt("=== ADVANCED VIEWS ===", _accentColor, leftColX, leftY);
+        leftY += lineHeight + 5;
+        DrawTextAt("F10: Biomes  A: Albedo", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("F12: Radiation  J: Resources", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("S: Spectral Band Energy", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("O: Infrastructure (Civ)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        leftY += 8;
 
-        DrawTextAt("=== SAVE/LOAD ===", Color.Yellow, leftColX, leftY);
-        leftY += lineHeight + 3;
+        DrawTextAt("=== SAVE/LOAD ===", _accentColor, leftColX, leftY);
+        leftY += lineHeight + 5;
         DrawTextAt("F5: Quick Save", Color.Cyan, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("F9: Quick Load", Color.Cyan, leftColX, leftY); leftY += lineHeight;
 
         // Right Column - Mouse & Advanced Controls
-        DrawTextAt("=== MOUSE CONTROLS ===", Color.Yellow, rightColX, rightY);
-        rightY += lineHeight + 3;
+        DrawTextAt("=== MOUSE CONTROLS ===", _accentColor, rightColX, rightY);
+        rightY += lineHeight + 5;
         DrawTextAt("Mouse Wheel: Zoom in/out", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Left Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Middle Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("Click Tile: View detailed info", Color.White, rightColX, rightY); rightY += lineHeight;
-        rightY += 5;
+        DrawTextAt("Click Tile: View detailed info", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        rightY += 8;
 
-        DrawTextAt("=== OVERLAYS & FEATURES ===", Color.Yellow, rightColX, rightY);
-        rightY += lineHeight + 3;
-        DrawTextAt("V: Toggle volcanoes", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("B: Toggle rivers", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("N: Toggle plate boundaries", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("P: Toggle 3D minimap", Color.White, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("=== OVERLAYS & FEATURES ===", _accentColor, rightColX, rightY);
+        rightY += lineHeight + 5;
+        DrawTextAt("V: Toggle volcanoes", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("B: Toggle rivers", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("N: Toggle plate boundaries", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("P: Toggle 3D minimap", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("C: Day/Night cycle", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        rightY += 5;
+        rightY += 8;
 
-        DrawTextAt("=== MAP EDITOR (M key) ===", Color.Yellow, rightColX, rightY);
-        rightY += lineHeight + 3;
-        DrawTextAt("F6: Earth preset", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("F7: Mars preset", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("F8: Water World preset", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("S: Desert World preset", Color.White, rightColX, rightY); rightY += lineHeight;
-        rightY += 5;
+        DrawTextAt("=== TOOLS & EDITORS ===", _accentColor, rightColX, rightY);
+        rightY += lineHeight + 5;
+        DrawTextAt("L: Life Painter - Paint life on map", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  - Left Click: Paint, Right Click: Cycle Life", Color.Gray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  - Scroll: Brush Size", Color.Gray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("T: Terraforming - Raise/Lower land", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  - Left Click: Apply, Right Click: Toggle Mode", Color.Gray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("D: Disaster Control - Trigger events", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("I: Divine Powers - Influence Civs", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("M: Map Options / Generator", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        rightY += 8;
 
-        DrawTextAt("=== CIVILIZATION TOOLS ===", Color.Yellow, rightColX, rightY);
-        rightY += lineHeight + 3;
-        DrawTextAt("G: Control civilization", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("I: Divine powers menu", Color.Gold, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  -Change governments", Color.LightGray, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  -Send spies, force wars", Color.LightGray, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  -Bless/curse/advance civs", Color.LightGray, rightColX, rightY); rightY += lineHeight;
-        rightY += 3;
-
-        DrawTextAt("=== OTHER TOOLS ===", Color.Yellow, rightColX, rightY);
-        rightY += lineHeight + 3;
-        DrawTextAt("D: Disaster controls", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("K: Pandemic controls", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("T: Terraforming Tool", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("L: Life Painter", Color.White, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("M: Resource placement", Color.Orange, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("=== CIVILIZATION TOOLS ===", _accentColor, rightColX, rightY);
+        rightY += lineHeight + 5;
+        DrawTextAt("G: Control civilization", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("I: Divine powers menu", _goldColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("K: Pandemic controls", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("Y: Graphs", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("\\: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
 
         // Footer
-        int footerY = panelY + panelHeight - 25;
-        DrawTextAt("Watch your planet evolve from bacteria to civilizations with realistic geology and climate!",
-            Color.LightGray, leftColX, footerY);
+        int footerY = panelY + panelHeight - 20;
+        DrawTextAt("Use 'H' to toggle this help menu.", Color.LightGray, leftColX, footerY);
     }
 
     private void DrawRectangle(int x, int y, int width, int height, Color color)
@@ -465,26 +473,26 @@ public class GameUI
 
     private Color GetOxygenColor(float oxygen)
     {
-        if (oxygen < 10) return Color.Red;
+        if (oxygen < 10) return _alertColor;
         if (oxygen < 15) return Color.Orange;
-        if (oxygen < 25) return Color.LightGreen;
-        return Color.Red; // Too much oxygen
+        if (oxygen < 25) return _goodColor;
+        return _alertColor; // Too much oxygen
     }
 
     private Color GetCO2Color(float co2)
     {
-        if (co2 < 0.1f) return Color.LightGreen;
+        if (co2 < 0.1f) return _goodColor;
         if (co2 < 1.0f) return Color.Yellow;
-        return Color.Red;
+        return _alertColor;
     }
 
     private Color GetTempColor(float temp)
     {
         if (temp < 0) return Color.LightBlue;
         if (temp < 10) return Color.Cyan;
-        if (temp < 25) return Color.LightGreen;
+        if (temp < 25) return _goodColor;
         if (temp < 35) return Color.Yellow;
-        return Color.Red;
+        return _alertColor;
     }
 }
 

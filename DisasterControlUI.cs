@@ -44,8 +44,8 @@ public class DisasterControlUI
 
     private void InitializeButtons()
     {
-        int panelX = 220;
-        int panelY = 40; // Below toolbar (36px high)
+        int panelX = 300; // Offset to not cover info panel
+        int panelY = 50; // Below toolbar
         int buttonWidth = 180;
         int buttonHeight = 30;
         int spacing = 5;
@@ -285,8 +285,8 @@ public class DisasterControlUI
     {
         if (!IsVisible) return;
 
-        int panelX = 220;
-        int panelY = 40; // Below toolbar (36px high)
+        int panelX = 300;
+        int panelY = 50;
         int panelWidth = 200;
         int panelHeight = 600;
 
