@@ -87,8 +87,6 @@ namespace SimPlanet
             x += categorySpacing;
 
             // UI Toggles
-            AddButton(ref x, y, "H", "Toggle Help (H)", "UI", () => game.ToggleHelp());
-            AddButton(ref x, y, "M", "Map Options (M)", "UI", () => game.ToggleMapOptions());
             AddButton(ref x, y, "P", "Minimap (P)", "UI", () => game.ToggleMinimap());
             AddButton(ref x, y, "C", "Day/Night (C)", "UI", () => game.ToggleDayNight());
             AddButton(ref x, y, "V", "Volcano Overlay (V)", "UI", () => game.ToggleVolcanoes());
@@ -181,8 +179,6 @@ namespace SimPlanet
             else if (tooltip.Contains("Quick Save")) DrawSaveIcon(data, size);
             else if (tooltip.Contains("Quick Load")) DrawLoadIcon(data, size);
             else if (tooltip.Contains("Regenerate")) DrawRegenerateIcon(data, size);
-            else if (tooltip.Contains("Help")) DrawHelpIcon(data, size);
-            else if (tooltip.Contains("Map Options")) DrawMapIcon(data, size);
             else if (tooltip.Contains("Minimap")) DrawMinimapIcon(data, size);
             else if (tooltip.Contains("Day/Night")) DrawDayNightIcon(data, size);
             else if (tooltip.Contains("Volcano Overlay")) DrawVolcanoOverlayIcon(data, size);

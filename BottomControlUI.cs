@@ -67,6 +67,8 @@ public class BottomControlUI
 
         AddButton("Save", "Quick Save (F5)", () => _game.QuickSave(), Color.Green);
         AddButton("Load", "Quick Load (F9)", () => _game.QuickLoad(), Color.Teal);
+        AddButton("Map", "Map Options (M)", () => _game.ToggleMapOptions(), Color.Purple);
+        AddButton("Help", "Toggle Help (H)", () => _game.ToggleHelp(), Color.Cyan);
         AddButton("R", "Regenerate Planet", () => _game.RegeneratePlanet(), Color.Red);
     }
 
