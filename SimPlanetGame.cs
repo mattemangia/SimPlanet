@@ -593,8 +593,8 @@ public class SimPlanetGame : Game
                 _terrainRenderer.CameraY -= dy;
 
                 // Clamp camera position to prevent panning off-screen
-                float maxCamX = _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferWidth;
-                float maxCamY = _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferHeight;
+                float maxCamX = Math.Max(0, _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferWidth);
+                float maxCamY = Math.Max(0, _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferHeight);
                 _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, 0, maxCamX);
                 _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, 0, maxCamY);
             }
@@ -611,8 +611,8 @@ public class SimPlanetGame : Game
                 _terrainRenderer.CameraY -= dy;
 
                 // Clamp camera position to prevent panning off-screen
-                float maxCamX = _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferWidth;
-                float maxCamY = _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferHeight;
+                float maxCamX = Math.Max(0, _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferWidth);
+                float maxCamY = Math.Max(0, _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - _graphics.PreferredBackBufferHeight);
                 _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, 0, maxCamX);
                 _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, 0, maxCamY);
             }
