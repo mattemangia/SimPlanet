@@ -311,6 +311,7 @@ public class SimPlanetGame : Game
         _ui.SetPlanetStabilizer(_planetStabilizer);
         _mapOptionsUI = new MapOptionsUI(_spriteBatch, _font, GraphicsDevice);
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+        _minimap3D.IsVisible = false;
         _minimap3D.SetWeatherSystem(_weatherSystem); // Connect weather system for clouds and storms
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
         _eventsUI.InitializeOverlayTexture(_map);
@@ -1205,6 +1206,7 @@ public class SimPlanetGame : Game
         _ui.SetPlanetStabilizer(_planetStabilizer);
         _minimap3D.Dispose();
         _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+        _minimap3D.IsVisible = false;
         _minimap3D.SetWeatherSystem(_weatherSystem); // Connect weather system for clouds and storms
         _eventsUI.InitializeOverlayTexture(_map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
