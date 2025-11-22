@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace SimPlanet;
 
 /// <summary>
@@ -6,6 +8,9 @@ namespace SimPlanet;
 public static class EarthquakeSystem
 {
     private static Random _random = new Random();
+
+    // Queue for UI to read recent earthquakes
+    public static ConcurrentQueue<EarthquakeEvent> RecentSystemEarthquakes = new();
 
     /// <summary>
     /// Update seismic stress and trigger earthquakes
@@ -170,6 +175,21 @@ public static class EarthquakeSystem
     /// </summary>
     public static void TriggerEarthquake(PlanetMap map, int epicenterX, int epicenterY, float magnitude, int currentYear)
     {
+        // Add to recent queue for UI
+        RecentSystemEarthquakes.Enqueue(new EarthquakeEvent
+        {
+            X = epicenterX,
+            Y = epicenterY,
+            Magnitude = magnitude,
+            Year = currentYear
+        });
+
+        // Limit queue size
+        while (RecentSystemEarthquakes.Count > 50)
+        {
+            RecentSystemEarthquakes.TryDequeue(out _);
+        }
+
         var epicenter = map.Cells[epicenterX, epicenterY];
         epicenter.Geology.EarthquakeMagnitude = magnitude;
         epicenter.Geology.IsEpicenter = true;

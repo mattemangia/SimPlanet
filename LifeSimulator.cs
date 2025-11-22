@@ -792,10 +792,12 @@ public class LifeSimulator
 
     private void ReactToEarthquakes(GeologicalSimulator geoSim)
     {
-        foreach (var (x, y, magnitude) in geoSim.Earthquakes)
+        foreach (var quake in geoSim.Earthquakes)
         {
             // Less lethal earthquakes
-            float damageRadius = magnitude * 1.5f;
+            float damageRadius = quake.Magnitude * 1.5f;
+            int x = quake.X;
+            int y = quake.Y;
             for (int dx = -(int)damageRadius; dx <= damageRadius; dx++)
             {
                 for (int dy = -(int)damageRadius; dy <= damageRadius; dy++)
@@ -809,7 +811,7 @@ public class LifeSimulator
                     var target = _map.Cells[nx, ny];
                     if (target.LifeType == LifeForm.Bacteria) continue;
 
-                    float damage = (1 - dist / damageRadius) * magnitude * 0.1f; // Reduced damage
+                    float damage = (1 - dist / damageRadius) * quake.Magnitude * 0.1f; // Reduced damage
                     target.Biomass *= (1 - damage);
                 }
             }

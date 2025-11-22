@@ -27,6 +27,18 @@ public class GeologicalEventsUI
     // Track last logged events to prevent spam
     private (int x, int y, float magnitude) _lastLoggedEarthquake = (-1, -1, 0);
 
+    // Visual earthquake effects
+    private struct VisualEarthquake
+    {
+        public int X;
+        public int Y;
+        public float Magnitude;
+        public float Age;
+        public float MaxAge;
+    }
+    private List<VisualEarthquake> _visualEarthquakes = new();
+    private HashSet<long> _processedQuakes = new(); // To track which quakes we've seen (using simple hash)
+
     public bool ShowEvents { get; set; } = true;
     public bool ShowRivers { get; set; } = true;
     public bool ShowPlates { get; set; } = false;
@@ -72,6 +84,21 @@ public class GeologicalEventsUI
 
     public void Update(int currentYear)
     {
+        float deltaTime = 0.016f; // Approximate 60fps update
+
+        // Update visual effects
+        for (int i = _visualEarthquakes.Count - 1; i >= 0; i--)
+        {
+            var quake = _visualEarthquakes[i];
+            quake.Age += deltaTime;
+            _visualEarthquakes[i] = quake;
+
+            if (quake.Age >= quake.MaxAge)
+            {
+                _visualEarthquakes.RemoveAt(i);
+            }
+        }
+
         // Check for new events
         if (_geologicalSim != null)
         {
@@ -85,15 +112,59 @@ public class GeologicalEventsUI
             }
 
             // Check for earthquakes
-            if (_geologicalSim.Earthquakes.Count > 0)
+            foreach (var earthquake in _geologicalSim.Earthquakes)
             {
-                var earthquake = _geologicalSim.Earthquakes.Last();
+                // Generate a unique-ish ID for tracking
+                long quakeId = ((long)earthquake.X << 32) | (uint)earthquake.Y ^ BitConverter.SingleToInt32Bits(earthquake.Magnitude) ^ earthquake.Year;
 
-                // Only log if it's a new earthquake event (different from last one)
-                if (earthquake != _lastLoggedEarthquake)
+                if (!_processedQuakes.Contains(quakeId))
                 {
-                    LogEvent($"Earthquake M{earthquake.magnitude:F1} at ({earthquake.x}, {earthquake.y})");
-                    _lastLoggedEarthquake = earthquake;
+                    _processedQuakes.Add(quakeId);
+
+                    // Add visual effect for ALL earthquakes
+                    _visualEarthquakes.Add(new VisualEarthquake
+                    {
+                        X = earthquake.X,
+                        Y = earthquake.Y,
+                        Magnitude = earthquake.Magnitude,
+                        Age = 0,
+                        MaxAge = 2.0f + earthquake.Magnitude * 0.5f // Larger quakes last longer
+                    });
+
+                    // Only log significant earthquakes to prevent spam
+                    if (earthquake.Magnitude >= 4.5f)
+                    {
+                        LogEvent($"Earthquake M{earthquake.Magnitude:F1} at ({earthquake.X}, {earthquake.Y})");
+                    }
+                }
+            }
+
+            // Cleanup processed set occasionally
+            if (_processedQuakes.Count > 1000)
+            {
+                _processedQuakes.Clear();
+            }
+        }
+
+        // Also check EarthquakeSystem for high-fidelity earthquakes (if exposed)
+        if (EarthquakeSystem.RecentSystemEarthquakes.Count > 0)
+        {
+            while (EarthquakeSystem.RecentSystemEarthquakes.TryDequeue(out var quake))
+            {
+                // Add visual effect
+                _visualEarthquakes.Add(new VisualEarthquake
+                {
+                    X = quake.X,
+                    Y = quake.Y,
+                    Magnitude = quake.Magnitude,
+                    Age = 0,
+                    MaxAge = 3.0f + quake.Magnitude * 0.5f
+                });
+
+                // Log significant ones
+                if (quake.Magnitude >= 5.0f)
+                {
+                    LogEvent($"Major Quake M{quake.Magnitude:F1} at ({quake.X}, {quake.Y})");
                 }
             }
         }
@@ -213,6 +284,7 @@ public class GeologicalEventsUI
                 }
             }
         }
+
     }
 
     // Helper to draw triangle shape into texture (for volcano icons)
@@ -422,6 +494,31 @@ public class GeologicalEventsUI
                         }
                     }
                 }
+            }
+        }
+
+        // Draw active visual earthquakes (expanding rings)
+        // Note: offsetX/Y here are map render offsets, we need to account for camera if needed,
+        // but DrawOverlay is called with pre-calculated overlay offsets.
+        foreach (var quake in _visualEarthquakes)
+        {
+            float screenX = offsetX + quake.X * pixelScale;
+            float screenY = offsetY + quake.Y * pixelScale;
+            int centerX = (int)(screenX + pixelScale * 0.5f);
+            int centerY = (int)(screenY + pixelScale * 0.5f);
+
+            float progress = quake.Age / quake.MaxAge;
+            float radius = (pixelScale * 2.0f) + (progress * pixelScale * 10.0f * (quake.Magnitude / 5.0f));
+            float opacity = 1.0f - progress;
+
+            Color quakeColor = quake.Magnitude >= 6.0f ? Color.Red : Color.Yellow;
+
+            DrawCircleOutline(_spriteBatch, centerX, centerY, (int)radius, quakeColor * opacity, 2);
+
+            // Draw second ring for big quakes
+            if (quake.Magnitude >= 5.0f)
+            {
+                DrawCircleOutline(_spriteBatch, centerX, centerY, (int)(radius * 0.7f), quakeColor * opacity * 0.7f, 1);
             }
         }
     }
