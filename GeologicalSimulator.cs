@@ -201,8 +201,10 @@ public class GeologicalSimulator
 
                     // The noise acts as "terrain difficulty" - high noise = harder to traverse
                     // This warps the distance field
-                    float randomFactor = 1.0f + (noiseVal * 5.0f);
-                    float newCost = cost + moveCost * randomFactor;
+                    // FIX: Must ensure factor is always positive to prevent negative edge weights!
+                    // Previously 1.0 + noise*5.0 caused negative costs (-4.0), leading to runaway expansion
+                    float randomFactor = 2.5f + (noiseVal * 2.0f);
+                    float newCost = cost + moveCost * Math.Max(0.1f, randomFactor);
 
                     if (newCost < costs[nx, ny])
                     {
