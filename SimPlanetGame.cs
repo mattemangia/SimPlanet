@@ -552,9 +552,9 @@ public class SimPlanetGame : Game
 
             _graphs.Update(realDeltaTime);
 
-            _lifePainterUI.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+            _lifePainterUI.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
 
-            _terraformingTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel);
+            _terraformingTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
 
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
