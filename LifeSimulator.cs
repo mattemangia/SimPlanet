@@ -490,13 +490,13 @@ public class LifeSimulator
 
                 // Rate control:
                 // Spread probability scales with deltaTime.
-                // e.g., if spreadChance = 0.2/year, and deltaTime = 0.016 year (1 frame),
-                // prob = 0.2 * 0.016 = 0.0032 (0.3% per frame).
+                // e.g., if spreadChance = 0.05/year, and deltaTime = 0.016 year (1 frame),
+                // prob = 0.05 * 0.016 = 0.0008 (0.08% per frame).
                 // This ensures spread speed is independent of frame rate.
-                float spreadProbability = 0.2f * deltaTime;
+                float spreadProbability = 0.05f * deltaTime;
 
-                // Bacteria spreads faster
-                if (cell.LifeType == LifeForm.Bacteria) spreadProbability *= 2.0f;
+                // Bacteria spreads slightly faster, but not too fast
+                if (cell.LifeType == LifeForm.Bacteria) spreadProbability *= 1.5f;
 
                 if (rnd.NextDouble() > spreadProbability)
                     continue;
@@ -517,8 +517,26 @@ public class LifeSimulator
 
                 var neighbor = _map.Cells[nx, ny];
 
-                // Only spread to empty cells
-                if (neighbor.LifeType != LifeForm.None)
+                // Allow spreading to empty cells OR overtaking lower life forms
+                // Animals > Plants > Algae > Bacteria
+                bool canOvertake = false;
+
+                if (neighbor.LifeType == LifeForm.None)
+                {
+                    canOvertake = true;
+                }
+                else if (cell.LifeType > LifeForm.PlantLife && neighbor.LifeType <= LifeForm.PlantLife)
+                {
+                    // Animals can displace plants/bacteria (herbivory/trampling/displacement)
+                    canOvertake = true;
+                }
+                else if (cell.LifeType == LifeForm.PlantLife && (neighbor.LifeType == LifeForm.Algae || neighbor.LifeType == LifeForm.Bacteria))
+                {
+                    // Plants displace microbes
+                    canOvertake = true;
+                }
+
+                if (!canOvertake)
                     continue;
 
                 // Check suitability
