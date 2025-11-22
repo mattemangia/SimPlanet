@@ -507,7 +507,16 @@ Features:
 
 ### Map Options Menu (Press M)
 
-When the map options menu is open, use these keys to customize the planet:
+When the map options menu is open, you can use the interactive UI with mouse controls or the following keyboard shortcuts:
+
+**Interactive UI:**
+- **Map Size Buttons**: Select from Small (128x64), Standard (240x120), Large (512x256), or Huge (1024x512)
+- **Preset Buttons**: Quickly load Earth, Mars, Water World, or Desert presets
+- **Sliders**: Drag sliders to adjust Land Ratio, Mountain Level, Water Level, Smoothness, and Detail
+- **Seed Input**: Click the seed box to type a number, use +/- buttons, or click "Randomize Seed"
+- **Preview**: View a real-time preview of the map before generating
+
+**Keyboard Shortcuts:**
 
 | Key | Action |
 |-----|--------|
@@ -529,8 +538,8 @@ When the map options menu is open, use these keys to customize the planet:
 
 The game uses configurable map generation parameters with **real-time preview**:
 
-- **Seed**: Random seed for reproducible maps (default: 12345)
-- **Map Size**: Dimensions of the planet (affects performance)
+- **Seed**: Random seed for reproducible maps (default: 12345). Click to type manually.
+- **Map Size**: Dimensions of the planet (Small 128x64, Standard 240x120, Large 512x256, Huge 1024x512)
 - **Land Ratio**: Percentage of land vs water (default: 0.3 = 30% land)
 - **Mountain Level**: How mountainous the terrain is (default: 0.5)
 - **Water Level**: Sea level adjustment (default: 0.0)
