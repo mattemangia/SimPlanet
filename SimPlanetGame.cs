@@ -812,6 +812,10 @@ public class SimPlanetGame : Game
         {
             _eventsUI.ShowPlates = !_eventsUI.ShowPlates;
         }
+        if (keyState.IsKeyDown(Keys.OemPeriod) && _previousKeyState.IsKeyUp(Keys.OemPeriod))
+        {
+            _eventsUI.ShowEarthquakes = !_eventsUI.ShowEarthquakes;
+        }
 
         // Control civilization (G key)
         if (keyState.IsKeyDown(Keys.G) && _previousKeyState.IsKeyUp(Keys.G))
@@ -1327,7 +1331,7 @@ public class SimPlanetGame : Game
 
         // Draw UI with current zoom and overlay states (below toolbar)
         _ui.Draw(_gameState, _currentRenderMode, _terrainRenderer.ZoomLevel,
-            _eventsUI.ShowVolcanoes, _eventsUI.ShowRivers, _eventsUI.ShowPlates, toolbarHeight);
+            _eventsUI.ShowVolcanoes, _eventsUI.ShowRivers, _eventsUI.ShowPlates, _eventsUI.ShowEarthquakes, toolbarHeight);
 
         // Draw map options menu (if visible)
         _mapOptionsUI.Draw(_mapOptions);
@@ -1729,6 +1733,11 @@ public class SimPlanetGame : Game
     {
         _eventsUI.ShowPlates = !_eventsUI.ShowPlates;
         _eventsUI.MarkOverlayDirty();
+    }
+
+    public void ToggleEarthquakes()
+    {
+        _eventsUI.ShowEarthquakes = !_eventsUI.ShowEarthquakes;
     }
 
     public void SeedLife()

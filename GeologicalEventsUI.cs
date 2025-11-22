@@ -43,6 +43,7 @@ public class GeologicalEventsUI
     public bool ShowRivers { get; set; } = true;
     public bool ShowPlates { get; set; } = false;
     public bool ShowVolcanoes { get; set; } = true;
+    public bool ShowEarthquakes { get; set; } = false;
     private bool _riversAllowedInCurrentView = true;
 
     public void MarkOverlayDirty() => _overlayDirty = true;
@@ -500,25 +501,28 @@ public class GeologicalEventsUI
         // Draw active visual earthquakes (expanding rings)
         // Note: offsetX/Y here are map render offsets, we need to account for camera if needed,
         // but DrawOverlay is called with pre-calculated overlay offsets.
-        foreach (var quake in _visualEarthquakes)
+        if (ShowEarthquakes)
         {
-            float screenX = offsetX + quake.X * pixelScale;
-            float screenY = offsetY + quake.Y * pixelScale;
-            int centerX = (int)(screenX + pixelScale * 0.5f);
-            int centerY = (int)(screenY + pixelScale * 0.5f);
-
-            float progress = quake.Age / quake.MaxAge;
-            float radius = (pixelScale * 2.0f) + (progress * pixelScale * 10.0f * (quake.Magnitude / 5.0f));
-            float opacity = 1.0f - progress;
-
-            Color quakeColor = quake.Magnitude >= 6.0f ? Color.Red : Color.Yellow;
-
-            DrawCircleOutline(_spriteBatch, centerX, centerY, (int)radius, quakeColor * opacity, 2);
-
-            // Draw second ring for big quakes
-            if (quake.Magnitude >= 5.0f)
+            foreach (var quake in _visualEarthquakes)
             {
-                DrawCircleOutline(_spriteBatch, centerX, centerY, (int)(radius * 0.7f), quakeColor * opacity * 0.7f, 1);
+                float screenX = offsetX + quake.X * pixelScale;
+                float screenY = offsetY + quake.Y * pixelScale;
+                int centerX = (int)(screenX + pixelScale * 0.5f);
+                int centerY = (int)(screenY + pixelScale * 0.5f);
+
+                float progress = quake.Age / quake.MaxAge;
+                float radius = (pixelScale * 2.0f) + (progress * pixelScale * 10.0f * (quake.Magnitude / 5.0f));
+                float opacity = 1.0f - progress;
+
+                Color quakeColor = quake.Magnitude >= 6.0f ? Color.Red : Color.Yellow;
+
+                DrawCircleOutline(_spriteBatch, centerX, centerY, (int)radius, quakeColor * opacity, 2);
+
+                // Draw second ring for big quakes
+                if (quake.Magnitude >= 5.0f)
+                {
+                    DrawCircleOutline(_spriteBatch, centerX, centerY, (int)(radius * 0.7f), quakeColor * opacity * 0.7f, 1);
+                }
             }
         }
     }

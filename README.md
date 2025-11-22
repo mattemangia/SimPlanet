@@ -471,6 +471,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **V** | Toggle volcano overlay |
 | **B** | Toggle river overlay |
 | **N** | Toggle plate boundary overlay |
+| **.** | Toggle earthquakes circles overlay |
 | **D** | Toggle disaster control panel |
 | **K** | Toggle disease/pandemic control center |
 | **G** | Open civilization control panel |
