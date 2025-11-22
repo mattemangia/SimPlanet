@@ -263,7 +263,8 @@ Greenhouse gases trap heat:
 ### Geological Systems
 
 **Plate Tectonics:**
-- 8 tectonic plates drift across the planet
+- 8 tectonic plates with **realistic irregular boundaries**
+- Boundaries generated using noise-distorted flood-fill for natural shapes
 - **Convergent boundaries**: Mountains, volcanoes, subduction
 - **Divergent boundaries**: Rift valleys, underwater ridges
 - **Transform boundaries**: Earthquakes, lateral movement
@@ -1324,8 +1325,8 @@ Start with uninhabitable planet:
 | Key | Action | Description |
 |-----|--------|-------------|
 | Arrow Keys | Pan | Move camera |
-| Mouse Drag | Pan | Move camera |
-| Scroll Wheel | Zoom | Zoom in/out |
+| Mouse Drag | Pan | Move camera (Left or Middle button) |
+| Scroll Wheel | Zoom | Zoom in/out (Map centers automatically when unzoomed) |
 | Click | Inspect | View cell details |
 
 ---

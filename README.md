@@ -782,7 +782,19 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Critical Greenhouse Effect Bug Fix
+### Latest Update - Map Controls & Geological Enhancements
+
+**Improved Map Navigation:**
+- **Smart Map Centering** - When zoomed out, the map now automatically centers in the viewport instead of sticking to the top-left corner.
+- **Background Input Safety** - The game now ignores mouse clicks and keyboard input when the window is not focused (e.g. when clicking on another monitor), preventing accidental commands.
+- **Seamless Panning** - Improved camera clamping logic for smoother navigation at all zoom levels.
+
+**Realistic Tectonic Plates:**
+- **Noise-Based Plate Generation** - Replaced simple Voronoi polygons with a noise-distorted flood-fill algorithm.
+- **Natural Boundaries** - Tectonic plates now have irregular, jagged edges that mimic real geological fault lines.
+- **Resolution Independent** - Plate shapes scale naturally with map resolution and are fully randomized by the world seed.
+
+### Previous Update - Critical Greenhouse Effect Bug Fix
 
 **CRITICAL BUG FIX - Runaway Temperature at Poles:**
 -  **Fixed Runaway Greenhouse Effect** - Corrected catastrophic heating bug causing polar temperatures to reach 83°C
