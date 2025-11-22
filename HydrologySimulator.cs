@@ -10,6 +10,8 @@ public class HydrologySimulator
 {
     private readonly PlanetMap _map;
     private readonly Random _random;
+    // Thread-safe random for parallel operations
+    private readonly ThreadLocal<Random> _threadRandom;
     private List<River> _rivers;
     private int _nextRiverId = 1;
     private float _tidalCycle = 0;  // 0 to 2Ï€ for tidal cycle
@@ -22,6 +24,11 @@ public class HydrologySimulator
     {
         _map = map;
         _random = new Random(seed + 2000);
+        // Initialize thread-local random with deterministic seeds derived from main seed
+        int threadSeedBase = seed + 2000;
+        _threadRandom = new ThreadLocal<Random>(() =>
+            new Random(System.Threading.Interlocked.Increment(ref threadSeedBase)));
+
         _rivers = new List<River>();
         _accumulatedFlowMap = new float[map.Width, map.Height];
     }
@@ -101,31 +108,35 @@ public class HydrologySimulator
 
     private void UpdateAccumulatedFlow()
     {
-        var cellsByElevation = new List<TerrainCell>();
+        // Create a snapshot of cells with their elevation to ensure stable sorting
+        // even if Elevation is modified by other threads during the sort operation
+        var cellsByElevation = new List<(TerrainCell Cell, float Elevation)>(_map.Width * _map.Height);
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                cellsByElevation.Add(_map.Cells[x, y]);
+                var cell = _map.Cells[x, y];
+                cellsByElevation.Add((cell, cell.Elevation));
             }
         }
 
-        // Sort using cell coordinates as a secondary key to ensure stable sorting
+        // Sort using the snapshot elevation and cell coordinates for stability
         cellsByElevation.Sort((a, b) =>
         {
             int elevationComparison = b.Elevation.CompareTo(a.Elevation);
             if (elevationComparison != 0) return elevationComparison;
 
-            int xComparison = a.X.CompareTo(b.X);
+            int xComparison = a.Cell.X.CompareTo(b.Cell.X);
             if (xComparison != 0) return xComparison;
 
-            return a.Y.CompareTo(b.Y);
+            return a.Cell.Y.CompareTo(b.Cell.Y);
         });
 
         Array.Clear(_accumulatedFlowMap, 0, _accumulatedFlowMap.Length);
 
-        foreach (var cell in cellsByElevation)
+        foreach (var item in cellsByElevation)
         {
+            var cell = item.Cell;
             var geo = cell.GetGeology();
             if (!cell.IsLand || geo.WaterFlow <= 0) continue;
 
@@ -604,7 +615,7 @@ public class HydrologySimulator
                 // Deep water formation at high latitudes (polar regions)
                 // Use smooth probability for formation
                 float deepWaterProbability = Math.Max(0, (latitude - 0.65f) / 0.25f);
-                if (deepWaterProbability > 0 && cell.Elevation < -0.3f && _random.NextDouble() < deepWaterProbability)
+                if (deepWaterProbability > 0 && cell.Elevation < -0.3f && _threadRandom.Value.NextDouble() < deepWaterProbability)
                 {
                     // Cold, salty water is dense and sinks
                     if (cell.Temperature < 5 && geo.Salinity > 34)
@@ -683,7 +694,7 @@ public class HydrologySimulator
                 // Upwelling regions (low latitudes, coastal areas)
                 // Smooth probability based on latitude
                 float upwellingProbability = Math.Max(0, 1.0f - (latitude / 0.35f));
-                if (upwellingProbability > 0 && cell.Elevation > -0.3f && cell.Elevation < 0 && _random.NextDouble() < upwellingProbability)
+                if (upwellingProbability > 0 && cell.Elevation > -0.3f && cell.Elevation < 0 && _threadRandom.Value.NextDouble() < upwellingProbability)
                 {
                     // Nutrient-rich deep water rises to surface
                     foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
