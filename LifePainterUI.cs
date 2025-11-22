@@ -31,19 +31,19 @@ public class LifePainterUI
         _pixelTexture.SetData(new[] { Color.White });
     }
 
-    public void Update(MouseState mouseState, int cameraX, int cameraY, float zoom)
+    public void Update(MouseState mouseState, int cameraX, int cameraY, float zoom, int screenOffsetX, int screenOffsetY)
     {
         if (!IsVisible) return;
 
-        HandleInput(mouseState, cameraX, cameraY, zoom);
+        HandleInput(mouseState, cameraX, cameraY, zoom, screenOffsetX, screenOffsetY);
         _previousMouseState = mouseState;
     }
 
-    private void HandleInput(MouseState mouseState, int cameraX, int cameraY, float zoom)
+    private void HandleInput(MouseState mouseState, int cameraX, int cameraY, float zoom, int screenOffsetX, int screenOffsetY)
     {
         if (mouseState.LeftButton == ButtonState.Pressed)
         {
-            PaintLife(mouseState.X, mouseState.Y, cameraX, cameraY, zoom);
+            PaintLife(mouseState.X, mouseState.Y, cameraX, cameraY, zoom, screenOffsetX, screenOffsetY);
         }
 
         // Cycle through life forms with right click
@@ -60,10 +60,12 @@ public class LifePainterUI
         }
     }
 
-    private void PaintLife(int mouseX, int mouseY, int cameraX, int cameraY, float zoom)
+    private void PaintLife(int mouseX, int mouseY, int cameraX, int cameraY, float zoom, int screenOffsetX, int screenOffsetY)
     {
-        int mapX = (int)((mouseX - cameraX) / (4 * zoom));
-        int mapY = (int)((mouseY - cameraY) / (4 * zoom));
+        // Correct mapping: mapX = (mouseX - screenOffsetX + cameraX) / (CellSize * Zoom)
+        // CellSize is hardcoded as 4 in original code, consistent here
+        int mapX = (int)((mouseX - screenOffsetX + cameraX) / (4 * zoom));
+        int mapY = (int)((mouseY - screenOffsetY + cameraY) / (4 * zoom));
 
         for (int y = mapY - _brushSize; y <= mapY + _brushSize; y++)
         {

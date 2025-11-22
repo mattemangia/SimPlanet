@@ -244,6 +244,15 @@ public class TerrainRenderer
             _ => Color.Gray
         };
 
+        // Volcanic Rock Overlay - darkens terrain
+        var geo = cell.GetGeology();
+        if (geo.VolcanicRock > 0.1f && cell.IsLand && !cell.IsIce)
+        {
+            // Blend with dark basalt color
+            Color basaltColor = new Color(40, 35, 35);
+            baseColor = Color.Lerp(baseColor, basaltColor, Math.Min(geo.VolcanicRock, 0.85f));
+        }
+
         // Add life overlay with improved colors
         if (cell.LifeType != LifeForm.None && cell.Biomass > 0.1f)
         {
@@ -272,6 +281,20 @@ public class TerrainRenderer
                 Math.Min(cell.Biomass * 0.7f, 0.6f) :
                 cell.Biomass * 0.5f;
             baseColor = Color.Lerp(baseColor, lifeColor, blend);
+        }
+
+        // Active Lava Overlay (on top of life)
+        if (geo.IsVolcano)
+        {
+            float activity = geo.VolcanicActivity + geo.MagmaPressure;
+            if (activity > 0.2f)
+            {
+                Color lavaColor = new Color(255, 69, 0); // OrangeRed
+                if (activity > 1.0f) lavaColor = Color.Yellow; // Hotter
+
+                float lavaBlend = Math.Clamp(activity * 0.5f, 0f, 1f);
+                baseColor = Color.Lerp(baseColor, lavaColor, lavaBlend);
+            }
         }
 
         return baseColor;

@@ -10,7 +10,7 @@
         <!-- Disable auto-generated assembly info to prevent duplicates -->
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <ApplicationIcon>splash.ico</ApplicationIcon>
-    </PropertyGroup>
+    <EnableMGCBItems>false</EnableMGCBItems></PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.1.303" />

@@ -451,7 +451,8 @@ public class GeologicalSimulator
                                     cell.Elevation += 0.003f * relVel; // Mountains build up on continental side
                                 }
 
-                                if (_random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
+                                // Only trigger new volcanoes if one doesn't exist, to allow old ones to decay
+                                if (!geo.IsVolcano && _random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -471,7 +472,8 @@ public class GeologicalSimulator
                                 cell.Elevation += 0.003f * relVel; // Mountains on continental side
                                 geo.TectonicStress += 0.02f * tectonicScale;
 
-                                if (_random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
+                                // Only trigger new volcanoes if one doesn't exist
+                                if (!geo.IsVolcano && _random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -485,7 +487,8 @@ public class GeologicalSimulator
                                 geo.TectonicStress += 0.02f * tectonicScale;
 
                                 // Occasional volcanism from crustal melting
-                                if (cell.Elevation > 0.6f && _random.NextDouble() < 0.002 * volcanicScale)
+                                // Only trigger new volcanoes if one doesn't exist
+                                if (!geo.IsVolcano && cell.Elevation > 0.6f && _random.NextDouble() < 0.002 * volcanicScale)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.3f;
@@ -494,7 +497,8 @@ public class GeologicalSimulator
                             else if (plate1.IsOceanic && plate2.IsOceanic)
                             {
                                 // Oceanic-oceanic convergence - island arcs (Japan, Philippines)
-                                if (_random.NextDouble() < 0.00003 * volcanicScale) // Very rare island chains (10x reduction)
+                                // Only trigger new volcanoes if one doesn't exist
+                                if (!geo.IsVolcano && _random.NextDouble() < 0.00003 * volcanicScale) // Very rare island chains (10x reduction)
                                 {
                                     cell.Elevation += 0.01f; // Gradual island building (reduced from 0.08f to prevent instant islands)
                                     geo.IsVolcano = true;
@@ -508,7 +512,7 @@ public class GeologicalSimulator
                             geo.BoundaryType = PlateBoundaryType.Divergent;
 
                             // Mid-ocean ridge volcanism (Iceland-like)
-                            if (cell.IsWater && _random.NextDouble() < 0.00001 * volcanicScale) // Very rare mid-ocean ridge volcanoes (10x reduction)
+                            if (cell.IsWater && !geo.IsVolcano && _random.NextDouble() < 0.00001 * volcanicScale) // Very rare mid-ocean ridge volcanoes (10x reduction)
                             {
                                 geo.IsVolcano = true;
                                 geo.VolcanicActivity = 0.4f;
@@ -517,7 +521,7 @@ public class GeologicalSimulator
                             }
 
                             // Continental rifts (East African Rift)
-                            if (cell.IsLand && _random.NextDouble() < 0.00001 * volcanicScale) // Very rare rift volcanoes (10x reduction)
+                            if (cell.IsLand && !geo.IsVolcano && _random.NextDouble() < 0.00001 * volcanicScale) // Very rare rift volcanoes (10x reduction)
                             {
                                 geo.IsVolcano = true;
                                 geo.VolcanicActivity = 0.5f;
