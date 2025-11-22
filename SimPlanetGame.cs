@@ -90,6 +90,9 @@ public class SimPlanetGame : Game
     private KeyboardState _previousKeyState;
     private MouseState _previousMouseState;
 
+    // Layout constants
+    private const int InfoPanelWidth = 280;
+
     // Performance optimization: throttle expensive operations
     private float _globalStatsTimer = 0;
     private float _visualUpdateTimer = 0;
@@ -351,6 +354,18 @@ public class SimPlanetGame : Game
 
     protected override void Update(GameTime gameTime)
     {
+        // Check if game window has focus
+        if (!IsActive)
+        {
+            // If not focused, suppress input handling but keep state synchronized
+            // to prevent "stuck" keys or sudden mouse jumps when focus returns
+            _previousKeyState = Keyboard.GetState();
+            _previousMouseState = Mouse.GetState();
+
+            base.Update(gameTime);
+            return;
+        }
+
         var keyState = Keyboard.GetState();
         var mouseState = Mouse.GetState();
 
@@ -586,42 +601,22 @@ public class SimPlanetGame : Game
         // Check if mouse is over the minimap (don't pan if it is)
         bool isOverMinimap = _minimap3D != null && _minimap3D.IsMouseOver(mouseState);
 
+        // Calculate map area dimensions
+        int toolbarHeight = _toolbar.ToolbarHeight;
+        int mapAreaWidth = GraphicsDevice.Viewport.Width - InfoPanelWidth;
+        int mapAreaHeight = GraphicsDevice.Viewport.Height - toolbarHeight;
+
         // Left mouse button for panning (more intuitive than middle button)
         // Don't pan if mouse is over minimap
-        if (!blockMapPanning && mouseState.LeftButton == ButtonState.Pressed && !isOverMinimap)
+        if (!blockMapPanning && (mouseState.LeftButton == ButtonState.Pressed || mouseState.MiddleButton == ButtonState.Pressed) && !isOverMinimap)
         {
-            if (_previousMouseState.LeftButton == ButtonState.Pressed)
+            if ((mouseState.LeftButton == ButtonState.Pressed && _previousMouseState.LeftButton == ButtonState.Pressed) ||
+                (mouseState.MiddleButton == ButtonState.Pressed && _previousMouseState.MiddleButton == ButtonState.Pressed))
             {
                 float dx = mouseState.X - _previousMouseState.X;
                 float dy = mouseState.Y - _previousMouseState.Y;
                 _terrainRenderer.CameraX -= dx;
                 _terrainRenderer.CameraY -= dy;
-
-                // Clamp camera position to prevent panning off-screen
-                // We must account for the map rendering offset and the sidebar
-                float maxCamX = Math.Max(0, _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - GraphicsDevice.Viewport.Width + _mapRenderOffsetX);
-                float maxCamY = Math.Max(0, _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - GraphicsDevice.Viewport.Height + _mapRenderOffsetY);
-                _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, 0, maxCamX);
-                _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, 0, maxCamY);
-            }
-        }
-
-        // Middle mouse button for panning (alternative)
-        if (!blockMapPanning && mouseState.MiddleButton == ButtonState.Pressed)
-        {
-            if (_previousMouseState.MiddleButton == ButtonState.Pressed)
-            {
-                float dx = mouseState.X - _previousMouseState.X;
-                float dy = mouseState.Y - _previousMouseState.Y;
-                _terrainRenderer.CameraX -= dx;
-                _terrainRenderer.CameraY -= dy;
-
-                // Clamp camera position to prevent panning off-screen
-                // We must account for the map rendering offset and the sidebar
-                float maxCamX = Math.Max(0, _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - GraphicsDevice.Viewport.Width + _mapRenderOffsetX);
-                float maxCamY = Math.Max(0, _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - GraphicsDevice.Viewport.Height + _mapRenderOffsetY);
-                _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, 0, maxCamX);
-                _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, 0, maxCamY);
             }
         }
 
@@ -631,13 +626,49 @@ public class SimPlanetGame : Game
         {
             float zoomChange = scrollDelta > 0 ? 1.1f : 0.9f;
             _terrainRenderer.ZoomLevel = Math.Clamp(_terrainRenderer.ZoomLevel * zoomChange, 0.5f, 4.0f);
-
-            // Re-clamp camera after zoom to prevent out-of-bounds
-            float maxCamX = Math.Max(0, _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - GraphicsDevice.Viewport.Width + _mapRenderOffsetX);
-            float maxCamY = Math.Max(0, _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel - GraphicsDevice.Viewport.Height + _mapRenderOffsetY);
-            _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, 0, maxCamX);
-            _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, 0, maxCamY);
         }
+
+        // --- Apply Camera Clamping and Centering Logic ---
+
+        // Calculate zoomed map size
+        float zoomedMapWidth = _map.Width * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel;
+        float zoomedMapHeight = _map.Height * _terrainRenderer.CellSize * _terrainRenderer.ZoomLevel;
+
+        // Calculate X bounds
+        float minCamX, maxCamX;
+        if (zoomedMapWidth < mapAreaWidth)
+        {
+            // Map is smaller than viewport: Center it (using negative camera offset)
+            float centerOffset = (mapAreaWidth - zoomedMapWidth) / 2.0f;
+            minCamX = -centerOffset;
+            maxCamX = -centerOffset;
+        }
+        else
+        {
+            // Map is larger: Allow panning from 0 to (Map - Viewport)
+            minCamX = 0;
+            maxCamX = zoomedMapWidth - mapAreaWidth;
+        }
+
+        // Calculate Y bounds
+        float minCamY, maxCamY;
+        if (zoomedMapHeight < mapAreaHeight)
+        {
+            // Map is smaller than viewport: Center it
+            float centerOffset = (mapAreaHeight - zoomedMapHeight) / 2.0f;
+            minCamY = -centerOffset;
+            maxCamY = -centerOffset;
+        }
+        else
+        {
+            // Map is larger
+            minCamY = 0;
+            maxCamY = zoomedMapHeight - mapAreaHeight;
+        }
+
+        // Apply clamp
+        _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, minCamX, maxCamX);
+        _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, minCamY, maxCamY);
 
         _previousMouseState = mouseState;
 
@@ -1239,16 +1270,13 @@ public class SimPlanetGame : Game
 
         // Split screen layout: Toolbar at top (36px), Info panel on left (280px), map on right
         int toolbarHeight = _toolbar.ToolbarHeight;
-        int infoPanelWidth = 280;
-        int mapAreaX = infoPanelWidth;
-        int mapAreaWidth = GraphicsDevice.Viewport.Width - infoPanelWidth;
-        int mapAreaHeight = GraphicsDevice.Viewport.Height - toolbarHeight;
+        int mapAreaX = InfoPanelWidth;
 
-        // Draw terrain (centered in right area, below toolbar)
-        int mapPixelWidth = _map.Width * _terrainRenderer.CellSize;
-        int mapPixelHeight = _map.Height * _terrainRenderer.CellSize;
-        int offsetX = mapAreaX + (mapAreaWidth - mapPixelWidth) / 2;
-        int offsetY = toolbarHeight + (mapAreaHeight - mapPixelHeight) / 2;
+        // Draw terrain
+        // Use fixed offset for the map viewport area.
+        // Centering and panning are now handled by _terrainRenderer.CameraX/Y logic in Update.
+        int offsetX = mapAreaX;
+        int offsetY = toolbarHeight;
 
         // Store offsets for coordinate conversion in Update
         _mapRenderOffsetX = offsetX;
