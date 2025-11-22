@@ -48,6 +48,7 @@ public class SimPlanetGame : Game
     private MagnetosphereSimulator _magnetosphereSimulator;
     private PlanetStabilizer _planetStabilizer;
     private DiseaseManager _diseaseManager;
+    private EcosystemSimulator _ecosystemSimulator;
     private UpdateManager _updateManager;
 
     // Menu and save/load
@@ -250,7 +251,8 @@ public class SimPlanetGame : Game
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
         _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
-        _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager);
+        _ecosystemSimulator = new EcosystemSimulator(_map, _animalEvolutionSimulator, _civilizationManager, _mapOptions.Seed);
+        _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager, _ecosystemSimulator);
 
         // Generate initial geological features
         EarthquakeSystem.GenerateInitialFaults(_map); // Create fault lines at plate boundaries
@@ -1064,7 +1066,8 @@ public class SimPlanetGame : Game
             _disasterManager = new DisasterManager(_map, _geologicalSimulator, saveData.MapOptions.Seed);
             _forestFireManager = new ForestFireManager(_map, saveData.MapOptions.Seed);
             _magnetosphereSimulator = new MagnetosphereSimulator(_map, saveData.MapOptions.Seed);
-            _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager);
+            _ecosystemSimulator = new EcosystemSimulator(_map, _animalEvolutionSimulator, _civilizationManager, saveData.MapOptions.Seed);
+            _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager, _ecosystemSimulator);
 
             // Apply save data
             _saveLoadManager.ApplySaveData(saveData, _map, _gameState,
@@ -1181,7 +1184,8 @@ public class SimPlanetGame : Game
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
-        _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager);
+        _ecosystemSimulator = new EcosystemSimulator(_map, _animalEvolutionSimulator, _civilizationManager, _mapOptions.Seed);
+        _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager, _ecosystemSimulator);
 
         // Seed initial life
         _lifeSimulator.SeedInitialLife();

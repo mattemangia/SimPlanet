@@ -866,6 +866,9 @@ public class LifeSimulator
 
                 if (cell.LifeType == LifeForm.None) continue;
 
+                // Protect civilization from simple climate stress logic - they have their own manager
+                if (cell.LifeType == LifeForm.Civilization) continue;
+
                 float stressFactor = 0;
 
                 // Use adaptive comfort windows from the life profile

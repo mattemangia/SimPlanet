@@ -24,6 +24,7 @@ public class HeadlessSimulation
     private MagnetosphereSimulator _magnetosphereSimulator;
     private PlanetStabilizer _planetStabilizer;
     private DiseaseManager _diseaseManager;
+    private EcosystemSimulator _ecosystemSimulator;
     private UpdateManager _updateManager;
 
     // Map generation settings
@@ -107,11 +108,12 @@ public class HeadlessSimulation
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
         _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
+        _ecosystemSimulator = new EcosystemSimulator(_map, _animalEvolutionSimulator, _civilizationManager, _mapOptions.Seed);
 
         _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator,
             _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem,
             _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager,
-            _magnetosphereSimulator, _planetStabilizer, _diseaseManager);
+            _magnetosphereSimulator, _planetStabilizer, _diseaseManager, _ecosystemSimulator);
 
         // Generate initial geological features
         EarthquakeSystem.GenerateInitialFaults(_map);
