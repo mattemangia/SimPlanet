@@ -200,8 +200,34 @@ public class MapOptionsUI
         int buttonHeight = 35;
         int buttonSpacing = 10;
 
+        // Map Size Buttons
+        int sizeButtonWidth = (panelWidth - 40 - (buttonSpacing * 3)) / 4;
+        int startX = panelX + 20;
+
+        // Small
+        _buttons.Add(new UIButton("Small\n128x64", new Rectangle(startX, buttonY, sizeButtonWidth, buttonHeight),
+            options.MapWidth == 128 ? new Color(100, 200, 100) : new Color(80, 80, 80),
+            (opt) => { opt.MapWidth = 128; opt.MapHeight = 64; }));
+
+        // Standard
+        _buttons.Add(new UIButton("Standard\n240x120", new Rectangle(startX + sizeButtonWidth + buttonSpacing, buttonY, sizeButtonWidth, buttonHeight),
+            options.MapWidth == 240 ? new Color(100, 200, 100) : new Color(80, 80, 80),
+            (opt) => { opt.MapWidth = 240; opt.MapHeight = 120; }));
+
+        // Large
+        _buttons.Add(new UIButton("Large\n512x256", new Rectangle(startX + (sizeButtonWidth + buttonSpacing) * 2, buttonY, sizeButtonWidth, buttonHeight),
+            options.MapWidth == 512 ? new Color(100, 200, 100) : new Color(80, 80, 80),
+            (opt) => { opt.MapWidth = 512; opt.MapHeight = 256; }));
+
+        // Huge
+        _buttons.Add(new UIButton("Huge\n1024x512", new Rectangle(startX + (sizeButtonWidth + buttonSpacing) * 3, buttonY, sizeButtonWidth, buttonHeight),
+            options.MapWidth == 1024 ? new Color(100, 200, 100) : new Color(80, 80, 80),
+            (opt) => { opt.MapWidth = 1024; opt.MapHeight = 512; }));
+
+
         // Preset buttons
-        int startX = panelX + (panelWidth - (buttonWidth * 4 + buttonSpacing * 3)) / 2;
+        buttonY += buttonHeight + 15;
+        startX = panelX + (panelWidth - (buttonWidth * 4 + buttonSpacing * 3)) / 2;
 
         _buttons.Add(new UIButton("Earth", new Rectangle(startX, buttonY, buttonWidth, buttonHeight),
             new Color(50, 150, 255), (opt) => ApplyEarthPreset(opt)));
