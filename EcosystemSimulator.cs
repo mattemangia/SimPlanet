@@ -32,14 +32,15 @@ public class EcosystemSimulator
 
     public void Update(float deltaTime)
     {
-        // Use parallel processing for cell-based updates
-        Parallel.For(0, _map.Width, x =>
+        // Use sequential processing to avoid race conditions with neighbors
+        // and thread-safety issues with Random
+        for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
                 UpdateCellEcosystem(x, y, deltaTime);
             }
-        });
+        }
 
         // Global ecosystem effects
         UpdateGlobalEffects(deltaTime);

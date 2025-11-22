@@ -88,10 +88,13 @@ namespace SimPlanet
             {
                 Task.Run(() => _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem)),
                 Task.Run(() => _diseaseManager.Update(simDeltaTime, newYear)),
-                Task.Run(() => _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager)),
-                Task.Run(() => _ecosystemSimulator.Update(simDeltaTime))
+                Task.Run(() => _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager))
             };
             Task.WhenAll(stage3Tasks).Wait();
+
+            // Stage 3.5: Ecosystem interactions (must run after LifeSimulator to avoid race conditions)
+            // EcosystemSimulator modifies biomass and neighbors, so it should run sequentially
+            _ecosystemSimulator.Update(simDeltaTime);
 
             // Stage 4: Finalizers and special systems.
             _planetStabilizer.Update(simDeltaTime, timeSpeed);
