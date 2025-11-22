@@ -74,6 +74,8 @@ public class HeadlessSimulation
         _mapOptions = new MapGenerationOptions
         {
             Seed = 12345,
+            MapWidth = 512,  // Testing larger resolution as requested
+            MapHeight = 256,
             LandRatio = 0.29f,
             MountainLevel = 0.6f,
             WaterLevel = 0.0f,
@@ -82,9 +84,9 @@ public class HeadlessSimulation
             Lacunarity = 2.0f
         };
 
-        Console.WriteLine("Generating Planet Map...");
+        Console.WriteLine($"Generating Planet Map ({_mapOptions.MapWidth}x{_mapOptions.MapHeight})...");
         Console.Out.Flush();
-        _map = new PlanetMap(240, 120, _mapOptions);
+        _map = new PlanetMap(_mapOptions.MapWidth, _mapOptions.MapHeight, _mapOptions);
 
         // Initialize simulators
         Console.WriteLine("Initializing Simulators...");
