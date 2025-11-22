@@ -14,6 +14,7 @@ public class GeologicalEventsUI
     private Texture2D _pixelTexture;
     private GeologicalSimulator _geologicalSim;
     private HydrologySimulator _hydrologySim;
+    private DisasterManager _disasterManager;
 
     // Overlay textures for perfect synchronization with terrain
     private Texture2D _overlayTexture;
@@ -44,6 +45,7 @@ public class GeologicalEventsUI
     public bool ShowPlates { get; set; } = false;
     public bool ShowVolcanoes { get; set; } = true;
     public bool ShowEarthquakes { get; set; } = false;
+    public bool ShowDisasterZones { get; set; } = true;
     private bool _riversAllowedInCurrentView = true;
 
     public void MarkOverlayDirty() => _overlayDirty = true;
@@ -73,6 +75,11 @@ public class GeologicalEventsUI
         _geologicalSim = geoSim;
         _hydrologySim = hydroSim;
         _overlayDirty = true;
+    }
+
+    public void SetDisasterManager(DisasterManager disasterManager)
+    {
+        _disasterManager = disasterManager;
     }
 
     public void InitializeOverlayTexture(PlanetMap map)
@@ -523,6 +530,53 @@ public class GeologicalEventsUI
                 {
                     DrawCircleOutline(_spriteBatch, centerX, centerY, (int)(radius * 0.7f), quakeColor * opacity * 0.7f, 1);
                 }
+            }
+        }
+
+        // Draw Disaster Zones (Blast Radius Effects)
+        if (ShowDisasterZones && _disasterManager != null)
+        {
+            foreach (var disaster in _disasterManager.RecentDisasters)
+            {
+                // Only show recent disasters (e.g., within last 5 years)
+                // Assuming 'Year' is updated. If it's a historical list, we might need filtering by age.
+                // For now, we'll draw all in the recent list, assuming it's pruned.
+
+                float screenX = offsetX + disaster.X * pixelScale;
+                float screenY = offsetY + disaster.Y * pixelScale;
+                int centerX = (int)(screenX + pixelScale * 0.5f);
+                int centerY = (int)(screenY + pixelScale * 0.5f);
+
+                // Radius scales with magnitude.
+                // Example: Magnitude 1 = 3 cells radius. Magnitude 5 = 15 cells.
+                float radius = disaster.Magnitude * 3.0f * pixelScale;
+
+                Color zoneColor = Color.White;
+                switch (disaster.Type)
+                {
+                    case DisasterType.NuclearAccident:
+                        zoneColor = new Color(255, 0, 50, 150); // Red
+                        radius = disaster.Magnitude * 10.0f * pixelScale; // Nuclear is big
+                        break;
+                    case DisasterType.Asteroid:
+                        zoneColor = new Color(255, 140, 0, 150); // Orange
+                        radius = disaster.Magnitude * 5.0f * pixelScale;
+                        break;
+                    case DisasterType.VolcanicEruption:
+                        zoneColor = new Color(200, 50, 0, 150); // Dark Orange/Red
+                        break;
+                    case DisasterType.Tornado:
+                        zoneColor = new Color(200, 200, 200, 100); // Grey
+                        radius = 2.0f * pixelScale;
+                        break;
+                    default:
+                        continue; // Don't draw zones for others by default
+                }
+
+                // Draw filled circle with transparency
+                DrawCircleFilled(_spriteBatch, centerX, centerY, (int)radius, zoneColor * 0.3f);
+                // Draw outline
+                DrawCircleOutline(_spriteBatch, centerX, centerY, (int)radius, zoneColor, 2);
             }
         }
     }

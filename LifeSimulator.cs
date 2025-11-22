@@ -473,40 +473,64 @@ public class LifeSimulator
 
     private void SimulateLifeSpread(float deltaTime)
     {
-        int spreadAttempts = (int)(200 * deltaTime); // Doubled spread rate
-
-        for (int attempt = 0; attempt < spreadAttempts; attempt++)
+        // Iterating over the entire map in parallel allows life to spread exponentially
+        // rather than linearly (previous implementation sampled a fixed number of random cells).
+        Parallel.For(0, _map.Width, x =>
         {
-            int x = _random.Next(_map.Width);
-            int y = _random.Next(_map.Height);
+            // Random generator for this thread
+            var rnd = _threadRandom.Value!;
 
-            var cell = _map.Cells[x, y];
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
 
-            if (cell.LifeType == LifeForm.None || cell.Biomass < 0.2f)
-                continue;
+                // Only spread from healthy, established life
+                if (cell.LifeType == LifeForm.None || cell.Biomass < 0.2f)
+                    continue;
 
-            float spreadChance = 0.5f; // Higher base chance
+                // Rate control:
+                // Spread probability scales with deltaTime.
+                // e.g., if spreadChance = 0.2/year, and deltaTime = 0.016 year (1 frame),
+                // prob = 0.2 * 0.016 = 0.0032 (0.3% per frame).
+                // This ensures spread speed is independent of frame rate.
+                float spreadProbability = 0.2f * deltaTime;
 
-            if (_random.NextDouble() > spreadChance)
-                continue;
+                // Bacteria spreads faster
+                if (cell.LifeType == LifeForm.Bacteria) spreadProbability *= 2.0f;
 
-            var neighbors = _map.GetNeighbors(x, y).ToList();
-            if (neighbors.Count == 0) continue;
+                if (rnd.NextDouble() > spreadProbability)
+                    continue;
 
-            // Randomize neighbors
-            var neighbor = neighbors[_random.Next(neighbors.Count)];
-            
-            if (neighbor.cell.LifeType != LifeForm.None)
-                continue;
+                // Pick a random neighbor to spread to
+                // We access _map.GetNeighbors here. It returns a new IEnumerable/struct, so it's thread-safe to read.
+                // However, writing to the neighbor cell is a race condition if multiple threads target the same neighbor.
+                // In this simulation context, "last writer wins" is an acceptable trade-off for performance.
 
-            // Use relaxed check for spreading
-            if (!CanLifeSurvive(cell.LifeType, neighbor.cell))
-                continue;
+                // Manual neighbor selection to avoid allocation in tight loop
+                int dx = rnd.Next(-1, 2);
+                int dy = rnd.Next(-1, 2);
+                if (dx == 0 && dy == 0) continue;
 
-            neighbor.cell.LifeType = cell.LifeType;
-            neighbor.cell.Biomass = 0.2f; // Robust starter biomass
-            neighbor.cell.Evolution = cell.Evolution * 0.5f;
-        }
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                var neighbor = _map.Cells[nx, ny];
+
+                // Only spread to empty cells
+                if (neighbor.LifeType != LifeForm.None)
+                    continue;
+
+                // Check suitability
+                if (!CanLifeSurvive(cell.LifeType, neighbor))
+                    continue;
+
+                // Spread life!
+                neighbor.LifeType = cell.LifeType;
+                neighbor.Biomass = 0.2f; // Robust starter biomass
+                neighbor.Evolution = cell.Evolution * 0.5f;
+            }
+        });
     }
 
     private bool CanLifeSurvive(LifeForm lifeType, TerrainCell cell)

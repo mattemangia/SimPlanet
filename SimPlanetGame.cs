@@ -316,6 +316,7 @@ public class SimPlanetGame : Game
         _eventsUI = new GeologicalEventsUI(_spriteBatch, _font, GraphicsDevice);
         _eventsUI.InitializeOverlayTexture(_map);
         _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
+        _eventsUI.SetDisasterManager(_disasterManager);
         UpdateRiverOverlayMode();
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
@@ -815,6 +816,12 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.OemPeriod) && _previousKeyState.IsKeyUp(Keys.OemPeriod))
         {
             _eventsUI.ShowEarthquakes = !_eventsUI.ShowEarthquakes;
+        }
+
+        // Toggle disaster blast zones
+        if (keyState.IsKeyDown(Keys.OemComma) && _previousKeyState.IsKeyUp(Keys.OemComma))
+        {
+            _eventsUI.ShowDisasterZones = !_eventsUI.ShowDisasterZones;
         }
 
         // Control civilization (G key)
