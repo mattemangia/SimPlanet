@@ -286,19 +286,18 @@ public class GeologicalSimulator
         UpdateTurbidites(deltaTime);
         UpdateFiningUpwardSequences(deltaTime);
 
-        // Safety check: Ensure all sediment layers are within bounds
-        ClampAllSedimentLayers();
+        // Normalize rock composition and clamp sediment
+        UpdateRockComposition();
 
         // Clean up old events
         RecentEruptions.RemoveAll(e => currentYear - e.year > 10);
         if (Earthquakes.Count > 20) Earthquakes.Clear();
     }
     
-    private void ClampAllSedimentLayers()
+    private void UpdateRockComposition()
     {
         // Safety check to ensure no sediment values exceed maximum
         const float MaxSediment = 10f;
-        const float MaxSedimentaryRock = 5f;
         
         for (int x = 0; x < _map.Width; x++)
         {
@@ -312,15 +311,36 @@ public class GeologicalSimulator
                     geo.SedimentLayer = Math.Min(MaxSediment, Math.Max(0f, geo.SedimentLayer));
                 }
                 
-                // Clamp sedimentary rock
-                if (geo.SedimentaryRock > MaxSedimentaryRock || float.IsNaN(geo.SedimentaryRock) || float.IsInfinity(geo.SedimentaryRock))
-                {
-                    geo.SedimentaryRock = Math.Min(MaxSedimentaryRock, Math.Max(0f, geo.SedimentaryRock));
-                }
-                
-                // Ensure no negative values
+                // Ensure no negative values for key properties
                 if (geo.SedimentLayer < 0f) geo.SedimentLayer = 0f;
                 if (geo.SedimentaryRock < 0f) geo.SedimentaryRock = 0f;
+                if (geo.VolcanicRock < 0f) geo.VolcanicRock = 0f;
+                if (geo.CrystallineRock < 0f) geo.CrystallineRock = 0f;
+
+                // Normalize rock composition to ensure percentages sum to 100% (1.0)
+                float totalRock = geo.CrystallineRock + geo.SedimentaryRock + geo.VolcanicRock;
+
+                if (totalRock > 0.001f) // Avoid division by zero
+                {
+                    // If total > 1.0, we definitely need to normalize
+                    // If total < 1.0, we might want to normalize too, or treat it as partial crust?
+                    // Given the UI expects percentages, we should probably normalize always if > 0.
+
+                    // However, if total is very small (e.g. 0.1), normalizing boosts it to 1.0.
+                    // Is that desired?
+                    // If we assume the crust is always "100% something", then yes.
+                    // The initial state sums to 1.0.
+
+                    // But let's be careful: if we add rock (e.g. volcanic eruption), the total grows.
+                    // If we erode rock, the total shrinks.
+                    // If we normalize, we maintain the *relative* composition.
+                    // This effectively means the "amount" of rock is infinite/irrelevant, only the type matters.
+                    // This aligns with "30% crystalline", etc.
+
+                    geo.CrystallineRock /= totalRock;
+                    geo.SedimentaryRock /= totalRock;
+                    geo.VolcanicRock /= totalRock;
+                }
             }
         }
     }
