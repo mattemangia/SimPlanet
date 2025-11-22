@@ -348,8 +348,8 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 18. **Resources (J)**: Natural resource deposits (coal, iron, oil, uranium, rare minerals)
 
 **Geological Hazard Views (E, Q, U keys):**
-19. **Earthquakes (E)**: Seismic activity with epicenters (red/orange), wave propagation, and stress buildup (blue/purple)
-20. **Faults (Q)**: Fault lines color-coded by type - Strike-Slip (yellow), Normal (blue), Reverse (red), Thrust (dark red), Oblique (purple)
+19. **Earthquakes (E)**: Seismic activity with discrete legend for Epicenters (High/Low Mag), Active Waves, and Stress Buildup levels.
+20. **Faults (Q)**: Fault lines with discrete legend for fault types: Strike-Slip, Normal, Reverse, Thrust, Oblique, and Critical Stress.
 21. **Tsunamis (U)**: Ocean wave propagation with wave height (cyan to white gradient) and coastal flooding (brown)
 
 ### Geological Overlays (Toggle On/Off)

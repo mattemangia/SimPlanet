@@ -24,6 +24,9 @@ public class GeologicalEventsUI
     private Queue<string> _eventLog = new();
     private const int MaxLogEntries = 5;
 
+    // Track last logged events to prevent spam
+    private (int x, int y, float magnitude) _lastLoggedEarthquake = (-1, -1, 0);
+
     public bool ShowEvents { get; set; } = true;
     public bool ShowRivers { get; set; } = true;
     public bool ShowPlates { get; set; } = false;
@@ -85,7 +88,13 @@ public class GeologicalEventsUI
             if (_geologicalSim.Earthquakes.Count > 0)
             {
                 var earthquake = _geologicalSim.Earthquakes.Last();
-                LogEvent($"Earthquake M{earthquake.magnitude:F1} at ({earthquake.x}, {earthquake.y})");
+
+                // Only log if it's a new earthquake event (different from last one)
+                if (earthquake != _lastLoggedEarthquake)
+                {
+                    LogEvent($"Earthquake M{earthquake.magnitude:F1} at ({earthquake.x}, {earthquake.y})");
+                    _lastLoggedEarthquake = earthquake;
+                }
             }
         }
 

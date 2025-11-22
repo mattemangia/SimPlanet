@@ -167,9 +167,6 @@ public static class TsunamiSystem
 
         // Increase sediment from erosion
         cell.Geology.SedimentLayer += waveHeight * 0.1f;
-
-        // TODO: Damage cities and infrastructure when integrated
-        // High wave height would destroy buildings, kill population
     }
 
     /// <summary>
