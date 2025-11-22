@@ -764,7 +764,16 @@ public class CivilizationManager
         bool harshClimate = avgCO2 > 10 || avgTemp > 45 || avgTemp < -15;
         if (harshClimate)
         {
-            civ.Population = (int)(civ.Population * 0.98f); // Less severe population loss
+            // Advanced civilizations can mitigate harsh climate
+            if (civ.TechLevel >= 40)
+            {
+                 civ.Population = (int)(civ.Population * 0.99f); // Very slow loss
+            }
+            else
+            {
+                 civ.Population = (int)(civ.Population * 0.98f); // Less severe population loss
+            }
+
             civ.Stability = Math.Max(civ.Stability - 0.05f, 0f);
             civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + 0.05f, 0f, 1f); // Slower risk increase
         }
@@ -773,14 +782,30 @@ public class CivilizationManager
             civ.CollapseRisk = Math.Max(civ.CollapseRisk - 0.02f, 0f); // Faster risk decrease
         }
 
+        // FORCE SURVIVAL: Ensure civilization never completely dies if it has even 1 person
+        if (civ.Population <= 0)
+        {
+             civ.Population = 10; // Last survivors
+        }
+
         // Check if all territory lost
         if (civ.Territory.Count == 0 && civ.Population < 100)
         {
-            CollapseCivilization(civ);
-            return;
+            // Give them a chance to rebuild if they have pop
+            if (civ.Population > 50)
+            {
+                 // Find a safe spot to re-establish
+                 // For now, just don't kill them yet
+            }
+            else
+            {
+                 CollapseCivilization(civ);
+                 return;
+            }
         }
 
-        if (civ.CollapseRisk >= 1.0f || (civ.CollapseRisk > 0.8f && civ.Population < 100))
+        // Make collapse harder
+        if (civ.CollapseRisk >= 1.0f && civ.Population < 50)
         {
             CollapseCivilization(civ);
         }

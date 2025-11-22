@@ -20,6 +20,7 @@ namespace SimPlanet
         private readonly MagnetosphereSimulator _magnetosphereSimulator;
         private readonly PlanetStabilizer _planetStabilizer;
         private readonly DiseaseManager _diseaseManager;
+        private readonly EcosystemSimulator _ecosystemSimulator;
         private readonly PlanetMap _map;
 
         public UpdateManager(
@@ -37,7 +38,8 @@ namespace SimPlanet
             ForestFireManager forestFireManager,
             MagnetosphereSimulator magnetosphereSimulator,
             PlanetStabilizer planetStabilizer,
-            DiseaseManager diseaseManager)
+            DiseaseManager diseaseManager,
+            EcosystemSimulator ecosystemSimulator)
         {
             _map = map;
             _climateSimulator = climateSimulator;
@@ -54,6 +56,7 @@ namespace SimPlanet
             _magnetosphereSimulator = magnetosphereSimulator;
             _planetStabilizer = planetStabilizer;
             _diseaseManager = diseaseManager;
+            _ecosystemSimulator = ecosystemSimulator;
         }
 
         public void Update(float simDeltaTime, int newYear, float timeSpeed)
@@ -85,7 +88,8 @@ namespace SimPlanet
             {
                 Task.Run(() => _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem)),
                 Task.Run(() => _diseaseManager.Update(simDeltaTime, newYear)),
-                Task.Run(() => _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager))
+                Task.Run(() => _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager)),
+                Task.Run(() => _ecosystemSimulator.Update(simDeltaTime))
             };
             Task.WhenAll(stage3Tasks).Wait();
 
