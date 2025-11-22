@@ -127,38 +127,125 @@ public class GeologicalSimulator
 
     private void AssignCellsToPlates()
     {
-        // Use Voronoi regions for plate distribution
-        var plateSeeds = new (int x, int y)[NumPlates];
-        for (int i = 0; i < NumPlates; i++)
-        {
-            plateSeeds[i] = (_random.Next(_map.Width), _random.Next(_map.Height));
-        }
+        // Use a flood-fill algorithm with noise to create irregular plate boundaries
+        // This is more realistic than simple Voronoi cells
+        var noise = new PerlinNoise(_random.Next());
 
+        // Priority queue stores (x, y, plateId) ordered by accumulated cost
+        // We use a custom tuple because PriorityQueue is available in .NET 6+
+        var queue = new PriorityQueue<(int x, int y, int plateId), float>();
+        var costs = new float[_map.Width, _map.Height];
+        var assigned = new bool[_map.Width, _map.Height];
+
+        // Initialize costs to infinity
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                // Find nearest plate seed
-                int nearestPlate = 0;
-                float minDist = float.MaxValue;
+                costs[x, y] = float.MaxValue;
+                _plateMap[x, y] = -1; // Unassigned
+            }
+        }
 
-                for (int i = 0; i < NumPlates; i++)
+        // Place random seeds for each plate
+        for (int i = 0; i < NumPlates; i++)
+        {
+            int sx = _random.Next(_map.Width);
+            int sy = _random.Next(_map.Height);
+
+            // Ensure we don't pick the same seed twice (unlikely but possible)
+            while (assigned[sx, sy])
+            {
+                sx = _random.Next(_map.Width);
+                sy = _random.Next(_map.Height);
+            }
+
+            queue.Enqueue((sx, sy, i), 0);
+            costs[sx, sy] = 0;
+            assigned[sx, sy] = true;
+            _plateMap[sx, sy] = i;
+            _plates[i].Cells.Add((sx, sy));
+            _map.Cells[sx, sy].GetGeology().PlateId = i;
+        }
+
+        // Flood fill
+        while (queue.Count > 0)
+        {
+            if (!queue.TryDequeue(out var current, out float cost))
+                break;
+
+            var (x, y, plateId) = current;
+
+            // Check 8 neighbors
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
                 {
-                    float dx = Math.Min(Math.Abs(x - plateSeeds[i].x),
-                                       _map.Width - Math.Abs(x - plateSeeds[i].x));
-                    float dy = y - plateSeeds[i].y;
-                    float dist = dx * dx + dy * dy;
+                    if (dx == 0 && dy == 0) continue;
 
-                    if (dist < minDist)
+                    // Calculate neighbor coordinates with wrapping
+                    int nx = (x + dx + _map.Width) % _map.Width;
+                    int ny = y + dy;
+
+                    // Check vertical bounds (no wrapping for Y)
+                    if (ny < 0 || ny >= _map.Height) continue;
+
+                    // Calculate movement cost
+                    // Base cost is distance (1 for cardinal, 1.414 for diagonal)
+                    float moveCost = (dx == 0 || dy == 0) ? 1.0f : 1.414f;
+
+                    // Add noise influence to create irregular shapes
+                    // Noise scale needs to be relative to map size for consistent shapes
+                    // We use a fixed low frequency to get large chaotic lobes
+                    float noiseVal = noise.OctaveNoise(nx * 0.05f, ny * 0.05f, 3, 0.5f, 2.0f);
+
+                    // The noise acts as "terrain difficulty" - high noise = harder to traverse
+                    // This warps the distance field
+                    float randomFactor = 1.0f + (noiseVal * 5.0f);
+                    float newCost = cost + moveCost * randomFactor;
+
+                    if (newCost < costs[nx, ny])
                     {
-                        minDist = dist;
-                        nearestPlate = i;
+                        costs[nx, ny] = newCost;
+
+                        // If unassigned, assign it
+                        if (!assigned[nx, ny])
+                        {
+                            assigned[nx, ny] = true;
+                            _plateMap[nx, ny] = plateId;
+                            _plates[plateId].Cells.Add((nx, ny));
+                            _map.Cells[nx, ny].GetGeology().PlateId = plateId;
+                            queue.Enqueue((nx, ny, plateId), newCost);
+                        }
                     }
                 }
+            }
+        }
 
-                _plateMap[x, y] = nearestPlate;
-                _plates[nearestPlate].Cells.Add((x, y));
-                _map.Cells[x, y].GetGeology().PlateId = nearestPlate;
+        // Fill any gaps (though the queue approach should cover everything)
+        // Just in case of unreachable islands (unlikely with 8-way connectivity)
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                if (_plateMap[x, y] == -1)
+                {
+                    // Assign to nearest neighbor's plate
+                    int bestPlate = 0;
+                    foreach (var neighbor in _map.GetNeighbors(x, y))
+                    {
+                        int p = _plateMap[neighbor.x, neighbor.y];
+                        if (p != -1)
+                        {
+                            bestPlate = p;
+                            break;
+                        }
+                    }
+
+                    _plateMap[x, y] = bestPlate;
+                    _plates[bestPlate].Cells.Add((x, y));
+                    _map.Cells[x, y].GetGeology().PlateId = bestPlate;
+                }
             }
         }
     }
