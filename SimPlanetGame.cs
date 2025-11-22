@@ -1095,6 +1095,15 @@ public class SimPlanetGame : Game
             _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font, _mapDataLock, MarkMapVisualsDirty);
             _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphereSimulator, _planetStabilizer);
             _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
+
+            // Update tools that hold map/manager references
+            _lifePainterUI = new LifePainterUI(GraphicsDevice, _font, _map, _lifeSimulator);
+            _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
+            _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
+            _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
+            _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
+            _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
+            _graphs = new Graphs(GraphicsDevice, _font, _map, _civilizationManager);
             
             // Protect life after load
             _lifeSimulator.ActivatePlantingGracePeriod();
@@ -1205,6 +1214,15 @@ public class SimPlanetGame : Game
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font, _mapDataLock, MarkMapVisualsDirty);
         _planetaryControlsUI = new PlanetaryControlsUI(GraphicsDevice, _font, _map, _magnetosphereSimulator, _planetStabilizer);
         _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
+
+        // Update tools that hold map/manager references
+        _lifePainterUI = new LifePainterUI(GraphicsDevice, _font, _map, _lifeSimulator);
+        _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
+        _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
+        _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
+        _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
+        _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
+        _graphs = new Graphs(GraphicsDevice, _font, _map, _civilizationManager);
 
         // Reset game state
         _gameState.Year = 0;
