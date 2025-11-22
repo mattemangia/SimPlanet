@@ -1086,9 +1086,21 @@ public class TerrainRenderer
         int swatchX = legendX + 15;
         int swatchY = legendY + 40;
         int swatchSize = 18;
+        int startY = swatchY;
+        int columnWidth = 140;
+        bool useTwoColumns = entries.Count > 8; // Auto-split if too many items (like Infrastructure)
 
-        foreach (var entry in entries)
+        for (int i = 0; i < entries.Count; i++)
         {
+            var entry = entries[i];
+
+            // Handle column wrapping
+            if (useTwoColumns && i == (entries.Count + 1) / 2)
+            {
+                swatchX += columnWidth;
+                swatchY = startY;
+            }
+
             var rect = new Rectangle(swatchX, swatchY, swatchSize, swatchSize);
             spriteBatch.Draw(_pixelTexture, rect, entry.Color);
             DrawBorder(spriteBatch, rect.X, rect.Y, rect.Width, rect.Height, Color.White, 1);
@@ -1199,6 +1211,26 @@ public class TerrainRenderer
                 (new Color(160, 140, 100), "Dirt Path"),
                 (new Color(80, 80, 80), "Civilization Territory"),
                 (new Color(20, 40, 80), "Water / Ocean")
+            },
+            RenderMode.Earthquakes => new List<(Color, string)>
+            {
+                (new Color(255, 50, 0), "Epicenter (High Mag)"),
+                (new Color(255, 200, 100), "Epicenter (Low Mag)"),
+                (new Color(255, 100, 0), "Active Wave (Strong)"),
+                (new Color(100, 100, 60), "Active Wave (Weak)"),
+                (new Color(150, 50, 150), "High Stress Buildup"),
+                (new Color(80, 80, 150), "Low Stress Buildup"),
+                (new Color(40, 40, 50), "Stable Ground")
+            },
+            RenderMode.Faults => new List<(Color, string)>
+            {
+                (new Color(255, 200, 50), "Strike-Slip"),
+                (new Color(100, 200, 255), "Normal (Extension)"),
+                (new Color(255, 100, 100), "Reverse (Compression)"),
+                (new Color(200, 50, 50), "Thrust (Major)"),
+                (new Color(200, 150, 255), "Oblique (Mixed)"),
+                (Color.White, "Critical Stress"),
+                (new Color(50, 50, 50), "Stable Crust")
             },
             _ => null
         };

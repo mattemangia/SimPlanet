@@ -1947,6 +1947,26 @@ public class CivilizationManager
                     disastersInTerritory++;
                     totalDamage += 30;
                 }
+
+                var geo = cell.GetGeology();
+
+                // Check for Earthquakes
+                if (geo.EarthquakeIntensity > 0.5f)
+                {
+                    disastersInTerritory++;
+                    // Damage based on intensity (0.0 - 1.0)
+                    // Intensity 0.5 = 50 damage, 1.0 = 200 damage
+                    totalDamage += (int)(Math.Pow(geo.EarthquakeIntensity, 2) * 200);
+                }
+
+                // Check for Tsunamis
+                if (geo.TsunamiWaveHeight > 1.0f)
+                {
+                    disastersInTerritory++;
+                    // Damage based on wave height
+                    // 1m = 10 damage, 5m = 50 damage, 10m = 100 damage
+                    totalDamage += (int)(geo.TsunamiWaveHeight * 10);
+                }
             }
 
             // Check for cyclones/hurricanes hitting civilization

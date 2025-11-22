@@ -208,8 +208,6 @@ public static class EarthquakeSystem
                     // Reduce biomass (landslides, destruction) - scaled by magnitude
                     float damagePercent = (magnitude - 5.0f) * 0.05f * intensity; // M6=5%, M7=10%, M8=15%, M9=20%
                     cell.Biomass *= (1.0f - damagePercent);
-
-                    // TODO: Damage cities when civilization system is integrated
                 }
             }
         }

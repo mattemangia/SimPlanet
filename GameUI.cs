@@ -377,7 +377,8 @@ public class GameUI
 
         DrawTextAt("=== GEOLOGICAL HAZARDS ===", _accentColor, leftColX, leftY);
         leftY += lineHeight + 5;
-        DrawTextAt("E: Earthquakes  Q: Faults", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("E: Earthquakes (Discrete)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("Q: Faults (Discrete)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("U: Tsunamis", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         leftY += 8;
 
