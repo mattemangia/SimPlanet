@@ -68,9 +68,9 @@ public class GameUI
         _planetStabilizer = planetStabilizer;
     }
 
-    public void Draw(GameState state, RenderMode renderMode, float zoomLevel = 1.0f, bool showVolcanoes = false, bool showRivers = false, bool showPlates = false, bool showEarthquakes = false, int toolbarHeight = 0)
+    public void Draw(GameState state, RenderMode renderMode, float zoomLevel = 1.0f, bool showVolcanoes = false, bool showRivers = false, bool showPlates = false, bool showEarthquakes = false, bool showDisasterZones = false, int toolbarHeight = 0)
     {
-        DrawInfoPanel(state, renderMode, zoomLevel, showVolcanoes, showRivers, showPlates, showEarthquakes, toolbarHeight);
+        DrawInfoPanel(state, renderMode, zoomLevel, showVolcanoes, showRivers, showPlates, showEarthquakes, showDisasterZones, toolbarHeight);
 
         if (ShowHelp)
         {
@@ -105,7 +105,7 @@ public class GameUI
         _font.DrawString(_spriteBatch, text, new Vector2(barX + (barWidth - textSize.X) / 2, barY + (barHeight - textSize.Y) / 2), _textValueColor);
     }
 
-    private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates, bool showEarthquakes, int toolbarHeight)
+    private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates, bool showEarthquakes, bool showDisasterZones, int toolbarHeight)
     {
         // Update cached stats if needed (throttled to prevent lag)
         var timeSinceUpdate = (DateTime.Now - _lastStatsUpdate).TotalMilliseconds;
@@ -300,9 +300,20 @@ public class GameUI
         if (showRivers) overlays += "R ";
         if (showPlates) overlays += "P ";
         if (showEarthquakes) overlays += "E ";
+        if (showDisasterZones) overlays += "Z ";
         if (!string.IsNullOrEmpty(overlays))
         {
              DrawLabelValue("Overlays:", overlays, Color.Yellow);
+        }
+
+        if (state.TimeSpeed > 0 && _civilizationManager != null)
+        {
+             // Show disaster zone status
+             // Assuming we can access it, but GameUI doesn't hold ref to GeologicalEventsUI directly
+             // We can pass it in Draw() or just trust the toggle works.
+             // But user asked for indication. Let's add it to the overlays string if possible.
+             // Since we can't easily access it here without refactoring Draw(), let's leave it for now
+             // or rely on the visual circles themselves.
         }
     }
 
@@ -411,6 +422,7 @@ public class GameUI
         DrawTextAt("B: Toggle rivers", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("N: Toggle plate boundaries", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt(".: Toggle earthquakes circles", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt(",: Toggle disaster zones", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("P: Toggle 3D minimap", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("C: Day/Night cycle", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         rightY += 8;

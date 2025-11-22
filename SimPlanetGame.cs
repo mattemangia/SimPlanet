@@ -1338,7 +1338,7 @@ public class SimPlanetGame : Game
 
         // Draw UI with current zoom and overlay states (below toolbar)
         _ui.Draw(_gameState, _currentRenderMode, _terrainRenderer.ZoomLevel,
-            _eventsUI.ShowVolcanoes, _eventsUI.ShowRivers, _eventsUI.ShowPlates, _eventsUI.ShowEarthquakes, toolbarHeight);
+            _eventsUI.ShowVolcanoes, _eventsUI.ShowRivers, _eventsUI.ShowPlates, _eventsUI.ShowEarthquakes, _eventsUI.ShowDisasterZones, toolbarHeight);
 
         // Draw map options menu (if visible)
         _mapOptionsUI.Draw(_mapOptions);
