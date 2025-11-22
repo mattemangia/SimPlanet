@@ -1,4 +1,14 @@
+using System.Collections.Concurrent;
+
 namespace SimPlanet;
+
+public struct EarthquakeEvent
+{
+    public int X;
+    public int Y;
+    public float Magnitude;
+    public int Year;
+}
 
 /// <summary>
 /// Simulates plate tectonics, volcanism, erosion, and sedimentation
@@ -22,7 +32,7 @@ public class GeologicalSimulator
     private float ErosionScale => Math.Clamp(ErosionRate, 0.1f, 3.0f);
 
     public List<(int x, int y, int year)> RecentEruptions { get; } = new();
-    public List<(int x, int y, float magnitude)> Earthquakes { get; } = new();
+    public ConcurrentQueue<EarthquakeEvent> Earthquakes { get; } = new();
 
     public GeologicalSimulator(PlanetMap map, int seed)
     {
@@ -291,7 +301,12 @@ public class GeologicalSimulator
 
         // Clean up old events
         RecentEruptions.RemoveAll(e => currentYear - e.year > 10);
-        if (Earthquakes.Count > 20) Earthquakes.Clear();
+
+        // Clean up old earthquakes (limit queue size)
+        while (Earthquakes.Count > 100)
+        {
+            Earthquakes.TryDequeue(out _);
+        }
     }
     
     private void UpdateRockComposition()
@@ -536,7 +551,7 @@ public class GeologicalSimulator
                             // Earthquakes
                             if (geo.TectonicStress > 1.0f && _random.NextDouble() < 0.01 * tectonicScale)
                             {
-                                Earthquakes.Add((x, y, geo.TectonicStress));
+                                Earthquakes.Enqueue(new EarthquakeEvent { X = x, Y = y, Magnitude = geo.TectonicStress, Year = currentYear });
                                 geo.TectonicStress = 0;
                             }
                         }
@@ -546,7 +561,7 @@ public class GeologicalSimulator
                 // Stress relief through earthquakes
                 if (geo.TectonicStress > 1.5f && _random.NextDouble() < 0.005 * tectonicScale)
                 {
-                    Earthquakes.Add((x, y, geo.TectonicStress));
+                    Earthquakes.Enqueue(new EarthquakeEvent { X = x, Y = y, Magnitude = geo.TectonicStress, Year = currentYear });
                     geo.TectonicStress *= 0.1f;
                 }
 
