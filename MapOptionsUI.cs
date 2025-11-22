@@ -75,7 +75,7 @@ public class MapOptionsUI
         int panelX = 300;
         int panelY = 50;
         int panelWidth = 680;
-        int panelHeight = 620;
+        int panelHeight = 660;
 
         // Update UI elements positions
         UpdateUIElements(panelX, panelY, panelWidth, options);
@@ -400,7 +400,7 @@ public class MapOptionsUI
         int panelX = 300;
         int panelY = 50;
         int panelWidth = 680;
-        int panelHeight = 620;
+        int panelHeight = 660;
 
         // Draw background with gradient
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(20, 20, 40, 250));
