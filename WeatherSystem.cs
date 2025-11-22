@@ -711,7 +711,7 @@ public class WeatherSystem
             storm.CenterY += (int)(storm.VelocityY * deltaTime * 8);
 
             // Wrap around horizontally
-            storm.CenterX = (storm.CenterX + _map.Width) % _map.Width;
+            storm.CenterX = ((storm.CenterX % _map.Width) + _map.Width) % _map.Width;
             storm.CenterY = Math.Clamp(storm.CenterY, 0, _map.Height - 1);
 
             // Check if over land or water
