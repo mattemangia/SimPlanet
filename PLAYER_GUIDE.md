@@ -1277,7 +1277,7 @@ Start with uninhabitable planet:
 | ; | Biomass | Population density |
 | ' | Plates | Tectonic plates |
 | , | Geology | Geological activity |
-| . | Volcanoes | Volcanic distribution |
+| . | Earthquakes Overlay | Toggle earthquake circles |
 | / | Erosion | Erosion intensity |
 
 ### Overlays (Toggle On/Off)
@@ -1285,7 +1285,7 @@ Start with uninhabitable planet:
 |-----|---------|-------------|
 | R | Rivers | Water flow paths |
 | V | Volcanoes | Volcanic sites |
-| Q | Earthquakes | Seismic events |
+| . | Earthquakes | Seismic circles overlay |
 | F | Fires | Forest fires |
 | H | Hurricanes | Storm systems |
 | A | Auroras | Polar lights |

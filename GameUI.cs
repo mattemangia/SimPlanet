@@ -68,9 +68,9 @@ public class GameUI
         _planetStabilizer = planetStabilizer;
     }
 
-    public void Draw(GameState state, RenderMode renderMode, float zoomLevel = 1.0f, bool showVolcanoes = false, bool showRivers = false, bool showPlates = false, int toolbarHeight = 0)
+    public void Draw(GameState state, RenderMode renderMode, float zoomLevel = 1.0f, bool showVolcanoes = false, bool showRivers = false, bool showPlates = false, bool showEarthquakes = false, int toolbarHeight = 0)
     {
-        DrawInfoPanel(state, renderMode, zoomLevel, showVolcanoes, showRivers, showPlates, toolbarHeight);
+        DrawInfoPanel(state, renderMode, zoomLevel, showVolcanoes, showRivers, showPlates, showEarthquakes, toolbarHeight);
 
         if (ShowHelp)
         {
@@ -105,7 +105,7 @@ public class GameUI
         _font.DrawString(_spriteBatch, text, new Vector2(barX + (barWidth - textSize.X) / 2, barY + (barHeight - textSize.Y) / 2), _textValueColor);
     }
 
-    private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates, int toolbarHeight)
+    private void DrawInfoPanel(GameState state, RenderMode renderMode, float zoomLevel, bool showVolcanoes, bool showRivers, bool showPlates, bool showEarthquakes, int toolbarHeight)
     {
         // Update cached stats if needed (throttled to prevent lag)
         var timeSinceUpdate = (DateTime.Now - _lastStatsUpdate).TotalMilliseconds;
@@ -299,6 +299,7 @@ public class GameUI
         if (showVolcanoes) overlays += "V ";
         if (showRivers) overlays += "R ";
         if (showPlates) overlays += "P ";
+        if (showEarthquakes) overlays += "E ";
         if (!string.IsNullOrEmpty(overlays))
         {
              DrawLabelValue("Overlays:", overlays, Color.Yellow);
@@ -409,6 +410,7 @@ public class GameUI
         DrawTextAt("V: Toggle volcanoes", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("B: Toggle rivers", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("N: Toggle plate boundaries", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt(".: Toggle earthquakes circles", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("P: Toggle 3D minimap", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("C: Day/Night cycle", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         rightY += 8;
