@@ -59,7 +59,7 @@ public class PlanetStabilizer
 
         // Set LIFE-FRIENDLY targets regardless of initial conditions
         // These are optimal for supporting diverse life forms
-        _targetGlobalTemp = 20f; // Optimal temperature for life (warmer than 15f)
+        _targetGlobalTemp = 15f; // Reduced from 20f to prevent overheating equator to satisfy cold poles
         _targetOxygen = 21f; // Earth-like oxygen for complex life
         _minCO2 = 0.03f; // Minimum for photosynthesis (300 ppm)
         _maxCO2 = 0.15f; // Maximum safe level (1500 ppm) - relaxed
@@ -206,12 +206,15 @@ public class PlanetStabilizer
     private void StabilizeTemperature(float avgTemp, float avgCO2)
     {
         float tempDeviation = avgTemp - _targetGlobalTemp;
+        float maxTemp = CalculateMaxTemperature();
+        float safetyTempLimit = 42f; // Keep well below the 45C life limit
 
         // AGGRESSIVE temperature control
         // If life is present, we cannot allow global temp to drift too far
         
         // Too cold - warm up
-        if (tempDeviation < -1f) 
+        // CRITICAL FIX: Do not warm up if ANY part of the planet is already overheating
+        if (tempDeviation < -1f && maxTemp < safetyTempLimit)
         {
             // Add CO2 to warm planet
             if (avgCO2 < _maxCO2 * 1.5f) // Allow overshoot to correct temp
@@ -228,30 +231,31 @@ public class PlanetStabilizer
                 LastAction = $"Increasing solar energy (avg: {avgTemp:F1}°C)";
             }
         }
-        // Too hot - cool down
-        else if (tempDeviation > 1f) 
+        // Too hot - cool down (Use either average OR max temp as trigger)
+        else if (tempDeviation > 1f || maxTemp > safetyTempLimit)
         {
             // Calculate avg methane and N2O to control them too
             float avgMethane = CalculateAverageMethane();
             float avgN2O = CalculateAverageN2O();
+            string reason = tempDeviation > 1f ? "avg temp" : "max temp";
 
             // Prioritize removing the most potent gases first
             if (avgN2O > 0.1f)
             {
                 ReduceN2OGlobally(0.5f); 
-                LastAction = $"Removing N2O to cool planet (avg: {avgTemp:F1}°C)";
+                LastAction = $"Removing N2O to cool planet ({reason}: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             else if (avgMethane > 0.2f)
             {
                 ReduceMethaneGlobally(0.5f); 
-                LastAction = $"Removing methane to cool planet (avg: {avgTemp:F1}°C)";
+                LastAction = $"Removing methane to cool planet ({reason}: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             else if (avgCO2 > 0.1f)
             {
                 AdjustCO2Globally(-0.2f);
-                LastAction = $"Removing CO2 to cool planet (avg: {avgTemp:F1}°C)";
+                LastAction = $"Removing CO2 to cool planet ({reason}: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             
@@ -259,7 +263,7 @@ public class PlanetStabilizer
             if (_map.SolarEnergy > 0.6f)
             {
                 _map.SolarEnergy -= 0.01f * _responseMultiplier;
-                LastAction = $"Decreasing solar energy (avg: {avgTemp:F1}°C)";
+                LastAction = $"Decreasing solar energy ({reason}: {avgTemp:F1}°C)";
             }
         }
 
@@ -375,6 +379,22 @@ public class PlanetStabilizer
             }
         }
         return total / count;
+    }
+
+    private float CalculateMaxTemperature()
+    {
+        float max = -100f;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                if (_map.Cells[x, y].Temperature > max)
+                {
+                    max = _map.Cells[x, y].Temperature;
+                }
+            }
+        }
+        return max;
     }
 
     private float CalculateAverageLandRainfall()

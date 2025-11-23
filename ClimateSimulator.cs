@@ -177,7 +177,8 @@ public class ClimateSimulator
                 var neighborTempVec = (new Vector<float>(n_up) + new Vector<float>(n_down) + new Vector<float>(n_left) + new Vector<float>(n_right)) / 4.0f;
 
                 // Combine influences
-                var targetTempVec = solarHeatingVec * 0.5f + windTempVec * 0.2f + neighborTempVec * 0.3f;
+                // Increased neighbor diffusion (0.5) and reduced solar (0.3) to promote smoother thermal gradients
+                var targetTempVec = solarHeatingVec * 0.3f + windTempVec * 0.2f + neighborTempVec * 0.5f;
 
                 // Lerp towards target
                 var finalTempVec = currentTempVec + (targetTempVec - currentTempVec) * deltaTime * 0.1f;
@@ -246,8 +247,9 @@ public class ClimateSimulator
                 float topographicVariation = MathF.Sin(x * 0.4f) * MathF.Cos(y * 0.35f) * 3.0f;
 
                 // Realistic temperature gradient: hot equator, freezing poles
-                // Equator (lat=0): ~30Â°C, Poles (lat=1): ~-40Â°C
-                float baseTemp = 30 - (latitude * latitude * 70) + oceanCurrentEffect -
+                // Equator (lat=0): ~30°C, Poles (lat=1): ~-20°C (Warmer poles to raise average)
+                // Changed from 70 to 50 to prevent extreme cold pulling down global average
+                float baseTemp = 30 - (latitude * latitude * 50) + oceanCurrentEffect -
                                 continentalityEffect + topographicVariation;
 
                 // Calculate surface albedo (reflection coefficient)
@@ -373,9 +375,9 @@ public class ClimateSimulator
                 if (float.IsNaN(neighborTemp) || float.IsInfinity(neighborTemp))
                     neighborTemp = cell.Temperature;
 
-                // *** KEY FIX: Reduced neighbor influence from 80% to 30% ***
-                // This prevents band formation while still smoothing sharp edges
-                float targetTemp = solarHeating * 0.5f + windTemp * 0.2f + neighborTemp * 0.3f;
+                // *** KEY FIX: Increased neighbor influence to 50% to prevent sharp edges (fading) ***
+                // Reduced solar influence to 30% to allow better diffusion
+                float targetTemp = solarHeating * 0.3f + windTemp * 0.2f + neighborTemp * 0.5f;
 
                 // Validate targetTemp
                 if (float.IsNaN(targetTemp) || float.IsInfinity(targetTemp))
