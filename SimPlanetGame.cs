@@ -454,7 +454,7 @@ public class SimPlanetGame : Game
         // Enable simulation when in-game
         lock (_simulationLock)
         {
-            _simulationRunning = (_mainMenu.CurrentScreen == GameScreen.InGame);
+            _simulationRunning = (_mainMenu.CurrentScreen == GameScreen.InGame) && !_isFastForwarding;
         }
 
         // Update global stats periodically (UI thread)
