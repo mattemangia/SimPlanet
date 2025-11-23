@@ -209,13 +209,16 @@ public class GeologicalSimulator
                     // Add noise influence to create irregular shapes
                     // Noise scale needs to be relative to map size for consistent shapes
                     // We use a fixed low frequency to get large chaotic lobes
-                    float noiseVal = noise.OctaveNoise(nx * 0.05f, ny * 0.05f, 3, 0.5f, 2.0f);
+                    // IMPROVED: Use higher frequency noise mixed with low frequency to create more jagged edges
+                    float noiseValLow = noise.OctaveNoise(nx * 0.04f, ny * 0.04f, 2, 0.5f, 2.0f);
+                    float noiseValHigh = noise.OctaveNoise(nx * 0.15f, ny * 0.15f, 3, 0.6f, 2.0f);
+                    float noiseVal = noiseValLow * 0.7f + noiseValHigh * 0.3f;
 
                     // The noise acts as "terrain difficulty" - high noise = harder to traverse
                     // This warps the distance field
                     // FIX: Must ensure factor is always positive to prevent negative edge weights!
-                    // Previously 1.0 + noise*5.0 caused negative costs (-4.0), leading to runaway expansion
-                    float randomFactor = 2.5f + (noiseVal * 2.0f);
+                    // INCREASED NOISE IMPACT to prevent straight lines
+                    float randomFactor = 3.0f + (noiseVal * 4.0f);
                     float newCost = cost + moveCost * Math.Max(0.1f, randomFactor);
 
                     if (newCost < costs[nx, ny])
@@ -452,59 +455,69 @@ public class GeologicalSimulator
 
                             // Mountain building or subduction
                             double arcChance = 0.00002 * volcanicScale;
+                            float upliftRate = 0.005f * tectonicScale;
 
                             if (plate1.IsOceanic && !plate2.IsOceanic)
                             {
-                                // Oceanic subducts under continental - volcanic mountain chain
-                                // Creates Andes-like or Cascades-like volcanic arcs
+                                // Oceanic subducts under continental (Andes)
+                                // Trench on oceanic side (this cell), Mountains on continental side (neighbor)
 
-                                // Subduction: oceanic plate sinks
-                                if (cell.IsWater)
+                                // Determine which side is which
+                                // Current cell (x,y) is plate1 (Oceanic)
+                                // Neighbor (nx,ny) is plate2 (Continental)
+
+                                // This cell (Oceanic) subducts -> Trench
+                                cell.Elevation -= upliftRate * 0.5f;
+
+                                // Continental neighbor -> Mountains
+                                if (!neighbor.IsOceanic) // Double check neighbor is continental
                                 {
-                                    cell.Elevation -= 0.001f * relVel; // Trench formation
-                                }
-                                else
-                                {
-                                    cell.Elevation += 0.003f * relVel; // Mountains build up on continental side
+                                    // We can't modify neighbor directly here safely in all contexts without locking if parallel,
+                                    // but this loop is likely sequential.
+                                    // However, the loop iterates over all cells, so we should only modify 'cell'.
+                                    // But wait, we are iterating x,y. 'cell' is plate1.
+                                    // If we only modify 'cell', we need to handle both sides of the boundary as we iterate.
+
+                                    // Since we visit every cell, we will visit the continental cell later (or already have).
+                                    // So we only need to handle what happens to *this* cell based on its role.
+
+                                    // Logic: I am Oceanic. Neighbor is Continental. I subduct.
+                                    cell.Elevation -= upliftRate * 0.5f; // Form Trench
                                 }
 
-                                // Only trigger new volcanoes if one doesn't exist, to allow old ones to decay
-                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
-                                {
-                                    geo.IsVolcano = true;
-                                    geo.VolcanicActivity = 0.6f;
-                                    geo.MagmaPressure = 0.3f;
-                                }
+                                // Volcanism happens on the OVERRIDING plate (Continental), not the subducting one.
+                                // So as the oceanic plate, I don't get volcanoes usually.
+                                // But wait, if I am iterating over the continental plate cell later, I should handle volcanism there.
+
                                 geo.TectonicStress += 0.02f * tectonicScale;
-                                geo.SubductionRate = relVel * 0.01f; // Track subduction rate
+                                geo.SubductionRate = relVel * 0.01f;
                             }
                             else if (!plate1.IsOceanic && plate2.IsOceanic)
                             {
-                                // Continental over oceanic - subduction
-                                if (neighbor.IsWater)
-                                {
-                                    neighbor.Elevation -= 0.001f * relVel; // Trench in ocean
-                                }
+                                // Continental over Oceanic
+                                // I am Continental. Neighbor is Oceanic.
+                                // I get uplift (mountains) and volcanoes.
 
-                                cell.Elevation += 0.003f * relVel; // Mountains on continental side
-                                geo.TectonicStress += 0.02f * tectonicScale;
+                                cell.Elevation += upliftRate; // Mountain building
 
-                                // Only trigger new volcanoes if one doesn't exist
-                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
+                                // Volcanic arc on continental side
+                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < arcChance)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
                                     geo.MagmaPressure = 0.3f;
                                 }
+
+                                geo.TectonicStress += 0.02f * tectonicScale;
                             }
                             else if (!plate1.IsOceanic && !plate2.IsOceanic)
                             {
-                                // Continental collision - massive mountain ranges (Himalayas-like)
-                                cell.Elevation += 0.005f * relVel; // Increased from 0.001f
-                                geo.TectonicStress += 0.02f * tectonicScale;
+                                // Continent-Continent Collision (Himalayas)
+                                // Massive uplift for both sides
+                                cell.Elevation += upliftRate * 1.5f;
+                                geo.TectonicStress += 0.03f * tectonicScale;
 
-                                // Occasional volcanism from crustal melting
-                                // Only trigger new volcanoes if one doesn't exist
+                                // Occasional volcanism (tibetan plateau style)
                                 if (!geo.IsVolcano && cell.Elevation > 0.6f && _simulationRandom.NextDouble() < 0.002 * volcanicScale)
                                 {
                                     geo.IsVolcano = true;
@@ -513,14 +526,28 @@ public class GeologicalSimulator
                             }
                             else if (plate1.IsOceanic && plate2.IsOceanic)
                             {
-                                // Oceanic-oceanic convergence - island arcs (Japan, Philippines)
-                                // Only trigger new volcanoes if one doesn't exist
-                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.00003 * volcanicScale) // Very rare island chains (10x reduction)
+                                // Ocean-Ocean Convergence (Island Arcs)
+                                // Older/Denser plate subducts. We use density if available, or random/ID.
+                                // TectonicPlate has Density.
+
+                                if (plate1.Density > plate2.Density)
                                 {
-                                    cell.Elevation += 0.01f; // Gradual island building (reduced from 0.08f to prevent instant islands)
-                                    geo.IsVolcano = true;
-                                    geo.VolcanicActivity = 0.7f;
-                                    geo.MagmaPressure = 0.4f;
+                                    // I am denser -> I subduct -> Trench
+                                    cell.Elevation -= upliftRate * 0.5f;
+                                }
+                                else
+                                {
+                                    // I am lighter -> I ride over -> Island Arc
+                                    cell.Elevation += upliftRate * 0.8f;
+
+                                    // Island arc volcanism
+                                    if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.00005 * volcanicScale)
+                                    {
+                                        cell.Elevation += 0.05f; // Build island base
+                                        geo.IsVolcano = true;
+                                        geo.VolcanicActivity = 0.7f;
+                                        geo.MagmaPressure = 0.4f;
+                                    }
                                 }
                             }
                         }
@@ -528,21 +555,41 @@ public class GeologicalSimulator
                         {
                             geo.BoundaryType = PlateBoundaryType.Divergent;
 
-                            // Mid-ocean ridge volcanism (Iceland-like)
-                            if (cell.IsWater && !geo.IsVolcano && _simulationRandom.NextDouble() < 0.00001 * volcanicScale) // Very rare mid-ocean ridge volcanoes (10x reduction)
-                            {
-                                geo.IsVolcano = true;
-                                geo.VolcanicActivity = 0.4f;
-                                geo.MagmaPressure = 0.2f;
-                                cell.Elevation += 0.02f; // Build underwater volcanoes higher
-                            }
+                            // Divergent Boundary - Rift Valley or Mid-Ocean Ridge
+                            // Consistent uplift to form ridges
+                            float ridgeUplift = 0.004f * tectonicScale;
 
-                            // Continental rifts (East African Rift)
-                            if (cell.IsLand && !geo.IsVolcano && _simulationRandom.NextDouble() < 0.00001 * volcanicScale) // Very rare rift volcanoes (10x reduction)
+                            if (cell.IsWater)
                             {
-                                geo.IsVolcano = true;
-                                geo.VolcanicActivity = 0.5f;
-                                cell.Elevation -= 0.002f; // Rift valleys sink
+                                // Mid-ocean ridge
+                                // Build ridge, but don't necessarily breach surface immediately
+                                if (cell.Elevation < -0.2f)
+                                {
+                                    cell.Elevation += ridgeUplift;
+                                }
+
+                                // Ridge volcanism is common
+                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.0001 * volcanicScale)
+                                {
+                                    geo.IsVolcano = true;
+                                    geo.VolcanicActivity = 0.4f;
+                                    geo.MagmaPressure = 0.2f;
+                                    cell.Elevation += 0.02f;
+                                }
+                            }
+                            else
+                            {
+                                // Continental Rift (East Africa)
+                                // Rift valley formation (subsidence in center, uplift on flanks - hard to simulate flanks here)
+                                // We simulate the subsidence
+                                cell.Elevation -= 0.002f * tectonicScale;
+
+                                // Rift volcanism
+                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.00005 * volcanicScale)
+                                {
+                                    geo.IsVolcano = true;
+                                    geo.VolcanicActivity = 0.5f;
+                                }
                             }
                         }
                         else // Transform

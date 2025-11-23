@@ -783,7 +783,20 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - Map Controls & Geological Enhancements
+### Latest Update - UI Scrollbar & Tectonic Realism
+
+**UI Improvements:**
+- **Info Panel Scrollbar** - Added a vertical scrollbar to the left info panel, allowing for unlimited text display without cutoff.
+- **Mouse Wheel Support** - Scroll easily through planetary statistics and civilization lists.
+
+**Tectonic Evolution:**
+- **Jagged Plate Boundaries** - Enhanced plate generation with multi-frequency noise to eliminate straight lines and create organic, realistic fault shapes.
+- **Mid-Ocean Ridges** - Divergent boundaries now correctly form continuous underwater mountain ranges (ridges) instead of just random volcanoes.
+- **Subduction Zones** - Convergent boundaries now simulate trenches (subducting plate) and coastal mountains/volcanoes (overriding plate).
+- **Himalayan Orogeny** - Continent-continent collisions now produce massive uplift and mountain ranges.
+- **Island Arcs** - Ocean-ocean collisions now simulate density-based subduction to form volcanic island chains.
+
+### Previous Update - Map Controls & Geological Enhancements
 
 **Improved Map Navigation:**
 - **Smart Map Centering** - When zoomed out, the map now automatically centers in the viewport instead of sticking to the top-left corner.
