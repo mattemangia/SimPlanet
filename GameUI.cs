@@ -24,6 +24,14 @@ public class GameUI
     private DateTime _lastStatsUpdate = DateTime.MinValue;
     private const double StatsUpdateIntervalMs = 100; // Update stats every 100ms
 
+    // Scrollbar state
+    private int _scrollOffset = 0;
+    private int _contentHeight = 0;
+    private bool _isDraggingScrollbar = false;
+    private int _dragStartY = 0;
+    private int _dragStartScrollOffset = 0;
+    private Rectangle _lastScrollbarRect = Rectangle.Empty;
+
     public bool ShowHelp { get; set; } = false;
     public bool IsFastForwarding { get; set; } = false;
     public float FastForwardProgress { get; set; } = 0f;
@@ -66,6 +74,78 @@ public class GameUI
     public void SetPlanetStabilizer(PlanetStabilizer planetStabilizer)
     {
         _planetStabilizer = planetStabilizer;
+    }
+
+    public void Update(GameTime gameTime, MouseState mouseState, MouseState previousMouseState, int toolbarHeight)
+    {
+        // Calculate panel dimensions (same as in Draw)
+        int panelX = 0;
+        int panelY = toolbarHeight;
+        int panelWidth = 280;
+        int panelHeight = _graphicsDevice.Viewport.Height - toolbarHeight;
+
+        // Check if mouse is over the panel
+        bool isOverPanel = mouseState.X >= panelX && mouseState.X <= panelX + panelWidth &&
+                           mouseState.Y >= panelY && mouseState.Y <= panelY + panelHeight;
+
+        // Handle Mouse Wheel Scrolling
+        if (isOverPanel)
+        {
+            int scrollDelta = mouseState.ScrollWheelValue - previousMouseState.ScrollWheelValue;
+            if (scrollDelta != 0)
+            {
+                _scrollOffset -= scrollDelta / 2; // Adjust scroll speed
+                ClampScroll(panelHeight);
+            }
+        }
+
+        // Handle Scrollbar Dragging
+        // Check if we clicked on the scrollbar
+        if (_lastScrollbarRect.Contains(mouseState.Position) && mouseState.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Released)
+        {
+            _isDraggingScrollbar = true;
+            _dragStartY = mouseState.Y;
+            _dragStartScrollOffset = _scrollOffset;
+        }
+
+        // Update dragging
+        if (_isDraggingScrollbar && mouseState.LeftButton == ButtonState.Pressed)
+        {
+            int deltaY = mouseState.Y - _dragStartY;
+
+            // Map scrollbar movement to content movement
+            // Scrollbar travel range: visibleHeight - thumbHeight
+            // Content travel range: contentHeight - visibleHeight
+            // Ratio = ContentRange / ScrollbarRange
+
+            int visibleHeight = panelHeight - 40; // Subtract header height roughly
+            if (_contentHeight > visibleHeight)
+            {
+                int scrollbarHeight = visibleHeight;
+                int thumbHeight = Math.Max(20, (int)((float)visibleHeight / _contentHeight * scrollbarHeight));
+                int trackHeight = scrollbarHeight - thumbHeight;
+
+                if (trackHeight > 0)
+                {
+                    int maxScroll = _contentHeight - visibleHeight;
+                    float ratio = (float)maxScroll / trackHeight;
+
+                    _scrollOffset = _dragStartScrollOffset + (int)(deltaY * ratio);
+                    ClampScroll(panelHeight);
+                }
+            }
+        }
+        else
+        {
+            _isDraggingScrollbar = false;
+        }
+    }
+
+    private void ClampScroll(int panelHeight)
+    {
+        int visibleHeight = panelHeight - 40; // Approximate visible area below header
+        int maxScroll = Math.Max(0, _contentHeight - visibleHeight + 60); // Extra padding at bottom
+        _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
     }
 
     public void Draw(GameState state, RenderMode renderMode, float zoomLevel = 1.0f, bool showVolcanoes = false, bool showRivers = false, bool showPlates = false, bool showEarthquakes = false, bool showDisasterZones = false, int toolbarHeight = 0)
@@ -127,44 +207,69 @@ public class GameUI
         // Right border only
         DrawRectangle(panelX + panelWidth - 1, panelY, 1, panelHeight, _panelBorderColor);
 
-        // Top Header
+        // Top Header (Static, not scrolled)
         DrawRectangle(panelX, panelY, panelWidth, 40, _headerBgColor);
         DrawRectangle(panelX, panelY + 39, panelWidth, 1, _panelBorderColor);
 
+        // Draw title in static header
+        _font.DrawString(_spriteBatch, "SIMPLANET", new Vector2(panelX + 15, panelY + 12), _goldColor, 16);
+
+        // --- Content Rendering with Clipping ---
+
+        // Define the content area (below header)
+        int contentAreaY = panelY + 40;
+        int contentAreaHeight = panelHeight - 40;
+
+        // Save current scissor rectangle
+        Rectangle currentScissor = _spriteBatch.GraphicsDevice.ScissorRectangle;
+
+        // Enable scissor test for clipping
+        RasterizerState rasterizerState = new RasterizerState { ScissorTestEnable = true };
+        _spriteBatch.End();
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, rasterizerState);
+
+        // Set scissor rectangle to content area
+        _spriteBatch.GraphicsDevice.ScissorRectangle = new Rectangle(panelX, contentAreaY, panelWidth, contentAreaHeight);
+
         int textX = panelX + 15;
-        int textY = panelY + 12;
+        int textStartY = contentAreaY + 10;
+        int textY = textStartY - _scrollOffset; // Apply scroll offset
         int lineHeight = 22;
 
         void DrawText(string text, Color color, int fontSize = 14, int offsetX = 0)
         {
-            _font.DrawString(_spriteBatch, text, new Vector2(textX + offsetX, textY), color, fontSize);
+            // Culling optimization: don't draw if outside view
+            if (textY + lineHeight > contentAreaY && textY < contentAreaY + contentAreaHeight)
+            {
+                _font.DrawString(_spriteBatch, text, new Vector2(textX + offsetX, textY), color, fontSize);
+            }
             textY += lineHeight;
         }
 
         void DrawLabelValue(string label, string value, Color valueColor)
         {
-            _font.DrawString(_spriteBatch, label, new Vector2(textX, textY), _textLabelColor, 14);
-            float labelWidth = _font.MeasureString(label).X;
-            _font.DrawString(_spriteBatch, value, new Vector2(textX + labelWidth + 5, textY), valueColor, 14);
+            if (textY + lineHeight > contentAreaY && textY < contentAreaY + contentAreaHeight)
+            {
+                _font.DrawString(_spriteBatch, label, new Vector2(textX, textY), _textLabelColor, 14);
+                float labelWidth = _font.MeasureString(label).X;
+                _font.DrawString(_spriteBatch, value, new Vector2(textX + labelWidth + 5, textY), valueColor, 14);
+            }
             textY += lineHeight;
         }
 
         void DrawSectionHeader(string text)
         {
             textY += 8;
-            // Subtle background for section header
-            DrawRectangle(panelX + 5, textY - 2, panelWidth - 10, 24, _subHeaderBgColor);
-
-            // Accent line on left
-            DrawRectangle(panelX + 5, textY - 2, 3, 24, _accentColor);
-
-            _font.DrawString(_spriteBatch, text, new Vector2(textX, textY), _accentColor, 14);
+            if (textY + 26 > contentAreaY && textY < contentAreaY + contentAreaHeight)
+            {
+                // Subtle background for section header
+                DrawRectangle(panelX + 5, textY - 2, panelWidth - 10, 24, _subHeaderBgColor);
+                // Accent line on left
+                DrawRectangle(panelX + 5, textY - 2, 3, 24, _accentColor);
+                _font.DrawString(_spriteBatch, text, new Vector2(textX, textY), _accentColor, 14);
+            }
             textY += 26;
         }
-
-        // Title and Game State
-        _font.DrawString(_spriteBatch, "SIMPLANET", new Vector2(textX, textY), _goldColor, 16);
-        textY += 30;
 
         float fractionalYear = state.Year + state.TimeAccumulator / GameState.SecondsPerGameYear;
         DrawLabelValue("Year:", $"{fractionalYear:N1}", _textValueColor);
@@ -288,9 +393,7 @@ public class GameUI
         }
 
         // Footer View Info
-        // Use dynamic height to ensure it sticks to bottom even if window is resized
-        textY = panelY + panelHeight - 60;
-        DrawRectangle(panelX + 10, textY - 5, panelWidth - 20, 1, _subHeaderBgColor);
+        textY += 10; // Space before footer
         DrawLabelValue("View:", $"{renderMode}", Color.Magenta);
         DrawLabelValue("Zoom:", $"{zoomLevel:F1}x", Color.Cyan);
 
@@ -306,14 +409,46 @@ public class GameUI
              DrawLabelValue("Overlays:", overlays, Color.Yellow);
         }
 
-        if (state.TimeSpeed > 0 && _civilizationManager != null)
+        // Store total content height for scrolling
+        _contentHeight = (textY - textStartY) + _scrollOffset;
+
+        // End Clipping
+        _spriteBatch.End();
+        _spriteBatch.GraphicsDevice.ScissorRectangle = currentScissor;
+        _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+
+        // --- Draw Scrollbar ---
+        if (_contentHeight > contentAreaHeight)
         {
-             // Show disaster zone status
-             // Assuming we can access it, but GameUI doesn't hold ref to GeologicalEventsUI directly
-             // We can pass it in Draw() or just trust the toggle works.
-             // But user asked for indication. Let's add it to the overlays string if possible.
-             // Since we can't easily access it here without refactoring Draw(), let's leave it for now
-             // or rely on the visual circles themselves.
+            int scrollbarWidth = 8;
+            int scrollbarX = panelX + panelWidth - scrollbarWidth - 2;
+            int scrollbarY = contentAreaY + 2;
+            int scrollbarHeight = contentAreaHeight - 4;
+
+            // Draw Track
+            DrawRectangle(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight, new Color(0, 0, 0, 100));
+
+            // Calculate Thumb
+            float viewRatio = Math.Min(1.0f, (float)contentAreaHeight / _contentHeight);
+            int thumbHeight = Math.Max(20, (int)(scrollbarHeight * viewRatio));
+
+            float scrollRatio = (float)_scrollOffset / (_contentHeight - contentAreaHeight);
+            if (float.IsNaN(scrollRatio)) scrollRatio = 0;
+            scrollRatio = Math.Clamp(scrollRatio, 0f, 1f);
+
+            int thumbY = scrollbarY + (int)((scrollbarHeight - thumbHeight) * scrollRatio);
+
+            // Draw Thumb
+            Color thumbColor = _isDraggingScrollbar ? _accentColor : _panelBorderColor;
+            DrawRectangle(scrollbarX, thumbY, scrollbarWidth, thumbHeight, thumbColor);
+
+            // Update scrollbar rect for hit testing
+            _lastScrollbarRect = new Rectangle(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight);
+        }
+        else
+        {
+            _lastScrollbarRect = Rectangle.Empty;
+            _scrollOffset = 0; // Reset scroll if content fits
         }
     }
 

@@ -486,6 +486,7 @@ public class SimPlanetGame : Game
 
             // Update UI systems
             _toolbar.Update(mouseState);
+            _ui.Update(gameTime, mouseState, _previousMouseState, _toolbar.ToolbarHeight);
             _bottomControlUI.Update(mouseState);
             _aboutDialog.Update(mouseState, _previousMouseState);
             

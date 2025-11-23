@@ -67,6 +67,7 @@ The interactive toolbar gives you one-click access to all features:
 - Oxygen and CO2 levels
 - Active life forms and civilizations
 - Auto-stabilizer status and last action
+ - **Scrollbar Support**: Use the mouse wheel or drag the scrollbar to view extended statistics and civilization lists
 
 **Bottom Section (Cell Inspector):**
 - When you click a cell, detailed information appears
@@ -264,10 +265,15 @@ Greenhouse gases trap heat:
 
 **Plate Tectonics:**
 - 8 tectonic plates with **realistic irregular boundaries**
-- Boundaries generated using noise-distorted flood-fill for natural shapes
-- **Convergent boundaries**: Mountains, volcanoes, subduction
-- **Divergent boundaries**: Rift valleys, underwater ridges
-- **Transform boundaries**: Earthquakes, lateral movement
+ - Boundaries generated using multi-frequency noise distortion for natural, jagged shapes
+ - **Convergent boundaries**:
+   - **Subduction Zones**: Oceanic plates slide under continental plates, creating deep trenches and coastal mountain ranges (Andes style).
+   - **Island Arcs**: Ocean-ocean collisions create volcanic island chains (Japan style).
+   - **Collisions**: Continent-continent collisions create massive mountain ranges (Himalayas style).
+ - **Divergent boundaries**:
+   - **Mid-Ocean Ridges**: Continuous underwater mountain chains where plates spread apart.
+   - **Rift Valleys**: Continental splitting zones (East Africa style).
+ - **Transform boundaries**: Lateral movement causing stress buildup and earthquakes.
 - Creates realistic continental drift over millions of years
 
 **Volcanoes:**
