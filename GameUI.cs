@@ -396,9 +396,9 @@ public class GameUI
 
         DrawTextAt("=== ADVANCED VIEWS ===", _accentColor, leftColX, leftY);
         leftY += lineHeight + 5;
-        DrawTextAt("F10: Biomes  A: Albedo", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("F12: Radiation  J: Resources", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("S: Spectral Band Energy", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("F10: Biomes  Z: Political", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("F12: Radiation  A: Albedo", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("J: Resources  S: Energy", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         DrawTextAt("O: Infrastructure (Civ)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         leftY += 8;
 

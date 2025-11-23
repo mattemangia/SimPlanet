@@ -302,6 +302,7 @@ public class SimPlanetGame : Game
 
         // Create renderer
         _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);
+        _terrainRenderer.SetCivilizationManager(_civilizationManager);
         _terrainRenderer.CellSize = 4;
 
         // Create UI
@@ -730,6 +731,10 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.F10) && _previousKeyState.IsKeyUp(Keys.F10))
             SetRenderMode(RenderMode.Biomes);
 
+        // Political/Civilization view mode (Z)
+        if (keyState.IsKeyDown(Keys.Z) && _previousKeyState.IsKeyUp(Keys.Z))
+            SetRenderMode(RenderMode.Civilizations);
+
         // Albedo view mode (A key) - surface reflectivity and ice-albedo feedback
         if (keyState.IsKeyDown(Keys.A) && _previousKeyState.IsKeyUp(Keys.A))
             SetRenderMode(RenderMode.Albedo);
@@ -1089,6 +1094,7 @@ public class SimPlanetGame : Game
             // Update renderer
             _terrainRenderer.Dispose();
             _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);
+            _terrainRenderer.SetCivilizationManager(_civilizationManager);
             _terrainRenderer.CellSize = 4;
 
             // Update UI
@@ -1209,6 +1215,7 @@ public class SimPlanetGame : Game
         // Update renderer
         _terrainRenderer.Dispose();
         _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);
+        _terrainRenderer.SetCivilizationManager(_civilizationManager);
         _terrainRenderer.CellSize = 4;
 
         // Update UI

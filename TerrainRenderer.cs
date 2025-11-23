@@ -13,6 +13,14 @@ public class TerrainRenderer
     private Texture2D _pixelTexture;
     private Texture2D _terrainTexture;
     private Color[] _terrainColors;
+    private CivilizationManager? _civilizationManager;
+    private int[] _civOwnerMap;
+    private List<(Color, string)>? _cachedCivLegend;
+
+    public void SetCivilizationManager(CivilizationManager manager)
+    {
+        _civilizationManager = manager;
+    }
 
     public int CellSize { get; set; } = 4;
 
@@ -61,6 +69,7 @@ public class TerrainRenderer
         // Create terrain texture
         _terrainTexture = new Texture2D(_graphicsDevice, map.Width, map.Height);
         _terrainColors = new Color[map.Width * map.Height];
+        _civOwnerMap = new int[map.Width * map.Height];
 
         UpdateTerrainTexture();
     }
@@ -70,6 +79,30 @@ public class TerrainRenderer
         // Performance optimization: only update when data has changed
         if (!_isDirty && !ShowDayNight)
             return;
+
+        // Pre-calculate civilization map if needed
+        if (Mode == RenderMode.Civilizations && _civilizationManager != null)
+        {
+            Array.Fill(_civOwnerMap, 0);
+            var civs = _civilizationManager.GetAllCivilizations();
+
+            // Update legend cache
+            _cachedCivLegend = new List<(Color, string)>();
+            foreach (var civ in civs)
+            {
+                _cachedCivLegend.Add((GetCivColor(civ.Id), civ.Name));
+                foreach (var (cx, cy) in civ.Territory)
+                {
+                    int idx = cy * _map.Width + cx;
+                    if (idx >= 0 && idx < _civOwnerMap.Length)
+                    {
+                        _civOwnerMap[idx] = civ.Id;
+                    }
+                }
+            }
+            _cachedCivLegend.Add((new Color(80, 80, 80), "Unclaimed Land"));
+            _cachedCivLegend.Add((new Color(20, 40, 80), "Water"));
+        }
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -115,6 +148,7 @@ public class TerrainRenderer
                     RenderMode.Tsunamis => GetTsunamisColor(cell),
                     RenderMode.Infrastructure => GetInfrastructureColor(cell),
                     RenderMode.SpectralBands => GetSpectralBandsColor(cell),
+                    RenderMode.Civilizations => GetCivilizationColor(cell, x, y),
                     _ => Color.Black
                 };
 
@@ -982,6 +1016,55 @@ public class TerrainRenderer
         }
     }
 
+    private Color GetCivilizationColor(TerrainCell cell, int x, int y)
+    {
+        int index = y * _map.Width + x;
+        if (index >= 0 && index < _civOwnerMap.Length)
+        {
+            int civId = _civOwnerMap[index];
+
+            if (civId > 0)
+            {
+                // Owned territory
+                Color color = GetCivColor(civId);
+
+                // Darken slightly for terrain texture
+                // We can blend with terrain or elevation to show features under the color
+                float elevationFactor = (cell.Elevation + 1f) / 2f; // 0-1
+                // Modulate brightness by elevation to show mountains etc
+                float brightness = 0.8f + elevationFactor * 0.4f;
+
+                return new Color(
+                    Math.Min(255, (int)(color.R * brightness)),
+                    Math.Min(255, (int)(color.G * brightness)),
+                    Math.Min(255, (int)(color.B * brightness))
+                );
+            }
+        }
+
+        if (cell.IsWater) return new Color(20, 40, 80);
+        return new Color(80, 80, 80); // Unclaimed land
+    }
+
+    private Color[] _civPalette = new[]
+    {
+        new Color(65, 105, 225), // Royal Blue
+        new Color(220, 20, 60),  // Crimson
+        new Color(255, 215, 0),  // Gold
+        new Color(50, 205, 50),  // Lime Green
+        new Color(138, 43, 226), // Blue Violet
+        new Color(255, 140, 0),  // Dark Orange
+        new Color(0, 206, 209),  // Dark Turquoise
+        new Color(255, 105, 180), // Hot Pink
+        new Color(139, 69, 19),  // Saddle Brown
+        new Color(128, 128, 128) // Gray
+    };
+
+    private Color GetCivColor(int civId)
+    {
+        return _civPalette[(civId - 1) % _civPalette.Length];
+    }
+
     public void DrawLegend(SpriteBatch spriteBatch, FontRenderer font, int screenWidth, int screenHeight)
     {
         // Don't show legend for Terrain mode (it's self-explanatory)
@@ -1134,6 +1217,7 @@ public class TerrainRenderer
             RenderMode.Radiation => "RADIATION LEVELS",
             RenderMode.Infrastructure => "CIVILIZATION INFRASTRUCTURE",
             RenderMode.SpectralBands => "NET RADIATION BUDGET",
+            RenderMode.Civilizations => "POLITICAL MAP",
             _ => "LEGEND"
         };
     }
@@ -1232,8 +1316,15 @@ public class TerrainRenderer
                 (Color.White, "Critical Stress"),
                 (new Color(50, 50, 50), "Stable Crust")
             },
+            RenderMode.Civilizations => GetCivilizationLegendEntries(),
             _ => null
         };
+    }
+
+    private List<(Color, string)>? GetCivilizationLegendEntries()
+    {
+        if (_civilizationManager == null) return null;
+        return _cachedCivLegend;
     }
 
     private void DrawGradientBar(SpriteBatch spriteBatch, int x, int y, int width, int height)
@@ -1428,5 +1519,6 @@ public enum RenderMode
     Faults,         // Fault lines and fault types
     Tsunamis,       // Tsunami waves and coastal flooding
     Infrastructure, // Civilization infrastructure (roads, energy, etc.)
-    SpectralBands   // Radiative transfer with shortwave/longwave fluxes
+    SpectralBands,             // Radiative transfer with shortwave/longwave fluxes
+    Civilizations              // Political map showing civilization territories
 }
