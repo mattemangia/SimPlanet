@@ -470,7 +470,7 @@ public class GeologicalSimulator
                                 cell.Elevation -= upliftRate * 0.5f;
 
                                 // Continental neighbor -> Mountains
-                                if (!neighbor.IsOceanic) // Double check neighbor is continental
+                                if (!plate2.IsOceanic) // Double check neighbor is continental
                                 {
                                     // We can't modify neighbor directly here safely in all contexts without locking if parallel,
                                     // but this loop is likely sequential.
