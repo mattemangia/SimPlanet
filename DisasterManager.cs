@@ -32,7 +32,9 @@ public class DisasterManager
     {
         _map = map;
         _geoSimulator = geoSimulator;
-        _random = new Random(seed + 7000);
+        // Use a non-deterministic random seed for runtime disasters
+        // The passed seed is ignored to ensure disasters are random every run
+        _random = new Random();
     }
 
     public void Update(float deltaTime, int currentYear)

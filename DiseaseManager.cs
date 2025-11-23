@@ -138,7 +138,8 @@ public class DiseaseManager
     {
         _map = map;
         _civManager = civManager;
-        _random = new Random(seed + 8000);
+        // Use non-deterministic random for disease events
+        _random = new Random();
         _diseases = new List<Disease>();
         _infections = new Dictionary<(int diseaseId, int civId), CivilizationInfection>();
     }

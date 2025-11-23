@@ -46,7 +46,7 @@ public class LifeSimulator
     public LifeSimulator(PlanetMap map)
     {
         _map = map;
-        _random = new Random();
+        _random = new Random(); // Non-deterministic random for life events
         _seed = Environment.TickCount;
         
         // Initialize life profile with broad default values to prevent instant death on new worlds

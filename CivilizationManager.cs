@@ -37,7 +37,8 @@ public class CivilizationManager
     public CivilizationManager(PlanetMap map, int seed)
     {
         _map = map;
-        _random = new Random(seed + 4000);
+        // Use non-deterministic random for civilization behavior and events
+        _random = new Random();
         _civilizations = new List<Civilization>();
         _divinePowers = new DivinePowers(_random);
     }

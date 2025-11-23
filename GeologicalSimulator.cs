@@ -17,6 +17,7 @@ public class GeologicalSimulator
 {
     private readonly PlanetMap _map;
     private readonly Random _random;
+    private readonly Random _simulationRandom;
     private List<TectonicPlate> _plates;
     private int[,] _plateMap;
     private const int NumPlates = 8;
@@ -38,6 +39,7 @@ public class GeologicalSimulator
     {
         _map = map;
         _random = new Random(seed + 1000);
+        _simulationRandom = new Random(); // Non-deterministic for simulation events
         _plateMap = new int[map.Width, map.Height];
 
         InitializePlates();
@@ -398,7 +400,7 @@ public class GeologicalSimulator
                     }
 
                     // Add limestone to sediment column
-                    if (_random.NextDouble() < productionRate)
+                    if (_simulationRandom.NextDouble() < productionRate)
                     {
                         geo.SedimentColumn.Add(SedimentType.Limestone);
                     }
@@ -467,7 +469,7 @@ public class GeologicalSimulator
                                 }
 
                                 // Only trigger new volcanoes if one doesn't exist, to allow old ones to decay
-                                if (!geo.IsVolcano && _random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
+                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -488,7 +490,7 @@ public class GeologicalSimulator
                                 geo.TectonicStress += 0.02f * tectonicScale;
 
                                 // Only trigger new volcanoes if one doesn't exist
-                                if (!geo.IsVolcano && _random.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
+                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < arcChance) // Very rare volcanic arcs (10x reduction)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -503,7 +505,7 @@ public class GeologicalSimulator
 
                                 // Occasional volcanism from crustal melting
                                 // Only trigger new volcanoes if one doesn't exist
-                                if (!geo.IsVolcano && cell.Elevation > 0.6f && _random.NextDouble() < 0.002 * volcanicScale)
+                                if (!geo.IsVolcano && cell.Elevation > 0.6f && _simulationRandom.NextDouble() < 0.002 * volcanicScale)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.3f;
@@ -513,7 +515,7 @@ public class GeologicalSimulator
                             {
                                 // Oceanic-oceanic convergence - island arcs (Japan, Philippines)
                                 // Only trigger new volcanoes if one doesn't exist
-                                if (!geo.IsVolcano && _random.NextDouble() < 0.00003 * volcanicScale) // Very rare island chains (10x reduction)
+                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.00003 * volcanicScale) // Very rare island chains (10x reduction)
                                 {
                                     cell.Elevation += 0.01f; // Gradual island building (reduced from 0.08f to prevent instant islands)
                                     geo.IsVolcano = true;
@@ -527,7 +529,7 @@ public class GeologicalSimulator
                             geo.BoundaryType = PlateBoundaryType.Divergent;
 
                             // Mid-ocean ridge volcanism (Iceland-like)
-                            if (cell.IsWater && !geo.IsVolcano && _random.NextDouble() < 0.00001 * volcanicScale) // Very rare mid-ocean ridge volcanoes (10x reduction)
+                            if (cell.IsWater && !geo.IsVolcano && _simulationRandom.NextDouble() < 0.00001 * volcanicScale) // Very rare mid-ocean ridge volcanoes (10x reduction)
                             {
                                 geo.IsVolcano = true;
                                 geo.VolcanicActivity = 0.4f;
@@ -536,7 +538,7 @@ public class GeologicalSimulator
                             }
 
                             // Continental rifts (East African Rift)
-                            if (cell.IsLand && !geo.IsVolcano && _random.NextDouble() < 0.00001 * volcanicScale) // Very rare rift volcanoes (10x reduction)
+                            if (cell.IsLand && !geo.IsVolcano && _simulationRandom.NextDouble() < 0.00001 * volcanicScale) // Very rare rift volcanoes (10x reduction)
                             {
                                 geo.IsVolcano = true;
                                 geo.VolcanicActivity = 0.5f;
@@ -549,7 +551,7 @@ public class GeologicalSimulator
                             geo.TectonicStress += 0.02f * tectonicScale;
 
                             // Earthquakes
-                            if (geo.TectonicStress > 1.0f && _random.NextDouble() < 0.01 * tectonicScale)
+                            if (geo.TectonicStress > 1.0f && _simulationRandom.NextDouble() < 0.01 * tectonicScale)
                             {
                                 Earthquakes.Enqueue(new EarthquakeEvent { X = x, Y = y, Magnitude = geo.TectonicStress, Year = currentYear });
                                 geo.TectonicStress = 0;
@@ -559,7 +561,7 @@ public class GeologicalSimulator
                 }
 
                 // Stress relief through earthquakes
-                if (geo.TectonicStress > 1.5f && _random.NextDouble() < 0.005 * tectonicScale)
+                if (geo.TectonicStress > 1.5f && _simulationRandom.NextDouble() < 0.005 * tectonicScale)
                 {
                     Earthquakes.Enqueue(new EarthquakeEvent { X = x, Y = y, Magnitude = geo.TectonicStress, Year = currentYear });
                     geo.TectonicStress *= 0.1f;
@@ -593,7 +595,7 @@ public class GeologicalSimulator
 
                 // Eruption threshold
                 double eruptionChance = Math.Clamp(0.02 * volcanicScale, 0.0, 0.5);
-                if (geo.MagmaPressure > 1.0f && _random.NextDouble() < eruptionChance)
+                if (geo.MagmaPressure > 1.0f && _simulationRandom.NextDouble() < eruptionChance)
                 {
                     // ERUPTION!
                     VolcanicEruption(x, y, currentYear);
@@ -615,7 +617,7 @@ public class GeologicalSimulator
         }
 
         // Spawn brand new volcanoes as plates evolve
-        if (_random.NextDouble() < 0.001 * volcanicScale)
+        if (_simulationRandom.NextDouble() < 0.001 * volcanicScale)
         {
             TrySpawnNewVolcano(currentYear);
         }
@@ -649,8 +651,8 @@ public class GeologicalSimulator
     {
         for (int attempt = 0; attempt < 20; attempt++)
         {
-            int x = _random.Next(_map.Width);
-            int y = _random.Next(_map.Height);
+            int x = _simulationRandom.Next(_map.Width);
+            int y = _simulationRandom.Next(_map.Height);
             var cell = _map.Cells[x, y];
             var geo = cell.GetGeology();
 
@@ -664,12 +666,12 @@ public class GeologicalSimulator
             if (!tectonicTrigger && !geo.IsHotSpot && !hasHighRelief)
                 continue;
 
-            if (cell.IsWater && _random.NextDouble() > 0.35)
+            if (cell.IsWater && _simulationRandom.NextDouble() > 0.35)
                 continue;
 
             geo.IsVolcano = true;
-            geo.VolcanicActivity = 0.25f + (float)_random.NextDouble() * 0.4f;
-            geo.MagmaPressure = 0.1f + (float)_random.NextDouble() * 0.2f;
+            geo.VolcanicActivity = 0.25f + (float)_simulationRandom.NextDouble() * 0.4f;
+            geo.MagmaPressure = 0.1f + (float)_simulationRandom.NextDouble() * 0.2f;
             geo.LastEruptionYear = currentYear;
             geo.LastEruptionType = EruptionType.Effusive;
             geo.EruptionIntensity = 1;
@@ -720,17 +722,17 @@ public class GeologicalSimulator
         bool hasWaterNeighbor = _map.GetNeighbors(x, y)
             .Any(n => n.cell.IsWater);
 
-        if (hasWaterNeighbor && _random.NextDouble() < 0.3)
+        if (hasWaterNeighbor && _simulationRandom.NextDouble() < 0.3)
             return EruptionType.Phreatomagmatic;
 
         // High magma pressure = more explosive
-        if (geo.MagmaPressure > 2.0f && _random.NextDouble() < 0.2)
+        if (geo.MagmaPressure > 2.0f && _simulationRandom.NextDouble() < 0.2)
             return EruptionType.Plinian;
 
-        if (geo.MagmaPressure > 1.5f && _random.NextDouble() < 0.4)
+        if (geo.MagmaPressure > 1.5f && _simulationRandom.NextDouble() < 0.4)
             return EruptionType.Vulcanian;
 
-        if (_random.NextDouble() < 0.3)
+        if (_simulationRandom.NextDouble() < 0.3)
             return EruptionType.Strombolian;
 
         return EruptionType.Effusive; // Default
@@ -741,11 +743,11 @@ public class GeologicalSimulator
         // VEI scale: 0 (non-explosive) to 8 (mega-colossal)
         int baseVEI = type switch
         {
-            EruptionType.Effusive => 0 + _random.Next(2),        // 0-1
-            EruptionType.Strombolian => 1 + _random.Next(2),     // 1-2
-            EruptionType.Vulcanian => 2 + _random.Next(2),       // 2-3
-            EruptionType.Plinian => 4 + _random.Next(3),         // 4-6
-            EruptionType.Phreatomagmatic => 2 + _random.Next(3), // 2-4
+            EruptionType.Effusive => 0 + _simulationRandom.Next(2),        // 0-1
+            EruptionType.Strombolian => 1 + _simulationRandom.Next(2),     // 1-2
+            EruptionType.Vulcanian => 2 + _simulationRandom.Next(2),       // 2-3
+            EruptionType.Plinian => 4 + _simulationRandom.Next(3),         // 4-6
+            EruptionType.Phreatomagmatic => 2 + _simulationRandom.Next(3), // 2-4
             _ => 1
         };
 
@@ -1227,7 +1229,7 @@ public class GeologicalSimulator
                     // Probability of turbidity current increases with slope and sediment load
                     float turbidityProbability = slope * geo.SedimentLayer * 0.1f;
 
-                    if (_random.NextDouble() < turbidityProbability * deltaTime)
+                    if (_simulationRandom.NextDouble() < turbidityProbability * deltaTime)
                     {
                         // Create a turbidite deposit with classic fining upward Bouma sequence
                         // Bouma sequence: Gravel -> Sand -> Silt -> Clay (coarse to fine)
@@ -1347,7 +1349,7 @@ public class GeologicalSimulator
                     // Probability increases with water flow and sediment availability
                     float sequenceProbability = waterFlow * geo.SedimentLayer * 0.05f;
 
-                    if (_random.NextDouble() < sequenceProbability * deltaTime)
+                    if (_simulationRandom.NextDouble() < sequenceProbability * deltaTime)
                     {
                         // Create a fining upward sequence
                         float sequenceThickness = geo.SedimentLayer * 0.4f; // Use 40% of available sediment
@@ -1372,7 +1374,7 @@ public class GeologicalSimulator
                             geo.SedimentColumn.Add(SedimentType.Silt);
 
                             // Top: Clay (overbank/floodplain deposits)
-                            if (isFloodplain || _random.NextDouble() < 0.5)
+                            if (isFloodplain || _simulationRandom.NextDouble() < 0.5)
                             {
                                 geo.SedimentColumn.Add(SedimentType.Clay);
                             }
@@ -1405,7 +1407,7 @@ public class GeologicalSimulator
                             geo.SedimentColumn.Add(SedimentType.Clay);
 
                             // Organic matter (swamp/marsh)
-                            if (_random.NextDouble() < 0.6)
+                            if (_simulationRandom.NextDouble() < 0.6)
                             {
                                 geo.SedimentColumn.Add(SedimentType.Organic);
                             }

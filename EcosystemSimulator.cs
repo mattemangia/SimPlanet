@@ -27,7 +27,8 @@ public class EcosystemSimulator
         _map = map;
         _animalSim = animalSim;
         _civManager = civManager;
-        _random = new Random(seed + 9000);
+        // Use non-deterministic random for ecosystem events
+        _random = new Random();
     }
 
     public void Update(float deltaTime)
