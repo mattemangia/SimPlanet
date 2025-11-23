@@ -547,36 +547,57 @@ public class GeologicalEventsUI
                 int centerX = (int)(screenX + pixelScale * 0.5f);
                 int centerY = (int)(screenY + pixelScale * 0.5f);
 
-                // Radius scales with magnitude.
-                // Example: Magnitude 1 = 3 cells radius. Magnitude 5 = 15 cells.
+                // Default radius
                 float radius = disaster.Magnitude * 3.0f * pixelScale;
 
-                Color zoneColor = Color.White;
+                // Colors and opacity
+                Color baseColor = Color.White;
+                float fillOpacity = 0.3f; // Default fill opacity
+                float outlineOpacity = 0.8f; // Default outline opacity
+
                 switch (disaster.Type)
                 {
                     case DisasterType.NuclearAccident:
-                        zoneColor = new Color(255, 0, 50, 150); // Red
-                        radius = disaster.Magnitude * 10.0f * pixelScale; // Nuclear is big
+                        baseColor = new Color(255, 20, 50); // Bright Red
+                        radius = disaster.Magnitude * 10.0f * pixelScale;
+                        fillOpacity = 0.4f;
                         break;
                     case DisasterType.Asteroid:
-                        zoneColor = new Color(255, 140, 0, 150); // Orange
+                        baseColor = new Color(255, 140, 0); // Bright Orange
                         radius = disaster.Magnitude * 5.0f * pixelScale;
+                        fillOpacity = 0.4f;
                         break;
                     case DisasterType.VolcanicEruption:
-                        zoneColor = new Color(200, 50, 0, 150); // Dark Orange/Red
+                        baseColor = new Color(220, 60, 0); // Dark Orange/Red
+                        fillOpacity = 0.4f;
                         break;
                     case DisasterType.Tornado:
-                        zoneColor = new Color(200, 200, 200, 100); // Grey
+                        baseColor = new Color(200, 200, 200); // Grey
                         radius = 2.0f * pixelScale;
+                        fillOpacity = 0.3f;
+                        break;
+                    case DisasterType.AcidRain:
+                        baseColor = new Color(100, 255, 50); // Toxic Green
+                        radius = 8.0f * pixelScale;
+                        fillOpacity = 0.3f;
+                        break;
+                    case DisasterType.HeavyRain:
+                        baseColor = new Color(50, 100, 255); // Blue
+                        radius = 15.0f * pixelScale;
+                        fillOpacity = 0.3f;
                         break;
                     default:
                         continue; // Don't draw zones for others by default
                 }
 
+                // Construct transparent colors without darkening RGB
+                Color fillColor = new Color(baseColor.R, baseColor.G, baseColor.B, (byte)(255 * fillOpacity));
+                Color outlineColor = new Color(baseColor.R, baseColor.G, baseColor.B, (byte)(255 * outlineOpacity));
+
                 // Draw filled circle with transparency
-                DrawCircleFilled(_spriteBatch, centerX, centerY, (int)radius, zoneColor * 0.3f);
+                DrawCircleFilled(_spriteBatch, centerX, centerY, (int)radius, fillColor);
                 // Draw outline
-                DrawCircleOutline(_spriteBatch, centerX, centerY, (int)radius, zoneColor, 2);
+                DrawCircleOutline(_spriteBatch, centerX, centerY, (int)radius, outlineColor, 2);
             }
         }
     }
