@@ -13,7 +13,8 @@ public class BiomeSimulator
     public BiomeSimulator(PlanetMap map, int seed)
     {
         _map = map;
-        _random = new Random(seed + 5000);
+        // Use non-deterministic random for biome events
+        _random = new Random();
     }
 
     public void Update(float deltaTime)

@@ -23,11 +23,9 @@ public class HydrologySimulator
     public HydrologySimulator(PlanetMap map, int seed)
     {
         _map = map;
-        _random = new Random(seed + 2000);
-        // Initialize thread-local random with deterministic seeds derived from main seed
-        int threadSeedBase = seed + 2000;
-        _threadRandom = new ThreadLocal<Random>(() =>
-            new Random(System.Threading.Interlocked.Increment(ref threadSeedBase)));
+        _random = new Random(); // Non-deterministic for runtime
+        // Initialize thread-local random for parallel operations (non-deterministic)
+        _threadRandom = new ThreadLocal<Random>(() => new Random());
 
         _rivers = new List<River>();
         _accumulatedFlowMap = new float[map.Width, map.Height];

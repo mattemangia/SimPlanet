@@ -84,7 +84,8 @@ public class WeatherSystem
     public WeatherSystem(PlanetMap map, int seed)
     {
         _map = map;
-        _random = new Random(seed + 3000);
+        // Use non-deterministic random for weather events (storms, etc.)
+        _random = new Random();
         _storms = new List<Storm>();
     }
 

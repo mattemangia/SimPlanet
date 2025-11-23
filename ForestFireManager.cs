@@ -21,7 +21,7 @@ public class ForestFireManager
     public ForestFireManager(PlanetMap map, int seed)
     {
         _map = map;
-        _random = new Random(seed + 9000);
+        _random = new Random(); // Use random seed for fire events
     }
 
     public void Update(float deltaTime, WeatherSystem weatherSystem, CivilizationManager civManager)

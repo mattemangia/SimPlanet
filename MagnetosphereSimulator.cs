@@ -26,7 +26,8 @@ public class MagnetosphereSimulator
     public MagnetosphereSimulator(PlanetMap map, int seed)
     {
         _map = map;
-        _random = new Random(seed + 11000);
+        // Use non-deterministic random for magnetosphere fluctuations
+        _random = new Random();
 
         // Initialize based on planet properties
         InitializeMagnetosphere();

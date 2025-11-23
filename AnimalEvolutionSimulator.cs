@@ -36,7 +36,8 @@ public class AnimalEvolutionSimulator
     public AnimalEvolutionSimulator(PlanetMap map, int seed)
     {
         _map = map;
-        _random = new Random(seed + 7000);
+        // Use non-deterministic random for animal evolution
+        _random = new Random();
     }
 
     public void Update(float deltaTime, int gameYear)
