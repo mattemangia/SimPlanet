@@ -759,28 +759,32 @@ public class CivilizationManager
     private void CheckCivilizationCollapse(Civilization civ)
     {
         // Environmental collapse pressure over time instead of instant elimination
-        float avgCO2 = civ.Territory.Average(pos => _map.Cells[pos.x, pos.y].CO2);
-        float avgTemp = civ.Territory.Average(pos => _map.Cells[pos.x, pos.y].Temperature);
-
-        bool harshClimate = avgCO2 > 10 || avgTemp > 45 || avgTemp < -15;
-        if (harshClimate)
+        // Only calculate climate stats if we have territory
+        if (civ.Territory.Count > 0)
         {
-            // Advanced civilizations can mitigate harsh climate
-            if (civ.TechLevel >= 40)
+            float avgCO2 = civ.Territory.Average(pos => _map.Cells[pos.x, pos.y].CO2);
+            float avgTemp = civ.Territory.Average(pos => _map.Cells[pos.x, pos.y].Temperature);
+
+            bool harshClimate = avgCO2 > 10 || avgTemp > 45 || avgTemp < -15;
+            if (harshClimate)
             {
-                 civ.Population = (int)(civ.Population * 0.99f); // Very slow loss
+                // Advanced civilizations can mitigate harsh climate
+                if (civ.TechLevel >= 40)
+                {
+                     civ.Population = (int)(civ.Population * 0.99f); // Very slow loss
+                }
+                else
+                {
+                     civ.Population = (int)(civ.Population * 0.98f); // Less severe population loss
+                }
+
+                civ.Stability = Math.Max(civ.Stability - 0.05f, 0f);
+                civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + 0.05f, 0f, 1f); // Slower risk increase
             }
             else
             {
-                 civ.Population = (int)(civ.Population * 0.98f); // Less severe population loss
+                civ.CollapseRisk = Math.Max(civ.CollapseRisk - 0.02f, 0f); // Faster risk decrease
             }
-
-            civ.Stability = Math.Max(civ.Stability - 0.05f, 0f);
-            civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + 0.05f, 0f, 1f); // Slower risk increase
-        }
-        else
-        {
-            civ.CollapseRisk = Math.Max(civ.CollapseRisk - 0.02f, 0f); // Faster risk decrease
         }
 
         // FORCE SURVIVAL: Ensure civilization never completely dies if it has even 1 person
@@ -990,6 +994,7 @@ public class CivilizationManager
     private void LaunchNuclearStrike(Civilization attacker, Civilization defender, int currentYear)
     {
         if (attacker.NuclearStockpile <= 0) return;
+        if (defender.Territory.Count == 0) return;
 
         // Select target in defender's territory
         var target = defender.Territory.ElementAt(_random.Next(defender.Territory.Count));
