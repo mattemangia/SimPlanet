@@ -186,36 +186,21 @@ public class GeologicalProfileViewer : IDisposable
             float crustThickness1 = s1.GeoData.CrustThickness / 8.0f;
             float crustThickness2 = s2.GeoData.CrustThickness / 8.0f;
 
-            float moho1 = s1.Elevation - crustThickness1;
-            float moho2 = s2.Elevation - crustThickness2;
+            // BUGFIX: Moho calculation must account for sediment!
+            // Surface Elevation = Bedrock Elevation + Sediment
+            // Moho = Bedrock Elevation - Crust Thickness
+            // So Moho = (Surface - Sediment) - Crust Thickness
+            float bedrockElev1 = s1.Elevation - s1.GeoData.SedimentLayer;
+            float bedrockElev2 = s2.Elevation - s2.GeoData.SedimentLayer;
+
+            float moho1 = bedrockElev1 - crustThickness1;
+            float moho2 = bedrockElev2 - crustThickness2;
 
             float mohoScreenY1 = GetScreenY(moho1, yMax, yRange, graphY, graphHeight);
             float mohoScreenY2 = GetScreenY(moho2, yMax, yRange, graphY, graphHeight);
 
             // --- 1. MANTLE (Below Moho) ---
             DrawQuad(spriteBatch, screenX1, mohoScreenY1, screenX2, mohoScreenY2, screenX1, graphY + graphHeight, screenX2, graphY + graphHeight, new Color(50, 0, 0)); // Dark red mantle
-
-            // --- 2. CRYSTALLINE CRUST (Bedrock) ---
-            // Extends from Moho up to (Surface - Sediments - Volcanics)
-            // Or rather, base of sediments.
-
-            float sedThick1 = s1.GeoData.SedimentLayer / 8.0f; // SedimentLayer is arbitrary units?
-            // Code says "Max 10 units of sediment". 10 units of sediment?
-            // Code: "SedimentLayer += erosion".
-            // Let's assume SedimentLayer units are roughly consistent with Elevation units.
-            // Actually, code: "cell.Elevation -= erosion; geo.SedimentLayer += erosion;" -> Same units.
-
-            // But wait, Rock composition: CrystallineRock, SedimentaryRock... these are absolute thickness values?
-            // In GeologicalSimulator: "geo.CrystallineRock = geo.Granite * geo.CrustThickness;"
-            // So they scale with thickness.
-            // Rock amounts seem to sum up to roughly CrustThickness (plus SedimentLayer on top).
-
-            // Let's simplify visual model:
-            // Top = Surface (Elevation)
-            // Layer 1 (Top): Ice (if any)
-            // Layer 2: Sediment Layer (thickness = SedimentLayer)
-            // Layer 3: Volcanic Rock / Upper Crust
-            // Layer 4: Crystalline Basement
 
             float currentY1 = s1.Elevation;
             float currentY2 = s2.Elevation;
@@ -226,7 +211,6 @@ public class GeologicalProfileViewer : IDisposable
             // --- ICE ---
             if (s1.IsIce)
             {
-                // Arbitrary ice thickness visual
                 float iceThick = 0.2f;
                 float iceBottomY1 = currentY1 - (s1.IsIce ? iceThick : 0);
                 float iceBottomY2 = currentY2 - (s2.IsIce ? iceThick : 0);
@@ -243,21 +227,8 @@ public class GeologicalProfileViewer : IDisposable
             }
 
             // --- SEDIMENTS ---
-            // We have specific sediment layers in SedimentColumn, but that's too detailed for a profile maybe?
-            // Let's just draw the bulk SedimentLayer.
-            // Actually, we can try to draw bands if SedimentColumn is available.
-            // But aligning them between samples is hard. Let's draw bulk "Sedimentary" block.
-
-            float sedH1 = s1.GeoData.SedimentLayer * 0.2f; // Scale factor? Code: "geo.SedimentLayer = Math.Clamp(geo.SedimentLayer, 0f, 10f);"
-            // If max is 10, and elevation is -1 to 1... 10 is HUGE.
-            // Maybe SedimentLayer units are smaller?
-            // In Erosion: "cell.Elevation -= erosion; geo.SedimentLayer += erosion;"
-            // So 1 unit sediment = 1 unit elevation.
-            // 10 units = 10x mountain height?? That seems wrong.
-            // Ah, Elevation is -1 to 1. Everest is 1.0. 10.0 would be 80km of sediment.
-            // Let's assume visual scaling needed or logic is robust.
-            // Let's just use the value.
-
+            // Draw from Current (Surface/Ice base) down to Bedrock
+            // Note: SedimentLayer is in Elevation Units
             float sedBottomY1 = currentY1 - s1.GeoData.SedimentLayer;
             float sedBottomY2 = currentY2 - s2.GeoData.SedimentLayer;
 
@@ -272,8 +243,7 @@ public class GeologicalProfileViewer : IDisposable
             currentScreenY2 = sedScreenBottomY2;
 
             // --- VOLCANIC LAYER ---
-            // geo.VolcanicRock
-            float volcBottomY1 = currentY1 - (s1.GeoData.VolcanicRock / 8.0f); // Scaling?
+            float volcBottomY1 = currentY1 - (s1.GeoData.VolcanicRock / 8.0f);
             float volcBottomY2 = currentY2 - (s2.GeoData.VolcanicRock / 8.0f);
 
             float volcScreenBottomY1 = GetScreenY(volcBottomY1, yMax, yRange, graphY, graphHeight);
@@ -288,7 +258,12 @@ public class GeologicalProfileViewer : IDisposable
 
             // --- CRYSTALLINE BASEMENT ---
             // Fill remaining down to Moho
-            DrawQuad(spriteBatch, screenX1, currentScreenY1, screenX2, currentScreenY2, screenX1, mohoScreenY1, screenX2, mohoScreenY2, new Color(100, 80, 80)); // Granite/Basalt mix color
+            // NOTE: CrystallineRock isn't strictly used to size this, we just fill to Moho to ensure continuity
+            // But we check for inversion (if current is below Moho due to math errors or extreme values)
+            if (currentScreenY1 < mohoScreenY1 && currentScreenY2 < mohoScreenY2)
+            {
+                DrawQuad(spriteBatch, screenX1, currentScreenY1, screenX2, currentScreenY2, screenX1, mohoScreenY1, screenX2, mohoScreenY2, new Color(100, 80, 80)); // Granite/Basalt mix color
+            }
 
             // --- FEATURES ---
             // Volcano Shaft
@@ -304,6 +279,41 @@ public class GeologicalProfileViewer : IDisposable
 
             // Surface line
             DrawLine(spriteBatch, new Vector2(screenX1, surf1), new Vector2(screenX2, surf2), Color.White, 1);
+
+            // Draw Fault Indicator (Vertical line)
+            if (s1.GeoData.IsFault)
+            {
+                float midX = (screenX1 + screenX2) / 2;
+                float yTop = surf1 - 20;
+                float yBot = mohoScreenY1 + 20;
+
+                Color faultColor = s1.GeoData.FaultType switch {
+                    FaultType.Normal => Color.Yellow,
+                    FaultType.Thrust => Color.Magenta,
+                    FaultType.Reverse => Color.Magenta,
+                    FaultType.Strike_Slip => Color.Cyan,
+                    _ => Color.Red
+                };
+
+                // Draw dashed or solid line
+                DrawLine(spriteBatch, new Vector2(midX, yTop), new Vector2(midX, yBot), faultColor, 2);
+
+                // Draw arrows/symbols
+                if (s1.GeoData.FaultType == FaultType.Normal)
+                {
+                    // Arrows pointing away
+                    _font.DrawString(spriteBatch, "<- ->", new Vector2(midX - 15, yTop - 15), faultColor, 0.8f);
+                }
+                else if (s1.GeoData.FaultType == FaultType.Thrust || s1.GeoData.FaultType == FaultType.Reverse)
+                {
+                    // Arrows pointing together
+                    _font.DrawString(spriteBatch, "-> <-", new Vector2(midX - 15, yTop - 15), faultColor, 0.8f);
+                }
+                else if (s1.GeoData.FaultType == FaultType.Strike_Slip)
+                {
+                    _font.DrawString(spriteBatch, "O X", new Vector2(midX - 10, yTop - 15), faultColor, 0.8f);
+                }
+            }
         }
 
         spriteBatch.End();
