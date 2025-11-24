@@ -638,7 +638,7 @@ public class SimPlanetGame : Game
             }
             
             _minimap3D.Update(realDeltaTime);
-            _eventsUI.HandleInput(mouseState, _previousMouseState);
+            _eventsUI.HandleInput(mouseState, _previousMouseState, GraphicsDevice.Viewport.Width, _toolbar.ToolbarHeight);
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(realDeltaTime);
             // Check if any tools are active that need map clicks

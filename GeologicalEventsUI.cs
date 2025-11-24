@@ -119,10 +119,11 @@ public class GeologicalEventsUI
         _overlayDirty = true;
     }
 
-    public void HandleInput(MouseState mouseState, MouseState prevMouseState)
+    public void HandleInput(MouseState mouseState, MouseState prevMouseState, int screenWidth, int toolbarHeight)
     {
         if (!ShowEvents) return;
 
+        _closeButtonRect = CalculateCloseButtonRect(screenWidth, toolbarHeight);
         _isHoveringClose = _closeButtonRect.Contains(mouseState.Position);
 
         if (_isHoveringClose &&
@@ -805,9 +806,8 @@ public class GeologicalEventsUI
             new Rectangle(panelX, panelY, panelWidth, 28),
             new Color(80, 40, 10, 220));
 
-        // Close Button
-        int closeSize = 20;
-        _closeButtonRect = new Rectangle(panelX + panelWidth - closeSize - 4, panelY + 4, closeSize, closeSize);
+        _closeButtonRect = CalculateCloseButtonRect(screenWidth, toolbarHeight);
+        int closeSize = _closeButtonRect.Width;
 
         Color closeColor = _isHoveringClose ? Color.Red : new Color(200, 50, 50);
         _spriteBatch.Draw(_pixelTexture, _closeButtonRect, closeColor);
@@ -830,6 +830,16 @@ public class GeologicalEventsUI
                 new Vector2(panelX + 10, textY), new Color(255, 255, 200), 13);
             textY += 22;
         }
+    }
+
+    private static Rectangle CalculateCloseButtonRect(int screenWidth, int toolbarHeight)
+    {
+        int panelWidth = 340;
+        int panelX = screenWidth - panelWidth - 10;
+        int panelY = toolbarHeight + 10;
+
+        int closeSize = 20;
+        return new Rectangle(panelX + panelWidth - closeSize - 4, panelY + 4, closeSize, closeSize);
     }
 
     public void DrawLegend(int screenHeight)
