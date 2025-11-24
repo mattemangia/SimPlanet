@@ -100,7 +100,9 @@ public static class EarthquakeSystem
     /// </summary>
     private static void AccumulateSeismicStress(TerrainCell cell, float deltaTime)
     {
-        float stressRate = 0f;
+        // Baseline intraplate stress so faults can grow away from plate margins
+        // (mantle convection, isostatic adjustment, and crustal flexure).
+        float stressRate = 0.01f * deltaTime;
 
         // Stress builds up at plate boundaries
         switch (cell.Geology.BoundaryType)
@@ -114,6 +116,14 @@ public static class EarthquakeSystem
             case PlateBoundaryType.Divergent:
                 stressRate = 0.02f * deltaTime; // Moderate stress (rifting)
                 break;
+        }
+
+        // Even within a single plate, slow loading occurs from far-field forces
+        // (e.g., ridge push, slab pull). Apply a mild background to every cell so
+        // earthquakes and faults are not limited to plate edges.
+        if (cell.Geology.BoundaryType == PlateBoundaryType.None)
+        {
+            stressRate += 0.005f * deltaTime;
         }
 
         // Extra stress on active faults
@@ -329,11 +339,19 @@ public static class EarthquakeSystem
                 }
 
                 // Small chance of intraplate faults (within plates, away from boundaries)
-                else if (_random.NextDouble() < 0.01)
+                else
                 {
-                    cell.Geology.IsFault = true;
-                    cell.Geology.FaultType = (FaultType)_random.Next(1, 6);
-                    cell.Geology.FaultActivity = 0.1f + (float)_random.NextDouble() * 0.3f; // Lower activity
+                    // Boost probability in areas with relief (mountain belts) to help
+                    // visualize interior faulting.
+                    float intraplateChance = 0.02f;
+                    float reliefBoost = MathF.Max(0f, cell.Elevation - 0.2f) * 0.1f;
+
+                    if (_random.NextDouble() < intraplateChance + reliefBoost)
+                    {
+                        cell.Geology.IsFault = true;
+                        cell.Geology.FaultType = (FaultType)_random.Next(1, 6);
+                        cell.Geology.FaultActivity = 0.2f + (float)_random.NextDouble() * 0.4f; // Moderate activity
+                    }
                 }
             }
         }
