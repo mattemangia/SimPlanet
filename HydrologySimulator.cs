@@ -528,20 +528,19 @@ public class HydrologySimulator
                     // Latitude-based currents (Coriolis effect)
                     float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
-                    // Smooth ocean current transitions based on latitude
-                    // Trade winds influence (0-35°)
-                    float tradeWindInfluence = Math.Max(0, 1.0f - (latitude / 0.35f));
-                    // Westerlies influence (25-65°)
-                    float westerliesInfluence = 0;
-                    if (latitude >= 0.25f && latitude <= 0.65f)
-                    {
-                        if (latitude < 0.45f)
-                            westerliesInfluence = (latitude - 0.25f) / 0.2f;
-                        else
-                            westerliesInfluence = 1.0f - ((latitude - 0.45f) / 0.2f);
-                    }
-                    // Polar influence (55°+)
-                    float polarInfluence = Math.Max(0, (latitude - 0.55f) / 0.45f);
+                    // Ocean current zones using GAUSSIAN distributions - NO flat bands
+                    // Geographic variation breaks up horizontal uniformity
+                    float geoVariation = MathF.Sin(x * 0.2f + y * 0.1f) * 0.05f;
+                    float effectiveLat = Math.Clamp(latitude + geoVariation, 0f, 1f);
+
+                    // Trade wind currents: Gaussian centered at 0.15 (tropical)
+                    float tradeWindInfluence = MathF.Exp(-MathF.Pow(effectiveLat - 0.15f, 2) / (2 * 0.15f * 0.15f));
+
+                    // Westerlies currents: Gaussian centered at 0.45 (mid-latitude)
+                    float westerliesInfluence = MathF.Exp(-MathF.Pow(effectiveLat - 0.45f, 2) / (2 * 0.15f * 0.15f));
+
+                    // Polar currents: Gaussian centered at 0.75 (subpolar)
+                    float polarInfluence = MathF.Exp(-MathF.Pow(effectiveLat - 0.75f, 2) / (2 * 0.12f * 0.12f));
                     
                     // Blend current directions smoothly
                     float flowX = -1.0f * tradeWindInfluence + 1.0f * westerliesInfluence + 0.5f * polarInfluence;
@@ -624,8 +623,11 @@ public class HydrologySimulator
                 float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
 
                 // Deep water formation at high latitudes (polar regions)
-                // Use smooth probability for formation
-                float deepWaterProbability = Math.Max(0, (latitude - 0.65f) / 0.25f);
+                // Use GAUSSIAN distribution with geographic variation to avoid banding
+                float geoVariation = MathF.Sin(x * 0.25f + y * 0.12f) * 0.06f;
+                float effectiveLat = Math.Clamp(latitude + geoVariation, 0f, 1f);
+                // Gaussian centered at 0.8 (polar) with smooth transition
+                float deepWaterProbability = MathF.Exp(-MathF.Pow(effectiveLat - 0.8f, 2) / (2 * 0.15f * 0.15f));
                 var random = _threadRandom.Value ?? new Random();
                 if (deepWaterProbability > 0 && cell.Elevation < -0.3f && random.NextDouble() < deepWaterProbability)
                 {
@@ -704,8 +706,11 @@ public class HydrologySimulator
                 }
 
                 // Upwelling regions (low latitudes, coastal areas)
-                // Smooth probability based on latitude
-                float upwellingProbability = Math.Max(0, 1.0f - (latitude / 0.35f));
+                // Use GAUSSIAN distribution with geographic variation to avoid banding
+                float upwellingGeoVar = MathF.Sin(x * 0.3f + y * 0.15f) * 0.05f;
+                float upwellingLat = Math.Clamp(latitude + upwellingGeoVar, 0f, 1f);
+                // Gaussian centered at 0.15 (tropical) with smooth falloff
+                float upwellingProbability = MathF.Exp(-MathF.Pow(upwellingLat - 0.15f, 2) / (2 * 0.15f * 0.15f));
                 var threadRand = _threadRandom.Value ?? new Random();
                 if (upwellingProbability > 0 && cell.Elevation > -0.3f && cell.Elevation < 0 && threadRand.NextDouble() < upwellingProbability)
                 {

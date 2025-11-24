@@ -188,15 +188,16 @@ public class PlanetMap
             {
                 float latitudeFactor = Math.Abs((y - Height / 2.0f) / (Height / 2.0f));
 
-                // Make poles gradually lower (ice caps) with smooth transition
-                // Start gradual lowering from 70° latitude
-                if (latitudeFactor > 0.7f)
-                {
-                    // Smooth cubic curve for polar depression
-                    float polarFactor = (latitudeFactor - 0.7f) / 0.3f;
-                    float loweringAmount = polarFactor * polarFactor * 0.3f;
-                    Cells[x, y].Elevation -= loweringAmount;
-                }
+                // Make poles gradually lower (ice caps) with CONTINUOUS transition
+                // Use GAUSSIAN distribution with geographic variation to avoid banding
+                float geoVariation = MathF.Sin(x * 0.3f + y * 0.15f) * 0.06f;
+                float effectiveLat = Math.Clamp(latitudeFactor + geoVariation, 0f, 1f);
+
+                // Gaussian-based polar depression - smooth continuous falloff
+                // Centered at pole (1.0) with wide sigma for gradual transition
+                float polarFactor = MathF.Exp(-MathF.Pow(effectiveLat - 1.0f, 2) / (2 * 0.2f * 0.2f));
+                float loweringAmount = polarFactor * 0.25f;
+                Cells[x, y].Elevation -= loweringAmount;
             }
         }
     }
