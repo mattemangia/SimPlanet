@@ -454,6 +454,7 @@ public class SimPlanetGame : Game
         // Create terraforming tool
         _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
         _manualFaultTool = new ManualFaultTool(GraphicsDevice, _font, _map);
+        _manualFaultTool.FaultApplied += MarkMapVisualsDirty;
 
         // Create profile tool and viewer
         _profileTool = new ProfileTool(GraphicsDevice, _font, _map);
@@ -1226,6 +1227,7 @@ public class SimPlanetGame : Game
 
             _manualFaultTool?.Dispose();
             _manualFaultTool = new ManualFaultTool(GraphicsDevice, _font, _map);
+            _manualFaultTool.FaultApplied += MarkMapVisualsDirty;
 
             // Update profile tool
             _profileTool?.Dispose();

@@ -12,6 +12,8 @@ public class ManualFaultTool : IDisposable
     private readonly PlanetMap _map;
     private Texture2D _pixelTexture;
 
+    public event Action? FaultApplied;
+
     public bool IsActive { get; set; } = false;
     private Point? _startPoint = null;
     private Point? _endPoint = null;
@@ -205,6 +207,8 @@ public class ManualFaultTool : IDisposable
                 y0 += sy;
             }
         }
+
+        FaultApplied?.Invoke();
     }
 
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight, int cameraX, int cameraY, float zoom, int screenOffsetX, int screenOffsetY, int cellSize)
