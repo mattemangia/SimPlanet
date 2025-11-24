@@ -529,10 +529,7 @@ public class SimPlanetGame : Game
                 _mapOptionsUI.IsVisible = true;
 
                 // Update map options UI (handles mouse interactions)
-            if (_mapOptionsUI != null)
-                {
-                // Update map options UI (handles mouse interactions)
-                if (_mapOptionsUI.Update(mouseState, _mapOptions))
+                if (_mapOptionsUI!.Update(mouseState, _mapOptions!))
                 {
                     _mainMenu.CurrentScreen = GameScreen.MainMenu;
                 }
@@ -545,7 +542,6 @@ public class SimPlanetGame : Game
 
                 // Update preview
                 _mapOptionsUI.UpdatePreview(_mapOptions);
-                }
             }
             else
             {
@@ -604,10 +600,10 @@ public class SimPlanetGame : Game
             _toolbar.Update(mouseState);
             _ui.Update(gameTime, mouseState, _previousMouseState, _toolbar.ToolbarHeight);
             _bottomControlUI.Update(mouseState);
-            _aboutDialog?.Update(mouseState, _previousMouseState);
+            _aboutDialog.Update(mouseState, _previousMouseState);
             
             // If about dialog is visible, block other input
-            if (_aboutDialog?.IsVisible == true)
+            if (_aboutDialog.IsVisible)
             {
                 _previousMouseState = mouseState;
                 base.Update(gameTime); // Call base.Update before returning
@@ -615,7 +611,7 @@ public class SimPlanetGame : Game
             }
             
             // BUGFIX: If Map Options UI is visible, it should consume all input and block other UI.
-            if (_mapOptionsUI?.IsVisible == true)
+            if (_mapOptionsUI.IsVisible)
             {
                 // Let the UI handle mouse interactions
                 _mapOptionsUI.Update(mouseState, _mapOptions);
@@ -637,27 +633,27 @@ public class SimPlanetGame : Game
                 return;
             }
             
-            _minimap3D.Update(realDeltaTime);
-            _eventsUI.HandleInput(mouseState, _previousMouseState, GraphicsDevice.Viewport.Width, _toolbar.ToolbarHeight);
+            _minimap3D!.Update(realDeltaTime);
+            _eventsUI!.HandleInput(mouseState, _previousMouseState, GraphicsDevice.Viewport.Width, _toolbar.ToolbarHeight);
             _eventsUI.Update(_gameState.Year);
-            _interactiveControls.Update(realDeltaTime);
+            _interactiveControls!.Update(realDeltaTime);
             // Check if any tools are active that need map clicks
             bool toolsActive = _plantingTool.IsActive || _disasterControlUI.IsVisible ||
                               _divinePowersUI.IsOpen || _diseaseControlUI.IsVisible ||
                               _planetaryControlsUI.IsVisible || _profileTool.IsActive;
 
-            _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
+            _sedimentViewer!.Update(Mouse.GetState(), _terrainRenderer!.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
                 _mapRenderOffsetX, _mapRenderOffsetY, toolsActive);
-            _playerCivControl.Update(Mouse.GetState());
-            _divinePowersUI.Update(Mouse.GetState(), realDeltaTime);
-            _disasterControlUI.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
+            _playerCivControl!.Update(Mouse.GetState());
+            _divinePowersUI!.Update(Mouse.GetState(), realDeltaTime);
+            _disasterControlUI!.Update(Mouse.GetState(), _gameState.Year, _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
                 _mapRenderOffsetX, _mapRenderOffsetY);
-            _diseaseControlUI.Update(Mouse.GetState(), _previousMouseState, keyState);
+            _diseaseControlUI!.Update(Mouse.GetState(), _previousMouseState, keyState);
             
             // Planting tool update with safety hook
-            _plantingTool.Update(Mouse.GetState(), _terrainRenderer.CellSize,
+            _plantingTool!.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
                 _civilizationManager, _gameState.Year, _mapRenderOffsetX, _mapRenderOffsetY, 
                 _lifeSimulator, _planetStabilizer);
@@ -672,17 +668,17 @@ public class SimPlanetGame : Game
                 }
             }
             
-            _planetaryControlsUI.Update(Mouse.GetState());
+            _planetaryControlsUI!.Update(Mouse.GetState());
 
-            _graphs.Update(realDeltaTime);
+            _graphs!.Update(realDeltaTime);
 
-            _lifePainterUI.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
+            _lifePainterUI!.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
 
-            _terraformingTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
-            _manualFaultTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
+            _terraformingTool!.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
+            _manualFaultTool!.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
 
-            _profileTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
-            _profileViewer.Update(mouseState);
+            _profileTool!.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
+            _profileViewer!.Update(mouseState);
 
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
@@ -1940,12 +1936,12 @@ public class SimPlanetGame : Game
 
     public void ToggleEarthquakes()
     {
-        _eventsUI.ShowEarthquakes = !_eventsUI.ShowEarthquakes;
+        _eventsUI!.ShowEarthquakes = !_eventsUI!.ShowEarthquakes;
     }
 
     public void ToggleGeologicalEvents()
     {
-        _eventsUI.ShowEvents = !_eventsUI.ShowEvents;
+        _eventsUI!.ShowEvents = !_eventsUI!.ShowEvents;
     }
 
     public void SeedLife()
@@ -1985,7 +1981,7 @@ public class SimPlanetGame : Game
 
     public void ToggleStabilizer()
     {
-        _planetStabilizer.IsActive = !_planetStabilizer.IsActive;
+        _planetStabilizer!.IsActive = !_planetStabilizer!.IsActive;
     }
 
     public void ToggleGraphs()

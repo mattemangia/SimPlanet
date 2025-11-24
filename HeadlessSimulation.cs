@@ -9,26 +9,26 @@ namespace SimPlanet;
 public class HeadlessSimulation
 {
     // Core systems
-    private PlanetMap _map;
-    private ClimateSimulator _climateSimulator;
-    private AtmosphereSimulator _atmosphereSimulator;
-    private LifeSimulator _lifeSimulator;
-    private AnimalEvolutionSimulator _animalEvolutionSimulator;
-    private GeologicalSimulator _geologicalSimulator;
-    private HydrologySimulator _hydrologySimulator;
-    private WeatherSystem _weatherSystem;
-    private CivilizationManager _civilizationManager;
-    private BiomeSimulator _biomeSimulator;
-    private DisasterManager _disasterManager;
-    private ForestFireManager _forestFireManager;
-    private MagnetosphereSimulator _magnetosphereSimulator;
-    private PlanetStabilizer _planetStabilizer;
-    private DiseaseManager _diseaseManager;
-    private EcosystemSimulator _ecosystemSimulator;
-    private UpdateManager _updateManager;
+    private PlanetMap _map = null!;
+    private ClimateSimulator _climateSimulator = null!;
+    private AtmosphereSimulator _atmosphereSimulator = null!;
+    private LifeSimulator _lifeSimulator = null!;
+    private AnimalEvolutionSimulator _animalEvolutionSimulator = null!;
+    private GeologicalSimulator _geologicalSimulator = null!;
+    private HydrologySimulator _hydrologySimulator = null!;
+    private WeatherSystem _weatherSystem = null!;
+    private CivilizationManager _civilizationManager = null!;
+    private BiomeSimulator _biomeSimulator = null!;
+    private DisasterManager _disasterManager = null!;
+    private ForestFireManager _forestFireManager = null!;
+    private MagnetosphereSimulator _magnetosphereSimulator = null!;
+    private PlanetStabilizer _planetStabilizer = null!;
+    private DiseaseManager _diseaseManager = null!;
+    private EcosystemSimulator _ecosystemSimulator = null!;
+    private UpdateManager _updateManager = null!;
 
     // Map generation settings
-    private MapGenerationOptions _mapOptions;
+    private MapGenerationOptions _mapOptions = null!;
 
     // Simulation state
     private int _year = 0;
