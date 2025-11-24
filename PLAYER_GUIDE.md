@@ -26,9 +26,9 @@ Welcome to SimPlanet, a comprehensive planetary evolution simulator inspired by 
 2. **Start New Game** - Click "New Game" or press N
 3. **Configure Your Planet** (Map Options Menu):
    - Choose a **preset** (Earth, Mars, Water World, Desert World) or customize
+   - Select **Map Size** (Small, Standard, Large, Huge)
    - Adjust **land/water ratio** with the water level slider
    - Set **mountain height** to control terrain variation
-   - Pick a **map size** (larger = more detailed but slower)
 4. **Enable Auto-Stabilization** - Press E to toggle the automatic equilibrium system
    - This keeps your planet habitable without constant intervention
    - Highly recommended for beginners!
@@ -1042,7 +1042,7 @@ Solutions:
 - Reduce solar energy
 - Remove CO2 (stabilizer does automatically)
 - Reduce volcanic activity
-- Plant forests (consumes CO2)
+- Plant forests (consume CO2)
 - Kill polluting civilizations (harsh but effective)
 
 **Balancing Act:**
@@ -1285,6 +1285,8 @@ Start with uninhabitable planet:
 | , | Geology | Geological activity |
 | . | Earthquakes Overlay | Toggle earthquake circles |
 | / | Erosion | Erosion intensity |
+| Z | Political | Civilization territories and borders |
+| S | Spectral | Spectral energy and radiation budget |
 
 ### Overlays (Toggle On/Off)
 | Key | Overlay | Description |
@@ -1292,6 +1294,7 @@ Start with uninhabitable planet:
 | R | Rivers | Water flow paths |
 | V | Volcanoes | Volcanic sites |
 | . | Earthquakes | Seismic circles overlay |
+| , | Disaster Zones | Disaster impact radius |
 | F | Fires | Forest fires |
 | H | Hurricanes | Storm systems |
 | A | Auroras | Polar lights |

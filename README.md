@@ -408,6 +408,13 @@ dotnet build
 dotnet run
 ```
 
+### Headless Mode (No GUI)
+
+For performance testing or running as a background simulation:
+```bash
+dotnet run -- --no-gui
+```
+
 ### On Windows:
 
 ```powershell
@@ -457,10 +464,12 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **F12** | Radiation levels view (advanced) |
 | **J** | Resources view (advanced) |
 | **O** | Infrastructure view (civilization infrastructure) |
+| **Z** | Political map view (civilization territories) |
+| **S** | Spectral band energy view |
 | **E** | Earthquakes view (geological hazards) |
 | **Q** | Faults view (geological hazards) |
 | **U** | Tsunamis view (geological hazards) |
-| **+/-** | Increase/Decrease time speed |
+| **+/-** | Increase/Decrease time speed (also Keypad +/-) |
 | **C** | Toggle day/night cycle (auto-enabled at <0.5x speed) |
 | **L** | Toggle Life Painter |
 | **M** | Toggle resource placement tool (R to cycle) |
@@ -472,6 +481,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **B** | Toggle river overlay |
 | **N** | Toggle plate boundary overlay |
 | **.** | Toggle earthquakes circles overlay |
+| **,** | Toggle disaster zones overlay |
 | **D** | Toggle disaster control panel |
 | **K** | Toggle disease/pandemic control center |
 | **G** | Open civilization control panel |
@@ -783,7 +793,21 @@ Potential additions (not yet implemented):
 
 ## What's New in This Version
 
-### Latest Update - UI Scrollbar & Tectonic Realism
+### Latest Update - Political Map, Disaster Zones & Headless Mode
+
+**New Features:**
+- **Political Map Mode (Z)** - New visualization showing civilization territories and borders with distinct colors.
+- **Disaster Zones Overlay (,)** - Visualize the impact radius of recent disasters (earthquakes, volcanoes, asteroid impacts).
+- **Map Sizes** - Choose from Small (128x64), Standard (240x120), Large (512x256), and Huge (1024x512) maps in the Map Options.
+- **Headless Mode** - Run the simulation without graphics using `--no-gui` for performance testing or server use.
+- **Spectral Energy View (S)** - Inspect the planet's net radiation budget and spectral band absorption.
+
+**Improvements:**
+- **Oxygen Decay Fix** - Improved atmospheric simulation stability prevents oxygen saturation.
+- **UI Improvements** - Better scrollbar in info panel, updated keybindings.
+- **Civilization Mechanics** - Improved disaster damage handling for civilizations.
+
+### Previous Update - UI Scrollbar & Tectonic Realism
 
 **UI Improvements:**
 - **Info Panel Scrollbar** - Added a vertical scrollbar to the left info panel, allowing for unlimited text display without cutoff.
