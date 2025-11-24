@@ -31,6 +31,7 @@ All notable changes to this project will be documented in this file.
 ### Fixes
 
 - ADDRESSED compilation warnings and null reference risks throughout the codebase.
+- FIXED visual glitches.
 
 ## Features
 
