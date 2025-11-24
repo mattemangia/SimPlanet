@@ -272,8 +272,27 @@ public class GameUI
             textY += 26;
         }
 
-        float fractionalYear = state.Year + state.TimeAccumulator / GameState.SecondsPerGameYear;
-        DrawLabelValue("Year:", $"{fractionalYear:N1}", _textValueColor);
+        // Improved Time Display: Geological Time vs Civilization Time
+        bool hasCivilization = _civilizationManager != null && _civilizationManager.Civilizations.Count > 0;
+
+        if (!hasCivilization)
+        {
+            // Geological Time Scale (MYA - Million Years Ago)
+            // Assuming 1 Game Year approx 5 Million Years in early simulation
+            int startMya = 4600; // Earth formed 4.6 BYA
+            int mya = Math.Max(0, startMya - (state.Year * 5));
+
+            if (mya > 0)
+                DrawLabelValue("Time:", $"{mya} MYA", _goldColor);
+            else
+                DrawLabelValue("Time:", "Present Day", _goldColor);
+        }
+        else
+        {
+            // Civilization Time Scale (Standard Years)
+            float fractionalYear = state.Year + state.TimeAccumulator / GameState.SecondsPerGameYear;
+            DrawLabelValue("Year:", $"{fractionalYear:N1}", _textValueColor);
+        }
 
         if (_animalEvolutionSimulator != null)
         {
