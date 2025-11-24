@@ -127,6 +127,7 @@ public class DisasterManager
 
                 var target = _map.Cells[nx, ny];
                 var targetGeo = target.GetGeology();
+                var targetMet = target.GetMeteorology();
                 float effect = 1.0f - (distance / craterRadius);
 
                 // Crater bowl shape (parabolic)
@@ -137,6 +138,10 @@ public class DisasterManager
                 targetGeo.IsInCrater = true;
                 targetGeo.CraterDepth = craterDepth * craterProfile;
                 targetGeo.DisasterYear = year;
+
+                // BLAST EFFECT ON CLOUDS - complete vaporization at crater zone
+                // The extreme heat instantly vaporizes all clouds above the crater
+                targetMet.CloudCover = 0;
 
                 // Complete vaporization at center
                 if (distance < craterRadius * 0.3f)
@@ -182,6 +187,7 @@ public class DisasterManager
 
                 var target = _map.Cells[nx, ny];
                 var targetGeo = target.GetGeology();
+                var targetMet = target.GetMeteorology();
                 float effect = 1.0f - ((distance - craterRadius) / (blastRadius - craterRadius));
 
                 // Thermal blast - burns everything
@@ -194,6 +200,10 @@ public class DisasterManager
                 targetGeo.ImpactScorching = Math.Max(targetGeo.ImpactScorching, effect * 0.8f);
                 targetGeo.BlastDamage = Math.Max(targetGeo.BlastDamage, effect * 0.6f);
                 targetGeo.DisasterYear = year;
+
+                // BLAST EFFECT ON CLOUDS - extreme heat vaporizes clouds
+                // In the thermal blast zone, clouds are completely dissipated
+                targetMet.CloudCover *= (1.0f - effect * 0.95f);
 
                 // Destroy infrastructure
                 if (effect > 0.5f)
@@ -223,6 +233,7 @@ public class DisasterManager
 
                 var target = _map.Cells[nx, ny];
                 var targetGeo = target.GetGeology();
+                var targetMet = target.GetMeteorology();
                 float effect = 1.0f - ((distance - blastRadius) / (devastationRadius - blastRadius));
 
                 // Shockwave damage
@@ -232,6 +243,9 @@ public class DisasterManager
 
                 // CO2 from burning
                 target.CO2 += 3.0f * effect;
+
+                // SHOCKWAVE EFFECT ON CLOUDS - partial dissipation from pressure wave
+                targetMet.CloudCover *= (1.0f - effect * 0.5f);
 
                 StartRecovery(nx, ny, DisasterType.Asteroid, effect * 50);
             }
@@ -520,6 +534,7 @@ public class DisasterManager
 
                     var target = _map.Cells[nx, ny];
                     var targetGeo = target.GetGeology();
+                    var targetMet = target.GetMeteorology();
                     float effect = 1.0f - (distance / fireballRadius);
 
                     // Complete vaporization
@@ -532,6 +547,10 @@ public class DisasterManager
                     targetGeo.BlastDamage = 1.0f;
                     targetGeo.RadioactiveContamination = 1.0f;
                     targetGeo.DisasterYear = year;
+
+                    // NUCLEAR FIREBALL EFFECT ON CLOUDS - complete vaporization
+                    // The extreme heat of the nuclear fireball vaporizes all clouds
+                    targetMet.CloudCover = 0;
 
                     // Destroy all infrastructure
                     targetGeo.HasRoad = false;
@@ -557,6 +576,7 @@ public class DisasterManager
 
                 var target = _map.Cells[nx, ny];
                 var targetGeo = target.GetGeology();
+                var targetMet = target.GetMeteorology();
                 float effect = 1.0f - (distance / blastRadius);
 
                 // Thermal damage
@@ -572,6 +592,11 @@ public class DisasterManager
                 targetGeo.BlastDamage = Math.Max(targetGeo.BlastDamage, effect * 0.8f);
                 targetGeo.RadioactiveContamination = Math.Max(targetGeo.RadioactiveContamination, effect * 0.5f);
                 targetGeo.DisasterYear = year;
+
+                // NUCLEAR THERMAL BLAST EFFECT ON CLOUDS
+                // Extreme heat vaporizes clouds in the thermal blast zone
+                float cloudReduction = isWeapon ? effect * 0.9f : effect * 0.5f;
+                targetMet.CloudCover *= (1.0f - cloudReduction);
 
                 // Destroy infrastructure
                 if (effect > 0.3f)

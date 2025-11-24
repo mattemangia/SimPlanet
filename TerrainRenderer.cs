@@ -355,16 +355,20 @@ public class TerrainRenderer
         }
 
         // DISASTER EFFECTS OVERLAY
-        // Impact craters - dark scorched earth
-        if (geo.IsInCrater)
+        // Only apply scorching/burning effects to LAND cells
+        // Water cells are not scorched - water fills craters and protects from burning
+        bool isWaterCell = cell.IsWater;
+
+        // Impact craters - dark scorched earth (ONLY on land)
+        if (geo.IsInCrater && !isWaterCell)
         {
             Color craterColor = new Color(30, 25, 25);  // Dark scorched
             float craterBlend = Math.Min(geo.CraterDepth * 2, 0.8f);
             baseColor = Color.Lerp(baseColor, craterColor, craterBlend);
         }
 
-        // Blast damage - burned/charred terrain
-        if (geo.BlastDamage > 0.1f)
+        // Blast damage - burned/charred terrain (ONLY on land)
+        if (geo.BlastDamage > 0.1f && !isWaterCell)
         {
             Color blastColor = geo.BlastDamage > 0.7f
                 ? new Color(20, 20, 20)     // Severely burned - almost black
@@ -372,8 +376,8 @@ public class TerrainRenderer
             baseColor = Color.Lerp(baseColor, blastColor, geo.BlastDamage * 0.7f);
         }
 
-        // Impact scorching - orange/red burn marks
-        if (geo.ImpactScorching > 0.1f)
+        // Impact scorching - orange/red burn marks (ONLY on land)
+        if (geo.ImpactScorching > 0.1f && !isWaterCell)
         {
             Color scorchColor = geo.ImpactScorching > 0.8f
                 ? new Color(80, 30, 10)      // Fresh scorch - dark red
@@ -382,12 +386,17 @@ public class TerrainRenderer
         }
 
         // Radioactive contamination - sickly green/yellow glow
+        // This CAN affect water (contaminated water turns green)
         if (geo.RadioactiveContamination > 0.1f)
         {
             Color radColor = geo.RadioactiveContamination > 0.7f
                 ? new Color(80, 120, 40)     // High radiation - yellow-green
                 : new Color(100, 110, 80);    // Low radiation - dull greenish
-            baseColor = Color.Lerp(baseColor, radColor, geo.RadioactiveContamination * 0.4f);
+            // Less visible on water (diluted)
+            float radBlend = isWaterCell
+                ? geo.RadioactiveContamination * 0.2f
+                : geo.RadioactiveContamination * 0.4f;
+            baseColor = Color.Lerp(baseColor, radColor, radBlend);
         }
 
         return baseColor;
