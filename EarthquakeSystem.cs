@@ -76,7 +76,8 @@ public static class EarthquakeSystem
                     cell.Geology.SeismicStress *= 0.1f; // Keep 10% residual stress
 
                     // Large ocean earthquakes at subduction zones can trigger tsunamis
-                    if (magnitude >= 7.0f && cell.IsWater && cell.Geology.BoundaryType == PlateBoundaryType.Convergent)
+                    bool nearWater = cell.IsWater || IsAdjacentToWater(map, x, y);
+                    if (magnitude >= 7.0f && nearWater && cell.Geology.BoundaryType == PlateBoundaryType.Convergent)
                     {
                         tsunamiTriggered = true;
                         tsunamiEpicenter = (x, y);
@@ -365,5 +366,31 @@ public static class EarthquakeSystem
                 cell.Geology.InducedSeismicity = false;
             }
         }
+    }
+
+    /// <summary>
+    /// Check if the given coordinate borders ocean water. Used to allow coastal subduction
+    /// earthquakes to trigger tsunamis even if the epicenter is on land.
+    /// </summary>
+    private static bool IsAdjacentToWater(PlanetMap map, int x, int y)
+    {
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+
+                int nx = (x + dx + map.Width) % map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= map.Height) continue;
+
+                if (map.Cells[nx, ny].IsWater)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

@@ -21,6 +21,7 @@ namespace SimPlanet
         private readonly PlanetStabilizer _planetStabilizer;
         private readonly DiseaseManager _diseaseManager;
         private readonly EcosystemSimulator _ecosystemSimulator;
+        private readonly SimulationInterconnect _interconnect;
         private readonly PlanetMap _map;
 
         public UpdateManager(
@@ -57,6 +58,7 @@ namespace SimPlanet
             _planetStabilizer = planetStabilizer;
             _diseaseManager = diseaseManager;
             _ecosystemSimulator = ecosystemSimulator;
+            _interconnect = new SimulationInterconnect(map);
         }
 
         public void Update(float simDeltaTime, int newYear, float timeSpeed)
@@ -107,6 +109,9 @@ namespace SimPlanet
 
             TsunamiSystem.Update(_map, simDeltaTime, newYear);
             TsunamiSystem.DrainFloodWaters(_map, simDeltaTime);
+
+            // Bind systems together so gas cycles, hydrology, geology, and biosphere feed each other.
+            _interconnect.Update(simDeltaTime, newYear);
         }
 
         public async Task FastForward(int years, int startYear, Action<float, int> onProgress, CancellationToken cancellationToken)

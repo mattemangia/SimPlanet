@@ -459,6 +459,26 @@ public class PlanetMap
         }
     }
 
+    // Expanded neighborhood search (inclusive of radius distance in a square window)
+    public IEnumerable<(int x, int y, TerrainCell cell)> GetNeighbors(int x, int y, int radius)
+    {
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+
+                int nx = (x + dx + Width) % Width;
+                int ny = y + dy;
+
+                if (ny >= 0 && ny < Height)
+                {
+                    yield return (nx, ny, Cells[nx, ny]);
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// Updates coastal zone detection for all cells.
     /// A cell is coastal if it's land and has water neighbors.

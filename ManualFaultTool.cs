@@ -123,13 +123,14 @@ public class ManualFaultTool : IDisposable
             int ny = Math.Clamp(y0, 0, _map.Height - 1);
 
             var cell = _map.Cells[nx, ny];
-            var geo = cell.GetGeology();
-            geo.IsManualFault = true;
-            geo.IsFault = true; // For visualization
-            geo.FaultType = _selectedFaultType;
-            geo.FaultActivity = 1.0f; // Set to maximum for visibility on fault map
-            geo.SeismicStress = 0.3f; // Some initial stress
-            geo.BoundaryType = PlateBoundaryType.Transform; // Immediate visual feedback
+            // Write directly to embedded geology data to guarantee visibility in the
+            // thematic maps and geological profile immediately after drawing.
+            cell.Geology.IsManualFault = true;
+            cell.Geology.IsFault = true; // For visualization
+            cell.Geology.FaultType = _selectedFaultType;
+            cell.Geology.FaultActivity = 1.0f; // Set to maximum for visibility on fault map
+            cell.Geology.SeismicStress = 0.3f; // Some initial stress
+            cell.Geology.BoundaryType = PlateBoundaryType.Transform; // Immediate visual feedback
 
             // Apply displacement based on fault type
             // Determine side of line using cross product (2D)

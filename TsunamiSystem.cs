@@ -36,12 +36,24 @@ public static class TsunamiSystem
     }
 
     /// <summary>
+    /// Initialize a tsunami from a volcanic explosion (uses pseudo-magnitude scaling)
+    /// </summary>
+    public static void InitiateTsunamiFromVolcano(PlanetMap map, int volcanoX, int volcanoY, float pseudoMagnitude, int currentYear)
+    {
+        // Volcanic sea-floor collapse or blast waves
+        InitiateTsunami(map, volcanoX, volcanoY, pseudoMagnitude, currentYear);
+    }
+
+    /// <summary>
     /// Update tsunami wave propagation
     /// </summary>
     public static void Update(PlanetMap map, float deltaTime, int currentYear)
     {
-        // Create a list of cells with tsunami waves to propagate
+        // Create a list of cells with tsunami waves to propagate. We accumulate
+        // energy transfers so we can apply a net decay instead of endlessly
+        // amplifying waves each step.
         var waveCells = new List<(int x, int y, float height, float velocity)>();
+        var heightDeltas = new float[map.Width, map.Height];
 
         // First pass: Identify active tsunami cells
         for (int x = 0; x < map.Width; x++)
@@ -63,7 +75,7 @@ public static class TsunamiSystem
             // Validating inputs before propagation
             if (!float.IsNaN(height) && !float.IsInfinity(height) && height > 0)
             {
-                PropagateWave(map, x, y, height, velocity, deltaTime);
+                PropagateWave(map, x, y, height, velocity, deltaTime, heightDeltas);
             }
         }
 
@@ -73,6 +85,12 @@ public static class TsunamiSystem
             for (int y = 0; y < map.Height; y++)
             {
                 var cell = map.Cells[x, y];
+
+                // Apply accumulated transfers from propagation (with damping to avoid runaway growth)
+                if (heightDeltas[x, y] != 0)
+                {
+                    cell.Geology.TsunamiWaveHeight = MathF.Max(0, cell.Geology.TsunamiWaveHeight + heightDeltas[x, y]);
+                }
 
                 if (cell.Geology.TsunamiWaveHeight > 0.1f)
                 {
@@ -86,8 +104,17 @@ public static class TsunamiSystem
                     }
                     else
                     {
-                        // Waves decay slowly in water
-                        cell.Geology.TsunamiWaveHeight *= 0.98f; // 2% decay per update in water
+                        // Waves decay in water based on timestep
+                        float waterDecay = Math.Clamp(1.0f - (0.04f * deltaTime), 0.8f, 0.99f);
+                        cell.Geology.TsunamiWaveHeight *= waterDecay; // Decay faster with larger timesteps
+                    }
+
+                    // Older waves naturally dissipate even if they stay offshore
+                    int age = Math.Max(0, currentYear - cell.Geology.TsunamiSourceYear);
+                    if (age > 0)
+                    {
+                        float ageDecay = MathF.Exp(-0.8f * age);
+                        cell.Geology.TsunamiWaveHeight *= ageDecay;
                     }
 
                     // Clear very small waves
@@ -105,7 +132,7 @@ public static class TsunamiSystem
     /// <summary>
     /// Propagate tsunami wave to neighboring cells
     /// </summary>
-    private static void PropagateWave(PlanetMap map, int x, int y, float height, float velocity, float deltaTime)
+    private static void PropagateWave(PlanetMap map, int x, int y, float height, float velocity, float deltaTime, float[,] heightDeltas)
     {
         var sourceCell = map.Cells[x, y];
 
@@ -123,8 +150,10 @@ public static class TsunamiSystem
 
                 var neighbor = map.Cells[nx, ny];
 
-                // Calculate wave transfer based on velocity and time
-                float transferAmount = height * velocity * deltaTime * 0.5f;
+                // Calculate wave transfer based on velocity and time. We only
+                // move a fraction of the current wave energy so the source
+                // cell also loses height as the wave spreads out.
+                float transferAmount = height * velocity * deltaTime * 0.4f;
 
                 // Diagonal neighbors get slightly less energy
                 if (dx != 0 && dy != 0)
@@ -150,9 +179,14 @@ public static class TsunamiSystem
                     newHeight *= 2.0f; // Wave doubles when hitting shore
                 }
 
-                neighbor.Geology.TsunamiWaveHeight = MathF.Max(neighbor.Geology.TsunamiWaveHeight, newHeight);
+                // Defer application so multiple neighbors can contribute without
+                // amplifying each other mid-iteration
+                heightDeltas[nx, ny] += MathF.Max(0, newHeight - neighbor.Geology.TsunamiWaveHeight);
                 neighbor.Geology.TsunamiVelocity = velocity;
                 neighbor.Geology.TsunamiDirection = (dx, dy);
+
+                // Remove some energy from the source cell to prevent perpetual waves
+                heightDeltas[x, y] -= transferAmount * 0.6f; // dissipate part of transferred energy
             }
         }
     }
