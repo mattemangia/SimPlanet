@@ -49,6 +49,12 @@ public class ClimateSimulator
         UpdateWaterLevelFromIce(); // Adjust sea level based on ice sheet changes
     }
 
+    /// <summary>
+    /// Simulates surface temperature using a latitudinal energy balance model (EBM).
+    /// Scientific Basis:
+    /// - Energy Balance Model: Budyko, M. I. (1969). "The effect of solar radiation variations on the climate of the Earth". Tellus.
+    /// - Sellers, W. D. (1969). "A Global Climatic Model Based on the Energy Balance of the Earth-Atmosphere System". Journal of Applied Meteorology.
+    /// </summary>
     private void SimulateTemperatureSimd(float deltaTime)
     {
         int width = _map.Width;
@@ -201,6 +207,12 @@ public class ClimateSimulator
         }
     }
 
+    /// <summary>
+    /// Simulates surface temperature using a latitudinal energy balance model (EBM).
+    /// Scientific Basis:
+    /// - Energy Balance Model: Budyko, M. I. (1969). "The effect of solar radiation variations on the climate of the Earth". Tellus.
+    /// - Sellers, W. D. (1969). "A Global Climatic Model Based on the Energy Balance of the Earth-Atmosphere System". Journal of Applied Meteorology.
+    /// </summary>
     private void SimulateTemperature(float deltaTime)
     {
         var newTemperatures = new float[_map.Width, _map.Height];
@@ -406,6 +418,12 @@ public class ClimateSimulator
         }
     }
 
+    /// <summary>
+    /// Simulates rainfall and humidity.
+    /// Scientific Basis:
+    /// - Clausius-Clapeyron Relation: Describes the water-holding capacity of the atmosphere as a function of temperature.
+    ///   Saturation vapor pressure increases exponentially with temperature (~7% per deg C).
+    /// </summary>
     private void SimulateRainfall(float deltaTime)
     {
         float rainfallMultiplier = _map.PlanetaryControls?.RainfallMultiplier ?? 1f;

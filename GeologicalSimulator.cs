@@ -405,6 +405,12 @@ public class GeologicalSimulator
         }
     }
 
+    /// <summary>
+    /// Updates plate movements and boundary interactions.
+    /// Scientific Basis:
+    /// - Plate Tectonics: Wilson Cycle (Wilson, 1966).
+    /// - Plate Motions: McKenzie, D. P., & Parker, R. L. (1967). "The North Pacific: an example of tectonics on a sphere". Nature.
+    /// </summary>
     private void UpdatePlateTectonics(int currentYear, float deltaTime)
     {
         float tectonicScale = TectonicScale * deltaTime;
@@ -726,6 +732,12 @@ public class GeologicalSimulator
         return false;
     }
 
+    /// <summary>
+    /// Simulates a volcanic eruption.
+    /// Scientific Basis:
+    /// - Volcanic Explosivity Index (VEI): Newhall, C. G., & Self, S. (1982).
+    ///   "The volcanic explosivity index (VEI): an estimate of explosive magnitude for historical volcanism". JGR.
+    /// </summary>
     private void VolcanicEruption(int x, int y, int year)
     {
         var cell = _map.Cells[x, y];
@@ -1257,6 +1269,12 @@ public class GeologicalSimulator
         }
     }
 
+    /// <summary>
+    /// Simulates turbidity currents and turbidite deposition.
+    /// Scientific Basis:
+    /// - Bouma Sequence: Bouma, A. H. (1962). "Sedimentology of some Flysch deposits: A graphic approach to facies interpretation".
+    ///   Describes the classic fining-upward sequence (Ta-Te) in turbidites.
+    /// </summary>
     private void UpdateTurbidites(float deltaTime)
     {
         // Validate deltaTime to prevent NaN propagation
