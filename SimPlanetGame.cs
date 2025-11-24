@@ -85,7 +85,6 @@ public class SimPlanetGame : Game
     // Game state
     private GameState _gameState;
     private RenderMode _currentRenderMode = RenderMode.Terrain;
-    private LifeForm _selectedLifeFormForSeeding = LifeForm.Bacteria;
 
     // Render Mode Groups
     private readonly List<RenderMode> _terrainModes = new()
@@ -191,6 +190,59 @@ public class SimPlanetGame : Game
         _graphics.ApplyChanges();
 
         Window.Title = "SimPlanet - Planetary Evolution Simulator";
+
+        // Initialize non-nullable fields to null! (suppress warning)
+        // These are initialized in Initialize() or LoadContent() which run before usage
+        _spriteBatch = null!;
+        _map = null!;
+        _climateSimulator = null!;
+        _atmosphereSimulator = null!;
+        _lifeSimulator = null!;
+        _animalEvolutionSimulator = null!;
+        _geologicalSimulator = null!;
+        _hydrologySimulator = null!;
+        _weatherSystem = null!;
+        _civilizationManager = null!;
+        _biomeSimulator = null!;
+        _disasterManager = null!;
+        _forestFireManager = null!;
+        _magnetosphereSimulator = null!;
+        _planetStabilizer = null!;
+        _diseaseManager = null!;
+        _ecosystemSimulator = null!;
+        _updateManager = null!;
+        _mainMenu = null!;
+        _saveLoadManager = null!;
+        _terrainRenderer = null!;
+        _ui = null!;
+        _mapOptionsUI = null!;
+        _minimap3D = null!;
+        _eventsUI = null!;
+        _interactiveControls = null!;
+        _sedimentViewer = null!;
+        _playerCivControl = null!;
+        _divinePowersUI = null!;
+        _disasterControlUI = null!;
+        _plantingTool = null!;
+        _diseaseControlUI = null!;
+        _toolbar = null!;
+        _planetaryControlsUI = null!;
+        _aboutDialog = null!;
+        _font = null!;
+        _loadingScreen = null!;
+        _graphs = null!;
+        _lifePainterUI = null!;
+        _terraformingTool = null!;
+        _manualFaultTool = null!;
+        _profileTool = null!;
+        _profileViewer = null!;
+        _bottomControlUI = null!;
+        _gameState = null!;
+        _simulationThread = null!;
+        _mapOptions = null!;
+        _generationThread = null!;
+        _newMap = null!;
+        _fastForwardCts = null!;
     }
 
     private void SimulationThreadLoop()
@@ -476,6 +528,9 @@ public class SimPlanetGame : Game
                 _mapOptionsUI.IsVisible = true;
 
                 // Update map options UI (handles mouse interactions)
+            if (_mapOptionsUI != null)
+                {
+                // Update map options UI (handles mouse interactions)
                 if (_mapOptionsUI.Update(mouseState, _mapOptions))
                 {
                     _mainMenu.CurrentScreen = GameScreen.MainMenu;
@@ -489,6 +544,7 @@ public class SimPlanetGame : Game
 
                 // Update preview
                 _mapOptionsUI.UpdatePreview(_mapOptions);
+                }
             }
             else
             {
@@ -547,10 +603,10 @@ public class SimPlanetGame : Game
             _toolbar.Update(mouseState);
             _ui.Update(gameTime, mouseState, _previousMouseState, _toolbar.ToolbarHeight);
             _bottomControlUI.Update(mouseState);
-            _aboutDialog.Update(mouseState, _previousMouseState);
+            _aboutDialog?.Update(mouseState, _previousMouseState);
             
             // If about dialog is visible, block other input
-            if (_aboutDialog.IsVisible)
+            if (_aboutDialog?.IsVisible == true)
             {
                 _previousMouseState = mouseState;
                 base.Update(gameTime); // Call base.Update before returning
@@ -558,7 +614,7 @@ public class SimPlanetGame : Game
             }
             
             // BUGFIX: If Map Options UI is visible, it should consume all input and block other UI.
-            if (_mapOptionsUI.IsVisible)
+            if (_mapOptionsUI?.IsVisible == true)
             {
                 // Let the UI handle mouse interactions
                 _mapOptionsUI.Update(mouseState, _mapOptions);
@@ -672,7 +728,7 @@ public class SimPlanetGame : Game
         bool isOverMinimap = _minimap3D != null && _minimap3D.IsMouseOver(mouseState);
 
         // Calculate map area dimensions
-        int toolbarHeight = _toolbar.ToolbarHeight;
+        int toolbarHeight = _toolbar != null ? _toolbar.ToolbarHeight : 0;
         int mapAreaWidth = GraphicsDevice.Viewport.Width - InfoPanelWidth;
         int mapAreaHeight = GraphicsDevice.Viewport.Height - toolbarHeight;
 
@@ -888,6 +944,12 @@ public class SimPlanetGame : Game
             _terraformingTool.IsVisible = !_terraformingTool.IsVisible;
         }
 
+        // Toggle manual fault tool (U key)
+        if (keyState.IsKeyDown(Keys.U) && _previousKeyState.IsKeyUp(Keys.U))
+        {
+            ToggleManualFaultTool();
+        }
+
         // Toggle profile tool (J key)
         if (keyState.IsKeyDown(Keys.J) && _previousKeyState.IsKeyUp(Keys.J))
         {
@@ -1073,7 +1135,7 @@ public class SimPlanetGame : Game
         }
 
         // Update preview
-        _mapOptionsUI.UpdatePreview(_mapOptions);
+        _mapOptionsUI?.UpdatePreview(_mapOptions);
     }
 
     private void MarkMapVisualsDirty()
@@ -1460,7 +1522,7 @@ public class SimPlanetGame : Game
             }
 
             // Draw loading screen overlay if generating world
-            if (_loadingScreen.IsVisible)
+        if (_loadingScreen != null && _loadingScreen.IsVisible)
             {
                 _loadingScreen.Draw();
             }
@@ -1687,7 +1749,7 @@ public class SimPlanetGame : Game
         }
     }
 
-    private void OnClientSizeChanged(object sender, EventArgs e)
+    private void OnClientSizeChanged(object? sender, EventArgs e)
     {
         // Update graphics when window is resized
         if (_graphics != null && Window != null)
@@ -1697,7 +1759,10 @@ public class SimPlanetGame : Game
             _graphics.ApplyChanges();
 
             // Update UI positions
-            _minimap3D?.SetPositionBottomRight(Window.ClientBounds.Width, Window.ClientBounds.Height);
+            if (_minimap3D != null)
+            {
+                _minimap3D.SetPositionBottomRight(Window.ClientBounds.Width, Window.ClientBounds.Height);
+            }
         }
     }
 
@@ -1917,12 +1982,21 @@ public class SimPlanetGame : Game
 
         try
         {
-            await _updateManager.FastForward(10000, _gameState.Year, (progress, year) =>
+            if (_fastForwardCts != null)
             {
-                _ui.FastForwardProgress = progress;
-                _ui.FastForwardCurrentYear = year;
-                _gameState.Year = year;
-            }, _fastForwardCts.Token);
+                await _updateManager.FastForward(10000, _gameState.Year, (progress, year) =>
+                {
+                    if (_ui != null)
+                    {
+                        _ui.FastForwardProgress = progress;
+                        _ui.FastForwardCurrentYear = year;
+                    }
+                    if (_gameState != null)
+                    {
+                        _gameState.Year = year;
+                    }
+                }, _fastForwardCts.Token);
+            }
         }
         catch (OperationCanceledException)
         {

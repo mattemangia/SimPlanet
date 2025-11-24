@@ -21,7 +21,6 @@ public class GeologicalSimulator
     private List<TectonicPlate> _plates;
     private int[,] _plateMap;
     private const int NumPlates = 8;
-    private float _geologicalTime = 0;
     private readonly PerlinNoise _boundaryNoise;
 
     // Control parameters for planetary controls UI
@@ -43,6 +42,7 @@ public class GeologicalSimulator
         _simulationRandom = new Random(); // Non-deterministic for simulation events
         _boundaryNoise = new PerlinNoise(seed + 12345);
         _plateMap = new int[map.Width, map.Height];
+        _plates = new List<TectonicPlate>(); // Initialize to avoid CS8618
 
         InitializePlates();
         AssignCellsToPlates();
@@ -129,7 +129,7 @@ public class GeologicalSimulator
 
     private void InitializePlates()
     {
-        _plates = new List<TectonicPlate>();
+        _plates.Clear();
 
         for (int i = 0; i < NumPlates; i++)
         {
@@ -420,13 +420,11 @@ public class GeologicalSimulator
                 int plateId = _plateMap[x, y];
 
                 // Check neighbors for plate boundaries
-                bool isBoundary = false;
                 var neighbors = _map.GetNeighbors(x, y).ToList();
 
                 // User-created faults override plate boundaries
                 if (geo.IsManualFault)
                 {
-                    isBoundary = true;
                     geo.BoundaryType = PlateBoundaryType.Transform;
                     geo.TectonicStress += 0.05f * tectonicScale; // Higher stress buildup
                     geo.IsFault = true;
@@ -446,8 +444,6 @@ public class GeologicalSimulator
                     int neighborPlate = _plateMap[nx, ny];
                     if (neighborPlate != plateId && !geo.IsManualFault) // Don't override manual fault
                     {
-                        isBoundary = true;
-
                         // Determine boundary type
                         var plate1 = _plates[plateId];
                         var plate2 = _plates[neighborPlate];

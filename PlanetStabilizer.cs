@@ -26,7 +26,6 @@ public class PlanetStabilizer
     private readonly float _baselineCoreTemp;
 
     private float _targetGlobalTemp;
-    private float _targetOxygen;
     private float _minCO2;
     private float _maxCO2;
     private float _targetLandRatio;
@@ -60,7 +59,6 @@ public class PlanetStabilizer
         // Set LIFE-FRIENDLY targets regardless of initial conditions
         // These are optimal for supporting diverse life forms
         _targetGlobalTemp = 15f; // Reduced from 20f to prevent overheating equator to satisfy cold poles
-        _targetOxygen = 21f; // Earth-like oxygen for complex life
         _minCO2 = 0.03f; // Minimum for photosynthesis (300 ppm)
         _maxCO2 = 0.15f; // Maximum safe level (1500 ppm) - relaxed
         _targetLandRatio = 0.3f; // 30% land is ideal

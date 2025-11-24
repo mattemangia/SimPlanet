@@ -43,6 +43,27 @@ public class HeadlessSimulation
         Console.WriteLine("Starting Headless Simulation...");
         Console.Out.Flush();
 
+        // Initialize non-nullable fields to null! before Initialize is called
+        // They will be properly set in Initialize()
+        _map = null!;
+        _climateSimulator = null!;
+        _atmosphereSimulator = null!;
+        _lifeSimulator = null!;
+        _animalEvolutionSimulator = null!;
+        _geologicalSimulator = null!;
+        _hydrologySimulator = null!;
+        _weatherSystem = null!;
+        _civilizationManager = null!;
+        _biomeSimulator = null!;
+        _disasterManager = null!;
+        _forestFireManager = null!;
+        _magnetosphereSimulator = null!;
+        _planetStabilizer = null!;
+        _diseaseManager = null!;
+        _ecosystemSimulator = null!;
+        _updateManager = null!;
+        _mapOptions = null!;
+
         Initialize();
 
         Console.WriteLine("Initialization Complete.");

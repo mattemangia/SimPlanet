@@ -31,6 +31,7 @@ public class InteractiveControls
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
 
+        _buttons = new List<Button>(); // Initialize early to avoid warning
         InitializeButtons();
     }
 

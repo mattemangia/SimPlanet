@@ -1256,6 +1256,7 @@ Start with uninhabitable planet:
 | G | Civilization | Civilization control |
 | K | Diseases | Pandemic management |
 | T | Terraforming | Height/Terrain modifier |
+| U | Manual Fault Tool | Draw tectonic faults |
 | J | Geological Profile | Subsurface cross-section viewer |
 | L | Life Painter | Paint life forms |
 | Y | Graphs | Planetary statistics graphs |

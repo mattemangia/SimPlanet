@@ -78,6 +78,7 @@ public class PlanetaryControlsUI
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
 
+        _geologicalSimulator = null!; // Will be set later via SetGeologicalSimulator
         InitializeControls();
     }
 

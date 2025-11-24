@@ -11,11 +11,11 @@ namespace SimPlanet
         private class ToolbarButton
         {
             public Rectangle Bounds { get; set; }
-            public string Tooltip { get; set; }
-            public Action OnClick { get; set; }
-            public Texture2D Icon { get; set; }
+            public required string Tooltip { get; set; }
+            public Action? OnClick { get; set; }
+            public Texture2D? Icon { get; set; }
             public bool IsHovered { get; set; }
-            public string Category { get; set; }
+            public required string Category { get; set; }
             // Dropdown support
             public bool IsGroup { get; set; }
             public bool IsGroupOpen { get; set; }

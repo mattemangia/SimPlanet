@@ -25,9 +25,6 @@ public class GeologicalEventsUI
     private Queue<string> _eventLog = new();
     private const int MaxLogEntries = 5;
 
-    // Track last logged events to prevent spam
-    private (int x, int y, float magnitude) _lastLoggedEarthquake = (-1, -1, 0);
-
     // Visual earthquake effects
     private struct VisualEarthquake
     {
@@ -68,6 +65,14 @@ public class GeologicalEventsUI
 
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
+
+        // Initialize non-nullable fields to null! (they are set via SetSimulators and SetDisasterManager)
+        _geologicalSim = null!;
+        _hydrologySim = null!;
+        _disasterManager = null!;
+        _map = null!;
+        _overlayTexture = null!;
+        _overlayColors = null!;
     }
 
     public void SetSimulators(GeologicalSimulator geoSim, HydrologySimulator hydroSim)

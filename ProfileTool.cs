@@ -20,7 +20,7 @@ public class ProfileTool : IDisposable
 
     private MouseState _previousMouseState;
 
-    public event Action<Point, Point> OnProfileCreated;
+    public event Action<Point, Point>? OnProfileCreated;
 
     public ProfileTool(GraphicsDevice graphicsDevice, FontRenderer font, PlanetMap map)
     {
@@ -110,7 +110,6 @@ public class ProfileTool : IDisposable
             spriteBatch.Draw(_pixelTexture, new Rectangle((int)startScreenPos.X - 4, (int)startScreenPos.Y - 4, 8, 8), Color.Red);
 
             // Draw line to mouse if EndPoint not set
-            Point currentMouseMap;
             Vector2 mousePos = new Vector2(Mouse.GetState().X, Mouse.GetState().Y);
 
             DrawLine(spriteBatch, startScreenPos, mousePos, Color.Yellow, 2);

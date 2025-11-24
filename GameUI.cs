@@ -568,6 +568,8 @@ public class GameUI
         DrawTextAt("  - Scroll: Brush Size", Color.Gray, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("T: Terraforming - Raise/Lower land", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("  - Left Click: Apply, Right Click: Toggle Mode", Color.Gray, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("U: Manual Fault Tool - Draw Faults", Color.Cyan, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("  - Left Click+Drag: Draw, Tab: Cycle Type", Color.Gray, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("J: Geological Profile - View Cross-section", Color.Cyan, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("  - Click start & end points", Color.Gray, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("D: Disaster Control - Trigger events", _textValueColor, rightColX, rightY); rightY += lineHeight;
