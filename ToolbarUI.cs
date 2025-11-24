@@ -259,7 +259,7 @@ namespace SimPlanet
             else if (tooltip.Contains("Oxygen")) DrawOxygenIcon(data, size);
             else if (tooltip.Contains("CO2")) DrawCO2Icon(data, size);
             else if (tooltip.Contains("Elevation")) DrawElevationIcon(data, size);
-            else if (tooltip.Contains("Geological")) DrawGeologicalIcon(data, size);
+            else if (tooltip.Contains("Geological") || tooltip.Contains("Geology Group")) DrawGeologicalIcon(data, size);
             else if (tooltip.Contains("Tectonic")) DrawTectonicIcon(data, size);
             else if (tooltip.Contains("Volcanoes")) DrawVolcanoIcon(data, size);
             else if (tooltip.Contains("Clouds")) DrawCloudsIcon(data, size);
@@ -297,6 +297,11 @@ namespace SimPlanet
             else if (tooltip.Contains("Planet Controls")) DrawPlanetControlsIcon(data, size);
             else if (tooltip.Contains("Spectral")) DrawSpectralIcon(data, size);
             else if (tooltip.Contains("Auroras")) DrawAuroraIcon(data, size);
+            // New Group Icons
+            else if (tooltip.Contains("Weather Group")) DrawWeatherGroupIcon(data, size);
+            else if (tooltip.Contains("Atmosphere Group")) DrawAtmosphereGroupIcon(data, size);
+            else if (tooltip.Contains("Tools")) DrawToolsGroupIcon(data, size);
+            else if (tooltip.Contains("Overlays")) DrawOverlaysGroupIcon(data, size);
 
             icon.SetData(data);
             return icon;
@@ -328,6 +333,82 @@ namespace SimPlanet
                 for (int y = 0; y < size; y++) data[y * size + x] = c;
             }
         }
+
+        private void DrawWeatherGroupIcon(Color[] data, int size)
+        {
+            // Sun (top left)
+            Color yellow = Color.Yellow;
+            DrawCircle(data, size, size / 3, size / 3, size / 5, yellow);
+
+            // Cloud (center-ish)
+            Color white = Color.White;
+            DrawCircle(data, size, size / 2, size / 2, size / 5, white);
+            DrawCircle(data, size, size * 2 / 3, size / 2, size / 6, white);
+            DrawCircle(data, size, size / 2 + size / 6, size / 2 - size / 8, size / 6, white);
+        }
+
+        private void DrawAtmosphereGroupIcon(Color[] data, int size)
+        {
+            Color skyBlue = new Color(135, 206, 235);
+            Color spaceBlue = new Color(25, 25, 112);
+
+            // Draw gradient background or planet edge
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int dist = (x - size / 2) * (x - size / 2) + (y - size) * (y - size);
+                    if (dist < (size * 0.8) * (size * 0.8))
+                    {
+                        data[y * size + x] = skyBlue; // Planet/Atmo
+                    }
+                    else if (dist < size * size)
+                    {
+                        data[y * size + x] = Color.Lerp(skyBlue, spaceBlue, 0.5f); // Fade
+                    }
+                }
+            }
+        }
+
+        private void DrawToolsGroupIcon(Color[] data, int size)
+        {
+            Color silver = Color.Silver;
+            // Draw a wrench shape (handle + head)
+
+            // Handle (diagonal)
+            for (int i = 0; i < size / 2; i++)
+            {
+                int x = size / 4 + i;
+                int y = size * 3 / 4 - i;
+
+                // Draw thick line
+                for(int w = -2; w <= 2; w++)
+                {
+                    int px = x + w;
+                    int py = y + w;
+                    if(px >= 0 && px < size && py >= 0 && py < size)
+                        data[py * size + px] = silver;
+                }
+            }
+
+            // Head (C shape at top right)
+            int headX = size * 3 / 4;
+            int headY = size / 4;
+            DrawCircleOutline(data, size, headX, headY, size / 6, silver);
+        }
+
+        private void DrawOverlaysGroupIcon(Color[] data, int size)
+        {
+            Color layer1 = new Color(200, 200, 200, 200);
+            Color layer2 = new Color(100, 150, 255, 200);
+
+            // Back square
+            DrawRectOutline(data, size, size/4, size/4, size/2, size/2, layer1);
+
+            // Front square (offset)
+            DrawRectOutline(data, size, size/3, size/3, size/2, size/2, layer2);
+        }
+
         private void DrawTerrainIcon(Color[] data, int size) { /* Implementation from previous step */
             for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) if (y > size * 0.7f) data[y * size + x] = new Color(34, 139, 34); else if (y > size * 0.5f) data[y * size + x] = new Color(139, 69, 19); else if (y > size * 0.3f) data[y * size + x] = new Color(128, 128, 128);
         }
