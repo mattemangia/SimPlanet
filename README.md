@@ -339,6 +339,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - **Left Click**: Raise or lower terrain height
   - **Right Click**: Toggle between Raising (default) and Lowering mode
   - **Scroll Wheel**: Adjust brush size
+- **Geological Profile Tool (Press J)**: Draw a cross-section line on the map to view a detailed 2D geological profile window showing subsurface layers (crust, sediments, magma, etc.).
 - **Bottom Control Bar**: Quick access buttons at the bottom of the screen for simulation speed, pausing, saving/loading, map options, help, and planet regeneration.
 
 ### Visualization Modes (Grouped Cycles)

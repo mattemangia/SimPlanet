@@ -77,6 +77,8 @@ public class SimPlanetGame : Game
     private Graphs _graphs;
     private LifePainterUI _lifePainterUI;
     private TerraformingTool _terraformingTool;
+    private ProfileTool _profileTool;
+    private GeologicalProfileViewer _profileViewer;
     private BottomControlUI _bottomControlUI;
 
     // Game state
@@ -399,6 +401,15 @@ public class SimPlanetGame : Game
         // Create terraforming tool
         _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
 
+        // Create profile tool and viewer
+        _profileTool = new ProfileTool(GraphicsDevice, _font, _map);
+        _profileViewer = new GeologicalProfileViewer(GraphicsDevice, _font, _map);
+
+        // Wire up event
+        _profileTool.OnProfileCreated += (start, end) => {
+            _profileViewer.SetProfile(start, end);
+        };
+
         // Create bottom controls
         _bottomControlUI = new BottomControlUI(this, GraphicsDevice, _font);
     }
@@ -573,7 +584,8 @@ public class SimPlanetGame : Game
             // Check if any tools are active that need map clicks
             bool toolsActive = _plantingTool.IsActive || _disasterControlUI.IsVisible ||
                               _divinePowersUI.IsOpen || _diseaseControlUI.IsVisible ||
-                              _planetaryControlsUI.IsVisible;
+                              _planetaryControlsUI.IsVisible || _profileTool.IsActive;
+
             _sedimentViewer.Update(Mouse.GetState(), _terrainRenderer.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
                 _mapRenderOffsetX, _mapRenderOffsetY, toolsActive);
@@ -607,6 +619,9 @@ public class SimPlanetGame : Game
             _lifePainterUI.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
 
             _terraformingTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
+
+            _profileTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
+            _profileViewer.Update(mouseState);
 
             // Update day/night cycle (24 hours = 1 day)
             _terrainRenderer.DayNightTime += realDeltaTime * 2.4f; // Complete cycle in 10 seconds at 1x speed
@@ -870,6 +885,13 @@ public class SimPlanetGame : Game
             _terraformingTool.IsVisible = !_terraformingTool.IsVisible;
         }
 
+        // Toggle profile tool (J key)
+        if (keyState.IsKeyDown(Keys.J) && _previousKeyState.IsKeyUp(Keys.J))
+        {
+            _profileTool.IsActive = !_profileTool.IsActive;
+            _profileTool.Reset();
+        }
+
         // Toggle graphs (Y key)
         if (keyState.IsKeyDown(Keys.Y) && _previousKeyState.IsKeyUp(Keys.Y))
         {
@@ -1131,6 +1153,14 @@ public class SimPlanetGame : Game
             // Update tools that hold map/manager references
             _lifePainterUI = new LifePainterUI(GraphicsDevice, _font, _map, _lifeSimulator);
             _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
+
+            // Update profile tool
+            _profileTool = new ProfileTool(GraphicsDevice, _font, _map);
+            _profileViewer = new GeologicalProfileViewer(GraphicsDevice, _font, _map);
+            _profileTool.OnProfileCreated += (start, end) => {
+                _profileViewer.SetProfile(start, end);
+            };
+
             _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
             _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
             _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
@@ -1253,6 +1283,14 @@ public class SimPlanetGame : Game
         // Update tools that hold map/manager references
         _lifePainterUI = new LifePainterUI(GraphicsDevice, _font, _map, _lifeSimulator);
         _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
+
+        // Update profile tool
+        _profileTool = new ProfileTool(GraphicsDevice, _font, _map);
+        _profileViewer = new GeologicalProfileViewer(GraphicsDevice, _font, _map);
+        _profileTool.OnProfileCreated += (start, end) => {
+            _profileViewer.SetProfile(start, end);
+        };
+
         _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
@@ -1426,6 +1464,10 @@ public class SimPlanetGame : Game
 
         // Draw terraforming tool UI
         _terraformingTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw profile tool UI
+        _profileTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
+        _profileViewer.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         _spriteBatch.End();
 
@@ -1675,6 +1717,8 @@ public class SimPlanetGame : Game
         _minimap3D?.Dispose();
         _aboutDialog?.Dispose();
         _loadingScreen?.Dispose();
+        _profileTool?.Dispose();
+        _profileViewer?.Dispose();
         _spriteBatch?.Dispose();
         _graphics?.Dispose();
     }
@@ -1818,6 +1862,12 @@ public class SimPlanetGame : Game
     public void ToggleTerraformingTool()
     {
         _terraformingTool.IsVisible = !_terraformingTool.IsVisible;
+    }
+
+    public void ToggleProfileTool()
+    {
+        _profileTool.IsActive = !_profileTool.IsActive;
+        _profileTool.Reset();
     }
 
     public void TogglePlanetControls()

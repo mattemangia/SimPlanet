@@ -97,6 +97,10 @@ The interactive toolbar gives you one-click access to all features:
   - **Left Click**: Raise or lower terrain height
   - **Right Click**: Toggle between Raising (default) and Lowering mode
   - **Scroll Wheel**: Adjust brush size
+- **Geological Profile (Press J)**: Visualize the planet's subsurface:
+  - **Left Click**: Set Start Point, then Click again to set End Point.
+  - **View**: A window opens showing the cross-section (Crust, Mantle, Magma, Water).
+  - **Right Click**: Reset the tool.
 - **Bottom Control Bar**: Quick access buttons at the bottom of the screen for simulation speed, pausing, saving/loading, map options, help, and planet regeneration.
 
 ### Visualization Modes (Grouped Cycles)
@@ -1252,6 +1256,7 @@ Start with uninhabitable planet:
 | G | Civilization | Civilization control |
 | K | Diseases | Pandemic management |
 | T | Terraforming | Height/Terrain modifier |
+| J | Geological Profile | Subsurface cross-section viewer |
 | L | Life Painter | Paint life forms |
 | Y | Graphs | Planetary statistics graphs |
 | X | Planetary Controls | Parameter sliders |
