@@ -17,7 +17,12 @@ public static class TsunamiSystem
         // Calculate initial wave height based on earthquake magnitude
         // M7.0 = ~1m, M8.0 = ~5m, M9.0+ = ~20m+
         float waveHeight = MathF.Pow(10, magnitude - 7.0f);
-        waveHeight = MathF.Min(30.0f, waveHeight); // Cap at 30m
+
+        // Safety check
+        if (float.IsNaN(waveHeight) || float.IsInfinity(waveHeight))
+            waveHeight = 0;
+
+        waveHeight = Math.Clamp(waveHeight, 0f, 30.0f); // Cap at 30m
 
         epicenter.Geology.TsunamiWaveHeight = waveHeight;
         epicenter.Geology.TsunamiSourceYear = currentYear;
@@ -55,7 +60,11 @@ public static class TsunamiSystem
         // Second pass: Propagate waves
         foreach (var (x, y, height, velocity) in waveCells)
         {
-            PropagateWave(map, x, y, height, velocity, deltaTime);
+            // Validating inputs before propagation
+            if (!float.IsNaN(height) && !float.IsInfinity(height) && height > 0)
+            {
+                PropagateWave(map, x, y, height, velocity, deltaTime);
+            }
         }
 
         // Third pass: Apply coastal damage and decay waves
@@ -125,6 +134,9 @@ public static class TsunamiSystem
 
                 // Transfer wave energy to neighbor (but don't exceed source height)
                 float newHeight = neighbor.Geology.TsunamiWaveHeight + transferAmount;
+
+                // Safety clamp
+                if (float.IsNaN(newHeight) || float.IsInfinity(newHeight)) newHeight = 0;
 
                 // Wave height amplifies in shallow water (coastal areas)
                 if (neighbor.IsWater && neighbor.Elevation > -0.2f) // Shallow water

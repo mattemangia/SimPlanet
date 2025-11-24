@@ -847,7 +847,8 @@ public class TerrainRenderer
         var geo = cell.Geology;
 
         // Tsunami wave height visualization
-        if (geo.TsunamiWaveHeight > 0.0f)
+        // Safety check against NaN/Infinity which would cause white screen
+        if (!float.IsNaN(geo.TsunamiWaveHeight) && !float.IsInfinity(geo.TsunamiWaveHeight) && geo.TsunamiWaveHeight > 0.0f)
         {
             // Wave height: 0m (calm) to 30m+ (catastrophic)
             float height = Math.Clamp(geo.TsunamiWaveHeight, 0, 30);
@@ -877,7 +878,7 @@ public class TerrainRenderer
         }
 
         // Coastal flooding (land areas with flood water)
-        if (cell.IsLand && geo.FloodLevel > 0)
+        if (cell.IsLand && !float.IsNaN(geo.FloodLevel) && geo.FloodLevel > 0)
         {
             float floodLevel = Math.Clamp(geo.FloodLevel, 0, 5);
             float t = floodLevel / 5.0f;
@@ -1225,6 +1226,7 @@ public class TerrainRenderer
             RenderMode.SpectralBands => "NET RADIATION BUDGET",
             RenderMode.Civilizations => "POLITICAL MAP",
             RenderMode.Auroras => "AURORA INTENSITY",
+            RenderMode.Tsunamis => "TSUNAMI WAVE HEIGHT",
             _ => "LEGEND"
         };
     }
@@ -1253,6 +1255,7 @@ public class TerrainRenderer
             RenderMode.Infrastructure => new List<string> { "Roads", "Energy", "Hubs" },
             RenderMode.SpectralBands => new List<string> { "Cooling", "Balanced", "Heating" },
             RenderMode.Auroras => new List<string> { "None", "Weak", "Strong" },
+            RenderMode.Tsunamis => new List<string> { "Calm", "High Wave", "Catastrophic" },
             _ => new List<string>()
         };
     }
@@ -1374,6 +1377,7 @@ public class TerrainRenderer
             RenderMode.Radiation => GetRadiationGradientColor(t),
             RenderMode.SpectralBands => GetSpectralBandsGradientColor(t),
             RenderMode.Auroras => GetAuroraGradientColor(t),
+            RenderMode.Tsunamis => LerpColor(new Color(100, 150, 255), Color.White, t),
             _ => Color.Gray
         };
     }
