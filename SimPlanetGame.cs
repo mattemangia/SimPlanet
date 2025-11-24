@@ -699,7 +699,14 @@ public class SimPlanetGame : Game
         }
 
         // View mode controls
-        if (keyState.IsKeyDown(Keys.D1)) SetRenderMode(RenderMode.Terrain);
+        if (keyState.IsKeyDown(Keys.D1) && _previousKeyState.IsKeyUp(Keys.D1))
+        {
+            // Cycle between Terrain (Full) and TerrainClean (Base only)
+            if (_currentRenderMode == RenderMode.Terrain)
+                SetRenderMode(RenderMode.TerrainClean);
+            else
+                SetRenderMode(RenderMode.Terrain);
+        }
         if (keyState.IsKeyDown(Keys.D2)) SetRenderMode(RenderMode.Temperature);
         if (keyState.IsKeyDown(Keys.D3)) SetRenderMode(RenderMode.Rainfall);
         if (keyState.IsKeyDown(Keys.D4)) SetRenderMode(RenderMode.Life);
