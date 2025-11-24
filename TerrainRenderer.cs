@@ -126,6 +126,7 @@ public class TerrainRenderer
                 Color baseColor = Mode switch
                 {
                     RenderMode.Terrain => GetTerrainColor(cell),
+                    RenderMode.TerrainClean => GetTerrainColor(cell),
                     RenderMode.Temperature => GetTemperatureColor(cell),
                     RenderMode.Rainfall => GetRainfallColor(cell),
                     RenderMode.Life => GetLifeColor(cell),
@@ -153,7 +154,7 @@ public class TerrainRenderer
                 };
 
                 // Apply day/night cycle if enabled
-                if (ShowDayNight && Mode == RenderMode.Terrain)
+                if (ShowDayNight && (Mode == RenderMode.Terrain || Mode == RenderMode.TerrainClean))
                 {
                     baseColor = ApplyDayNightCycle(baseColor, cell, x, y);
                 }
@@ -277,6 +278,10 @@ public class TerrainRenderer
             TerrainType.Tundra => new Color(195, 215, 205),         // Pale blue-green
             _ => Color.Gray
         };
+
+        // If Clean mode, return base color immediately (skipping overlays)
+        if (Mode == RenderMode.TerrainClean)
+            return baseColor;
 
         // Volcanic Rock Overlay - darkens terrain
         var geo = cell.GetGeology();
@@ -1520,5 +1525,6 @@ public enum RenderMode
     Tsunamis,       // Tsunami waves and coastal flooding
     Infrastructure, // Civilization infrastructure (roads, energy, etc.)
     SpectralBands,             // Radiative transfer with shortwave/longwave fluxes
-    Civilizations              // Political map showing civilization territories
+    Civilizations,             // Political map showing civilization territories
+    TerrainClean               // Base terrain only (no overlays)
 }

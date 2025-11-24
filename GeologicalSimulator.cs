@@ -22,6 +22,7 @@ public class GeologicalSimulator
     private int[,] _plateMap;
     private const int NumPlates = 8;
     private float _geologicalTime = 0;
+    private readonly PerlinNoise _boundaryNoise;
 
     // Control parameters for planetary controls UI
     public float TectonicActivityLevel { get; set; } = 1.0f;
@@ -40,6 +41,7 @@ public class GeologicalSimulator
         _map = map;
         _random = new Random(seed + 1000);
         _simulationRandom = new Random(); // Non-deterministic for simulation events
+        _boundaryNoise = new PerlinNoise(seed + 12345);
         _plateMap = new int[map.Width, map.Height];
 
         InitializePlates();
@@ -455,39 +457,25 @@ public class GeologicalSimulator
 
                             // Mountain building or subduction
                             double arcChance = 0.00002 * volcanicScale;
-                            float upliftRate = 0.005f * tectonicScale;
+
+                            // PATCHY UPLIFT FIX: Use Perlin noise to break up the "continuous wall"
+                            // This makes trenches and mountains form in segments rather than perfectly continuous lines
+                            float boundaryNoise = _boundaryNoise.OctaveNoise(x * 0.1f, y * 0.1f, 2, 0.5f, 2.0f);
+                            float upliftRate = 0.005f * tectonicScale * (boundaryNoise * 0.5f + 0.5f); // Modulate rate
+
+                            // Threshold for uplift to happen at all (creates gaps)
+                            bool activeSegment = boundaryNoise > -0.2f;
 
                             if (plate1.IsOceanic && !plate2.IsOceanic)
                             {
                                 // Oceanic subducts under continental (Andes)
-                                // Trench on oceanic side (this cell), Mountains on continental side (neighbor)
+                                // Trench on oceanic side (this cell)
 
-                                // Determine which side is which
-                                // Current cell (x,y) is plate1 (Oceanic)
-                                // Neighbor (nx,ny) is plate2 (Continental)
-
-                                // This cell (Oceanic) subducts -> Trench
-                                cell.Elevation -= upliftRate * 0.5f;
-
-                                // Continental neighbor -> Mountains
-                                if (!plate2.IsOceanic) // Double check neighbor is continental
+                                if (activeSegment)
                                 {
-                                    // We can't modify neighbor directly here safely in all contexts without locking if parallel,
-                                    // but this loop is likely sequential.
-                                    // However, the loop iterates over all cells, so we should only modify 'cell'.
-                                    // But wait, we are iterating x,y. 'cell' is plate1.
-                                    // If we only modify 'cell', we need to handle both sides of the boundary as we iterate.
-
-                                    // Since we visit every cell, we will visit the continental cell later (or already have).
-                                    // So we only need to handle what happens to *this* cell based on its role.
-
                                     // Logic: I am Oceanic. Neighbor is Continental. I subduct.
                                     cell.Elevation -= upliftRate * 0.5f; // Form Trench
                                 }
-
-                                // Volcanism happens on the OVERRIDING plate (Continental), not the subducting one.
-                                // So as the oceanic plate, I don't get volcanoes usually.
-                                // But wait, if I am iterating over the continental plate cell later, I should handle volcanism there.
 
                                 geo.TectonicStress += 0.02f * tectonicScale;
                                 geo.SubductionRate = relVel * 0.01f;
@@ -498,10 +486,13 @@ public class GeologicalSimulator
                                 // I am Continental. Neighbor is Oceanic.
                                 // I get uplift (mountains) and volcanoes.
 
-                                cell.Elevation += upliftRate; // Mountain building
+                                if (activeSegment)
+                                {
+                                    cell.Elevation += upliftRate; // Mountain building
+                                }
 
-                                // Volcanic arc on continental side
-                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < arcChance)
+                                // Volcanic arc on continental side - use noise for patchiness
+                                if (!geo.IsVolcano && activeSegment && _simulationRandom.NextDouble() < arcChance)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -513,12 +504,15 @@ public class GeologicalSimulator
                             else if (!plate1.IsOceanic && !plate2.IsOceanic)
                             {
                                 // Continent-Continent Collision (Himalayas)
-                                // Massive uplift for both sides
-                                cell.Elevation += upliftRate * 1.5f;
+                                if (activeSegment)
+                                {
+                                    // Massive uplift for both sides
+                                    cell.Elevation += upliftRate * 1.5f;
+                                }
                                 geo.TectonicStress += 0.03f * tectonicScale;
 
                                 // Occasional volcanism (tibetan plateau style)
-                                if (!geo.IsVolcano && cell.Elevation > 0.6f && _simulationRandom.NextDouble() < 0.002 * volcanicScale)
+                                if (!geo.IsVolcano && cell.Elevation > 0.6f && activeSegment && _simulationRandom.NextDouble() < 0.002 * volcanicScale)
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.3f;
@@ -527,21 +521,20 @@ public class GeologicalSimulator
                             else if (plate1.IsOceanic && plate2.IsOceanic)
                             {
                                 // Ocean-Ocean Convergence (Island Arcs)
-                                // Older/Denser plate subducts. We use density if available, or random/ID.
-                                // TectonicPlate has Density.
-
                                 if (plate1.Density > plate2.Density)
                                 {
                                     // I am denser -> I subduct -> Trench
-                                    cell.Elevation -= upliftRate * 0.5f;
+                                    if (activeSegment)
+                                        cell.Elevation -= upliftRate * 0.5f;
                                 }
                                 else
                                 {
                                     // I am lighter -> I ride over -> Island Arc
-                                    cell.Elevation += upliftRate * 0.8f;
+                                    if (activeSegment)
+                                        cell.Elevation += upliftRate * 0.8f;
 
-                                    // Island arc volcanism
-                                    if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.00005 * volcanicScale)
+                                    // Island arc volcanism - patchy
+                                    if (!geo.IsVolcano && activeSegment && _simulationRandom.NextDouble() < 0.00005 * volcanicScale)
                                     {
                                         cell.Elevation += 0.05f; // Build island base
                                         geo.IsVolcano = true;
@@ -823,7 +816,7 @@ public class GeologicalSimulator
         }
 
         cell.Elevation += elevationIncrease;
-        geo.VolcanicRock += 0.3f;
+        geo.VolcanicRock += 0.3f; // Direct lava adds to volcanic rock
         cell.Temperature += 20 * (vei + 1);
         cell.CO2 += 1.0f * (vei + 1);
 
@@ -831,7 +824,10 @@ public class GeologicalSimulator
         var neighbors = _map.GetNeighbors(x, y).OrderBy(n => n.cell.Elevation).Take(3);
         foreach (var (nx, ny, neighbor) in neighbors)
         {
-            neighbor.GetGeology().VolcanicRock += 0.1f;
+            // BUGFIX: Lava adds to volcanic rock (direct contact), but we should be careful not to overfill
+            // neighbor.GetGeology().VolcanicRock += 0.1f;
+            // Instead, assume lava cools into new rock layer on top
+            neighbor.GetGeology().VolcanicRock = Math.Min(1.0f, neighbor.GetGeology().VolcanicRock + 0.1f);
             neighbor.Biomass *= 0.7f; // Lava destroys life
         }
     }
@@ -869,7 +865,17 @@ public class GeologicalSimulator
                 if (distance > radius) continue;
 
                 var neighbor = _map.Cells[nx, ny];
-                neighbor.GetGeology().VolcanicRock += 0.05f * (1.0f - distance / radius);
+                // BUGFIX: Distant fallout is ash/tephra (sediment), not solid volcanic rock
+                // Only very close neighbors get solid rock
+                if (distance <= 1.5f)
+                {
+                    neighbor.GetGeology().VolcanicRock = Math.Min(1.0f, neighbor.GetGeology().VolcanicRock + 0.05f);
+                }
+                else
+                {
+                    neighbor.GetGeology().SedimentLayer += 0.05f * (1.0f - distance / radius);
+                    neighbor.GetGeology().SedimentColumn.Add(SedimentType.Volcanic);
+                }
                 neighbor.Biomass *= (0.8f - distance / radius * 0.2f);
             }
         }
@@ -902,7 +908,11 @@ public class GeologicalSimulator
                 var neighbor = _map.Cells[nx, ny];
                 float effect = 1.0f - distance / radius;
 
-                neighbor.GetGeology().VolcanicRock += 0.08f * effect;
+                // BUGFIX: Ash cloud deposits SEDIMENT, not solid volcanic rock
+                // This prevents the "Dark Brown World" bug where ash turns the entire crust into basalt
+                neighbor.GetGeology().SedimentLayer += 0.08f * effect;
+                neighbor.GetGeology().SedimentaryRock += 0.01f * effect; // Some compacts immediately
+
                 neighbor.Temperature += 15 * effect;
                 neighbor.Biomass *= (1.0f - 0.4f * effect); // Ash kills plants
 
@@ -953,14 +963,18 @@ public class GeologicalSimulator
                 {
                     neighbor.Biomass = 0;
                     neighbor.Temperature += 200;
+                    // Close range gets some solid rock
+                    neighbor.GetGeology().VolcanicRock = Math.Min(1.0f, neighbor.GetGeology().VolcanicRock + 0.15f * effect);
                 }
                 else
                 {
                     neighbor.Biomass *= (1.0f - 0.8f * effect);
                     neighbor.Temperature += 30 * effect;
+
+                    // BUGFIX: Distant fallout is purely sediment
+                    neighbor.GetGeology().SedimentLayer += 0.15f * effect;
                 }
 
-                neighbor.GetGeology().VolcanicRock += 0.15f * effect;
                 neighbor.CO2 += 2.0f * effect;
 
                 // Heavy volcanic ash layers
@@ -1006,7 +1020,9 @@ public class GeologicalSimulator
                 var neighbor = _map.Cells[nx, ny];
                 float effect = 1.0f - distance / radius;
 
-                neighbor.GetGeology().VolcanicRock += 0.1f * effect;
+                // BUGFIX: Ash is sediment, not solid rock
+                neighbor.GetGeology().SedimentLayer += 0.1f * effect;
+
                 neighbor.Temperature += 25 * effect;
                 neighbor.Biomass *= (1.0f - 0.6f * effect);
                 neighbor.Humidity += 0.2f * effect; // Steam adds moisture
