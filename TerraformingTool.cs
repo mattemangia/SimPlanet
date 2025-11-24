@@ -5,7 +5,7 @@ using System;
 
 namespace SimPlanet;
 
-public class TerraformingTool
+public class TerraformingTool : IDisposable
 {
     private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
@@ -109,5 +109,10 @@ public class TerraformingTool
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
         spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
+    }
+
+    public void Dispose()
+    {
+        _pixelTexture?.Dispose();
     }
 }

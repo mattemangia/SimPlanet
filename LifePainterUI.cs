@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace SimPlanet;
 
-public class LifePainterUI
+public class LifePainterUI : IDisposable
 {
     private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
@@ -106,5 +106,10 @@ public class LifePainterUI
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
         spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
+    }
+
+    public void Dispose()
+    {
+        _pixelTexture?.Dispose();
     }
 }
