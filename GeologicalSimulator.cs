@@ -423,10 +423,28 @@ public class GeologicalSimulator
                 bool isBoundary = false;
                 var neighbors = _map.GetNeighbors(x, y).ToList();
 
+                // User-created faults override plate boundaries
+                if (geo.IsManualFault)
+                {
+                    isBoundary = true;
+                    geo.BoundaryType = PlateBoundaryType.Transform;
+                    geo.TectonicStress += 0.05f * tectonicScale; // Higher stress buildup
+                    geo.IsFault = true;
+
+                    // Earthquakes on manual faults
+                    if (geo.TectonicStress > 1.0f && _simulationRandom.NextDouble() < 0.05 * tectonicScale)
+                    {
+                        Earthquakes.Enqueue(new EarthquakeEvent { X = x, Y = y, Magnitude = geo.TectonicStress, Year = currentYear });
+                        geo.TectonicStress = 0;
+                    }
+
+                    // Trigger neighbors to also be faults? No, just the line.
+                }
+
                 foreach (var (nx, ny, neighbor) in neighbors)
                 {
                     int neighborPlate = _plateMap[nx, ny];
-                    if (neighborPlate != plateId)
+                    if (neighborPlate != plateId && !geo.IsManualFault) // Don't override manual fault
                     {
                         isBoundary = true;
 

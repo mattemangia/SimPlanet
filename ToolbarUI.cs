@@ -129,6 +129,7 @@ namespace SimPlanet
             AddSubButton(toolsGroup, "Disasters (D)", "Feature", () => game.ToggleDisasters());
             AddSubButton(toolsGroup, "Diseases (K)", "Feature", () => game.ToggleDiseases());
             AddSubButton(toolsGroup, "Terraforming Tool (T)", "Feature", () => game.ToggleTerraformingTool());
+            AddSubButton(toolsGroup, "Manual Fault Tool", "Feature", () => game.ToggleManualFaultTool());
             AddSubButton(toolsGroup, "Geological Profile (J)", "Feature", () => game.ToggleProfileTool());
             AddSubButton(toolsGroup, "Planet Controls (X)", "Feature", () => game.TogglePlanetControls());
             buttons.Add(toolsGroup);
@@ -295,6 +296,7 @@ namespace SimPlanet
             else if (tooltip.Contains("Stabilizer")) DrawStabilizerIcon(data, size);
             else if (tooltip.Contains("Graphs")) DrawGraphIcon(data, size);
             else if (tooltip.Contains("Terraforming")) DrawTerraformingIcon(data, size);
+            else if (tooltip.Contains("Manual Fault")) DrawFaultIcon(data, size);
             else if (tooltip.Contains("Geological Profile")) DrawProfileIcon(data, size);
             else if (tooltip.Contains("Planet Controls")) DrawPlanetControlsIcon(data, size);
             else if (tooltip.Contains("Spectral")) DrawSpectralIcon(data, size);

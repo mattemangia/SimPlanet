@@ -77,6 +77,7 @@ public class SimPlanetGame : Game
     private Graphs _graphs;
     private LifePainterUI _lifePainterUI;
     private TerraformingTool _terraformingTool;
+    private ManualFaultTool _manualFaultTool;
     private ProfileTool _profileTool;
     private GeologicalProfileViewer _profileViewer;
     private BottomControlUI _bottomControlUI;
@@ -400,6 +401,7 @@ public class SimPlanetGame : Game
 
         // Create terraforming tool
         _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
+        _manualFaultTool = new ManualFaultTool(GraphicsDevice, _font, _map);
 
         // Create profile tool and viewer
         _profileTool = new ProfileTool(GraphicsDevice, _font, _map);
@@ -619,6 +621,7 @@ public class SimPlanetGame : Game
             _lifePainterUI.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
 
             _terraformingTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY);
+            _manualFaultTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
 
             _profileTool.Update(mouseState, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
             _profileViewer.Update(mouseState);
@@ -1157,6 +1160,9 @@ public class SimPlanetGame : Game
             _terraformingTool?.Dispose();
             _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
 
+            _manualFaultTool?.Dispose();
+            _manualFaultTool = new ManualFaultTool(GraphicsDevice, _font, _map);
+
             // Update profile tool
             _profileTool?.Dispose();
             _profileTool = new ProfileTool(GraphicsDevice, _font, _map);
@@ -1479,6 +1485,9 @@ public class SimPlanetGame : Game
         // Draw terraforming tool UI
         _terraformingTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
+        // Draw manual fault tool UI
+        _manualFaultTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
+
         // Draw profile tool UI
         _profileTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
         _profileViewer.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
@@ -1735,6 +1744,7 @@ public class SimPlanetGame : Game
         _profileViewer?.Dispose();
         _lifePainterUI?.Dispose();
         _terraformingTool?.Dispose();
+        _manualFaultTool?.Dispose();
         _spriteBatch?.Dispose();
         _graphics?.Dispose();
     }
@@ -1878,6 +1888,11 @@ public class SimPlanetGame : Game
     public void ToggleTerraformingTool()
     {
         _terraformingTool.IsVisible = !_terraformingTool.IsVisible;
+    }
+
+    public void ToggleManualFaultTool()
+    {
+        _manualFaultTool.IsVisible = !_manualFaultTool.IsVisible;
     }
 
     public void ToggleProfileTool()

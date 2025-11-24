@@ -124,6 +124,7 @@ public class GeologicalData
     public bool IsHotSpot { get; set; }  // Hot spot volcano (away from plate boundaries)
 
     // Seismic activity (earthquakes and faults)
+    public bool IsManualFault { get; set; } // User-created fault line
     public bool IsFault { get; set; }  // Is this cell on a fault line?
     public FaultType FaultType { get; set; } = FaultType.None;
     public float FaultActivity { get; set; }  // 0-1, how active the fault is
