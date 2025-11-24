@@ -271,4 +271,97 @@ public static class TsunamiSystem
 
         return nearOcean; // Moderate risk if just near ocean
     }
+
+    /// <summary>
+    /// Initialize a massive tsunami from an impact (asteroid, nuclear explosion)
+    /// </summary>
+    public static void InitiateTsunamiFromImpact(PlanetMap map, int impactX, int impactY, float impactSize, int currentYear)
+    {
+        // Find water cells near impact
+        int searchRadius = (int)(impactSize * 10);
+        float baseWaveHeight = impactSize * 8.0f;  // Massive waves from impacts
+
+        for (int dx = -searchRadius; dx <= searchRadius; dx++)
+        {
+            for (int dy = -searchRadius; dy <= searchRadius; dy++)
+            {
+                int nx = (impactX + dx + map.Width) % map.Width;
+                int ny = impactY + dy;
+                if (ny < 0 || ny >= map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > searchRadius) continue;
+
+                var cell = map.Cells[nx, ny];
+                if (!cell.IsWater) continue;
+
+                // Wave height decreases with distance
+                float waveHeight = baseWaveHeight * (1.0f - distance / searchRadius);
+                waveHeight = Math.Clamp(waveHeight, 0, 30.0f);
+
+                if (waveHeight > cell.Geology.TsunamiWaveHeight)
+                {
+                    cell.Geology.TsunamiWaveHeight = waveHeight;
+                    cell.Geology.TsunamiSourceYear = currentYear;
+                    cell.Geology.TsunamiVelocity = 1.0f;
+
+                    // Direction away from impact
+                    if (distance > 0)
+                    {
+                        float dirX = dx / distance;
+                        float dirY = dy / distance;
+                        cell.Geology.TsunamiDirection = (dirX, dirY);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Initialize a tsunami from a nuclear explosion in or near water
+    /// </summary>
+    public static void InitiateTsunamiFromNuke(PlanetMap map, int nukeX, int nukeY, bool isWeapon, int currentYear)
+    {
+        float baseHeight = isWeapon ? 15.0f : 5.0f;  // Nuclear weapons create bigger waves
+        int radius = isWeapon ? 30 : 15;
+
+        var epicenter = map.Cells[nukeX, nukeY];
+
+        // If nuke is in water, create massive displacement wave
+        if (epicenter.IsWater)
+        {
+            epicenter.Geology.TsunamiWaveHeight = baseHeight;
+            epicenter.Geology.TsunamiSourceYear = currentYear;
+            epicenter.Geology.TsunamiVelocity = 1.0f;
+            epicenter.Geology.TsunamiDirection = (0, 0);  // Omnidirectional
+            return;
+        }
+
+        // If nuke is on coast, create waves in nearby water
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                int nx = (nukeX + dx + map.Width) % map.Width;
+                int ny = nukeY + dy;
+                if (ny < 0 || ny >= map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > radius) continue;
+
+                var cell = map.Cells[nx, ny];
+                if (!cell.IsWater) continue;
+
+                float waveHeight = baseHeight * (1.0f - distance / radius);
+                waveHeight = Math.Clamp(waveHeight, 0, 20.0f);
+
+                if (waveHeight > cell.Geology.TsunamiWaveHeight)
+                {
+                    cell.Geology.TsunamiWaveHeight = waveHeight;
+                    cell.Geology.TsunamiSourceYear = currentYear;
+                    cell.Geology.TsunamiVelocity = 0.9f;
+                }
+            }
+        }
+    }
 }

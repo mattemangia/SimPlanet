@@ -6,6 +6,83 @@ All notable changes to this project will be documented in this file.
 
 ### New Features
 
+- **Coastal/Beach Biome**: Added proper coastal environment detection and rendering. Beach terrain now displays correctly along coastlines with sandy textures, shells, pebbles, and wet sand near water.
+- **Procedural Terrain Textures**: Completely rewritten terrain rendering with procedural patterns for all biome types:
+  - Deep ocean with depth-based coloring
+  - Shallow water with wave patterns
+  - Beaches with shells and pebbles
+  - Grasslands with field patterns
+  - Forests with tree canopy variation and clearings
+  - Deserts with dune wave patterns and rocky outcrops
+  - Mountains with rocky textures and snow caps
+  - Tundra with mossy rocks and permafrost
+  - Ice with cracks and snow variation
+- **Catastrophic Asteroid Impacts**: Completely overhauled asteroid impacts with realistic effects:
+  - Multi-phase destruction: crater formation, thermal blast, shockwave
+  - Crater sizes now 5x larger with proper ejecta rings
+  - Incinerates area and destroys all life/infrastructure in blast zone
+  - Triggers widespread fires in surrounding regions
+  - Impact winter effect (reduced solar energy)
+  - Triggers massive tsunamis if impact is in/near water
+  - Extinction-level events for size 5 asteroids
+- **Enhanced Nuclear Effects**: Nuclear explosions now have realistic multi-phase effects:
+  - Fireball vaporization zone (for weapons)
+  - Thermal blast zone with burns and infrastructure destruction
+  - Radiation zone with contamination and life mutation/death
+  - Fallout zone with persistent radioactive contamination
+  - Nuclear winter effect for weapons
+  - Triggers tsunamis if detonated in/near water
+- **Tsunami System Enhancements**: Added new tsunami triggers:
+  - `InitiateTsunamiFromImpact()` for asteroid impacts
+  - `InitiateTsunamiFromNuke()` for nuclear explosions
+  - Proper wave propagation from impact point
+- **EMP (Electromagnetic Pulse) Effect**: Nuclear weapons now generate realistic EMP:
+  - Massive radius (80 cells) - much larger than blast
+  - Disables all electronics and power infrastructure
+  - Increases meltdown risk for nuclear plants
+  - Solar farms and wind turbines lose power output
+  - Power lines and stations disabled
+  - 5-year recovery time for affected areas
+- **Electricity/Power Grid View**: New render mode to visualize power infrastructure:
+  - Shows power generation (nuclear plants, solar farms, wind turbines)
+  - Power distribution (stations, transmission lines)
+  - Powered vs unpowered civilization areas
+  - EMP-disabled zones highlighted in red
+  - Power consumption intensity visualization
+- **Realistic Water Formation**: Water no longer automatically fills depressions:
+  - Ocean connectivity tracking (flood-fill algorithm)
+  - Depressions only fill if connected to ocean OR receive rainfall/rivers
+  - Isolated basins remain dry and display as salt flats
+  - Gradual lake formation from rainfall accumulation
+  - Evaporation in hot climates
+- **Dry Basin Visualization**: Isolated depressions without water sources now display as:
+  - Salt flats (deep depressions)
+  - Dry cracked clay
+  - Red/brown dirt in hot climates
+
+### UI & Visuals
+
+- **Disaster Effects Overlay**: Visual indicators for disaster damage:
+  - Impact craters shown as dark scorched earth
+  - Blast damage shown as burned/charred terrain
+  - Impact scorching with orange/red burn marks
+  - Radioactive contamination with sickly green/yellow glow
+- **Lake Formation**: Partially filled basins show gradual transition from dry to water
+
+### Improvements & Technical
+
+- **Tundra Terrain Type**: Now properly detected based on temperature and elevation
+- **Ocean Connectivity**: Flood-fill algorithm determines which depressions are connected to ocean
+- **Disaster Recovery**: Improved recovery tracking for long-term disaster effects
+
+### Fixes
+
+- Fixed coastal/beach terrain type never being returned by `GetTerrainType()`
+- Fixed asteroids and nukes having minimal visual/environmental impact
+- Fixed water appearing instantly in any depression regardless of water source
+
+---
+
 - **Headless Mode**: Added `HeadlessSimulation` to support running the simulation without a GUI using the `--no-gui` command-line argument. Ideal for performance testing or server environments.
 - **Geological Profile Tool (J)**: Added a new tool to draw a cross-section line on the map and view a detailed 2D subsurface profile window, visualizing crust, sediment layers, magma chambers, and water depth.
 - **Graphing System (Y)**: Implemented a real-time graphing overlay to track planetary metrics over time, including Global Temperature, Oxygen, CO2, Population, and Biomass.

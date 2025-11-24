@@ -44,6 +44,9 @@ public class TerrainCell
     public bool IsDesert => Rainfall < 0.2f && IsLand;
     public bool IsForest => Rainfall > 0.5f && Temperature > 5 && IsLand && Biomass > 0.3f;
 
+    // Cache for coastal detection (set by simulation)
+    public bool IsCoastal { get; set; }
+
     public TerrainType GetTerrainType()
     {
         if (IsIce) return TerrainType.Ice;
@@ -53,7 +56,14 @@ public class TerrainCell
             return TerrainType.ShallowWater;
         }
 
+        // Coastal/Beach detection - low elevation land near water
+        if (IsCoastal && Elevation >= 0 && Elevation < 0.08f)
+        {
+            return TerrainType.Beach;
+        }
+
         if (Elevation > 0.7f) return TerrainType.Mountain;
+        if (Temperature < -5 && Elevation > 0.3f) return TerrainType.Tundra;
         if (IsForest) return TerrainType.Forest;
         if (IsDesert) return TerrainType.Desert;
         if (Rainfall > 0.4f) return TerrainType.Grassland;

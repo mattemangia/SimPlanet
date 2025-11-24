@@ -160,6 +160,11 @@ public class GeologicalData
     public float FloodLevel { get; set; }  // Current flood water level
     public float TideLevel { get; set; }  // Tidal variation
 
+    // Realistic water accumulation
+    public float AccumulatedWater { get; set; } = 0.0f;  // Water depth in depression (forms lakes)
+    public bool IsConnectedToOcean { get; set; } = false; // True if this depression connects to ocean
+    public bool IsDryBasin { get; set; } = false;        // Depression without water source
+
     // Ocean properties for thermohaline circulation
     public float Salinity { get; set; } = 35.0f;  // Parts per thousand (ppt), typical ocean is 35 ppt
     public float WaterDensity { get; set; } = 1.025f;  // g/cm³, calculated from temperature and salinity
@@ -175,8 +180,15 @@ public class GeologicalData
     public bool HasNuclearPlant { get; set; } = false;     // Nuclear power plant
     public bool HasSolarFarm { get; set; } = false;        // Solar panel array
     public bool HasWindTurbine { get; set; } = false;      // Wind turbine
+    public bool HasPowerLine { get; set; } = false;        // Power transmission line
+    public bool HasPowerStation { get; set; } = false;     // Power distribution station
     public int EnergyInfraBuiltYear { get; set; } = 0;     // Year infrastructure was built
     public float MeltdownRisk { get; set; } = 0.0f;        // Nuclear plant risk (0-1)
+    public float PowerOutput { get; set; } = 0.0f;         // Energy production (MW equivalent)
+    public float PowerConsumption { get; set; } = 0.0f;    // Energy consumption
+    public bool IsPowered { get; set; } = false;           // Has electricity access
+    public bool IsEMPAffected { get; set; } = false;       // Disabled by EMP
+    public int EMPRecoveryYear { get; set; } = 0;          // Year EMP effect ends
 
     // Age and composition
     public int CrustAge { get; set; }  // Millions of years
@@ -190,4 +202,12 @@ public class GeologicalData
     public float Limestone { get; set; } = 0.1f;   // Carbonate
     public float Sandstone { get; set; } = 0.1f;   // Clastic sediment
     public float Shale { get; set; } = 0.1f;       // Fine sediment
+
+    // Disaster effects
+    public float RadioactiveContamination { get; set; } = 0.0f;  // 0-1, from nuclear accidents
+    public float ImpactScorching { get; set; } = 0.0f;           // 0-1, burned from asteroid/nuke
+    public float BlastDamage { get; set; } = 0.0f;               // 0-1, shockwave damage
+    public int DisasterYear { get; set; } = 0;                   // Year of last major disaster
+    public bool IsInCrater { get; set; } = false;                // Inside impact crater
+    public float CraterDepth { get; set; } = 0.0f;               // Depth of crater at this point
 }
