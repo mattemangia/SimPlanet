@@ -67,6 +67,7 @@ All notable changes to this project will be documented in this file.
   - Blast damage shown as burned/charred terrain
   - Impact scorching with orange/red burn marks
   - Radioactive contamination with sickly green/yellow glow
+- **Toolbar Cleanup**: Removed duplicate game control buttons from the top toolbar to keep core controls in the bottom bar.
 - **Lake Formation**: Partially filled basins show gradual transition from dry to water
 
 ### Improvements & Technical
@@ -74,6 +75,8 @@ All notable changes to this project will be documented in this file.
 - **Tundra Terrain Type**: Now properly detected based on temperature and elevation
 - **Ocean Connectivity**: Flood-fill algorithm determines which depressions are connected to ocean
 - **Disaster Recovery**: Improved recovery tracking for long-term disaster effects
+- **Render Thread Performance**: Terrain texture updates no longer block the render thread, reducing stutters during map refreshes.
+- **Map Texture Stability**: Resolved rendering artifacts and lost updates during map texture generation after recent thread-safety changes.
 
 ### Fixes
 
