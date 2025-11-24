@@ -112,16 +112,6 @@ namespace SimPlanet
 
             x += categorySpacing;
 
-            // --- GAME CONTROLS (Ungrouped) ---
-            AddButton(ref x, y, "Pause/Resume (Space)", "Control", () => game.TogglePause());
-            AddButton(ref x, y, "Speed Up (+)", "Control", () => game.IncreaseTimeSpeed());
-            AddButton(ref x, y, "Speed Down (-)", "Control", () => game.DecreaseTimeSpeed());
-            AddButton(ref x, y, "Quick Save (F5)", "Control", () => game.QuickSave());
-            AddButton(ref x, y, "Quick Load (F9)", "Control", () => game.QuickLoad());
-            AddButton(ref x, y, "Regenerate (R)", "Control", () => game.RegeneratePlanet());
-
-            x += categorySpacing;
-
             // --- TOOLS & FEATURES GROUP ---
             var toolsGroup = CreateGroupButton(ref x, y, "Tools & Features", "Tools");
             AddSubButton(toolsGroup, "Life Painter (L)", "Feature", () => game.ToggleLifePainter());
