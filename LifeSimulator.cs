@@ -74,6 +74,7 @@ public class LifeSimulator
 
     public void Update(float deltaTime, GeologicalSimulator? geoSim = null, WeatherSystem? weatherSys = null)
     {
+        if (_map == null) return; // Safety check
         UpdateLifeSupportProfile();
         
         // Countdown grace period in game years

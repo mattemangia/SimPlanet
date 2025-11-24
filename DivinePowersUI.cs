@@ -459,7 +459,6 @@ public class DivinePowersUI
         // Button text
         var textSize = _font.MeasureString(text);
         // Scale down text if too wide
-        float scale = 1.0f;
         if (textSize.X > bounds.Width - 10)
         {
             // Simple workaround since font renderer doesn't support scaling yet: truncate

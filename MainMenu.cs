@@ -23,7 +23,7 @@ public class MainMenu
     private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
     private Texture2D _pixelTexture;
-    private Texture2D _splashBackground;
+    private Texture2D? _splashBackground;
 
     public GameScreen CurrentScreen { get; set; } = GameScreen.MainMenu;
 

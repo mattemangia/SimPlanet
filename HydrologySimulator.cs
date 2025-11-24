@@ -613,7 +613,8 @@ public class HydrologySimulator
                 // Deep water formation at high latitudes (polar regions)
                 // Use smooth probability for formation
                 float deepWaterProbability = Math.Max(0, (latitude - 0.65f) / 0.25f);
-                if (deepWaterProbability > 0 && cell.Elevation < -0.3f && _threadRandom.Value.NextDouble() < deepWaterProbability)
+                var random = _threadRandom.Value ?? new Random();
+                if (deepWaterProbability > 0 && cell.Elevation < -0.3f && random.NextDouble() < deepWaterProbability)
                 {
                     // Cold, salty water is dense and sinks
                     if (cell.Temperature < 5 && geo.Salinity > 34)
@@ -692,7 +693,8 @@ public class HydrologySimulator
                 // Upwelling regions (low latitudes, coastal areas)
                 // Smooth probability based on latitude
                 float upwellingProbability = Math.Max(0, 1.0f - (latitude / 0.35f));
-                if (upwellingProbability > 0 && cell.Elevation > -0.3f && cell.Elevation < 0 && _threadRandom.Value.NextDouble() < upwellingProbability)
+                var threadRand = _threadRandom.Value ?? new Random();
+                if (upwellingProbability > 0 && cell.Elevation > -0.3f && cell.Elevation < 0 && threadRand.NextDouble() < upwellingProbability)
                 {
                     // Nutrient-rich deep water rises to surface
                     foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))

@@ -13,7 +13,7 @@ public class LoadingScreen
     private readonly FontRenderer _font;
     private readonly GraphicsDevice _graphics;
     private Texture2D _pixel;
-    private Texture2D _splashBackground;
+    private Texture2D? _splashBackground;
 
     public float Progress { get; set; } = 0f; // 0.0 to 1.0
     public string CurrentTask { get; set; } = "Loading...";

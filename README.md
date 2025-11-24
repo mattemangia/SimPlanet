@@ -463,6 +463,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **L** | Toggle Life Painter |
 | **M** | Toggle Map Options Menu (when in game) |
 | **T** | Toggle Terraforming Tool (Height Modifier) |
+| **U** | Toggle Manual Fault Tool |
 | **Y** | Toggle Graphs |
 | **\** | Toggle auto-stabilization system |
 | **P** | Toggle 3D rotating minimap |

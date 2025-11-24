@@ -82,6 +82,7 @@ public class PlanetMinimap3D
         _minimapTexture = new Texture2D(_graphicsDevice, MinimapSize, MinimapSize);
         _sphereTexture = new Texture2D(_graphicsDevice, _map.Width, _map.Height);
         _spherePixels = new Color[MinimapSize * MinimapSize];
+        _terrainColors = new Color[_map.Width * _map.Height]; // Initialize to avoid warning
         _previousMouseState = Mouse.GetState();
 
         // Initialize position immediately
