@@ -127,19 +127,21 @@ public class ManualFaultTool : IDisposable
             geo.IsManualFault = true;
             geo.IsFault = true; // For visualization
             geo.FaultType = _selectedFaultType;
+            geo.FaultActivity = 1.0f; // Set to maximum for visibility on fault map
+            geo.SeismicStress = 0.3f; // Some initial stress
             geo.BoundaryType = PlateBoundaryType.Transform; // Immediate visual feedback
 
             // Apply displacement based on fault type
             // Determine side of line using cross product (2D)
             // Line vector: (dx, dy), Point vector: (nx-xStart, ny-yStart)
-            // But wait, we are ON the line here (Bresenham).
-            // We need to displace the NEIGHBORS to create a step.
-            // Let's displace a small radius around the line.
             // "Right" side is relative to drawing direction.
             // Cross product: (x1-x0)*(ny-y0) - (y1-y0)*(nx-x0)
             // Positive = Left, Negative = Right (usually)
 
-            int radius = 2;
+            // IMPROVED: Larger radius and gradient-based displacement for realistic horst/graben
+            int radius = 5;
+            float maxDisplacement = 0.12f; // Stronger displacement for visible effects
+
             for (int dy2 = -radius; dy2 <= radius; dy2++)
             {
                 for (int dx2 = -radius; dx2 <= radius; dx2++)
@@ -147,24 +149,39 @@ public class ManualFaultTool : IDisposable
                     int nx2 = (nx + dx2 + _map.Width) % _map.Width;
                     int ny2 = Math.Clamp(ny + dy2, 0, _map.Height - 1);
 
-                    float cross = (x1 - start.X) * (ny2 - start.Y) - (y1 - start.Y) * (nx2 - start.X);
-                    // Correction for wrapping in cross product calculation?
-                    // Ignore wrapping for local direction check, assume local continuity
+                    // Calculate distance from fault line for gradient effect
+                    float dist = MathF.Sqrt(dx2 * dx2 + dy2 * dy2);
+                    if (dist > radius) continue;
 
-                    // Adjust displacement
+                    // Gradient: stronger near fault, weaker at distance
+                    float gradientFactor = 1.0f - (dist / radius);
+                    gradientFactor = gradientFactor * gradientFactor; // Quadratic falloff
+
+                    float cross = (x1 - start.X) * (ny2 - start.Y) - (y1 - start.Y) * (nx2 - start.X);
+
+                    // Adjust displacement based on fault type
                     float displacement = 0.0f;
                     if (_selectedFaultType == FaultType.Normal)
                     {
-                        // Drop right side
-                        if (cross < 0) displacement = -0.05f;
-                        else displacement = 0.02f; // Slight uplift on footwall
+                        // NORMAL FAULT: Creates graben (rift valley)
+                        // Hanging wall (right/negative cross) drops down
+                        // Footwall (left/positive cross) stays or rises slightly
+                        if (cross < 0)
+                            displacement = -maxDisplacement * gradientFactor; // Drop hanging wall
+                        else
+                            displacement = maxDisplacement * 0.3f * gradientFactor; // Slight uplift footwall
                     }
                     else if (_selectedFaultType == FaultType.Thrust)
                     {
-                        // Raise right side (thrust over)
-                        if (cross < 0) displacement = 0.05f;
-                        else displacement = -0.02f;
+                        // THRUST FAULT: Creates mountain/ridge
+                        // Hanging wall (right/negative cross) is pushed up and over
+                        // Footwall (left/positive cross) is depressed
+                        if (cross < 0)
+                            displacement = maxDisplacement * gradientFactor; // Uplift hanging wall
+                        else
+                            displacement = -maxDisplacement * 0.3f * gradientFactor; // Depress footwall
                     }
+                    // Strike-slip faults have minimal vertical displacement
 
                     // Apply to cell
                     if (displacement != 0)
