@@ -781,6 +781,36 @@ public class ClimateSimulator
         // Apply water level change
         _map.Options.WaterLevel = Math.Clamp(_map.Options.WaterLevel + waterLevelChange, -1.0f, 1.0f);
 
+        // Apply sea level change to actual terrain elevation
+        // waterLevelChange > 0 means sea rising, so land elevation relative to sea decreases
+        if (Math.Abs(waterLevelChange) > 0.000001f)
+        {
+            // Count how many cells contributed to the volume (to adjust previous tracking)
+            float iceArea = 0;
+
+            for (int x = 0; x < _map.Width; x++)
+            {
+                for (int y = 0; y < _map.Height; y++)
+                {
+                    var cell = _map.Cells[x, y];
+                    // Apply global sea level shift
+                    cell.Elevation -= waterLevelChange;
+
+                    // Track area for adjustment
+                    if (cell.IsLand && cell.IsIce && cell.Elevation > 0)
+                    {
+                        iceArea += 1.0f; // Approximate area
+                    }
+                }
+            }
+
+            // Adjust previous volume tracking to account for the artificial shift in reference frame
+            // We lowered elevations by `waterLevelChange`, so next frame's volume calculation
+            // will be lower by `iceArea * waterLevelChange` purely due to this shift.
+            // We pre-adjust `currentIceVolume` (which becomes `_previousIceVolume`) to match this new baseline.
+            currentIceVolume -= iceArea * waterLevelChange;
+        }
+
         // Update tracking
         _previousIceVolume = currentIceVolume;
     }

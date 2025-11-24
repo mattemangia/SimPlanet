@@ -64,6 +64,10 @@ public class AtmosphereSimulator
                     oxygenChange -= 0.1f * deltaTime;
                 }
 
+                // Natural oxidation/weathering (prevents 100% saturation)
+                // Stabilizes around 20-25% with healthy biomass
+                oxygenChange -= cell.Oxygen * 0.025f * deltaTime;
+
                 cell.Oxygen = Math.Clamp(cell.Oxygen + oxygenChange, 0, 100);
             }
         }
