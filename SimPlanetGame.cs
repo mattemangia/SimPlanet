@@ -1441,7 +1441,10 @@ public class SimPlanetGame : Game
             _terrainRenderer.Mode = _currentRenderMode;
 
             // Update terrain texture only when dirty (performance optimization)
-            _terrainRenderer.UpdateTerrainTexture();
+            lock (_mapDataLock)
+            {
+                _terrainRenderer.UpdateTerrainTexture();
+            }
 
         // Split screen layout: Toolbar at top (36px), Info panel on left (280px), map on right
         int toolbarHeight = _toolbar.ToolbarHeight;
