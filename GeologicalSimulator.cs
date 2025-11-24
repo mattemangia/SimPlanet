@@ -771,6 +771,8 @@ public class GeologicalSimulator
                 PhreatomagmaticEruption(x, y, vei);
                 break;
         }
+
+        TryTriggerVolcanicTsunami(x, y, eruptionType, vei, year);
     }
 
     private EruptionType DetermineEruptionType(int x, int y, GeologicalData geo)
@@ -837,6 +839,19 @@ public class GeologicalSimulator
         cell.Temperature += 20 * (vei + 1);
         cell.CO2 += 1.0f * (vei + 1);
 
+        // Island-building: lava deltas extend nearby shallow waters into new land
+        if (cell.IsLand)
+        {
+            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+            {
+                if (neighbor.IsWater && neighbor.Elevation > -0.25f)
+                {
+                    neighbor.Elevation += elevationIncrease * 0.4f; // Build up shoreline
+                    neighbor.GetGeology().VolcanicRock = MathF.Min(1.0f, neighbor.GetGeology().VolcanicRock + 0.05f);
+                }
+            }
+        }
+
         // Lava flows to lower neighbors
         var neighbors = _map.GetNeighbors(x, y).OrderBy(n => n.cell.Elevation).Take(3);
         foreach (var (nx, ny, neighbor) in neighbors)
@@ -896,6 +911,35 @@ public class GeologicalSimulator
                 neighbor.Biomass *= (0.8f - distance / radius * 0.2f);
             }
         }
+    }
+
+    private void TryTriggerVolcanicTsunami(int x, int y, EruptionType eruptionType, int vei, int year)
+    {
+        // Only highly explosive eruptions in deep/oceanic settings should trigger tsunamis
+        if (vei < 4) return; // Need a VEI 4+ event
+        if (eruptionType != EruptionType.Plinian && eruptionType != EruptionType.Phreatomagmatic && eruptionType != EruptionType.Vulcanian)
+            return;
+
+        var cell = _map.Cells[x, y];
+
+        if (!cell.IsWater)
+            return; // Focus on mid-ocean seamounts
+
+        // Must be far from coastlines to represent "middle of the ocean"
+        bool nearLand = _map.GetNeighbors(x, y, radius: 4).Any(n => n.cell.IsLand);
+        if (nearLand)
+            return;
+
+        // Deeper water and higher VEI increase odds, but not guaranteed
+        float depthFactor = Math.Clamp(-cell.Elevation, 0.1f, 2.0f); // 0.1-2.0 for depth boost
+        float probability = Math.Clamp(0.18f + 0.06f * (vei - 4) + 0.05f * depthFactor, 0.0f, 0.7f);
+
+        if (_simulationRandom.NextDouble() > probability)
+            return;
+
+        // Convert VEI to an equivalent seismic magnitude for wave sizing
+        float pseudoMagnitude = 6.0f + 0.35f * vei + 0.15f * depthFactor;
+        TsunamiSystem.InitiateTsunamiFromVolcano(_map, x, y, pseudoMagnitude, year);
     }
 
     private void VulcanianEruption(int x, int y, int vei)
