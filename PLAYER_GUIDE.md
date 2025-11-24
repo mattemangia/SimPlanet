@@ -82,6 +82,48 @@ The interactive toolbar gives you one-click access to all features:
 - See day/night cycle, clouds, and ice coverage
 - Provides planetary context
 
+### New Features
+- **Graphing System (Press Y)**: View real-time graphs of key planetary metrics over time:
+  - **Temperature**: Global average temperature (°C)
+  - **Oxygen**: Atmospheric oxygen percentage
+  - **CO2**: Carbon dioxide levels (ppm)
+  - **Population**: Total civilization population
+  - **Biomass**: Total planetary biomass density
+- **Life Painter (Press L)**: Creative tool for painting specific life forms:
+  - **Left Click**: Paint the selected life form
+  - **Right Click**: Cycle through life forms (Bacteria -> Algae -> Plants -> ... -> Civilization)
+  - **Scroll Wheel**: Adjust brush size (1-20 radius)
+- **Terraforming Tool (Press T)**: Direct terrain height modification:
+  - **Left Click**: Raise or lower terrain height
+  - **Right Click**: Toggle between Raising (default) and Lowering mode
+  - **Scroll Wheel**: Adjust brush size
+- **Bottom Control Bar**: Quick access buttons at the bottom of the screen for simulation speed, pausing, saving/loading, map options, help, and planet regeneration.
+
+### Visualization Modes (Grouped Cycles)
+
+Visualization modes are now grouped by category. Press the corresponding number key repeatedly to cycle through the modes in that group.
+
+**1: Terrain & Geography Group**
+- Terrain, Terrain Clean, Elevation, Biomes
+
+**2: Weather & Climate Group**
+- Temperature, Rainfall, Pressure, Wind, Clouds, Storms
+
+**3: Atmosphere & Physics Group**
+- Oxygen, CO2, Radiation, Albedo, Spectral Bands, Auroras
+
+**4: Geology & Hazards Group**
+- Rock Types, Tectonic Plates, Volcanoes, Faults, Earthquakes, Tsunamis
+
+**5: Life & Civilization Group**
+- Life Forms, Civilizations (Political Map), Infrastructure, Resources
+
+### Geological Overlays (Toggle On/Off)
+- **Volcanoes**: Red triangles showing active volcanoes
+- **Rivers**: Blue lines showing river networks
+- **Plate Boundaries**: Highlighted convergent, divergent, and transform zones
+- **3D Minimap**: Rotating globe in bottom-left corner
+
 ---
 
 ## Core Concepts
@@ -241,6 +283,29 @@ Greenhouse gases trap heat:
    - Needs: Intelligent life, resources, stability
    - Technology, cities, environmental impact
    - Can reshape entire planet
+
+- **Life Evolution**:
+  - Bacteria → Algae → Plants → Simple Animals → Complex Animals → Intelligence → Civilization
+  - **Geological Eras**:
+    - **Precambrian**: Early simple life (Bacteria, Algae)
+    - **Paleozoic**: Fish, Amphibians, Reptiles (541-252 MYA)
+    - **Mesozoic**: Age of Dinosaurs (252-66 MYA)
+    - **Cenozoic**: Age of Mammals (66 MYA - Present)
+  - **Mass Extinctions**:
+    - **Permian Extinction** (252 MYA): "The Great Dying" - 96% of marine life dies
+    - **K-T Extinction** (66 MYA): Asteroid impact wipes out dinosaurs, mammals rise
+  - **Ecosystem Dynamics**:
+    - **Food Webs**: Herbivores eat plants, carnivores eat prey
+    - **Predator-Prey Balance**: Populations fluctuate based on food availability
+    - **Decomposition**: Dead biomass returns nutrients to the ecosystem
+  - Life spreads and adapts based on environmental conditions
+  - **Full reactivity to planetary events**:
+    - Volcanic eruptions cause mass extinctions in affected areas
+    - Earthquakes damage life based on magnitude
+    - Storms (hurricanes, tornadoes, blizzards) affect biomass
+    - Climate stress drives evolution and adaptation
+    - Sedimentation and environmental changes impact survival
+  - Biomass dynamics and ecosystem interactions
 
 **Biomass:**
 - Represents population density and ecosystem health
@@ -597,11 +662,12 @@ Take direct control over civilizations:
 
 ## Terraforming & Planetary Controls
 
-### Manual Terraforming Tool (Press T)
+### Manual Planting Tool (Toolbar -> Plant Tool)
 
 **Paint Terrain Types:**
 
-Click on cells to transform them:
+Access this tool via the **Toolbar -> Tools & Features -> Plant Tool**.
+A panel will appear on the left side of the screen. Select a type and click on the map.
 
 1. **Forest**
    - Creates dense vegetation
@@ -657,6 +723,18 @@ Click on cells to transform them:
 - Use mountains to create rain shadows (deserts)
 - Seed oceans for algae blooms (O2 boost)
 - Place civilization spawns in temperate zones
+
+### Terraforming Tool (Press T)
+
+**Height Modification:**
+
+Directly modify the planet's elevation map.
+
+- **Raise Terrain**: Left click to pull mountains up from the sea.
+- **Lower Terrain**: Right click to switch mode, then Left click to dig oceans or valleys.
+- **Brush Size**: Scroll wheel to adjust the area of effect.
+
+Use this to sculpt continents, create land bridges, or sink islands.
 
 ### Planetary Controls UI (Press X)
 
@@ -977,9 +1055,9 @@ Start with uninhabitable planet:
    - Raise core temperature → magnetosphere
    - Add water (ocean level)
    - Increase solar energy and CO2
-   - Seed bacteria when warm enough
+   - Seed bacteria when warm enough (use Plant Tool)
    - Wait for oxygen production
-   - Seed plants when O2 >10%
+   - Seed plants when O2 >10% (use Plant Tool)
    - Continue until breathable
 
 **Civilization Competition:**
@@ -1058,7 +1136,7 @@ Start with uninhabitable planet:
   - Check O2 >20%
   - Temperature must be 5-25°C in habitable zones
   - Ensure stable climate for extended period
-  - Manually seed civilization (Press T)
+  - Manually seed civilization (use Plant Tool)
   - Check resources available
 
 **Problem: Runaway Disasters**
@@ -1160,7 +1238,7 @@ Start with uninhabitable planet:
 | SPACE | Pause/Unpause | Toggle simulation |
 | + | Speed Up | Increase time speed |
 | - | Slow Down | Decrease time speed |
-| E | Auto-Stabilizer | Toggle equilibrium system |
+| E / \ | Auto-Stabilizer | Toggle equilibrium system |
 | N | New Game | Start new simulation |
 | M | Map Options | Planet configuration |
 | ESC | Menu | Pause menu |
@@ -1171,11 +1249,13 @@ Start with uninhabitable planet:
 | P | 3D Minimap | Toggle globe view |
 | I | Divine Powers | God mode interface |
 | D | Disasters | Disaster control |
-| G | Diseases | Pandemic management |
-| T | Terraforming | Manual planet editing |
+| G | Civilization | Civilization control |
+| K | Diseases | Pandemic management |
+| T | Terraforming | Height/Terrain modifier |
+| L | Life Painter | Paint life forms |
+| Y | Graphs | Planetary statistics graphs |
 | X | Planetary Controls | Parameter sliders |
 | S | Sediment Viewer | Click ocean to view |
-| L | Geological Events | Event log |
 
 ### Save/Load
 | Key | Action | Description |
