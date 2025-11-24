@@ -1959,12 +1959,27 @@ public class SimPlanetGame : Game
 
     public void ToggleManualFaultTool()
     {
-        _manualFaultTool.IsActive = !_manualFaultTool.IsActive;
+        bool newState = !_manualFaultTool.IsActive;
+        // Deactivate other conflicting tools when activating this one
+        if (newState)
+        {
+            _profileTool.IsActive = false;
+            _profileTool.Reset();
+            _terraformingTool.IsVisible = false;
+        }
+        _manualFaultTool.IsActive = newState;
     }
 
     public void ToggleProfileTool()
     {
-        _profileTool.IsActive = !_profileTool.IsActive;
+        bool newState = !_profileTool.IsActive;
+        // Deactivate other conflicting tools when activating this one
+        if (newState)
+        {
+            _manualFaultTool.IsActive = false;
+            _terraformingTool.IsVisible = false;
+        }
+        _profileTool.IsActive = newState;
         _profileTool.Reset();
     }
 

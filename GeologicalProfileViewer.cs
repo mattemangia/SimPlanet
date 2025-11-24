@@ -229,13 +229,25 @@ public class GeologicalProfileViewer : IDisposable
             // --- SEDIMENTS ---
             // Draw from Current (Surface/Ice base) down to Bedrock
             // Note: SedimentLayer is in Elevation Units
-            float sedBottomY1 = currentY1 - s1.GeoData.SedimentLayer;
-            float sedBottomY2 = currentY2 - s2.GeoData.SedimentLayer;
+            // BUGFIX: Clamp sediment layer to prevent infinite drawing
+            float clampedSediment1 = Math.Min(s1.GeoData.SedimentLayer, 2.0f); // Max 2 units (~16km)
+            float clampedSediment2 = Math.Min(s2.GeoData.SedimentLayer, 2.0f);
+
+            float sedBottomY1 = currentY1 - clampedSediment1;
+            float sedBottomY2 = currentY2 - clampedSediment2;
+
+            // Also ensure sediment doesn't go below moho
+            sedBottomY1 = Math.Max(sedBottomY1, moho1);
+            sedBottomY2 = Math.Max(sedBottomY2, moho2);
 
             float sedScreenBottomY1 = GetScreenY(sedBottomY1, yMax, yRange, graphY, graphHeight);
             float sedScreenBottomY2 = GetScreenY(sedBottomY2, yMax, yRange, graphY, graphHeight);
 
-            DrawQuad(spriteBatch, screenX1, currentScreenY1, screenX2, currentScreenY2, screenX1, sedScreenBottomY1, screenX2, sedScreenBottomY2, new Color(180, 160, 120)); // Tan/Sand color
+            // Only draw if sediment has thickness
+            if (clampedSediment1 > 0.01f || clampedSediment2 > 0.01f)
+            {
+                DrawQuad(spriteBatch, screenX1, currentScreenY1, screenX2, currentScreenY2, screenX1, sedScreenBottomY1, screenX2, sedScreenBottomY2, new Color(180, 160, 120)); // Tan/Sand color
+            }
 
             currentY1 = sedBottomY1;
             currentY2 = sedBottomY2;
@@ -243,13 +255,25 @@ public class GeologicalProfileViewer : IDisposable
             currentScreenY2 = sedScreenBottomY2;
 
             // --- VOLCANIC LAYER ---
-            float volcBottomY1 = currentY1 - (s1.GeoData.VolcanicRock / 8.0f);
-            float volcBottomY2 = currentY2 - (s2.GeoData.VolcanicRock / 8.0f);
+            // BUGFIX: Clamp volcanic layer and ensure it doesn't go below moho
+            float volcThick1 = Math.Min(s1.GeoData.VolcanicRock / 8.0f, 1.0f);
+            float volcThick2 = Math.Min(s2.GeoData.VolcanicRock / 8.0f, 1.0f);
+
+            float volcBottomY1 = currentY1 - volcThick1;
+            float volcBottomY2 = currentY2 - volcThick2;
+
+            // Ensure volcanic layer doesn't go below moho
+            volcBottomY1 = Math.Max(volcBottomY1, moho1);
+            volcBottomY2 = Math.Max(volcBottomY2, moho2);
 
             float volcScreenBottomY1 = GetScreenY(volcBottomY1, yMax, yRange, graphY, graphHeight);
             float volcScreenBottomY2 = GetScreenY(volcBottomY2, yMax, yRange, graphY, graphHeight);
 
-            DrawQuad(spriteBatch, screenX1, currentScreenY1, screenX2, currentScreenY2, screenX1, volcScreenBottomY1, screenX2, volcScreenBottomY2, new Color(60, 60, 60)); // Dark Grey
+            // Only draw if volcanic layer has thickness
+            if (volcThick1 > 0.01f || volcThick2 > 0.01f)
+            {
+                DrawQuad(spriteBatch, screenX1, currentScreenY1, screenX2, currentScreenY2, screenX1, volcScreenBottomY1, screenX2, volcScreenBottomY2, new Color(60, 60, 60)); // Dark Grey
+            }
 
             currentY1 = volcBottomY1;
             currentY2 = volcBottomY2;
@@ -258,11 +282,20 @@ public class GeologicalProfileViewer : IDisposable
 
             // --- CRYSTALLINE BASEMENT ---
             // Fill remaining down to Moho
-            // NOTE: CrystallineRock isn't strictly used to size this, we just fill to Moho to ensure continuity
-            // But we check for inversion (if current is below Moho due to math errors or extreme values)
-            if (currentScreenY1 < mohoScreenY1 && currentScreenY2 < mohoScreenY2)
+            // BUGFIX: Always draw crystalline basement to Moho (prevents flickering)
+            // Use min of 1 pixel difference to detect if there's space to draw
+            float crystalGap1 = mohoScreenY1 - currentScreenY1;
+            float crystalGap2 = mohoScreenY2 - currentScreenY2;
+
+            if (crystalGap1 > 1.0f || crystalGap2 > 1.0f)
             {
-                DrawQuad(spriteBatch, screenX1, currentScreenY1, screenX2, currentScreenY2, screenX1, mohoScreenY1, screenX2, mohoScreenY2, new Color(100, 80, 80)); // Granite/Basalt mix color
+                // Ensure we don't draw inverted (top below bottom)
+                float drawTopY1 = Math.Min(currentScreenY1, mohoScreenY1);
+                float drawTopY2 = Math.Min(currentScreenY2, mohoScreenY2);
+                float drawBotY1 = Math.Max(currentScreenY1, mohoScreenY1);
+                float drawBotY2 = Math.Max(currentScreenY2, mohoScreenY2);
+
+                DrawQuad(spriteBatch, screenX1, drawTopY1, screenX2, drawTopY2, screenX1, drawBotY1, screenX2, drawBotY2, new Color(100, 80, 80)); // Granite/Basalt mix color
             }
 
             // --- FEATURES ---
@@ -344,6 +377,14 @@ public class GeologicalProfileViewer : IDisposable
         DrawLegendItem(spriteBatch, legendX, ref legendY, new Color(100, 80, 80), "Crystalline Crust");
         DrawLegendItem(spriteBatch, legendX, ref legendY, new Color(50, 0, 0), "Mantle");
         DrawLegendItem(spriteBatch, legendX, ref legendY, Color.OrangeRed, "Magma/Volcano");
+
+        // Fault types legend
+        legendY += 10; // Add some spacing
+        _font.DrawString(spriteBatch, "Faults:", new Vector2(legendX, legendY), Color.Gray);
+        legendY += 20;
+        DrawLegendItem(spriteBatch, legendX, ref legendY, Color.Yellow, "Normal (Graben)");
+        DrawLegendItem(spriteBatch, legendX, ref legendY, Color.Magenta, "Thrust/Reverse");
+        DrawLegendItem(spriteBatch, legendX, ref legendY, Color.Cyan, "Strike-Slip");
     }
 
     private void DrawLegendItem(SpriteBatch sb, int x, ref int y, Color c, string text)
