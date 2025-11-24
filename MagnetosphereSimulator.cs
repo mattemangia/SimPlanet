@@ -34,6 +34,12 @@ public class MagnetosphereSimulator
         PersistMagnetosphereState();
     }
 
+    /// <summary>
+    /// Initializes the planetary magnetic field.
+    /// Scientific Basis:
+    /// - Geodynamo Theory: Glatzmaier, G. A., & Roberts, P. H. (1995). "A three-dimensional self-consistent computer simulation of a geomagnetic field reversal". Nature.
+    ///   Requires a rotating, convecting, and electrically conducting fluid outer core.
+    /// </summary>
     private void InitializeMagnetosphere()
     {
         // Magnetic field depends on core temperature and rotation
@@ -124,6 +130,12 @@ public class MagnetosphereSimulator
         }
     }
 
+    /// <summary>
+    /// Calculates surface radiation levels based on magnetospheric shielding and atmospheric thickness.
+    /// Scientific Basis:
+    /// - Van Allen Radiation Belts: Regions of energetic charged particles captured by the magnetic field.
+    /// - Cosmic Ray Shielding: Interaction of galactic cosmic rays with the magnetosphere and atmosphere.
+    /// </summary>
     private void CalculateRadiation(float deltaTime)
     {
         float totalRadiation = 0;

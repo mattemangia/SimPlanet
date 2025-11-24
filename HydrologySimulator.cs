@@ -466,6 +466,11 @@ public class HydrologySimulator
         }
     }
 
+    /// <summary>
+    /// Updates water density based on temperature and salinity.
+    /// Scientific Basis:
+    /// - Equation of State for Seawater: UNESCO (1981). "The Practical Salinity Scale 1978 and the International Equation of State of Seawater 1980".
+    /// </summary>
     private void UpdateWaterDensity()
     {
         // Water density calculation based on temperature and salinity
@@ -591,6 +596,13 @@ public class HydrologySimulator
         }
     }
 
+    /// <summary>
+    /// Simulates density-driven deep ocean currents (Thermohaline Circulation).
+    /// Scientific Basis:
+    /// - Global Conveyor Belt: Broecker, W. S. (1991). "The Great Ocean Conveyor". Oceanography.
+    ///   Describes the global circulation driven by the sinking of cold, salty water at high latitudes.
+    /// - Stommel, H. (1961). "Thermohaline convection with two stable regimes of flow". Tellus.
+    /// </summary>
     private void UpdateThermohalineCirculation(float deltaTime)
     {
         var tempChanges = new ConcurrentDictionary<(int, int), float>();

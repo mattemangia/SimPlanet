@@ -24,6 +24,14 @@ public class AtmosphereSimulator
         // Global atmosphere stats now calculated in SimPlanetGame.UpdateGlobalStats() for performance
     }
 
+    /// <summary>
+    /// Simulates the enhanced greenhouse effect based on radiative forcing.
+    /// Scientific Basis:
+    /// - Radiative Forcing of Greenhouse Gases: IPCC Sixth Assessment Report (AR6), Physical Science Basis.
+    /// - CO2 Forcing: Myhre et al. (1998) "New estimates of radiative forcing due to well mixed greenhouse gases".
+    ///   Geophysical Research Letters, 25(14), 2715-2718.
+    /// </summary>
+
     private void SimulateOxygenCycle(float deltaTime)
     {
         for (int x = 0; x < _map.Width; x++)
@@ -307,6 +315,13 @@ public class AtmosphereSimulator
         }
     }
 
+    /// <summary>
+    /// Updates the vertical temperature profile of the atmosphere.
+    /// Scientific Basis:
+    /// - Lapse Rate: The adiabatic lapse rate in the troposphere is approx -6.5 K/km.
+    ///   Source: ICAO Standard Atmosphere (1976).
+    /// - Stratospheric Inversion: Caused by Ozone absorption of UV radiation.
+    /// </summary>
     private void UpdateAtmosphericLayers(float deltaTime)
     {
         // Update temperature profile of atmospheric layers based on surface conditions
@@ -349,6 +364,13 @@ public class AtmosphereSimulator
         }
     }
 
+    /// <summary>
+    /// Calculates radiative transfer through atmospheric layers using a two-stream approximation.
+    /// Scientific Basis:
+    /// - Radiative Transfer: Pierrehumbert, R. T. (2010). "Principles of Planetary Climate". Cambridge University Press.
+    ///   specifically Chapter 4 (Radiative Transfer in a Gray Atmosphere) and Chapter 5 (Real Atmospheres).
+    /// - Two-Stream Approximation: Methods to solve the radiative transfer equation for upward and downward fluxes.
+    /// </summary>
     private void UpdateSpectralRadiativeTransfer()
     {
         // Multi-band radiative transfer through atmospheric layers

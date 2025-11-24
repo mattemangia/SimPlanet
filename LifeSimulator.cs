@@ -317,6 +317,12 @@ public class LifeSimulator
         return growth;
     }
 
+    /// <summary>
+    /// Calculates the death rate based on environmental conditions.
+    /// Scientific Basis:
+    /// - Shelford's Law of Tolerance: Shelford, V. E. (1911). "Physiological Animal Geography". Journal of Morphology.
+    ///   Organisms have minimum, maximum, and optimum environmental factors (temperature, oxygen, etc.) for survival.
+    /// </summary>
     private float CalculateDeathRate(TerrainCell cell)
     {
         // ABSOLUTE PROTECTION during grace period
@@ -379,6 +385,12 @@ public class LifeSimulator
         return death;
     }
 
+    /// <summary>
+    /// Simulates biomass growth and population dynamics.
+    /// Scientific Basis:
+    /// - Logistic Growth Model (Verhulst equation): Approximated here with density-dependent growth.
+    /// - Lotka-Volterra Equations: Implied through interactions between life forms (e.g., consumption, overtaking).
+    /// </summary>
     private void SimulateEvolution(float deltaTime)
     {
         var newEvolution = new float[_map.Width, _map.Height];
