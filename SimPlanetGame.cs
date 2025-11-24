@@ -1151,12 +1151,19 @@ public class SimPlanetGame : Game
             _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
 
             // Update tools that hold map/manager references
+            _lifePainterUI?.Dispose();
             _lifePainterUI = new LifePainterUI(GraphicsDevice, _font, _map, _lifeSimulator);
+
+            _terraformingTool?.Dispose();
             _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
 
             // Update profile tool
+            _profileTool?.Dispose();
             _profileTool = new ProfileTool(GraphicsDevice, _font, _map);
+
+            _profileViewer?.Dispose();
             _profileViewer = new GeologicalProfileViewer(GraphicsDevice, _font, _map);
+
             _profileTool.OnProfileCreated += (start, end) => {
                 _profileViewer.SetProfile(start, end);
             };
@@ -1281,12 +1288,19 @@ public class SimPlanetGame : Game
         _planetaryControlsUI.SetGeologicalSimulator(_geologicalSimulator);
 
         // Update tools that hold map/manager references
+        _lifePainterUI?.Dispose();
         _lifePainterUI = new LifePainterUI(GraphicsDevice, _font, _map, _lifeSimulator);
+
+        _terraformingTool?.Dispose();
         _terraformingTool = new TerraformingTool(GraphicsDevice, _font, _map);
 
         // Update profile tool
+        _profileTool?.Dispose();
         _profileTool = new ProfileTool(GraphicsDevice, _font, _map);
+
+        _profileViewer?.Dispose();
         _profileViewer = new GeologicalProfileViewer(GraphicsDevice, _font, _map);
+
         _profileTool.OnProfileCreated += (start, end) => {
             _profileViewer.SetProfile(start, end);
         };
@@ -1719,6 +1733,8 @@ public class SimPlanetGame : Game
         _loadingScreen?.Dispose();
         _profileTool?.Dispose();
         _profileViewer?.Dispose();
+        _lifePainterUI?.Dispose();
+        _terraformingTool?.Dispose();
         _spriteBatch?.Dispose();
         _graphics?.Dispose();
     }
