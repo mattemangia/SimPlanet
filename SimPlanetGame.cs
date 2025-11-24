@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Runtime.InteropServices;
 
@@ -82,6 +83,51 @@ public class SimPlanetGame : Game
     private GameState _gameState;
     private RenderMode _currentRenderMode = RenderMode.Terrain;
     private LifeForm _selectedLifeFormForSeeding = LifeForm.Bacteria;
+
+    // Render Mode Groups
+    private readonly List<RenderMode> _terrainModes = new()
+    {
+        RenderMode.Terrain, RenderMode.TerrainClean, RenderMode.Elevation, RenderMode.Biomes
+    };
+
+    private readonly List<RenderMode> _weatherModes = new()
+    {
+        RenderMode.Temperature, RenderMode.Rainfall, RenderMode.Pressure,
+        RenderMode.Wind, RenderMode.Clouds, RenderMode.Storms
+    };
+
+    private readonly List<RenderMode> _atmosphereModes = new()
+    {
+        RenderMode.Oxygen, RenderMode.CO2, RenderMode.Radiation,
+        RenderMode.Albedo, RenderMode.SpectralBands, RenderMode.Auroras
+    };
+
+    private readonly List<RenderMode> _geologyModes = new()
+    {
+        RenderMode.Geological, RenderMode.TectonicPlates, RenderMode.Volcanoes,
+        RenderMode.Faults, RenderMode.Earthquakes, RenderMode.Tsunamis
+    };
+
+    private readonly List<RenderMode> _lifeModes = new()
+    {
+        RenderMode.Life, RenderMode.Civilizations, RenderMode.Infrastructure, RenderMode.Resources
+    };
+
+    private void CycleRenderMode(List<RenderMode> modes)
+    {
+        int currentIndex = modes.IndexOf(_currentRenderMode);
+        if (currentIndex == -1)
+        {
+            // If current mode is not in this list, start with the first one
+            SetRenderMode(modes[0]);
+        }
+        else
+        {
+            // Cycle to next
+            int nextIndex = (currentIndex + 1) % modes.Count;
+            SetRenderMode(modes[nextIndex]);
+        }
+    }
 
     // Map rendering offsets (for coordinate conversion)
     private int _mapRenderOffsetX = 0;
@@ -698,70 +744,27 @@ public class SimPlanetGame : Game
             DecreaseTimeSpeed();
         }
 
-        // View mode controls
+        // View mode controls (grouped)
         if (keyState.IsKeyDown(Keys.D1) && _previousKeyState.IsKeyUp(Keys.D1))
         {
-            // Cycle between Terrain (Full) and TerrainClean (Base only)
-            if (_currentRenderMode == RenderMode.Terrain)
-                SetRenderMode(RenderMode.TerrainClean);
-            else
-                SetRenderMode(RenderMode.Terrain);
+            CycleRenderMode(_terrainModes);
         }
-        if (keyState.IsKeyDown(Keys.D2)) SetRenderMode(RenderMode.Temperature);
-        if (keyState.IsKeyDown(Keys.D3)) SetRenderMode(RenderMode.Rainfall);
-        if (keyState.IsKeyDown(Keys.D4)) SetRenderMode(RenderMode.Life);
-        if (keyState.IsKeyDown(Keys.D5)) SetRenderMode(RenderMode.Oxygen);
-        if (keyState.IsKeyDown(Keys.D6)) SetRenderMode(RenderMode.CO2);
-        if (keyState.IsKeyDown(Keys.D7)) SetRenderMode(RenderMode.Elevation);
-        if (keyState.IsKeyDown(Keys.D8)) SetRenderMode(RenderMode.Geological);
-        if (keyState.IsKeyDown(Keys.D9)) SetRenderMode(RenderMode.TectonicPlates);
-        if (keyState.IsKeyDown(Keys.D0)) SetRenderMode(RenderMode.Volcanoes);
-
-        // Meteorology view modes (F1-F4)
-        if (keyState.IsKeyDown(Keys.F1) && _previousKeyState.IsKeyUp(Keys.F1))
-            SetRenderMode(RenderMode.Clouds);
-        if (keyState.IsKeyDown(Keys.F2) && _previousKeyState.IsKeyUp(Keys.F2))
-            SetRenderMode(RenderMode.Wind);
-        if (keyState.IsKeyDown(Keys.F3) && _previousKeyState.IsKeyUp(Keys.F3))
-            SetRenderMode(RenderMode.Pressure);
-        if (keyState.IsKeyDown(Keys.F4) && _previousKeyState.IsKeyUp(Keys.F4))
-            SetRenderMode(RenderMode.Storms);
-
-        // Geological hazards view modes (E, Q, U)
-        if (keyState.IsKeyDown(Keys.E) && _previousKeyState.IsKeyUp(Keys.E))
-            SetRenderMode(RenderMode.Earthquakes);
-        if (keyState.IsKeyDown(Keys.Q) && _previousKeyState.IsKeyUp(Keys.Q))
-            SetRenderMode(RenderMode.Faults);
-        if (keyState.IsKeyDown(Keys.U) && _previousKeyState.IsKeyUp(Keys.U))
-            SetRenderMode(RenderMode.Tsunamis);
-
-        // Biome view mode (F10)
-        if (keyState.IsKeyDown(Keys.F10) && _previousKeyState.IsKeyUp(Keys.F10))
-            SetRenderMode(RenderMode.Biomes);
-
-        // Political/Civilization view mode (Z)
-        if (keyState.IsKeyDown(Keys.Z) && _previousKeyState.IsKeyUp(Keys.Z))
-            SetRenderMode(RenderMode.Civilizations);
-
-        // Albedo view mode (A key) - surface reflectivity and ice-albedo feedback
-        if (keyState.IsKeyDown(Keys.A) && _previousKeyState.IsKeyUp(Keys.A))
-            SetRenderMode(RenderMode.Albedo);
-
-        // Radiation view mode (F12) - cosmic rays and solar radiation levels
-        if (keyState.IsKeyDown(Keys.F12) && _previousKeyState.IsKeyUp(Keys.F12))
-            SetRenderMode(RenderMode.Radiation);
-
-        // Resources view mode (J key)
-        if (keyState.IsKeyDown(Keys.J) && _previousKeyState.IsKeyUp(Keys.J))
-            SetRenderMode(RenderMode.Resources);
-
-        // Infrastructure view mode (O key) - civilization infrastructure
-        if (keyState.IsKeyDown(Keys.O) && _previousKeyState.IsKeyUp(Keys.O))
-            SetRenderMode(RenderMode.Infrastructure);
-
-        // Spectral band net radiation view (S key)
-        if (keyState.IsKeyDown(Keys.S) && _previousKeyState.IsKeyUp(Keys.S))
-            SetRenderMode(RenderMode.SpectralBands);
+        if (keyState.IsKeyDown(Keys.D2) && _previousKeyState.IsKeyUp(Keys.D2))
+        {
+            CycleRenderMode(_weatherModes);
+        }
+        if (keyState.IsKeyDown(Keys.D3) && _previousKeyState.IsKeyUp(Keys.D3))
+        {
+            CycleRenderMode(_atmosphereModes);
+        }
+        if (keyState.IsKeyDown(Keys.D4) && _previousKeyState.IsKeyUp(Keys.D4))
+        {
+            CycleRenderMode(_geologyModes);
+        }
+        if (keyState.IsKeyDown(Keys.D5) && _previousKeyState.IsKeyUp(Keys.D5))
+        {
+            CycleRenderMode(_lifeModes);
+        }
 
         // Apply render mode to terrain renderer (triggers texture update when mode changes)
         _terrainRenderer.Mode = _currentRenderMode;

@@ -16,9 +16,14 @@ namespace SimPlanet
             public Texture2D Icon { get; set; }
             public bool IsHovered { get; set; }
             public string Category { get; set; }
+            // Dropdown support
+            public bool IsGroup { get; set; }
+            public bool IsGroupOpen { get; set; }
+            public List<ToolbarButton> SubButtons { get; set; } = new List<ToolbarButton>();
         }
 
         private List<ToolbarButton> buttons;
+        private ToolbarButton activeGroup = null;
         private Texture2D pixelTexture;
         private GraphicsDevice graphicsDevice;
         private SimPlanetGame game;
@@ -34,6 +39,7 @@ namespace SimPlanet
         private readonly Color _toolbarBgColor = new Color(25, 30, 45, 250);
         private readonly Color _buttonNormalColor = new Color(50, 60, 80);
         private readonly Color _buttonHoverColor = new Color(80, 100, 140);
+        private readonly Color _buttonActiveColor = new Color(100, 120, 180);
         private readonly Color _buttonBorderColor = new Color(100, 120, 160);
         private readonly Color _separatorColor = new Color(60, 80, 120);
 
@@ -57,82 +63,177 @@ namespace SimPlanet
             int x = leftMargin;
             int y = topMargin;
 
-            // View Modes (Numeric Keys 1-0)
-            AddButton(ref x, y, "1", "Terrain View", "Terrain", () => SetViewMode(RenderMode.Terrain));
-            AddButton(ref x, y, "2", "Temperature View", "Terrain", () => SetViewMode(RenderMode.Temperature));
-            AddButton(ref x, y, "3", "Rainfall View", "Terrain", () => SetViewMode(RenderMode.Rainfall));
-            AddButton(ref x, y, "4", "Life View", "Terrain", () => SetViewMode(RenderMode.Life));
-            AddButton(ref x, y, "5", "Oxygen View", "Terrain", () => SetViewMode(RenderMode.Oxygen));
-            AddButton(ref x, y, "6", "CO2 View", "Terrain", () => SetViewMode(RenderMode.CO2));
-            AddButton(ref x, y, "7", "Elevation View", "Terrain", () => SetViewMode(RenderMode.Elevation));
-            AddButton(ref x, y, "8", "Geological View", "Terrain", () => SetViewMode(RenderMode.Geological));
-            AddButton(ref x, y, "9", "Tectonic Plates", "Terrain", () => SetViewMode(RenderMode.TectonicPlates));
-            AddButton(ref x, y, "0", "Volcanoes", "Terrain", () => SetViewMode(RenderMode.Volcanoes));
+            // --- 1. TERRAIN GROUP (Key 1) ---
+            var terrainGroup = CreateGroupButton(ref x, y, "Terrain Group (1)", "Terrain");
+            AddSubButton(terrainGroup, "Terrain View", "Terrain", () => SetViewMode(RenderMode.Terrain));
+            AddSubButton(terrainGroup, "Terrain Clean", "Terrain", () => SetViewMode(RenderMode.TerrainClean));
+            AddSubButton(terrainGroup, "Elevation View", "Terrain", () => SetViewMode(RenderMode.Elevation));
+            AddSubButton(terrainGroup, "Biomes", "Terrain", () => SetViewMode(RenderMode.Biomes));
+            buttons.Add(terrainGroup);
+
+            // --- 2. WEATHER GROUP (Key 2) ---
+            var weatherGroup = CreateGroupButton(ref x, y, "Weather Group (2)", "Weather");
+            AddSubButton(weatherGroup, "Temperature", "Weather", () => SetViewMode(RenderMode.Temperature));
+            AddSubButton(weatherGroup, "Rainfall", "Weather", () => SetViewMode(RenderMode.Rainfall));
+            AddSubButton(weatherGroup, "Pressure", "Weather", () => SetViewMode(RenderMode.Pressure));
+            AddSubButton(weatherGroup, "Wind", "Weather", () => SetViewMode(RenderMode.Wind));
+            AddSubButton(weatherGroup, "Clouds", "Weather", () => SetViewMode(RenderMode.Clouds));
+            AddSubButton(weatherGroup, "Storms", "Weather", () => SetViewMode(RenderMode.Storms));
+            buttons.Add(weatherGroup);
+
+            // --- 3. ATMOSPHERE GROUP (Key 3) ---
+            var atmoGroup = CreateGroupButton(ref x, y, "Atmosphere Group (3)", "Atmosphere");
+            AddSubButton(atmoGroup, "Oxygen", "Atmosphere", () => SetViewMode(RenderMode.Oxygen));
+            AddSubButton(atmoGroup, "CO2", "Atmosphere", () => SetViewMode(RenderMode.CO2));
+            AddSubButton(atmoGroup, "Radiation", "Atmosphere", () => SetViewMode(RenderMode.Radiation));
+            AddSubButton(atmoGroup, "Albedo", "Atmosphere", () => SetViewMode(RenderMode.Albedo));
+            AddSubButton(atmoGroup, "Spectral Bands", "Atmosphere", () => SetViewMode(RenderMode.SpectralBands));
+            AddSubButton(atmoGroup, "Auroras", "Atmosphere", () => SetViewMode(RenderMode.Auroras));
+            buttons.Add(atmoGroup);
+
+            // --- 4. GEOLOGY GROUP (Key 4) ---
+            var geoGroup = CreateGroupButton(ref x, y, "Geology Group (4)", "Geology");
+            AddSubButton(geoGroup, "Geological View", "Geology", () => SetViewMode(RenderMode.Geological));
+            AddSubButton(geoGroup, "Tectonic Plates", "Geology", () => SetViewMode(RenderMode.TectonicPlates));
+            AddSubButton(geoGroup, "Volcanoes", "Geology", () => SetViewMode(RenderMode.Volcanoes));
+            AddSubButton(geoGroup, "Faults", "Geology", () => SetViewMode(RenderMode.Faults));
+            AddSubButton(geoGroup, "Earthquakes", "Geology", () => SetViewMode(RenderMode.Earthquakes));
+            AddSubButton(geoGroup, "Tsunamis", "Geology", () => SetViewMode(RenderMode.Tsunamis));
+            buttons.Add(geoGroup);
+
+            // --- 5. LIFE & CIV GROUP (Key 5) ---
+            var lifeGroup = CreateGroupButton(ref x, y, "Life Group (5)", "Life");
+            AddSubButton(lifeGroup, "Life View", "Life", () => SetViewMode(RenderMode.Life));
+            AddSubButton(lifeGroup, "Civilizations", "Life", () => SetViewMode(RenderMode.Civilizations));
+            AddSubButton(lifeGroup, "Infrastructure", "Life", () => SetViewMode(RenderMode.Infrastructure));
+            AddSubButton(lifeGroup, "Resources", "Life", () => SetViewMode(RenderMode.Resources));
+            buttons.Add(lifeGroup);
 
             x += categorySpacing;
 
-            // Meteorology (F1-F4)
-            AddButton(ref x, y, "F1", "Clouds", "Weather", () => SetViewMode(RenderMode.Clouds));
-            AddButton(ref x, y, "F2", "Wind", "Weather", () => SetViewMode(RenderMode.Wind));
-            AddButton(ref x, y, "F3", "Pressure", "Weather", () => SetViewMode(RenderMode.Pressure));
-            AddButton(ref x, y, "F4", "Storms", "Weather", () => SetViewMode(RenderMode.Storms));
+            // --- GAME CONTROLS (Ungrouped) ---
+            AddButton(ref x, y, "Pause/Resume (Space)", "Control", () => game.TogglePause());
+            AddButton(ref x, y, "Speed Up (+)", "Control", () => game.IncreaseTimeSpeed());
+            AddButton(ref x, y, "Speed Down (-)", "Control", () => game.DecreaseTimeSpeed());
+            AddButton(ref x, y, "Quick Save (F5)", "Control", () => game.QuickSave());
+            AddButton(ref x, y, "Quick Load (F9)", "Control", () => game.QuickLoad());
+            AddButton(ref x, y, "Regenerate (R)", "Control", () => game.RegeneratePlanet());
 
             x += categorySpacing;
 
-            // Geological Hazards
-            AddButton(ref x, y, "E", "Earthquakes", "Hazards", () => SetViewMode(RenderMode.Earthquakes));
-            AddButton(ref x, y, "Q", "Faults", "Hazards", () => SetViewMode(RenderMode.Faults));
-            AddButton(ref x, y, "U", "Tsunamis", "Hazards", () => SetViewMode(RenderMode.Tsunamis));
+            // --- TOOLS & FEATURES GROUP ---
+            var toolsGroup = CreateGroupButton(ref x, y, "Tools & Features", "Tools");
+            AddSubButton(toolsGroup, "Life Painter (L)", "Feature", () => game.ToggleLifePainter());
+            AddSubButton(toolsGroup, "Civilization (G)", "Feature", () => game.ToggleCivilization());
+            AddSubButton(toolsGroup, "Divine Powers (I)", "Feature", () => game.ToggleDivinePowers());
+            AddSubButton(toolsGroup, "Disasters (D)", "Feature", () => game.ToggleDisasters());
+            AddSubButton(toolsGroup, "Diseases (K)", "Feature", () => game.ToggleDiseases());
+            AddSubButton(toolsGroup, "Terraforming Tool (T)", "Feature", () => game.ToggleTerraformingTool());
+            AddSubButton(toolsGroup, "Planet Controls (X)", "Feature", () => game.TogglePlanetControls());
+            buttons.Add(toolsGroup);
 
             x += categorySpacing;
 
-            // UI Toggles
-            AddButton(ref x, y, "P", "Minimap (P)", "UI", () => game.ToggleMinimap());
-            AddButton(ref x, y, "C", "Day/Night (C)", "UI", () => game.ToggleDayNight());
-            AddButton(ref x, y, "V", "Volcano Overlay (V)", "UI", () => game.ToggleVolcanoes());
-            AddButton(ref x, y, "B", "Rivers (B)", "UI", () => game.ToggleRivers());
-            AddButton(ref x, y, "N", "Plates (N)", "UI", () => game.TogglePlates());
+            // --- OVERLAYS & UI GROUP ---
+            var uiGroup = CreateGroupButton(ref x, y, "Overlays & UI", "Overlays");
+            AddSubButton(uiGroup, "Minimap (P)", "UI", () => game.ToggleMinimap());
+            AddSubButton(uiGroup, "Day/Night (C)", "UI", () => game.ToggleDayNight());
+            AddSubButton(uiGroup, "Volcano Overlay (V)", "UI", () => game.ToggleVolcanoes());
+            AddSubButton(uiGroup, "Rivers (B)", "UI", () => game.ToggleRivers());
+            AddSubButton(uiGroup, "Plates (N)", "UI", () => game.TogglePlates());
+            AddSubButton(uiGroup, "Earthquakes Overlay (.)", "UI", () => game.ToggleEarthquakes());
+            AddSubButton(uiGroup, "Graphs (Y)", "UI", () => game.ToggleGraphs());
+            AddSubButton(uiGroup, "Stabilizer (\\)", "UI", () => game.ToggleStabilizer());
+            buttons.Add(uiGroup);
 
-            x += categorySpacing;
-
-            // Game Features
-            AddButton(ref x, y, "L", "Life Painter (L)", "Feature", () => game.ToggleLifePainter());
-            AddButton(ref x, y, "G", "Civilization (G)", "Feature", () => game.ToggleCivilization());
-            AddButton(ref x, y, "I", "Divine Powers (I)", "Feature", () => game.ToggleDivinePowers());
-            AddButton(ref x, y, "D", "Disasters (D)", "Feature", () => game.ToggleDisasters());
-            AddButton(ref x, y, "K", "Diseases (K)", "Feature", () => game.ToggleDiseases());
-            AddButton(ref x, y, "T", "Terraforming Tool (T)", "Feature", () => game.ToggleTerraformingTool());
-            AddButton(ref x, y, "Y", "Graphs (Y)", "Feature", () => game.ToggleGraphs());
-            AddButton(ref x, y, "X", "Planet Controls (X)", "Feature", () => game.TogglePlanetControls());
-            AddButton(ref x, y, "Ctrl+Y", "Stabilizer (Ctrl+Y)", "Feature", () => game.ToggleStabilizer());
-
-            x += categorySpacing;
-
-            AddButton(ref x, y, "F10", "Biomes", "Extra", () => SetViewMode(RenderMode.Biomes));
-            AddButton(ref x, y, "A", "Albedo", "Extra", () => SetViewMode(RenderMode.Albedo));
-            AddButton(ref x, y, "F12", "Radiation", "Extra", () => SetViewMode(RenderMode.Radiation));
-            AddButton(ref x, y, "J", "Resources", "Extra", () => SetViewMode(RenderMode.Resources));
-            AddButton(ref x, y, "O", "Infrastructure", "Extra", () => SetViewMode(RenderMode.Infrastructure));
-            AddButton(ref x, y, "S", "Spectral Bands", "Extra", () => SetViewMode(RenderMode.SpectralBands));
-
+            // Generate icons for all buttons
             foreach (var button in buttons)
             {
                 button.Icon = GenerateIcon(button.Tooltip, button.Category);
+                foreach (var sub in button.SubButtons)
+                {
+                    sub.Icon = GenerateIcon(sub.Tooltip, sub.Category);
+                }
             }
         }
 
-        private void AddButton(ref int x, int y, string label, string tooltip, string category, Action onClick)
+        private ToolbarButton CreateGroupButton(ref int x, int y, string tooltip, string category)
         {
             var button = new ToolbarButton
             {
                 Bounds = new Rectangle(x, y, buttonSize, buttonSize),
-                Tooltip = $"{tooltip}",
+                Tooltip = tooltip,
+                Category = category,
+                IsGroup = true,
+                OnClick = null // Handled in Update
+            };
+            // Set group click action to toggle itself
+            button.OnClick = () => ToggleGroup(button);
+            x += buttonSize + buttonSpacing;
+            return button;
+        }
+
+        private void AddSubButton(ToolbarButton group, string tooltip, string category, Action onClick)
+        {
+            // Sub-buttons position will be calculated when group opens
+            var button = new ToolbarButton
+            {
+                Bounds = Rectangle.Empty,
+                Tooltip = tooltip,
+                Category = category,
+                OnClick = () => {
+                    onClick?.Invoke();
+                    CloseActiveGroup(); // Close group after selection
+                }
+            };
+            group.SubButtons.Add(button);
+        }
+
+        private void AddButton(ref int x, int y, string tooltip, string category, Action onClick)
+        {
+            var button = new ToolbarButton
+            {
+                Bounds = new Rectangle(x, y, buttonSize, buttonSize),
+                Tooltip = tooltip,
                 OnClick = onClick,
                 Category = category
             };
 
             buttons.Add(button);
             x += buttonSize + buttonSpacing;
+        }
+
+        private void ToggleGroup(ToolbarButton group)
+        {
+            if (activeGroup == group)
+            {
+                CloseActiveGroup();
+            }
+            else
+            {
+                CloseActiveGroup();
+                activeGroup = group;
+                activeGroup.IsGroupOpen = true;
+
+                // Layout sub-buttons
+                int subX = group.Bounds.X;
+                int subY = group.Bounds.Bottom + 2;
+
+                foreach(var sub in activeGroup.SubButtons)
+                {
+                    sub.Bounds = new Rectangle(subX, subY, buttonSize, buttonSize);
+                    subX += buttonSize + buttonSpacing;
+                }
+            }
+        }
+
+        private void CloseActiveGroup()
+        {
+            if (activeGroup != null)
+            {
+                activeGroup.IsGroupOpen = false;
+                activeGroup = null;
+            }
         }
 
         private void SetViewMode(RenderMode mode)
@@ -195,12 +296,28 @@ namespace SimPlanet
             else if (tooltip.Contains("Terraforming")) DrawTerraformingIcon(data, size);
             else if (tooltip.Contains("Planet Controls")) DrawPlanetControlsIcon(data, size);
             else if (tooltip.Contains("Spectral")) DrawSpectralIcon(data, size);
+            else if (tooltip.Contains("Auroras")) DrawAuroraIcon(data, size);
 
             icon.SetData(data);
             return icon;
         }
 
         // ... Include all previous Draw*Icon methods here ...
+        private void DrawAuroraIcon(Color[] data, int size)
+        {
+            Color green = new Color(50, 255, 100);
+            Color purple = new Color(200, 50, 255);
+            for (int x = 0; x < size; x++)
+            {
+                int y = size / 2 + (int)(Math.Sin(x * 0.2) * 5);
+                if (y >= 0 && y < size)
+                {
+                    data[y * size + x] = green;
+                    if (y > 0) data[(y - 1) * size + x] = purple;
+                }
+            }
+        }
+
         private void DrawSpectralIcon(Color[] data, int size)
         {
             Color[] spectrum = { Color.Red, Color.Orange, Color.Yellow, Color.Green, Color.Blue, Color.Indigo, Color.Violet };
@@ -352,6 +469,18 @@ namespace SimPlanet
 
         public void Update(MouseState mouseState)
         {
+            bool clickHandled = false;
+
+            // Update active group sub-buttons first
+            if (activeGroup != null)
+            {
+                foreach (var sub in activeGroup.SubButtons)
+                {
+                    sub.IsHovered = sub.Bounds.Contains(mouseState.Position);
+                }
+            }
+
+            // Update main buttons
             foreach (var button in buttons)
             {
                 button.IsHovered = button.Bounds.Contains(mouseState.Position);
@@ -360,13 +489,38 @@ namespace SimPlanet
             if (mouseState.LeftButton == ButtonState.Pressed &&
                 previousMouseState.LeftButton == ButtonState.Released)
             {
-                foreach (var button in buttons)
+                // Check active group sub-buttons
+                if (activeGroup != null)
                 {
-                    if (button.IsHovered)
+                    foreach (var sub in activeGroup.SubButtons)
                     {
-                        button.OnClick?.Invoke();
-                        break;
+                        if (sub.IsHovered)
+                        {
+                            sub.OnClick?.Invoke();
+                            clickHandled = true;
+                            break;
+                        }
                     }
+                }
+
+                // Check main buttons if not handled
+                if (!clickHandled)
+                {
+                    foreach (var button in buttons)
+                    {
+                        if (button.IsHovered)
+                        {
+                            button.OnClick?.Invoke();
+                            clickHandled = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Click outside closes group
+                if (!clickHandled)
+                {
+                    CloseActiveGroup();
                 }
             }
 
@@ -388,11 +542,11 @@ namespace SimPlanet
                 if (button.Bounds.Right > screenWidth) continue;
 
                 // Button background
-                Color bgColor = button.IsHovered ? _buttonHoverColor : _buttonNormalColor;
+                Color bgColor = button.IsHovered ? _buttonHoverColor : (button.IsGroupOpen ? _buttonActiveColor : _buttonNormalColor);
                 spriteBatch.Draw(pixelTexture, button.Bounds, bgColor);
 
-                // Button border (highlighted on hover)
-                Color borderColor = button.IsHovered ? Color.White : _buttonBorderColor;
+                // Button border (highlighted on hover or active)
+                Color borderColor = (button.IsHovered || button.IsGroupOpen) ? Color.White : _buttonBorderColor;
                 DrawBorder(spriteBatch, button.Bounds, borderColor);
 
                 // Button icon
@@ -416,8 +570,59 @@ namespace SimPlanet
                 fontRenderer.DrawString(spriteBatch, ">>", new Vector2(indicatorX, indicatorY), Color.Yellow);
             }
 
-            // Draw tooltip for hovered button
-            var hoveredButton = buttons.Find(b => b.IsHovered && b.Bounds.Right <= screenWidth);
+            // Draw Active Group Sub-Buttons
+            if (activeGroup != null)
+            {
+                // Draw background for sub-strip
+                // Calculate bounds
+                int stripX = activeGroup.SubButtons[0].Bounds.X;
+                int stripY = activeGroup.SubButtons[0].Bounds.Y;
+                int stripWidth = activeGroup.SubButtons.Count * (buttonSize + buttonSpacing) + buttonSpacing;
+                int stripHeight = buttonSize + 4;
+
+                // Background
+                spriteBatch.Draw(pixelTexture, new Rectangle(stripX - 2, stripY - 2, stripWidth, stripHeight), _toolbarBgColor);
+                DrawBorder(spriteBatch, new Rectangle(stripX - 2, stripY - 2, stripWidth, stripHeight), _buttonBorderColor);
+
+                foreach (var sub in activeGroup.SubButtons)
+                {
+                    // Button background
+                    Color bgColor = sub.IsHovered ? _buttonHoverColor : _buttonNormalColor;
+                    spriteBatch.Draw(pixelTexture, sub.Bounds, bgColor);
+
+                    // Button border
+                    Color borderColor = sub.IsHovered ? Color.White : _buttonBorderColor;
+                    DrawBorder(spriteBatch, sub.Bounds, borderColor);
+
+                    // Button icon
+                    if (sub.Icon != null)
+                    {
+                        Rectangle iconRect = new Rectangle(
+                            sub.Bounds.X + 4,
+                            sub.Bounds.Y + 4,
+                            buttonSize - 8,
+                            buttonSize - 8
+                        );
+                        spriteBatch.Draw(sub.Icon, iconRect, Color.White);
+                    }
+                }
+            }
+
+            // Draw tooltip for hovered button (Main or Sub)
+            ToolbarButton hoveredButton = null;
+
+            // Check sub buttons first
+            if (activeGroup != null)
+            {
+                hoveredButton = activeGroup.SubButtons.Find(b => b.IsHovered);
+            }
+
+            // Check main buttons
+            if (hoveredButton == null)
+            {
+                hoveredButton = buttons.Find(b => b.IsHovered && b.Bounds.Right <= screenWidth);
+            }
+
             if (hoveredButton != null)
             {
                 DrawTooltip(spriteBatch, hoveredButton);

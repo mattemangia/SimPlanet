@@ -150,6 +150,7 @@ public class TerrainRenderer
                     RenderMode.Infrastructure => GetInfrastructureColor(cell),
                     RenderMode.SpectralBands => GetSpectralBandsColor(cell),
                     RenderMode.Civilizations => GetCivilizationColor(cell, x, y),
+                    RenderMode.Auroras => GetAuroraColor(cell),
                     _ => Color.Black
                 };
 
@@ -1223,6 +1224,7 @@ public class TerrainRenderer
             RenderMode.Infrastructure => "CIVILIZATION INFRASTRUCTURE",
             RenderMode.SpectralBands => "NET RADIATION BUDGET",
             RenderMode.Civilizations => "POLITICAL MAP",
+            RenderMode.Auroras => "AURORA INTENSITY",
             _ => "LEGEND"
         };
     }
@@ -1250,6 +1252,7 @@ public class TerrainRenderer
             RenderMode.Radiation => new List<string> { "Safe", "Warning", "Deadly" },
             RenderMode.Infrastructure => new List<string> { "Roads", "Energy", "Hubs" },
             RenderMode.SpectralBands => new List<string> { "Cooling", "Balanced", "Heating" },
+            RenderMode.Auroras => new List<string> { "None", "Weak", "Strong" },
             _ => new List<string>()
         };
     }
@@ -1370,8 +1373,53 @@ public class TerrainRenderer
             RenderMode.Albedo => GetAlbedoGradientColor(t),
             RenderMode.Radiation => GetRadiationGradientColor(t),
             RenderMode.SpectralBands => GetSpectralBandsGradientColor(t),
+            RenderMode.Auroras => GetAuroraGradientColor(t),
             _ => Color.Gray
         };
+    }
+
+    private Color GetAuroraColor(TerrainCell cell)
+    {
+        // Base color (night sky / dark terrain)
+        Color baseColor = new Color(10, 10, 20);
+
+        // Get magnetic data
+        var mag = cell.Magnetic;
+        float intensity = mag.AuroraIntensity;
+
+        if (intensity <= 0.01f) return baseColor;
+
+        // Aurora colors: Green (common) -> Purple/Red (rare/strong)
+        Color auroraColor;
+        if (intensity < 0.5f)
+        {
+            // Weak to moderate: Green
+            auroraColor = Color.Lerp(new Color(0, 100, 50), new Color(50, 255, 100), intensity * 2);
+        }
+        else
+        {
+            // Strong: Green to Purple/Red
+            auroraColor = Color.Lerp(new Color(50, 255, 100), new Color(255, 50, 255), (intensity - 0.5f) * 2);
+        }
+
+        // Blend additively for glow effect
+        return new Color(
+            Math.Min(255, baseColor.R + auroraColor.R),
+            Math.Min(255, baseColor.G + auroraColor.G),
+            Math.Min(255, baseColor.B + auroraColor.B)
+        );
+    }
+
+    private Color GetAuroraGradientColor(float t)
+    {
+        if (t < 0.5f)
+        {
+            return Color.Lerp(new Color(10, 10, 20), new Color(50, 255, 100), t * 2);
+        }
+        else
+        {
+            return Color.Lerp(new Color(50, 255, 100), new Color(255, 50, 255), (t - 0.5f) * 2);
+        }
     }
 
     private Color GetTemperatureGradientColor(float t)
@@ -1526,5 +1574,6 @@ public enum RenderMode
     Infrastructure, // Civilization infrastructure (roads, energy, etc.)
     SpectralBands,             // Radiative transfer with shortwave/longwave fluxes
     Civilizations,             // Political map showing civilization territories
+    Auroras,                   // Visualizes aurora intensity and magnetic field protection
     TerrainClean               // Base terrain only (no overlays)
 }
