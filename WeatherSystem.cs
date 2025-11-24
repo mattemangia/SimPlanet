@@ -168,8 +168,10 @@ public class WeatherSystem
                     case 1: // Summer
                     {
                         // Monsoons in tropics, dry in subtropics
-                        // Smooth transition instead of hard boundary
-                        float tropicalBlend = 1.0f - Math.Clamp((Math.Abs(latitude) - 0.25f) / 0.1f, 0, 1);
+                        // Gaussian blend with geographic variation to avoid banding
+                        float geoVar = MathF.Sin(x * 0.15f + y * 0.08f) * 0.06f;
+                        float effectiveLat = Math.Clamp(Math.Abs(latitude) + geoVar, 0f, 1f);
+                        float tropicalBlend = MathF.Exp(-MathF.Pow(effectiveLat, 2) / (2 * 0.2f * 0.2f));
                         rainfallModifier = 1.5f * tropicalBlend + 0.8f * (1 - tropicalBlend);
                         break;
                     }
@@ -179,8 +181,10 @@ public class WeatherSystem
                     case 3: // Winter
                     {
                         // Tropical dry season, mid-latitude storms
-                        // Smooth transition for winter rainfall
-                        float tropicalBlend = 1.0f - Math.Clamp((Math.Abs(latitude) - 0.25f) / 0.1f, 0, 1);
+                        // Gaussian blend with geographic variation to avoid banding
+                        float geoVar = MathF.Sin(x * 0.15f + y * 0.08f) * 0.06f;
+                        float effectiveLat = Math.Clamp(Math.Abs(latitude) + geoVar, 0f, 1f);
+                        float tropicalBlend = MathF.Exp(-MathF.Pow(effectiveLat, 2) / (2 * 0.2f * 0.2f));
                         rainfallModifier = 0.7f * tropicalBlend + 1.3f * (1 - tropicalBlend);
                         break;
                     }
@@ -220,33 +224,25 @@ public class WeatherSystem
                 float baseWindX = 0;
                 float baseWindY = 0;
 
-                // Trade winds (0-30deg latitude) - easterlies
-                // SMOOTHED transitions to eliminate banding
-                float tradeWindZone = 1.0f - Math.Clamp((absLatitude - 0.25f) / 0.1f, 0, 1);
-                float westerliesZone = 0;
-                float polarZone = 0;
-                
-                if (absLatitude >= 0.2f && absLatitude <= 0.7f)
-                {
-                    // Smooth transition zones
-                    if (absLatitude < 0.35f)
-                    {
-                        westerliesZone = Math.Clamp((absLatitude - 0.25f) / 0.1f, 0, 1);
-                    }
-                    else if (absLatitude < 0.55f)
-                    {
-                        westerliesZone = 1.0f;
-                    }
-                    else
-                    {
-                        westerliesZone = 1.0f - Math.Clamp((absLatitude - 0.55f) / 0.1f, 0, 1);
-                        polarZone = Math.Clamp((absLatitude - 0.55f) / 0.1f, 0, 1);
-                    }
-                }
-                else if (absLatitude >= 0.7f)
-                {
-                    polarZone = 1.0f;
-                }
+                // Wind zones using GAUSSIAN distributions - NO flat bands
+                // Geographic variation breaks up horizontal uniformity
+                float geoVariation = MathF.Sin(x * 0.2f + y * 0.1f) * 0.05f;
+                float effectiveLat = Math.Clamp(absLatitude + geoVariation, 0f, 1f);
+
+                // Trade winds: Gaussian centered at 0.15 (tropical)
+                float tradeWindZone = MathF.Exp(-MathF.Pow(effectiveLat - 0.15f, 2) / (2 * 0.12f * 0.12f));
+
+                // Westerlies: Gaussian centered at 0.45 (mid-latitude)
+                float westerliesZone = MathF.Exp(-MathF.Pow(effectiveLat - 0.45f, 2) / (2 * 0.15f * 0.15f));
+
+                // Polar easterlies: Gaussian centered at 0.8 (polar)
+                float polarZone = MathF.Exp(-MathF.Pow(effectiveLat - 0.8f, 2) / (2 * 0.12f * 0.12f));
+
+                // Normalize so total influence sums to reasonable value
+                float totalInfluence = tradeWindZone + westerliesZone + polarZone + 0.1f;
+                tradeWindZone /= totalInfluence;
+                westerliesZone /= totalInfluence;
+                polarZone /= totalInfluence;
                 
                 // Blend wind patterns smoothly
                 baseWindX = 3.0f * tradeWindZone + (-4.0f) * westerliesZone + 2.0f * polarZone;
@@ -394,19 +390,19 @@ public class WeatherSystem
             float absLatitude = Math.Abs(latitude);
 
             // Pressure cells form mainly in mid-latitudes (30-60deg), but allow some everywhere
-            // Use smooth probability transition to eliminate banding
-            float cellProbability = 0.3f; // Base probability everywhere
-            
-            // Smooth increase in mid-latitudes
-            if (absLatitude >= 0.25f && absLatitude <= 0.75f)
-            {
-                if (absLatitude < 0.35f)
-                    cellProbability = 0.3f + 0.7f * ((absLatitude - 0.25f) / 0.1f);
-                else if (absLatitude < 0.65f)
-                    cellProbability = 1.0f; // Full probability in core mid-latitudes
-                else
-                    cellProbability = 1.0f - 0.7f * ((absLatitude - 0.65f) / 0.1f);
-            }
+            // Use SMOOTH GAUSSIAN distribution to eliminate banding (no flat regions)
+            // Geographic variation breaks up horizontal uniformity
+            float geoVariation = MathF.Sin(centerX * 0.3f + centerY * 0.15f) * 0.08f;
+            float effectiveLatitude = Math.Clamp(absLatitude + geoVariation, 0f, 1f);
+
+            // Gaussian distribution centered at 45° latitude (0.5) with wide spread
+            // This creates smooth falloff in all directions - NO flat probability regions
+            float gaussianCenter = 0.5f;
+            float gaussianSigma = 0.25f; // Wide spread for gradual transition
+            float gaussianFactor = MathF.Exp(-MathF.Pow(effectiveLatitude - gaussianCenter, 2) / (2 * gaussianSigma * gaussianSigma));
+
+            // Base probability + gaussian peak (0.3 minimum everywhere, up to 1.0 at peak)
+            float cellProbability = 0.3f + 0.7f * gaussianFactor;
 
             // Use smooth probability instead of hard boundary
             if (_random.NextDouble() > cellProbability) continue;
@@ -539,18 +535,17 @@ public class WeatherSystem
                 float absLatitude = Math.Abs(latitude);
 
                 // Baroclinic instability strongest in mid-latitudes (30-60deg)
-                // Baroclinic instability strongest in mid-latitudes (30-60deg)
-                // Smooth transition to eliminate banding
-                float baroclinicStrength = 0;
-                if (absLatitude >= 0.25f && absLatitude <= 0.75f)
-                {
-                    if (absLatitude < 0.35f)
-                        baroclinicStrength = (absLatitude - 0.25f) / 0.1f;
-                    else if (absLatitude < 0.55f)
-                        baroclinicStrength = 1.0f;
-                    else
-                        baroclinicStrength = 1.0f - (absLatitude - 0.55f) / 0.2f;
-                }
+                // Use SMOOTH GAUSSIAN distribution - NO flat regions that cause banding
+                // Geographic variation breaks up horizontal uniformity
+                float geoVariation = MathF.Sin(x * 0.25f + y * 0.12f) * 0.06f;
+                float effectiveLatitude = Math.Clamp(absLatitude + geoVariation, 0f, 1f);
+
+                // Gaussian distribution centered at 45° (0.5) - creates smooth peak, no flat bands
+                float gaussianCenter = 0.5f;
+                float gaussianSigma = 0.2f;
+                float baroclinicStrength = MathF.Exp(-MathF.Pow(effectiveLatitude - gaussianCenter, 2) / (2 * gaussianSigma * gaussianSigma));
+
+                // Minimum threshold with smooth falloff
                 if (baroclinicStrength < 0.1f) continue;
 
                 var met = cell.GetMeteorology();

@@ -157,13 +157,14 @@ public class MagnetosphereSimulator
                 float magneticProtection = MagneticFieldStrength * (1.0f - latitude * 0.3f);
                 cosmicRays *= (1.0f - magneticProtection * 0.7f);
 
-                // Polar regions get more cosmic rays (field lines converge) - smooth transition
-                // Gradually increase from 60° latitude
-                if (latitude > 0.6f)
-                {
-                    float polarEnhancement = (latitude - 0.6f) / 0.4f; // 0 to 1 from 60° to poles
-                    cosmicRays *= (1.0f + polarEnhancement * latitude);
-                }
+                // Polar regions get more cosmic rays (field lines converge)
+                // Use GAUSSIAN distribution with geographic variation to avoid banding
+                float geoVariation = MathF.Sin(x * 0.25f + y * 0.12f) * 0.06f;
+                float effectiveLat = Math.Clamp(latitude + geoVariation, 0f, 1f);
+                // Smooth gaussian enhancement starting from ~55° with peak at poles
+                // Instead of hard cutoff, use continuous function
+                float polarEnhancement = MathF.Exp(-MathF.Pow(effectiveLat - 1.0f, 2) / (2 * 0.25f * 0.25f));
+                cosmicRays *= (1.0f + polarEnhancement * effectiveLat * 0.5f);
 
                 // Atmosphere shields radiation (more atmosphere = less radiation)
                 float atmosphericShielding = Math.Min(cell.Oxygen / 21.0f, 1.0f) * 0.6f;
@@ -245,23 +246,37 @@ public class MagnetosphereSimulator
 
         float auroraIntensity = (SolarWindStrength - 0.8f) * MagneticFieldStrength;
 
+        // Auroral ovals form at specific magnetic latitudes (~65-75°)
+        // Use GAUSSIAN distribution with geographic variation for realistic auroral oval
         for (int x = 0; x < _map.Width; x++)
         {
-            // Northern aurora (top 10% of map)
-            for (int y = 0; y < _map.Height / 10; y++)
+            for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
                 var magneticData = cell.GetMagneticData();
-                magneticData.AuroraIntensity = auroraIntensity * (1.0f - (y / (_map.Height / 10.0f)));
-            }
 
-            // Southern aurora (bottom 10% of map)
-            for (int y = _map.Height * 9 / 10; y < _map.Height; y++)
-            {
-                var cell = _map.Cells[x, y];
-                var magneticData = cell.GetMagneticData();
-                int distanceFromBottom = _map.Height - y;
-                magneticData.AuroraIntensity = auroraIntensity * (1.0f - (distanceFromBottom / (_map.Height / 10.0f)));
+                // Calculate latitude (0 at equator, 1 at poles)
+                float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+
+                // Geographic variation to create irregular auroral oval shape
+                // Different frequencies for varied, organic appearance
+                float geoVariation = MathF.Sin(x * 0.15f + y * 0.08f) * 0.04f
+                                   + MathF.Cos(x * 0.22f - y * 0.05f) * 0.03f;
+                float effectiveLat = Math.Clamp(latitude + geoVariation, 0f, 1f);
+
+                // Auroral oval: Ring-shaped distribution centered around ~70° latitude (0.78)
+                // Peak intensity at auroral oval, fading towards both pole and equator
+                float auroralOvalCenter = 0.78f; // ~70° latitude
+                float auroralWidth = 0.08f; // Width of auroral band
+
+                // Gaussian ring distribution
+                float distFromOval = Math.Abs(effectiveLat - auroralOvalCenter);
+                float auroralStrength = MathF.Exp(-(distFromOval * distFromOval) / (2 * auroralWidth * auroralWidth));
+
+                // Add variation for dancing aurora effect (time-dependent would be better, but use spatial for now)
+                float auroralVariation = 0.7f + 0.3f * MathF.Sin(x * 0.4f + y * 0.2f);
+
+                magneticData.AuroraIntensity = auroraIntensity * auroralStrength * auroralVariation;
             }
         }
     }
