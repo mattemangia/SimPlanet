@@ -36,6 +36,19 @@ All notable changes to this project will be documented in this file.
   - `InitiateTsunamiFromImpact()` for asteroid impacts
   - `InitiateTsunamiFromNuke()` for nuclear explosions
   - Proper wave propagation from impact point
+- **EMP (Electromagnetic Pulse) Effect**: Nuclear weapons now generate realistic EMP:
+  - Massive radius (80 cells) - much larger than blast
+  - Disables all electronics and power infrastructure
+  - Increases meltdown risk for nuclear plants
+  - Solar farms and wind turbines lose power output
+  - Power lines and stations disabled
+  - 5-year recovery time for affected areas
+- **Electricity/Power Grid View**: New render mode to visualize power infrastructure:
+  - Shows power generation (nuclear plants, solar farms, wind turbines)
+  - Power distribution (stations, transmission lines)
+  - Powered vs unpowered civilization areas
+  - EMP-disabled zones highlighted in red
+  - Power consumption intensity visualization
 - **Realistic Water Formation**: Water no longer automatically fills depressions:
   - Ocean connectivity tracking (flood-fill algorithm)
   - Depressions only fill if connected to ocean OR receive rainfall/rivers

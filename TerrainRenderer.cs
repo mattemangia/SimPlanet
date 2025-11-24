@@ -148,6 +148,7 @@ public class TerrainRenderer
                     RenderMode.Faults => GetFaultsColor(cell),
                     RenderMode.Tsunamis => GetTsunamisColor(cell),
                     RenderMode.Infrastructure => GetInfrastructureColor(cell),
+                    RenderMode.Electricity => GetElectricityColor(cell),
                     RenderMode.SpectralBands => GetSpectralBandsColor(cell),
                     RenderMode.Civilizations => GetCivilizationColor(cell, x, y),
                     RenderMode.Auroras => GetAuroraColor(cell),
@@ -1016,6 +1017,81 @@ public class TerrainRenderer
         return new Color(40, 60, 40); // Dark green
     }
 
+    private Color GetElectricityColor(TerrainCell cell)
+    {
+        var geo = cell.GetGeology();
+
+        // Water has no power grid
+        if (cell.IsWater)
+        {
+            return new Color(30, 30, 50); // Dark blue-gray
+        }
+
+        // EMP affected areas - red warning
+        if (geo.IsEMPAffected)
+        {
+            // Pulse effect based on infrastructure
+            if (geo.HasNuclearPlant || geo.HasSolarFarm || geo.HasWindTurbine || geo.HasPowerStation)
+            {
+                return new Color(255, 50, 50);  // Bright red - disabled infrastructure
+            }
+            return new Color(150, 50, 50);  // Dark red - EMP affected zone
+        }
+
+        // Power generation sources (brightest)
+        if (geo.HasNuclearPlant)
+        {
+            // Nuclear plant - yellow/orange based on output
+            float output = Math.Clamp(geo.PowerOutput / 1000f, 0, 1);
+            return Color.Lerp(new Color(255, 150, 0), new Color(255, 255, 100), output);
+        }
+
+        if (geo.HasSolarFarm)
+        {
+            // Solar farm - bright yellow
+            return new Color(255, 220, 50);
+        }
+
+        if (geo.HasWindTurbine)
+        {
+            // Wind turbine - cyan
+            return new Color(100, 200, 255);
+        }
+
+        // Power distribution
+        if (geo.HasPowerStation)
+        {
+            return new Color(255, 150, 0);  // Orange - distribution hub
+        }
+
+        if (geo.HasPowerLine)
+        {
+            return new Color(200, 200, 50);  // Yellow - transmission line
+        }
+
+        // Powered areas (civilization with electricity)
+        if (geo.IsPowered && cell.LifeType == LifeForm.Civilization)
+        {
+            // Green - has power, intensity based on consumption
+            float consumption = Math.Clamp(geo.PowerConsumption / 100f, 0, 1);
+            return Color.Lerp(new Color(50, 150, 50), new Color(100, 255, 100), consumption);
+        }
+
+        // Unpowered civilization
+        if (cell.LifeType == LifeForm.Civilization)
+        {
+            return new Color(100, 50, 50);  // Dark red - no power
+        }
+
+        // Rural/unpopulated land
+        if (cell.IsLand)
+        {
+            return new Color(40, 40, 40);  // Very dark gray
+        }
+
+        return new Color(30, 30, 50);
+    }
+
     private Color GetSpectralBandsColor(TerrainCell cell)
     {
         // Visualize net radiation budget: shortwave + longwave fluxes
@@ -1274,6 +1350,7 @@ public class TerrainRenderer
             RenderMode.Albedo => "SURFACE ALBEDO",
             RenderMode.Radiation => "RADIATION LEVELS",
             RenderMode.Infrastructure => "CIVILIZATION INFRASTRUCTURE",
+            RenderMode.Electricity => "POWER GRID & ENERGY",
             RenderMode.SpectralBands => "NET RADIATION BUDGET",
             RenderMode.Civilizations => "POLITICAL MAP",
             RenderMode.Auroras => "AURORA INTENSITY",
@@ -1304,6 +1381,7 @@ public class TerrainRenderer
             RenderMode.Albedo => new List<string> { "Absorptive", "Neutral", "Reflective" },
             RenderMode.Radiation => new List<string> { "Safe", "Warning", "Deadly" },
             RenderMode.Infrastructure => new List<string> { "Roads", "Energy", "Hubs" },
+            RenderMode.Electricity => new List<string> { "No Power", "Powered", "EMP Disabled" },
             RenderMode.SpectralBands => new List<string> { "Cooling", "Balanced", "Heating" },
             RenderMode.Auroras => new List<string> { "None", "Weak", "Strong" },
             RenderMode.Tsunamis => new List<string> { "Calm", "High Wave", "Catastrophic" },
@@ -1357,6 +1435,19 @@ public class TerrainRenderer
                 (new Color(160, 140, 100), "Dirt Path"),
                 (new Color(80, 80, 80), "Civilization Territory"),
                 (new Color(20, 40, 80), "Water / Ocean")
+            },
+            RenderMode.Electricity => new List<(Color, string)>
+            {
+                (new Color(255, 200, 0), "Nuclear Plant"),
+                (new Color(255, 220, 50), "Solar Farm"),
+                (new Color(100, 200, 255), "Wind Turbine"),
+                (new Color(255, 150, 0), "Power Station"),
+                (new Color(200, 200, 50), "Power Line"),
+                (new Color(50, 200, 50), "Powered Area"),
+                (new Color(100, 50, 50), "No Power"),
+                (new Color(255, 50, 50), "EMP Disabled"),
+                (new Color(150, 0, 150), "High Power Output"),
+                (new Color(30, 30, 50), "Unpowered / Water")
             },
             RenderMode.Earthquakes => new List<(Color, string)>
             {
@@ -1964,5 +2055,6 @@ public enum RenderMode
     SpectralBands,             // Radiative transfer with shortwave/longwave fluxes
     Civilizations,             // Political map showing civilization territories
     Auroras,                   // Visualizes aurora intensity and magnetic field protection
+    Electricity,               // Power grid: plants, lines, consumption, EMP damage
     TerrainClean               // Base terrain only (no overlays)
 }

@@ -308,6 +308,93 @@ public class DisasterManager
         }
     }
 
+    /// <summary>
+    /// Trigger an Electromagnetic Pulse (EMP) that disables all electronics in a large area.
+    /// High-altitude nuclear detonations can affect areas hundreds of kilometers in radius.
+    /// </summary>
+    private void TriggerEMP(int x, int y, int year)
+    {
+        // EMP radius is MUCH larger than the blast - can cover entire regions
+        // A high-altitude nuke can affect an area 1000+ km in radius
+        int empRadius = 80;  // Very large area
+        int recoveryYears = 5;  // Electronics take years to replace/repair
+
+        int affectedCells = 0;
+        int disabledPlants = 0;
+        int disabledSolar = 0;
+        int disabledWind = 0;
+
+        for (int dx = -empRadius; dx <= empRadius; dx++)
+        {
+            for (int dy = -empRadius; dy <= empRadius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > empRadius) continue;
+
+                var target = _map.Cells[nx, ny];
+                var targetGeo = target.GetGeology();
+
+                // EMP effect strength decreases with distance
+                float empStrength = 1.0f - (distance / empRadius);
+
+                // Mark as EMP affected
+                targetGeo.IsEMPAffected = true;
+                targetGeo.EMPRecoveryYear = year + recoveryYears;
+
+                // Disable power infrastructure
+                if (targetGeo.HasNuclearPlant && _random.NextDouble() < empStrength)
+                {
+                    // Nuclear plants have some hardening but control systems can fail
+                    targetGeo.MeltdownRisk += 0.3f * empStrength;  // Increased meltdown risk
+                    disabledPlants++;
+                }
+
+                if (targetGeo.HasSolarFarm)
+                {
+                    // Solar inverters are vulnerable to EMP
+                    targetGeo.PowerOutput = 0;  // No power output while EMP affected
+                    disabledSolar++;
+                }
+
+                if (targetGeo.HasWindTurbine)
+                {
+                    // Wind turbine electronics are vulnerable
+                    targetGeo.PowerOutput = 0;
+                    disabledWind++;
+                }
+
+                // Disable power lines and stations
+                if (targetGeo.HasPowerLine || targetGeo.HasPowerStation)
+                {
+                    targetGeo.IsPowered = false;
+                }
+
+                // All powered infrastructure loses power
+                targetGeo.IsPowered = false;
+
+                affectedCells++;
+            }
+        }
+
+        // Log EMP event
+        Console.WriteLine($"[EMP] Nuclear EMP at ({x},{y}) affected {affectedCells} cells");
+        Console.WriteLine($"[EMP] Disabled: {disabledPlants} nuclear plants, {disabledSolar} solar farms, {disabledWind} wind turbines");
+
+        // Record as disaster event
+        RecentDisasters.Add(new DisasterEvent
+        {
+            Type = DisasterType.EMP,
+            X = x,
+            Y = y,
+            Year = year,
+            Magnitude = empRadius
+        });
+    }
+
     public void TriggerEarthquake(int x, int y, float magnitude, int year)
     {
         var cell = _map.Cells[x, y];
@@ -569,7 +656,8 @@ public class DisasterManager
             _map.SolarEnergy -= 0.05f;
             _map.GlobalCO2 += 1.0f;  // Fires release CO2
 
-            // EMP effect could disable electronics (not simulated here)
+            // EMP (Electromagnetic Pulse) effect - disables all electronics in large radius
+            TriggerEMP(x, y, year);
         }
 
         // Phase 6: TSUNAMI - if near water
@@ -956,5 +1044,6 @@ public enum DisasterType
     Tornado,
     HeavyRain,
     Flood,
-    Rockfall
+    Rockfall,
+    EMP  // Electromagnetic Pulse from nuclear weapons
 }

@@ -180,8 +180,15 @@ public class GeologicalData
     public bool HasNuclearPlant { get; set; } = false;     // Nuclear power plant
     public bool HasSolarFarm { get; set; } = false;        // Solar panel array
     public bool HasWindTurbine { get; set; } = false;      // Wind turbine
+    public bool HasPowerLine { get; set; } = false;        // Power transmission line
+    public bool HasPowerStation { get; set; } = false;     // Power distribution station
     public int EnergyInfraBuiltYear { get; set; } = 0;     // Year infrastructure was built
     public float MeltdownRisk { get; set; } = 0.0f;        // Nuclear plant risk (0-1)
+    public float PowerOutput { get; set; } = 0.0f;         // Energy production (MW equivalent)
+    public float PowerConsumption { get; set; } = 0.0f;    // Energy consumption
+    public bool IsPowered { get; set; } = false;           // Has electricity access
+    public bool IsEMPAffected { get; set; } = false;       // Disabled by EMP
+    public int EMPRecoveryYear { get; set; } = 0;          // Year EMP effect ends
 
     // Age and composition
     public int CrustAge { get; set; }  // Millions of years

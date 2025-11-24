@@ -106,6 +106,7 @@ namespace SimPlanet
             AddSubButton(lifeGroup, "Life View", "Life", () => SetViewMode(RenderMode.Life));
             AddSubButton(lifeGroup, "Civilizations", "Life", () => SetViewMode(RenderMode.Civilizations));
             AddSubButton(lifeGroup, "Infrastructure", "Life", () => SetViewMode(RenderMode.Infrastructure));
+            AddSubButton(lifeGroup, "Electricity", "Life", () => SetViewMode(RenderMode.Electricity));
             AddSubButton(lifeGroup, "Resources", "Life", () => SetViewMode(RenderMode.Resources));
             buttons.Add(lifeGroup);
 
