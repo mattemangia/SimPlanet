@@ -11,7 +11,7 @@ public class PlanetStabilizer
     private readonly PlanetMap _map;
     private readonly MagnetosphereSimulator _magnetosphere;
     private float _adjustmentTimer = 0f;
-    private const float AdjustmentInterval = 1.0f; // Faster baseline interval (was 2.0f)
+    private const float AdjustmentInterval = 10.0f; // Slower baseline interval (was 1.0f)
     private float _responseMultiplier = 1f;
     private float _currentTimeSpeed = 1f;
 
@@ -95,42 +95,32 @@ public class PlanetStabilizer
         }
 
         _currentTimeSpeed = timeSpeed;
-        _responseMultiplier = CalculateResponseMultiplier(timeSpeed);
         
-        // In emergency mode, stabilize much more aggressively
-        if (_emergencyLifeProtection)
-        {
-            _responseMultiplier *= 5f; // Quintuple the response rate
-        }
+        // Decouple multiplier from time speed to prevent explosion
+        // Only use emergency mode for multiplier
+        _responseMultiplier = _emergencyLifeProtection ? 5.0f : 1.0f;
         
         _adjustmentTimer += deltaTime;
 
-        float effectiveInterval = AdjustmentInterval / MathF.Max(1f, _responseMultiplier);
-        effectiveInterval = Math.Max(0.02f, effectiveInterval); // allow extremely fast reaction
+        // Run at fixed interval in simulation time
+        // We don't divide by multiplier anymore for frequency to prevent double scaling
+        float effectiveInterval = AdjustmentInterval;
         
-        // In emergency mode, update continuously
+        // In emergency mode, check more frequently
         if (_emergencyLifeProtection)
         {
-            effectiveInterval = 0.01f; 
+            effectiveInterval = 1.0f;
         }
 
         if (_adjustmentTimer >= effectiveInterval)
         {
-            // Use a while loop to catch up on missed adjustments at high speed
+            // Use a while loop to catch up on missed adjustments
             while (_adjustmentTimer >= effectiveInterval)
             {
                 PerformStabilization();
                 _adjustmentTimer -= effectiveInterval;
             }
         }
-    }
-
-    private float CalculateResponseMultiplier(float timeSpeed)
-    {
-        // More aggressive scaling with time speed to keep up
-        float clampedSpeed = Math.Clamp(timeSpeed, 0.25f, 128f);
-        float multiplier = MathF.Pow(clampedSpeed, 1.5f);
-        return Math.Clamp(multiplier, 1.0f, 100f);
     }
 
     private void PerformStabilization()
@@ -178,7 +168,7 @@ public class PlanetStabilizer
         // Ensure magnetic field is active to protect from radiation
         if (_magnetosphere.CoreTemperature < _targetCoreTemp)
         {
-            _magnetosphere.CoreTemperature += 150f * _responseMultiplier; // Faster warming
+            _magnetosphere.CoreTemperature += 15f * _responseMultiplier; // Moderate warming (was 150f)
             LastAction = "Warming planetary core";
             AdjustmentsMade++;
         }
@@ -195,7 +185,7 @@ public class PlanetStabilizer
         if (_magnetosphere.MagneticFieldStrength < _targetMagneticField)
         {
             _magnetosphere.MagneticFieldStrength = Math.Min(
-                _magnetosphere.MagneticFieldStrength + 0.05f * _responseMultiplier,
+                _magnetosphere.MagneticFieldStrength + 0.01f * _responseMultiplier, // Slow restoration (was 0.05f)
                 _targetMagneticField + 0.5f // Buffer
             );
             LastAction = "Restoring magnetic field";
@@ -219,7 +209,7 @@ public class PlanetStabilizer
             // Add CO2 to warm planet
             if (avgCO2 < _maxCO2 * 1.5f) // Allow overshoot to correct temp
             {
-                AdjustCO2Globally(0.05f); 
+                AdjustCO2Globally(0.005f); // Reduced from 0.05f
                 LastAction = $"Adding CO2 to warm planet (avg: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
@@ -227,7 +217,7 @@ public class PlanetStabilizer
             // Increase solar energy directly
             if (_map.SolarEnergy < 1.5f)
             {
-                _map.SolarEnergy += 0.01f * _responseMultiplier;
+                _map.SolarEnergy += 0.001f * _responseMultiplier; // Reduced from 0.01f
                 LastAction = $"Increasing solar energy (avg: {avgTemp:F1}°C)";
             }
         }
@@ -242,19 +232,19 @@ public class PlanetStabilizer
             // Prioritize removing the most potent gases first
             if (avgN2O > 0.1f)
             {
-                ReduceN2OGlobally(0.5f); 
+                ReduceN2OGlobally(0.05f); // Reduced from 0.5f
                 LastAction = $"Removing N2O to cool planet ({reason}: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             else if (avgMethane > 0.2f)
             {
-                ReduceMethaneGlobally(0.5f); 
+                ReduceMethaneGlobally(0.05f); // Reduced from 0.5f
                 LastAction = $"Removing methane to cool planet ({reason}: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
             else if (avgCO2 > 0.1f)
             {
-                AdjustCO2Globally(-0.2f);
+                AdjustCO2Globally(-0.02f); // Reduced from -0.2f
                 LastAction = $"Removing CO2 to cool planet ({reason}: {avgTemp:F1}°C)";
                 AdjustmentsMade++;
             }
@@ -262,7 +252,7 @@ public class PlanetStabilizer
             // Decrease solar energy
             if (_map.SolarEnergy > 0.6f)
             {
-                _map.SolarEnergy -= 0.01f * _responseMultiplier;
+                _map.SolarEnergy -= 0.001f * _responseMultiplier; // Reduced from 0.01f
                 LastAction = $"Decreasing solar energy ({reason}: {avgTemp:F1}°C)";
             }
         }
@@ -284,14 +274,14 @@ public class PlanetStabilizer
             // Direct injection if critically low
             if (avgOxygen < 10f)
             {
-                InjectOxygenGlobally(0.5f);
+                InjectOxygenGlobally(0.05f); // Reduced from 0.5f
             }
             LastAction = $"Boosting O2 production (current: {avgOxygen:F1}%)";
             AdjustmentsMade++;
         }
         else if (avgOxygen > highOxygenThreshold)
         {
-            ReduceOxygenGlobally(0.5f);
+            ReduceOxygenGlobally(0.05f); // Reduced from 0.5f
             LastAction = $"Reducing excess O2 (current: {avgOxygen:F1}%)";
             AdjustmentsMade++;
         }
@@ -299,7 +289,7 @@ public class PlanetStabilizer
         // Keep CO2 in safe range for life
         if (avgCO2 < _minCO2)
         {
-            AdjustCO2Globally(0.02f);
+            AdjustCO2Globally(0.002f); // Reduced from 0.02f
             LastAction = $"Adding CO2 for photosynthesis (current: {avgCO2:F3}%)";
             AdjustmentsMade++;
         }
@@ -351,15 +341,15 @@ public class PlanetStabilizer
         if (iceRatio > 0.6f)
         {
             // Warm the planet to break ice-albedo feedback
-            _map.SolarEnergy = Math.Min(_map.SolarEnergy + 0.1f, 2.0f); // Aggressive boost
-            AdjustCO2Globally(0.1f);
+            _map.SolarEnergy = Math.Min(_map.SolarEnergy + 0.01f, 2.0f); // Reduced from 0.1f
+            AdjustCO2Globally(0.01f); // Reduced from 0.1f
             LastAction = "Breaking snowball Earth feedback";
             AdjustmentsMade++;
         }
         // Runaway greenhouse - cool it down
         else if (iceRatio < 0.01f && CalculateAverageTemperature() > 35f)
         {
-            AdjustCO2Globally(-0.1f);
+            AdjustCO2Globally(-0.01f); // Reduced from -0.1f
             LastAction = "Preventing runaway greenhouse";
             AdjustmentsMade++;
         }
@@ -599,8 +589,8 @@ public class PlanetStabilizer
     private void BoostPlantGrowth()
     {
         // Enhance plant life to produce more oxygen
-        float biomassBoost = 0.1f * _responseMultiplier;
-        float oxygenBoost = 0.2f * _responseMultiplier;
+        float biomassBoost = 0.01f * _responseMultiplier; // Reduced from 0.1f
+        float oxygenBoost = 0.02f * _responseMultiplier; // Reduced from 0.2f
         
         for (int x = 0; x < _map.Width; x++)
         {
@@ -618,7 +608,8 @@ public class PlanetStabilizer
 
     private void RaiseLandMasses()
     {
-        float elevationChange = 0.02f * _responseMultiplier;
+        // Drastically reduced change to prevent instant continent formation
+        float elevationChange = 0.0005f * _responseMultiplier;
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -634,7 +625,8 @@ public class PlanetStabilizer
 
     private void AddWaterToLowlands()
     {
-        float elevationChange = 0.02f * _responseMultiplier;
+        // Drastically reduced change to prevent instant flooding
+        float elevationChange = 0.0005f * _responseMultiplier;
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -650,7 +642,7 @@ public class PlanetStabilizer
 
     private void EnsureRainfallDistribution(float avgLandRainfall)
     {
-        float rainfallBoost = 0.1f * _responseMultiplier;
+        float rainfallBoost = 0.01f * _responseMultiplier; // Reduced from 0.1f
         bool severeDrought = avgLandRainfall < 0.18f;
         bool catastrophicDrought = avgLandRainfall < 0.12f;
         float barrenBoost = catastrophicDrought ? rainfallBoost : rainfallBoost * 0.4f;
@@ -688,18 +680,20 @@ public class PlanetStabilizer
 
         float droughtThreshold = 0.25f; // Slightly higher threshold
         float floodThreshold = 0.7f;
-        float responseScale = MathF.Sqrt(MathF.Max(1f, _responseMultiplier));
+
+        // Remove time scaling from response
+        float responseScale = _responseMultiplier;
 
         if (avgLandRainfall < droughtThreshold)
         {
-            float adjustment = 0.2f * responseScale; // More aggressive adjustment
+            float adjustment = 0.02f * responseScale; // Reduced from 0.2f
             controls.RainfallMultiplier = Math.Clamp(controls.RainfallMultiplier + adjustment, 0.25f, 3f);
             LastAction = $"Boosting rainfall to prevent drought ({controls.RainfallMultiplier:F2})";
             AdjustmentsMade++;
         }
         else if (avgLandRainfall > floodThreshold)
         {
-            float adjustment = 0.2f * responseScale; // More aggressive adjustment
+            float adjustment = 0.02f * responseScale; // Reduced from 0.2f
             controls.RainfallMultiplier = Math.Clamp(controls.RainfallMultiplier - adjustment, 0.1f, 3f);
             LastAction = $"Reducing rainfall to prevent floods ({controls.RainfallMultiplier:F2})";
             AdjustmentsMade++;
@@ -712,8 +706,8 @@ public class PlanetStabilizer
         if (!urgent && _adjustmentTimer < 1.0f) return;
 
         float droughtMultiplier = avgLandRainfall < 0.2f ? 1.5f : 1f;
-        float rainBoost = 0.05f * _responseMultiplier * droughtMultiplier;
-        float humidityBoost = 0.05f * _responseMultiplier * droughtMultiplier;
+        float rainBoost = 0.005f * _responseMultiplier * droughtMultiplier; // Reduced from 0.05f
+        float humidityBoost = 0.005f * _responseMultiplier * droughtMultiplier; // Reduced from 0.05f
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -731,7 +725,7 @@ public class PlanetStabilizer
                 // Cool down dry hot spots
                 if (cell.Temperature > 30f)
                 {
-                    cell.Temperature -= 1f * _responseMultiplier * droughtMultiplier;
+                    cell.Temperature -= 0.1f * _responseMultiplier * droughtMultiplier; // Reduced from 1f
                 }
             }
         }
@@ -740,8 +734,8 @@ public class PlanetStabilizer
     private void CombatRapidDesertification(float avgLandRainfall)
     {
         float severityScale = avgLandRainfall < 0.18f ? 1.5f : 1f;
-        float rainfallBoost = 0.1f * _responseMultiplier * severityScale;
-        float cooling = 2f * _responseMultiplier * severityScale;
+        float rainfallBoost = 0.01f * _responseMultiplier * severityScale; // Reduced from 0.1f
+        float cooling = 0.2f * _responseMultiplier * severityScale; // Reduced from 2f
         bool rescueBarren = avgLandRainfall < 0.15f;
 
         for (int x = 0; x < _map.Width; x++)
