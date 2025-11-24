@@ -264,7 +264,7 @@ public class DisasterControlUI
                 _disasterManager.TriggerAsteroid(x, y, _selectedDisasterSize, year);
                 break;
             case DisasterType.Earthquake:
-                _disasterManager.TriggerEarthquake(x, y, 5.0f + _selectedDisasterSize, year);
+                _disasterManager.TriggerEarthquake(x, y, (float)_selectedDisasterSize, year);
                 break;
             case DisasterType.NuclearAccident:
                 _disasterManager.TriggerNuclearAccident(x, y, year);
@@ -321,6 +321,10 @@ public class DisasterControlUI
             if (_selectedDisasterType == DisasterType.Asteroid)
             {
                 instruction += $"\nSize: {_selectedDisasterSize} (scroll to change)";
+            }
+            else if (_selectedDisasterType == DisasterType.Earthquake)
+            {
+                instruction += $"\nMagnitude: {_selectedDisasterSize}.0 (scroll to change)";
             }
             instruction += "\nRight-click to cancel";
 

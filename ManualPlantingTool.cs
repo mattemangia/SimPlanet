@@ -37,7 +37,7 @@ public class ManualPlantingTool
 
     public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel,
                       CivilizationManager civManager, int currentYear, int mapRenderOffsetX, int mapRenderOffsetY,
-                      LifeSimulator lifeSimulator = null, PlanetStabilizer planetStabilizer = null)
+                      LifeSimulator? lifeSimulator = null, PlanetStabilizer? planetStabilizer = null)
     {
         if (!IsActive)
         {
@@ -115,7 +115,7 @@ public class ManualPlantingTool
         _previousMouseState = mouseState;
     }
 
-    private void PlantAt(int x, int y, CivilizationManager civManager, int currentYear, LifeSimulator lifeSimulator, PlanetStabilizer planetStabilizer)
+    private void PlantAt(int x, int y, CivilizationManager civManager, int currentYear, LifeSimulator? lifeSimulator, PlanetStabilizer? planetStabilizer)
     {
         lock (_mapDataLock)
         {

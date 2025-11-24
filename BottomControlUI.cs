@@ -14,9 +14,9 @@ public class BottomControlUI
     private class ControlButton
     {
         public Rectangle Bounds { get; set; }
-        public string Tooltip { get; set; }
-        public string Text { get; set; }
-        public Action OnClick { get; set; }
+        public required string Tooltip { get; set; }
+        public required string Text { get; set; }
+        public required Action OnClick { get; set; }
         public bool IsHovered { get; set; }
         public Color BaseColor { get; set; }
     }
