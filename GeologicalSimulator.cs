@@ -71,8 +71,9 @@ public class GeologicalSimulator
                     geo.Granite = 0.05f;
                     geo.Limestone = 0.0f;
                     geo.CrustAge = _random.Next(0, 200); // Oceanic crust is young (<200 My)
-                    geo.VolcanicRock = geo.Basalt;
-                    geo.CrystallineRock = 0.2f; // Lower oceanic crust (gabbro)
+                    // Scale rock amounts by thickness
+                    geo.VolcanicRock = geo.Basalt * geo.CrustThickness;
+                    geo.CrystallineRock = 0.2f * geo.CrustThickness; // Lower oceanic crust (gabbro)
                 }
                 else if (cell.IsLand || (!plate.IsOceanic))
                 {
@@ -86,8 +87,10 @@ public class GeologicalSimulator
                     geo.Sandstone = 0.15f;
                     geo.Shale = 0.15f;
                     geo.CrustAge = _random.Next(500, 4000); // Continental crust is old (500-4000 My)
-                    geo.CrystallineRock = geo.Granite;
-                    geo.SedimentaryRock = geo.Limestone + geo.Sandstone + geo.Shale;
+                    // Scale CrystallineRock to represent the massive basement
+                    geo.CrystallineRock = geo.Granite * geo.CrustThickness;
+                    // Sedimentary rock is a thin layer on top initially
+                    geo.SedimentaryRock = (geo.Limestone + geo.Sandstone + geo.Shale) * 2.0f; // Init with small layer
                 }
                 else
                 {
@@ -100,6 +103,8 @@ public class GeologicalSimulator
                     geo.Limestone = 0.15f;
                     geo.Sandstone = 0.1f;
                     geo.CrustAge = _random.Next(100, 1000);
+                    geo.CrystallineRock = geo.Granite * geo.CrustThickness;
+                    geo.VolcanicRock = geo.Basalt * (geo.CrustThickness * 0.5f);
                 }
 
                 // Initialize carbonate platforms in shallow tropical seas
@@ -339,29 +344,15 @@ public class GeologicalSimulator
                 if (geo.VolcanicRock < 0f) geo.VolcanicRock = 0f;
                 if (geo.CrystallineRock < 0f) geo.CrystallineRock = 0f;
 
-                // Normalize rock composition to ensure percentages sum to 100% (1.0)
-                float totalRock = geo.CrystallineRock + geo.SedimentaryRock + geo.VolcanicRock;
+                // NOTE: We do NOT normalize rock composition anymore.
+                // We treat CrystallineRock as the "base crust thickness" which should remain constant/dominant,
+                // while SedimentaryRock and VolcanicRock accumulate on top.
+                // This prevents sedimentary layers from mathematically "erasing" the bedrock via normalization.
 
-                if (totalRock > 0.001f) // Avoid division by zero
+                // Ensure CrystallineRock doesn't drop to zero (bedrock persists)
+                if (geo.CrystallineRock < 0.1f && geo.CrustThickness > 1.0f)
                 {
-                    // If total > 1.0, we definitely need to normalize
-                    // If total < 1.0, we might want to normalize too, or treat it as partial crust?
-                    // Given the UI expects percentages, we should probably normalize always if > 0.
-
-                    // However, if total is very small (e.g. 0.1), normalizing boosts it to 1.0.
-                    // Is that desired?
-                    // If we assume the crust is always "100% something", then yes.
-                    // The initial state sums to 1.0.
-
-                    // But let's be careful: if we add rock (e.g. volcanic eruption), the total grows.
-                    // If we erode rock, the total shrinks.
-                    // If we normalize, we maintain the *relative* composition.
-                    // This effectively means the "amount" of rock is infinite/irrelevant, only the type matters.
-                    // This aligns with "30% crystalline", etc.
-
-                    geo.CrystallineRock /= totalRock;
-                    geo.SedimentaryRock /= totalRock;
-                    geo.VolcanicRock /= totalRock;
+                    geo.CrystallineRock = geo.CrustThickness * 0.5f;
                 }
             }
         }
