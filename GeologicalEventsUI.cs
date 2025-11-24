@@ -37,6 +37,19 @@ public class GeologicalEventsUI
     private List<VisualEarthquake> _visualEarthquakes = new();
     private HashSet<long> _processedQuakes = new(); // To track which quakes we've seen (using simple hash)
 
+    // Visual disaster effects (explosions/blasts)
+    private struct VisualDisaster
+    {
+        public int X;
+        public int Y;
+        public DisasterType Type;
+        public float Magnitude;
+        public float Age;
+        public float MaxAge;
+    }
+    private List<VisualDisaster> _visualDisasters = new();
+    private HashSet<long> _processedDisasters = new(); // To track which disasters we've already animated
+
     public bool ShowEvents { get; set; } = true;
     public bool ShowRivers { get; set; } = true;
     public bool ShowPlates { get; set; } = false;
@@ -99,7 +112,7 @@ public class GeologicalEventsUI
     {
         float deltaTime = 0.016f; // Approximate 60fps update
 
-        // Update visual effects
+        // Update visual earthquake effects
         for (int i = _visualEarthquakes.Count - 1; i >= 0; i--)
         {
             var quake = _visualEarthquakes[i];
@@ -112,7 +125,20 @@ public class GeologicalEventsUI
             }
         }
 
-        // Check for new events
+        // Update visual disaster effects
+        for (int i = _visualDisasters.Count - 1; i >= 0; i--)
+        {
+            var disaster = _visualDisasters[i];
+            disaster.Age += deltaTime;
+            _visualDisasters[i] = disaster;
+
+            if (disaster.Age >= disaster.MaxAge)
+            {
+                _visualDisasters.RemoveAt(i);
+            }
+        }
+
+        // Check for new geological events
         if (_geologicalSim != null)
         {
             // Check for recent eruptions
@@ -156,6 +182,49 @@ public class GeologicalEventsUI
             if (_processedQuakes.Count > 1000)
             {
                 _processedQuakes.Clear();
+            }
+        }
+
+        // Check for new disasters to animate
+        if (_disasterManager != null)
+        {
+            foreach (var disaster in _disasterManager.RecentDisasters)
+            {
+                // Only animate current year disasters or very recent ones
+                if (Math.Abs(disaster.Year - currentYear) <= 1)
+                {
+                    // Generate unique ID for disaster
+                    long disasterId = ((long)disaster.X << 32) | (uint)disaster.Y ^ (int)disaster.Type ^ disaster.Year;
+
+                    if (!_processedDisasters.Contains(disasterId))
+                    {
+                        _processedDisasters.Add(disasterId);
+
+                        // Only animate explosive/impact disasters
+                        if (disaster.Type == DisasterType.Asteroid ||
+                            disaster.Type == DisasterType.NuclearAccident ||
+                            disaster.Type == DisasterType.VolcanicEruption)
+                        {
+                            _visualDisasters.Add(new VisualDisaster
+                            {
+                                X = disaster.X,
+                                Y = disaster.Y,
+                                Type = disaster.Type,
+                                Magnitude = disaster.Magnitude,
+                                Age = 0,
+                                MaxAge = 4.0f // Animation duration in seconds
+                            });
+
+                            LogEvent($"{disaster.Type} detected at ({disaster.X}, {disaster.Y})");
+                        }
+                    }
+                }
+            }
+
+            // Cleanup processed disasters occasionally
+            if (_processedDisasters.Count > 1000)
+            {
+                _processedDisasters.Clear();
             }
         }
 
@@ -538,7 +607,45 @@ public class GeologicalEventsUI
             }
         }
 
-        // Draw Disaster Zones (Blast Radius Effects)
+        // Draw active visual disasters (animated blast waves/explosions)
+        if (ShowDisasterZones)
+        {
+            foreach (var disaster in _visualDisasters)
+            {
+                float screenX = offsetX + disaster.X * pixelScale;
+                float screenY = offsetY + disaster.Y * pixelScale;
+                int centerX = (int)(screenX + pixelScale * 0.5f);
+                int centerY = (int)(screenY + pixelScale * 0.5f);
+
+                float progress = disaster.Age / disaster.MaxAge;
+                float invProgress = 1.0f - progress;
+                float radius = disaster.Magnitude * 5.0f * pixelScale * progress;
+
+                Color blastColor = disaster.Type switch
+                {
+                    DisasterType.NuclearAccident => Color.Lime, // Radioactive glow
+                    DisasterType.Asteroid => Color.OrangeRed,
+                    DisasterType.VolcanicEruption => Color.Red,
+                    _ => Color.White
+                };
+
+                // Draw expanding blast wave (filled with high transparency)
+                if (progress < 1.0f)
+                {
+                    DrawCircleFilled(_spriteBatch, centerX, centerY, (int)radius, blastColor * 0.3f * invProgress);
+                    DrawCircleOutline(_spriteBatch, centerX, centerY, (int)radius, blastColor * invProgress, 3);
+
+                    // Initial flash (white core)
+                    if (progress < 0.2f)
+                    {
+                        float flashOpacity = 1.0f - (progress * 5.0f);
+                        DrawCircleFilled(_spriteBatch, centerX, centerY, (int)(radius * 0.5f), Color.White * flashOpacity);
+                    }
+                }
+            }
+        }
+
+        // Draw Disaster Zones (Blast Radius Effects - Static Overlays)
         if (ShowDisasterZones && _disasterManager != null)
         {
             foreach (var disaster in _disasterManager.RecentDisasters)
