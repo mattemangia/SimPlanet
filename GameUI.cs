@@ -283,9 +283,9 @@ public class GameUI
             int mya = Math.Max(0, startMya - (state.Year * 5));
 
             if (mya > 0)
-                DrawLabelValue("Time:", $"{mya} MYA", _goldColor);
+                DrawLabelValue("Geological Time:", $"{mya} MYA", _goldColor);
             else
-                DrawLabelValue("Time:", "Present Day", _goldColor);
+                DrawLabelValue("Geological Time:", "Present Day", _goldColor);
         }
         else
         {

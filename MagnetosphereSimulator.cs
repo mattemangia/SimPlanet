@@ -77,7 +77,9 @@ public class MagnetosphereSimulator
         }
 
         // Vary solar activity (solar cycles)
-        SolarWindStrength = 0.8f + 0.4f * (float)Math.Sin(gameYear * 0.1);
+        // Use Cosine to start at peak (1.2) instead of 0.8, ensuring immediate auroras
+        // Increased frequency (0.2) for more dynamic visual feedback (approx 30 year cycle)
+        SolarWindStrength = 0.8f + 0.4f * (float)Math.Cos(gameYear * 0.2);
         CosmicRayIntensity = 0.9f + 0.2f * (float)_random.NextDouble();
 
         // Calculate radiation levels for each cell
