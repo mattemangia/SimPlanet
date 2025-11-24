@@ -12,7 +12,7 @@ public class ManualFaultTool : IDisposable
     private readonly PlanetMap _map;
     private Texture2D _pixelTexture;
 
-    public bool IsVisible { get; set; } = false;
+    public bool IsActive { get; set; } = false;
     private Point? _startPoint = null;
     private Point? _endPoint = null;
     private FaultType _selectedFaultType = FaultType.Normal;
@@ -32,7 +32,7 @@ public class ManualFaultTool : IDisposable
 
     public void Update(MouseState mouseState, int cameraX, int cameraY, float zoom, int screenOffsetX, int screenOffsetY, int cellSize)
     {
-        if (!IsVisible) return;
+        if (!IsActive) return;
 
         var keyState = Keyboard.GetState();
         HandleInput(mouseState, keyState, cameraX, cameraY, zoom, screenOffsetX, screenOffsetY, cellSize);
@@ -191,7 +191,7 @@ public class ManualFaultTool : IDisposable
 
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight, int cameraX, int cameraY, float zoom, int screenOffsetX, int screenOffsetY, int cellSize)
     {
-        if (!IsVisible) return;
+        if (!IsActive) return;
 
         // Draw tool UI
         string text = $"Manual Fault Tool | Type: {_selectedFaultType} (TAB) | Drag to draw";
