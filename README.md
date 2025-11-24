@@ -365,6 +365,7 @@ Visualization modes are now grouped by category. Press the corresponding number 
 - **Volcanoes**: Red triangles showing active volcanoes
 - **Rivers**: Blue lines showing river networks
 - **Plate Boundaries**: Highlighted convergent, divergent, and transform zones
+- **Geological Log**: Event log showing recent earthquakes and eruptions (Press E)
 - **3D Minimap**: Rotating globe in bottom-left corner
 
 ## Performance Optimizations
@@ -471,6 +472,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **B** | Toggle river overlay |
 | **N** | Toggle plate boundary overlay |
 | **.** | Toggle earthquakes circles overlay |
+| **E** | Toggle geological log |
 | **,** | Toggle disaster zones overlay |
 | **D** | Toggle disaster control panel |
 | **K** | Toggle disease/pandemic control center |

@@ -1,5 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System.Linq;
 
 namespace SimPlanet;
 
@@ -37,6 +39,11 @@ public class GeologicalEventsUI
     private List<VisualEarthquake> _visualEarthquakes = new();
     private HashSet<long> _processedQuakes = new(); // To track which quakes we've seen (using simple hash)
 
+    // To prevent spamming the same log message
+    private HashSet<string> _recentLogs = new();
+    private Dictionary<string, float> _recentLogTimes = new();
+    private List<string> _keysToRemove = new(); // Reusable list to avoid allocations
+
     // Visual disaster effects (explosions/blasts)
     private struct VisualDisaster
     {
@@ -49,6 +56,10 @@ public class GeologicalEventsUI
     }
     private List<VisualDisaster> _visualDisasters = new();
     private HashSet<long> _processedDisasters = new(); // To track which disasters we've already animated
+
+    // UI State
+    private Rectangle _closeButtonRect;
+    private bool _isHoveringClose = false;
 
     public bool ShowEvents { get; set; } = true;
     public bool ShowRivers { get; set; } = true;
@@ -108,9 +119,64 @@ public class GeologicalEventsUI
         _overlayDirty = true;
     }
 
+    public void HandleInput(MouseState mouseState, MouseState prevMouseState)
+    {
+        if (!ShowEvents) return;
+
+        _isHoveringClose = _closeButtonRect.Contains(mouseState.Position);
+
+        if (_isHoveringClose &&
+            mouseState.LeftButton == ButtonState.Released &&
+            prevMouseState.LeftButton == ButtonState.Pressed)
+        {
+            ShowEvents = false;
+        }
+    }
+
     public void Update(int currentYear)
     {
         float deltaTime = 0.016f; // Approximate 60fps update
+
+        // Cleanup recent logs cache
+        // Optimization: Only process if there are items to avoid allocation every frame
+        if (_recentLogTimes.Count > 0)
+        {
+            _keysToRemove.Clear();
+
+            // Safe iteration over keys using ToList() is actually fine if not done frequently,
+            // but we can just use the keys collection directly if we don't modify the dict during iteration.
+            // However, we are modifying values: _recentLogTimes[key] += deltaTime.
+            // This modifies the version of the dictionary, so we MUST use a copy of keys.
+            // To avoid ToList() allocation, we can manually copy to our reusable list first.
+
+            // Copy keys to reusable list to safely iterate and modify values
+            _keysToRemove.AddRange(_recentLogTimes.Keys);
+
+            for (int i = 0; i < _keysToRemove.Count; i++)
+            {
+                string key = _keysToRemove[i];
+                _recentLogTimes[key] += deltaTime;
+            }
+
+            // Now check for removal
+            // Reuse the list again for removal candidates
+            _keysToRemove.Clear();
+
+            foreach (var kvp in _recentLogTimes)
+            {
+                if (kvp.Value > 5.0f) // Keep logs in memory for 5 seconds
+                {
+                    _keysToRemove.Add(kvp.Key);
+                }
+            }
+
+            for (int i = 0; i < _keysToRemove.Count; i++)
+            {
+                string key = _keysToRemove[i];
+                _recentLogTimes.Remove(key);
+                _recentLogs.Remove(key);
+            }
+        }
 
         // Update visual earthquake effects
         for (int i = _visualEarthquakes.Count - 1; i >= 0; i--)
@@ -154,7 +220,10 @@ public class GeologicalEventsUI
             foreach (var earthquake in _geologicalSim.Earthquakes)
             {
                 // Generate a unique-ish ID for tracking
-                long quakeId = ((long)earthquake.X << 32) | (uint)earthquake.Y ^ BitConverter.SingleToInt32Bits(earthquake.Magnitude) ^ earthquake.Year;
+                // Use a more robust hash combination
+                long quakeId = ((long)earthquake.X << 32) | (uint)earthquake.Y;
+                quakeId ^= (long)BitConverter.SingleToInt32Bits(earthquake.Magnitude) << 16;
+                quakeId ^= earthquake.Year;
 
                 if (!_processedQuakes.Contains(quakeId))
                 {
@@ -171,15 +240,17 @@ public class GeologicalEventsUI
                     });
 
                     // Only log significant earthquakes to prevent spam
-                    if (earthquake.Magnitude >= 4.5f)
+                    // User requested "important intensity" only (raised from 4.5 to 6.0)
+                    if (earthquake.Magnitude >= 6.0f)
                     {
-                        LogEvent($"Earthquake M{earthquake.Magnitude:F1} at ({earthquake.X}, {earthquake.Y})");
+                        LogEvent($"Major Earthquake M{earthquake.Magnitude:F1} at ({earthquake.X}, {earthquake.Y})");
                     }
                 }
             }
 
             // Cleanup processed set occasionally
-            if (_processedQuakes.Count > 1000)
+            // Increase buffer size to prevent recycling IDs too quickly if queue is large
+            if (_processedQuakes.Count > 2000)
             {
                 _processedQuakes.Clear();
             }
@@ -251,19 +322,17 @@ public class GeologicalEventsUI
             }
         }
 
-        // Check for new rivers
-        if (_hydrologySim != null && _hydrologySim.Rivers.Count > 0)
-        {
-            // Periodically log river formation
-            if (currentYear % 10 == 0 && _hydrologySim.Rivers.Count > 0)
-            {
-                LogEvent($"{_hydrologySim.Rivers.Count} rivers flowing");
-            }
-        }
     }
 
     private void LogEvent(string message)
     {
+        // Deduplicate recent messages to prevent spam
+        if (_recentLogs.Contains(message))
+            return;
+
+        _recentLogs.Add(message);
+        _recentLogTimes[message] = 0f;
+
         _eventLog.Enqueue(message);
         if (_eventLog.Count > MaxLogEntries)
         {
@@ -735,6 +804,19 @@ public class GeologicalEventsUI
         _spriteBatch.Draw(_pixelTexture,
             new Rectangle(panelX, panelY, panelWidth, 28),
             new Color(80, 40, 10, 220));
+
+        // Close Button
+        int closeSize = 20;
+        _closeButtonRect = new Rectangle(panelX + panelWidth - closeSize - 4, panelY + 4, closeSize, closeSize);
+
+        Color closeColor = _isHoveringClose ? Color.Red : new Color(200, 50, 50);
+        _spriteBatch.Draw(_pixelTexture, _closeButtonRect, closeColor);
+        DrawRectangleOutline(_closeButtonRect.X, _closeButtonRect.Y, closeSize, closeSize, Color.White, 1);
+
+        // Draw X
+        int padding = 4;
+        // Using DrawLine approach via DrawTexture logic isn't available, so we just use small rects or font
+        _font.DrawString(_spriteBatch, "X", new Vector2(_closeButtonRect.X + 5, _closeButtonRect.Y + 2), Color.White);
 
         // Title
         _font.DrawString(_spriteBatch, "GEOLOGICAL EVENTS",

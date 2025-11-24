@@ -135,6 +135,7 @@ namespace SimPlanet
             AddSubButton(uiGroup, "Rivers (B)", "UI", () => game.ToggleRivers());
             AddSubButton(uiGroup, "Plates (N)", "UI", () => game.TogglePlates());
             AddSubButton(uiGroup, "Earthquakes Overlay (.)", "UI", () => game.ToggleEarthquakes());
+            AddSubButton(uiGroup, "Geological Log (E)", "UI", () => game.ToggleGeologicalEvents());
             AddSubButton(uiGroup, "Graphs (Y)", "UI", () => game.ToggleGraphs());
             AddSubButton(uiGroup, "Stabilizer (\\)", "UI", () => game.ToggleStabilizer());
             buttons.Add(uiGroup);
@@ -292,6 +293,7 @@ namespace SimPlanet
             else if (tooltip.Contains("Planet Controls")) DrawPlanetControlsIcon(data, size);
             else if (tooltip.Contains("Spectral")) DrawSpectralIcon(data, size);
             else if (tooltip.Contains("Auroras")) DrawAuroraIcon(data, size);
+            else if (tooltip.Contains("Geological Log")) DrawGeologicalLogIcon(data, size);
             // New Group Icons
             else if (tooltip.Contains("Weather Group")) DrawWeatherGroupIcon(data, size);
             else if (tooltip.Contains("Atmosphere Group")) DrawAtmosphereGroupIcon(data, size);
@@ -550,6 +552,17 @@ namespace SimPlanet
         }
         private void DrawPlanetControlsIcon(Color[] data, int size) {
             Color gray = Color.Gray; Color blue = Color.Blue; for (int y = 4; y < size - 4; y += 6) { for (int x = 4; x < size - 4; x++) data[y * size + x] = gray; data[y * size + size / 2] = blue; }
+        }
+        private void DrawGeologicalLogIcon(Color[] data, int size) {
+            Color white = Color.White; Color gray = Color.Gray;
+            // Draw list background
+            DrawRectOutline(data, size, 4, 4, size - 8, size - 8, gray);
+            // Draw lines
+            for (int y = 8; y < size - 8; y += 4) {
+                for (int x = 8; x < size - 8; x++) {
+                    data[y * size + x] = white;
+                }
+            }
         }
         private void DrawCircle(Color[] data, int size, int centerX, int centerY, int radius, Color color) {
             for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) { int dx = x - centerX; int dy = y - centerY; if (dx * dx + dy * dy <= radius * radius) data[y * size + x] = color; }

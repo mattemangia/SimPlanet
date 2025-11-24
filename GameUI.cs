@@ -556,6 +556,7 @@ public class GameUI
         DrawTextAt("B: Toggle rivers", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("N: Toggle plate boundaries", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt(".: Toggle earthquakes circles", _textValueColor, rightColX, rightY); rightY += lineHeight;
+        DrawTextAt("E: Toggle geological log", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt(",: Toggle disaster zones", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("P: Toggle 3D minimap", _textValueColor, rightColX, rightY); rightY += lineHeight;
         DrawTextAt("C: Day/Night cycle", Color.Cyan, rightColX, rightY); rightY += lineHeight;

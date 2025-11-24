@@ -638,6 +638,7 @@ public class SimPlanetGame : Game
             }
             
             _minimap3D.Update(realDeltaTime);
+            _eventsUI.HandleInput(mouseState, _previousMouseState);
             _eventsUI.Update(_gameState.Year);
             _interactiveControls.Update(realDeltaTime);
             // Check if any tools are active that need map clicks
@@ -915,6 +916,12 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.OemComma) && _previousKeyState.IsKeyUp(Keys.OemComma))
         {
             _eventsUI.ShowDisasterZones = !_eventsUI.ShowDisasterZones;
+        }
+
+        // Toggle geological events log (E key)
+        if (keyState.IsKeyDown(Keys.E) && _previousKeyState.IsKeyUp(Keys.E))
+        {
+            ToggleGeologicalEvents();
         }
 
         // Control civilization (G key)
@@ -1913,6 +1920,11 @@ public class SimPlanetGame : Game
     public void ToggleEarthquakes()
     {
         _eventsUI.ShowEarthquakes = !_eventsUI.ShowEarthquakes;
+    }
+
+    public void ToggleGeologicalEvents()
+    {
+        _eventsUI.ShowEvents = !_eventsUI.ShowEvents;
     }
 
     public void SeedLife()
