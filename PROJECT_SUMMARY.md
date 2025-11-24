@@ -28,13 +28,19 @@ SimPlanet is a complete SimEarth-like planetary evolution simulator built from s
 - ✅ **Espionage System**: Spy missions to steal technology, sabotage, assassinate rulers, incite revolutions
 - ✅ **Enhanced Weather Visualization**: Animated clouds and cyclone vortices on 3D minimap and 2D weather maps
 - ✅ **Cyclone Climate Impact**: Sea surface cooling, ocean current disruption, upwelling effects from tropical cyclones
+- ✅ **Coastal/Beach Biome**: Accurate coastal detection and rendering with sandy textures, shells, pebbles, and wet sand
+- ✅ **Catastrophic Asteroid Impacts**: Multi-phase destruction with craters, thermal blast, shockwaves, and extinction events
+- ✅ **Enhanced Nuclear Effects**: Fireballs, thermal blasts, radiation, fallout, nuclear winter, and massive EMPs
+- ✅ **EMP Effects**: Realistic electromagnetic pulses disabling electronics and power infrastructure
+- ✅ **Realistic Water Formation**: Water fills connected depressions, isolated basins form salt flats or dry lakes
 
 ### Rendering & Visualization
 - ✅ **Procedural Graphics**: All sprites generated programmatically (no external assets)
-- ✅ **22 View Modes**: Terrain, Temperature, Rainfall, Life, Oxygen, CO2, Elevation, Geology, Tectonic Plates, Volcanoes, Clouds, Wind, Pressure, Storms, Biomes, Albedo, Radiation, Resources, Infrastructure, Earthquakes, Faults, Tsunamis
+- ✅ **Procedural Terrain Textures**: Detailed textures for all biomes (deep/shallow water, beaches, forests, deserts, mountains, ice, tundra)
+- ✅ **24 View Modes**: Terrain, Temperature, Rainfall, Life, Oxygen, CO2, Elevation, Geology, Tectonic Plates, Volcanoes, Clouds, Wind, Pressure, Storms, Biomes, Albedo, Radiation, Resources, Infrastructure, Earthquakes, Faults, Tsunamis, Electricity, Auroras
 - ✅ **Custom Font System**: Built-in font rendering (no external font files)
 - ✅ **Real-time Updates**: Dynamic texture generation each frame
-- ✅ **Advanced Thematic Views**: Albedo (surface reflectivity), Radiation (cosmic ray levels), Biomes (15 types)
+- ✅ **Advanced Thematic Views**: Albedo (surface reflectivity), Radiation (cosmic ray levels), Biomes (15 types), Spectral Energy, Electricity (Power Grid)
 - ✅ **Geological Hazard Views**: Earthquakes (seismic activity), Faults (fault lines), Tsunamis (wave propagation)
 
 ### User Interface
@@ -534,11 +540,14 @@ Each life form has specific requirements:
 16. **Albedo**: Surface reflectivity showing ice-albedo feedback
 17. **Radiation**: Cosmic ray and solar radiation levels
 18. **Resources**: Natural resource deposits
+19. **Electricity**: Power grid status, generation, consumption, EMP zones
+20. **Spectral Energy**: Net radiation budget visualization
+21. **Auroras**: Aurora intensity and magnetic field interactions
 
 **Geological Hazard Views (E, Q, U):**
-19. **Earthquakes**: Seismic activity, epicenters, stress buildup, wave propagation
-20. **Faults**: Fault lines color-coded by type (strike-slip, normal, reverse, thrust, oblique)
-21. **Tsunamis**: Wave height, coastal flooding, and tsunami propagation
+22. **Earthquakes**: Seismic activity, epicenters, stress buildup, wave propagation
+23. **Faults**: Fault lines color-coded by type (strike-slip, normal, reverse, thrust, oblique)
+24. **Tsunamis**: Wave height, coastal flooding, and tsunami propagation
 
 #### Manual Terraforming Tools
 - **Plant Placement (T key)**: Click to manually place life forms
@@ -710,7 +719,19 @@ dotnet run
 
 ## Recent Updates
 
-### Interactive Toolbar, Splash Screen & Planetary Controls (Latest)
+### Coastal Biomes, Procedural Textures & Advanced Disaster Effects
+
+**New Features:**
+- ✅ **Coastal/Beach Biome**: Proper coastal environment detection and rendering with sandy textures, shells, and pebbles.
+- ✅ **Procedural Terrain Textures**: Completely rewritten terrain rendering with unique patterns for all biomes (deep/shallow water, grasslands, forests, deserts, mountains, tundra, ice).
+- ✅ **Catastrophic Asteroid Impacts**: Multi-phase destruction mechanics including crater formation, thermal blasts, shockwaves, and extinction-level events.
+- ✅ **Enhanced Nuclear Effects**: Realistic multi-phase nuclear explosions with fireballs, thermal radiation, fallout, and nuclear winter.
+- ✅ **EMP (Electromagnetic Pulse)**: Nuclear weapons now generate massive EMPs that disable electronics and power infrastructure.
+- ✅ **Electricity/Power Grid View**: New render mode visualizing power generation (nuclear, solar, wind), distribution lines, and consumption.
+- ✅ **Realistic Water Formation**: Advanced hydrology where water fills connected depressions, while isolated basins form salt flats or dry lakes.
+- ✅ **Tsunami Enhancements**: Tsunamis now triggered by asteroid impacts and nuclear explosions in water.
+
+### Interactive Toolbar, Splash Screen & Planetary Controls
 
 **Interactive Toolbar:**
 - ✅ **50+ Clickable Buttons**: Access all 22 view modes, game controls, UI toggles, and features without remembering keybindings
@@ -782,7 +803,7 @@ dotnet run
 - ✅ **9 Treaty Types**: Trade Pacts, Defense Pacts, Military Alliances, Non-Aggression, Royal Marriage, Vassalage, Tribute, Cultural Exchange, Climate Agreements
 - ✅ **Opinion System**: -100 to +100 opinion scores affecting all diplomatic actions
 - ✅ **Trust Levels**: 0-100% trust that builds over time and shatters with treaty violations
-- ✅ **Royal Marriages**: Political marriages between rulers create alliances and produce heirs
+- ✅ **Royal Marriages**: Political marriages between rulers create lasting alliances and produce heirs
 - ✅ **5 Diplomatic Statuses**: War, Hostile, Neutral, Friendly, Allied
 - ✅ **Treaty Breaking**: Major diplomatic incidents with -50% trust loss and -50 opinion
 - ✅ **Automatic Diplomacy**: AI civilizations autonomously propose treaties and form alliances
@@ -995,8 +1016,8 @@ This is an original implementation inspired by SimEarth. All code is newly writt
 
 **Total Development**: Complete implementation of a comprehensive SimEarth-like planetary evolution simulator
 **Lines of Code**: ~10,000+ across 29+ C# files
-**Features**: 55+ major systems and features
-**View Modes**: 22 different visualization modes
+**Features**: 60+ major systems and features
+**View Modes**: 24 different visualization modes
 **Interactive UI**: 50+ toolbar buttons with tooltips + planetary controls panel
 **Government Types**: 9 government systems with succession and diplomacy
 **Divine Powers**: 7 god-mode powers with full espionage system
