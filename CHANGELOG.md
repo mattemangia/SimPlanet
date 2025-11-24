@@ -2,8 +2,6 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
-
 ### New Features
 
 - **Coastal/Beach Biome**: Added proper coastal environment detection and rendering. Beach terrain now displays correctly along coastlines with sandy textures, shells, pebbles, and wet sand near water.
