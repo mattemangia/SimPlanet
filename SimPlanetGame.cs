@@ -817,8 +817,6 @@ public class SimPlanetGame : Game
         _terrainRenderer.CameraX = Math.Clamp(_terrainRenderer.CameraX, minCamX, maxCamX);
         _terrainRenderer.CameraY = Math.Clamp(_terrainRenderer.CameraY, minCamY, maxCamY);
 
-        _previousMouseState = mouseState;
-
         // Only process key presses (not holds) - but mouse input is always processed above
         if (keyState == _previousKeyState)
             return;
