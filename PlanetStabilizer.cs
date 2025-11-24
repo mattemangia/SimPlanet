@@ -128,6 +128,7 @@ public class PlanetStabilizer
         float avgOxygen = CalculateAverageOxygen();
         float avgCO2 = CalculateAverageCO2();
         float avgLandRainfall = CalculateAverageLandRainfall();
+        var (polarIceCoverage, avgPolarTemp) = CalculatePolarIceStatus();
 
         // Priority 1: ACTIVELY PROTECT LIFE from disasters and harsh conditions
         // Moved to Priority 1 to ensure life survives before global adjustments happen
@@ -137,7 +138,7 @@ public class PlanetStabilizer
         StabilizeMagnetosphere();
 
         // Priority 3: Stabilize temperature (critical for life)
-        StabilizeTemperature(avgTemp, avgCO2);
+        StabilizeTemperature(avgTemp, avgCO2, polarIceCoverage, avgPolarTemp);
 
         // Priority 4: Stabilize atmosphere composition
         StabilizeAtmosphere(avgOxygen, avgCO2);
@@ -153,6 +154,7 @@ public class PlanetStabilizer
         CombatRapidDesertification(avgLandRainfall);
 
         // Priority 8: Prevent runaway ice ages or greenhouse effects
+        MaintainPolarIceCaps(polarIceCoverage, avgPolarTemp);
         PreventExtremeFeedbacks();
     }
 
@@ -191,18 +193,19 @@ public class PlanetStabilizer
         }
     }
 
-    private void StabilizeTemperature(float avgTemp, float avgCO2)
+    private void StabilizeTemperature(float avgTemp, float avgCO2, float polarIceCoverage, float avgPolarTemp)
     {
         float tempDeviation = avgTemp - _targetGlobalTemp;
         float maxTemp = CalculateMaxTemperature();
         float safetyTempLimit = 42f; // Keep well below the 45C life limit
+        bool protectPolarCaps = polarIceCoverage < 0.35f && avgPolarTemp > -25f;
 
         // AGGRESSIVE temperature control
         // If life is present, we cannot allow global temp to drift too far
         
         // Too cold - warm up
         // CRITICAL FIX: Do not warm up if ANY part of the planet is already overheating
-        if (tempDeviation < -1f && maxTemp < safetyTempLimit)
+        if (tempDeviation < -1f && maxTemp < safetyTempLimit && !protectPolarCaps)
         {
             // Add CO2 to warm planet
             if (avgCO2 < _maxCO2 * 1.5f) // Allow overshoot to correct temp
@@ -315,6 +318,73 @@ public class PlanetStabilizer
 
         // Ensure adequate rainfall for life
         EnsureRainfallDistribution(avgLandRainfall);
+    }
+
+    private (float polarIceCoverage, float avgPolarTemp) CalculatePolarIceStatus()
+    {
+        int polarCells = 0;
+        int polarIceCells = 0;
+        float polarTempSum = 0f;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+                if (latitude <= 0.65f) continue;
+
+                polarCells++;
+                var cell = _map.Cells[x, y];
+                polarTempSum += cell.Temperature;
+                if (cell.IsIce) polarIceCells++;
+            }
+        }
+
+        if (polarCells == 0) return (0f, 0f);
+
+        return ((float)polarIceCells / polarCells, polarTempSum / polarCells);
+    }
+
+    private void MaintainPolarIceCaps(float polarIceCoverage, float avgPolarTemp)
+    {
+        float desiredCoverage = 0.4f; // Aim for at least 40% ice coverage in polar cells
+        if (polarIceCoverage >= desiredCoverage || avgPolarTemp < -35f) return;
+
+        bool adjusted = false;
+        float coolingPerCell = 0.2f * _responseMultiplier;
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                float latitude = Math.Abs((y - _map.Height / 2.0f) / (_map.Height / 2.0f));
+                if (latitude <= 0.65f) continue;
+
+                var cell = _map.Cells[x, y];
+                cell.Temperature -= coolingPerCell;
+
+                // Remove a little greenhouse forcing locally so ice can regrow
+                cell.Methane *= 0.995f;
+                cell.CO2 *= 0.999f;
+                adjusted = true;
+            }
+        }
+
+        if (_map.SolarEnergy > 0.85f)
+        {
+            float newEnergy = Math.Max(0.65f, _map.SolarEnergy - 0.0008f * _responseMultiplier);
+            if (Math.Abs(newEnergy - _map.SolarEnergy) > 0.0001f)
+            {
+                adjusted = true;
+                _map.SolarEnergy = newEnergy;
+            }
+        }
+
+        if (adjusted)
+        {
+            LastAction = "Cooling poles to rebuild ice caps";
+            AdjustmentsMade++;
+        }
     }
 
     private void PreventExtremeFeedbacks()
