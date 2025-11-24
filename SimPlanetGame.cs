@@ -1441,9 +1441,17 @@ public class SimPlanetGame : Game
             _terrainRenderer.Mode = _currentRenderMode;
 
             // Update terrain texture only when dirty (performance optimization)
-            lock (_mapDataLock)
+            // Avoid blocking the render thread if the simulation is writing map data
+            if (Monitor.TryEnter(_mapDataLock))
             {
-                _terrainRenderer.UpdateTerrainTexture();
+                try
+                {
+                    _terrainRenderer.UpdateTerrainTexture();
+                }
+                finally
+                {
+                    Monitor.Exit(_mapDataLock);
+                }
             }
 
         // Split screen layout: Toolbar at top (36px), Info panel on left (280px), map on right
