@@ -624,6 +624,30 @@ public class GeologicalSimulator
 
                 // Clamp to reasonable maximum (0-10 range, with normal values 0-2)
                 geo.TectonicStress = Math.Clamp(geo.TectonicStress, 0f, 10f);
+
+                // Cleanup inactive faults to prevent performance degradation and crashes
+                // Only clean up faults that are not manually placed and not on active plate boundaries
+                if (geo.IsFault && !geo.IsManualFault && geo.BoundaryType == PlateBoundaryType.None)
+                {
+                    // Decay activity over time
+                    // Use tectonicScale to ensure it scales with simulation speed
+                    // Default decay: 0.1 per second at 1x speed (takes ~10s to clear)
+                    float decayRate = 0.1f * tectonicScale;
+
+                    geo.FaultActivity -= decayRate;
+
+                    // Also slowly decay stress on inactive faults so they don't just re-trigger immediately
+                    geo.SeismicStress -= decayRate * 0.5f;
+
+                    // If activity drops to zero, remove the fault
+                    if (geo.FaultActivity <= 0.0f)
+                    {
+                        geo.IsFault = false;
+                        geo.FaultType = FaultType.None;
+                        geo.FaultActivity = 0f;
+                        geo.SeismicStress = Math.Max(0f, geo.SeismicStress);
+                    }
+                }
             }
         }
     }
