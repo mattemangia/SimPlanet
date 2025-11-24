@@ -722,7 +722,9 @@ public class SimPlanetGame : Game
 
         // Mouse controls for pan and zoom (MUST be processed every frame, not just on keyboard changes)
         var mouseState = Mouse.GetState();
-        bool blockMapPanning = _mapOptionsUI.IsVisible || _planetaryControlsUI.IsVisible;
+        bool blockMapPanning = _mapOptionsUI.IsVisible || _planetaryControlsUI.IsVisible ||
+                              (_manualFaultTool != null && _manualFaultTool.IsActive) ||
+                              (_profileTool != null && _profileTool.IsActive);
 
         // Check if mouse is over the minimap (don't pan if it is)
         bool isOverMinimap = _minimap3D != null && _minimap3D.IsMouseOver(mouseState);
@@ -1957,7 +1959,7 @@ public class SimPlanetGame : Game
 
     public void ToggleManualFaultTool()
     {
-        _manualFaultTool.IsVisible = !_manualFaultTool.IsVisible;
+        _manualFaultTool.IsActive = !_manualFaultTool.IsActive;
     }
 
     public void ToggleProfileTool()
