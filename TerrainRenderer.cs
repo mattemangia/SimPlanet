@@ -262,21 +262,36 @@ public class TerrainRenderer
         );
     }
 
+    // Simple hash function for procedural variation
+    private static int Hash(int x, int y, int seed = 0)
+    {
+        int h = x * 374761393 + y * 668265263 + seed;
+        h = (h ^ (h >> 13)) * 1274126177;
+        return h ^ (h >> 16);
+    }
+
     private Color GetTerrainColor(TerrainCell cell)
     {
-        // More vibrant and realistic terrain colors
+        int x = cell.X;
+        int y = cell.Y;
+
+        // Get procedural variation for this cell
+        float variation = (Hash(x, y, 12345) & 255) / 255.0f; // 0-1
+        float variation2 = (Hash(x, y, 67890) & 255) / 255.0f;
+
+        // Base terrain colors with procedural variation
         Color baseColor = cell.GetTerrainType() switch
         {
-            TerrainType.DeepOcean => new Color(10, 40, 100),        // Deeper, richer blue
-            TerrainType.ShallowWater => new Color(30, 120, 200),    // Bright ocean blue
-            TerrainType.Beach => new Color(238, 214, 175),          // Sandy beige
-            TerrainType.Plains => new Color(200, 180, 120),         // Golden plains
-            TerrainType.Grassland => new Color(85, 170, 85),        // Vibrant green
-            TerrainType.Forest => new Color(34, 139, 34),           // Deep forest green
-            TerrainType.Desert => new Color(237, 201, 175),         // Sandy desert
-            TerrainType.Mountain => new Color(120, 110, 100),       // Rocky gray-brown
-            TerrainType.Ice => new Color(245, 255, 255),            // Bright white ice
-            TerrainType.Tundra => new Color(195, 215, 205),         // Pale blue-green
+            TerrainType.DeepOcean => GetDeepOceanColor(cell, variation),
+            TerrainType.ShallowWater => GetShallowWaterColor(cell, variation),
+            TerrainType.Beach => GetBeachColor(cell, x, y, variation, variation2),
+            TerrainType.Plains => GetPlainsColor(cell, variation),
+            TerrainType.Grassland => GetGrasslandColor(cell, x, y, variation),
+            TerrainType.Forest => GetForestColor(cell, x, y, variation, variation2),
+            TerrainType.Desert => GetDesertColor(cell, x, y, variation, variation2),
+            TerrainType.Mountain => GetMountainColor(cell, x, y, variation),
+            TerrainType.Ice => GetIceColor(cell, variation),
+            TerrainType.Tundra => GetTundraColor(cell, variation),
             _ => Color.Gray
         };
 
@@ -335,6 +350,42 @@ public class TerrainRenderer
                 float lavaBlend = Math.Clamp(activity * 0.5f, 0f, 1f);
                 baseColor = Color.Lerp(baseColor, lavaColor, lavaBlend);
             }
+        }
+
+        // DISASTER EFFECTS OVERLAY
+        // Impact craters - dark scorched earth
+        if (geo.IsInCrater)
+        {
+            Color craterColor = new Color(30, 25, 25);  // Dark scorched
+            float craterBlend = Math.Min(geo.CraterDepth * 2, 0.8f);
+            baseColor = Color.Lerp(baseColor, craterColor, craterBlend);
+        }
+
+        // Blast damage - burned/charred terrain
+        if (geo.BlastDamage > 0.1f)
+        {
+            Color blastColor = geo.BlastDamage > 0.7f
+                ? new Color(20, 20, 20)     // Severely burned - almost black
+                : new Color(60, 50, 40);     // Moderately burned - dark brown
+            baseColor = Color.Lerp(baseColor, blastColor, geo.BlastDamage * 0.7f);
+        }
+
+        // Impact scorching - orange/red burn marks
+        if (geo.ImpactScorching > 0.1f)
+        {
+            Color scorchColor = geo.ImpactScorching > 0.8f
+                ? new Color(80, 30, 10)      // Fresh scorch - dark red
+                : new Color(100, 70, 40);     // Old scorch - brown
+            baseColor = Color.Lerp(baseColor, scorchColor, geo.ImpactScorching * 0.5f);
+        }
+
+        // Radioactive contamination - sickly green/yellow glow
+        if (geo.RadioactiveContamination > 0.1f)
+        {
+            Color radColor = geo.RadioactiveContamination > 0.7f
+                ? new Color(80, 120, 40)     // High radiation - yellow-green
+                : new Color(100, 110, 80);    // Low radiation - dull greenish
+            baseColor = Color.Lerp(baseColor, radColor, geo.RadioactiveContamination * 0.4f);
         }
 
         return baseColor;
@@ -1544,6 +1595,340 @@ public class TerrainRenderer
         // Right
         spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
     }
+
+    #region Procedural Terrain Colors
+
+    private Color GetDeepOceanColor(TerrainCell cell, float variation)
+    {
+        var geo = cell.GetGeology();
+
+        // Check if this is a dry basin (depression without water)
+        if (geo.IsDryBasin || (!geo.IsConnectedToOcean && geo.AccumulatedWater < 0.1f))
+        {
+            // Dry basin - show as salt flat / dried lake bed
+            return GetDryBasinColor(cell, variation);
+        }
+
+        // Deep ocean with depth-based color variation
+        float depth = Math.Abs(cell.Elevation);
+        int r = (int)(5 + variation * 10);
+        int g = (int)(30 + variation * 15 + (1 - depth) * 20);
+        int b = (int)(80 + variation * 30 + (1 - depth) * 40);
+        return new Color(r, g, b);
+    }
+
+    private Color GetShallowWaterColor(TerrainCell cell, float variation)
+    {
+        var geo = cell.GetGeology();
+
+        // Check if this is a dry basin or partially filled
+        if (geo.IsDryBasin || (!geo.IsConnectedToOcean && geo.AccumulatedWater < 0.1f))
+        {
+            // Dry basin - show as salt flat / dried lake bed
+            return GetDryBasinColor(cell, variation);
+        }
+
+        // Partial water - forming lake (blend water and dry basin)
+        if (!geo.IsConnectedToOcean && geo.AccumulatedWater > 0)
+        {
+            float waterRatio = Math.Clamp(geo.AccumulatedWater / Math.Abs(cell.Elevation), 0, 1);
+            Color dryColor = GetDryBasinColor(cell, variation);
+            Color wetColor = GetLakeColor(cell, variation);
+            return Color.Lerp(dryColor, wetColor, waterRatio);
+        }
+
+        // Shallow water with wave-like patterns
+        float depth = Math.Abs(cell.Elevation);
+        int r = (int)(20 + variation * 20);
+        int g = (int)(100 + variation * 30 + (1 - depth) * 30);
+        int b = (int)(170 + variation * 40);
+        return new Color(r, g, b);
+    }
+
+    private Color GetDryBasinColor(TerrainCell cell, float variation)
+    {
+        // Dry lake bed / salt flat appearance
+        Color saltFlat = new Color(220, 210, 190);    // White salt crust
+        Color dryClay = new Color(180, 160, 140);      // Dry cracked clay
+        Color redDirt = new Color(170, 130, 100);      // Red/brown dirt
+
+        // Mix based on depth (deeper = more salt accumulation)
+        float depth = Math.Abs(cell.Elevation);
+        Color result;
+
+        if (depth > 0.3f)
+        {
+            // Deep depression - salt flat
+            result = Color.Lerp(dryClay, saltFlat, depth * 1.5f);
+        }
+        else if (cell.Temperature > 25)
+        {
+            // Hot climate - red/orange tones
+            result = Color.Lerp(dryClay, redDirt, 0.5f);
+        }
+        else
+        {
+            result = dryClay;
+        }
+
+        // Add cracked texture variation
+        return new Color(
+            (byte)Math.Clamp(result.R + (int)((variation - 0.5f) * 25), 0, 255),
+            (byte)Math.Clamp(result.G + (int)((variation - 0.5f) * 20), 0, 255),
+            (byte)Math.Clamp(result.B + (int)((variation - 0.5f) * 20), 0, 255)
+        );
+    }
+
+    private Color GetLakeColor(TerrainCell cell, float variation)
+    {
+        // Freshwater lake - slightly greenish blue
+        int r = (int)(30 + variation * 15);
+        int g = (int)(120 + variation * 25);
+        int b = (int)(160 + variation * 30);
+        return new Color(r, g, b);
+    }
+
+    private Color GetBeachColor(TerrainCell cell, int x, int y, float variation, float variation2)
+    {
+        // Sandy beach with shells and pebbles
+        Color sandBase = new Color(238, 214, 175);
+        Color wetSand = new Color(194, 178, 128);
+        Color shellColor = new Color(255, 250, 240);
+        Color pebbleColor = new Color(140, 130, 120);
+
+        // Wet sand near water
+        float wetness = Math.Max(0, 1.0f - cell.Elevation * 20);
+        Color result = Color.Lerp(sandBase, wetSand, wetness * 0.5f);
+
+        // Add variation for texture
+        result = new Color(
+            (byte)Math.Clamp(result.R + (int)((variation - 0.5f) * 30), 0, 255),
+            (byte)Math.Clamp(result.G + (int)((variation - 0.5f) * 25), 0, 255),
+            (byte)Math.Clamp(result.B + (int)((variation - 0.5f) * 20), 0, 255)
+        );
+
+        // Occasional shells (bright spots)
+        if (variation2 > 0.92f)
+        {
+            result = Color.Lerp(result, shellColor, 0.5f);
+        }
+        // Occasional pebbles (dark spots)
+        else if (variation2 < 0.08f)
+        {
+            result = Color.Lerp(result, pebbleColor, 0.4f);
+        }
+
+        return result;
+    }
+
+    private Color GetPlainsColor(TerrainCell cell, float variation)
+    {
+        // Golden plains with grass patches
+        Color dryGrass = new Color(200, 180, 120);
+        Color greenPatch = new Color(150, 170, 100);
+
+        Color result = Color.Lerp(dryGrass, greenPatch, cell.Rainfall * 0.5f);
+
+        // Add variation
+        return new Color(
+            (byte)Math.Clamp(result.R + (int)((variation - 0.5f) * 25), 0, 255),
+            (byte)Math.Clamp(result.G + (int)((variation - 0.5f) * 20), 0, 255),
+            (byte)Math.Clamp(result.B + (int)((variation - 0.5f) * 15), 0, 255)
+        );
+    }
+
+    private Color GetGrasslandColor(TerrainCell cell, int x, int y, float variation)
+    {
+        // Grassland with varying shades
+        Color lightGrass = new Color(100, 180, 90);
+        Color darkGrass = new Color(60, 140, 60);
+        Color yellowGrass = new Color(140, 170, 80);
+
+        // Mix based on conditions
+        Color result = Color.Lerp(lightGrass, darkGrass, cell.Biomass * 0.5f);
+        if (cell.Temperature > 25)
+        {
+            result = Color.Lerp(result, yellowGrass, 0.3f);
+        }
+
+        // Checkerboard-like pattern for field effect
+        int pattern = (x / 3 + y / 3) % 2;
+        if (pattern == 0)
+        {
+            result = new Color(
+                (byte)Math.Clamp(result.R + 10, 0, 255),
+                (byte)Math.Clamp(result.G + 15, 0, 255),
+                (byte)result.B
+            );
+        }
+
+        // Add variation
+        return new Color(
+            (byte)Math.Clamp(result.R + (int)((variation - 0.5f) * 20), 0, 255),
+            (byte)Math.Clamp(result.G + (int)((variation - 0.5f) * 25), 0, 255),
+            (byte)Math.Clamp(result.B + (int)((variation - 0.5f) * 15), 0, 255)
+        );
+    }
+
+    private Color GetForestColor(TerrainCell cell, int x, int y, float variation, float variation2)
+    {
+        // Forest with tree canopy variation
+        Color darkForest = new Color(25, 100, 30);
+        Color lightForest = new Color(50, 150, 50);
+        Color tropicalForest = new Color(20, 120, 40);
+
+        Color result;
+        if (cell.Temperature > 25 && cell.Rainfall > 0.7f)
+        {
+            // Tropical rainforest - darker, denser
+            result = Color.Lerp(tropicalForest, darkForest, variation * 0.5f);
+        }
+        else
+        {
+            result = Color.Lerp(darkForest, lightForest, variation);
+        }
+
+        // Tree shadows effect
+        if (variation2 > 0.7f)
+        {
+            result = new Color(
+                (byte)Math.Max(0, result.R - 15),
+                (byte)Math.Max(0, result.G - 20),
+                (byte)Math.Max(0, result.B - 10)
+            );
+        }
+        // Occasional clearings
+        else if (variation2 < 0.1f)
+        {
+            result = new Color(
+                (byte)Math.Min(255, result.R + 20),
+                (byte)Math.Min(255, result.G + 30),
+                (byte)Math.Min(255, result.B + 15)
+            );
+        }
+
+        return result;
+    }
+
+    private Color GetDesertColor(TerrainCell cell, int x, int y, float variation, float variation2)
+    {
+        // Desert with dune patterns
+        Color sandDune = new Color(237, 201, 160);
+        Color darkSand = new Color(200, 170, 130);
+        Color redRock = new Color(180, 120, 90);
+
+        // Create dune wave pattern
+        float dune = MathF.Sin(x * 0.3f + y * 0.1f) * 0.5f + 0.5f;
+        Color result = Color.Lerp(darkSand, sandDune, dune);
+
+        // Hot desert is more orange/red
+        if (cell.Temperature > 35)
+        {
+            result = Color.Lerp(result, redRock, 0.2f);
+        }
+
+        // Rocky outcrops
+        if (variation2 > 0.9f && cell.Elevation > 0.1f)
+        {
+            result = Color.Lerp(result, redRock, 0.5f);
+        }
+
+        // Add variation
+        return new Color(
+            (byte)Math.Clamp(result.R + (int)((variation - 0.5f) * 20), 0, 255),
+            (byte)Math.Clamp(result.G + (int)((variation - 0.5f) * 15), 0, 255),
+            (byte)Math.Clamp(result.B + (int)((variation - 0.5f) * 15), 0, 255)
+        );
+    }
+
+    private Color GetMountainColor(TerrainCell cell, int x, int y, float variation)
+    {
+        // Mountain with rocky textures and snow caps
+        Color rock = new Color(120, 110, 100);
+        Color darkRock = new Color(80, 75, 70);
+        Color snow = new Color(250, 255, 255);
+        Color alpine = new Color(100, 120, 100);
+
+        float altitude = cell.Elevation;
+        Color result;
+
+        // Snow caps at high altitude or low temperature
+        if (altitude > 0.85f || cell.Temperature < -5)
+        {
+            float snowAmount = Math.Max(0, (altitude - 0.8f) * 5);
+            if (cell.Temperature < -5) snowAmount += 0.3f;
+            result = Color.Lerp(rock, snow, Math.Min(snowAmount, 1.0f));
+        }
+        // Alpine zone
+        else if (altitude > 0.75f)
+        {
+            result = Color.Lerp(alpine, rock, (altitude - 0.75f) * 10);
+        }
+        else
+        {
+            result = Color.Lerp(darkRock, rock, variation);
+        }
+
+        // Rocky texture variation
+        return new Color(
+            (byte)Math.Clamp(result.R + (int)((variation - 0.5f) * 30), 0, 255),
+            (byte)Math.Clamp(result.G + (int)((variation - 0.5f) * 25), 0, 255),
+            (byte)Math.Clamp(result.B + (int)((variation - 0.5f) * 20), 0, 255)
+        );
+    }
+
+    private Color GetIceColor(TerrainCell cell, float variation)
+    {
+        // Ice with cracks and snow
+        Color pureIce = new Color(230, 245, 255);
+        Color blueIce = new Color(200, 230, 250);
+        Color snow = new Color(255, 255, 255);
+
+        Color result = Color.Lerp(blueIce, pureIce, variation);
+
+        // Fresh snow on top
+        if (cell.Rainfall > 0.3f)
+        {
+            result = Color.Lerp(result, snow, 0.3f);
+        }
+
+        // Ice cracks (darker lines)
+        if (variation > 0.85f || variation < 0.15f)
+        {
+            result = new Color(
+                (byte)Math.Max(0, result.R - 30),
+                (byte)Math.Max(0, result.G - 20),
+                (byte)Math.Max(0, result.B - 10)
+            );
+        }
+
+        return result;
+    }
+
+    private Color GetTundraColor(TerrainCell cell, float variation)
+    {
+        // Tundra with mossy rocks and permafrost
+        Color permafrost = new Color(180, 190, 185);
+        Color moss = new Color(140, 160, 130);
+        Color rock = new Color(160, 155, 150);
+
+        Color result = Color.Lerp(permafrost, moss, cell.Biomass);
+
+        // Rocky patches
+        if (variation > 0.7f)
+        {
+            result = Color.Lerp(result, rock, 0.4f);
+        }
+
+        // Add variation
+        return new Color(
+            (byte)Math.Clamp(result.R + (int)((variation - 0.5f) * 20), 0, 255),
+            (byte)Math.Clamp(result.G + (int)((variation - 0.5f) * 25), 0, 255),
+            (byte)Math.Clamp(result.B + (int)((variation - 0.5f) * 20), 0, 255)
+        );
+    }
+
+    #endregion
 
     public void Dispose()
     {

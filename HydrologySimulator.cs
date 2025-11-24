@@ -38,6 +38,7 @@ public class HydrologySimulator
         UpdateAccumulatedFlow();
         UpdateRiverFreezing(); // Check for frozen rivers
         FormRivers(deltaTime);
+        UpdateWaterAccumulation(deltaTime);  // Realistic water filling in depressions
         UpdateSalinity(deltaTime);
         UpdateWaterDensity();
         UpdateOceanCurrents();
@@ -882,6 +883,183 @@ public class HydrologySimulator
                     // Evaporation and infiltration
                     geo.FloodLevel *= (1.0f - 0.1f * deltaTime);
                     geo.FloodLevel = Math.Max(0, geo.FloodLevel);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Update water accumulation in depressions - creates lakes and realistic water filling
+    /// Water only fills if:
+    /// 1. Connected to ocean (sea floods in)
+    /// 2. Receives rainfall (lake formation)
+    /// 3. Receives river water
+    /// </summary>
+    private void UpdateWaterAccumulation(float deltaTime)
+    {
+        // First pass: Update ocean connectivity
+        // Use flood-fill to mark cells connected to existing ocean
+        UpdateOceanConnectivity();
+
+        // Second pass: Accumulate water from rainfall and rivers
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+
+                // Skip if this is already proper ocean (negative elevation and connected)
+                if (cell.Elevation < -0.3f && geo.IsConnectedToOcean) continue;
+
+                // Handle depressions (elevation < 0 but might not have water)
+                if (cell.Elevation < 0)
+                {
+                    // Depression depth (how much water it can hold)
+                    float depressionDepth = Math.Abs(cell.Elevation);
+
+                    // If connected to ocean, fill immediately
+                    if (geo.IsConnectedToOcean)
+                    {
+                        geo.AccumulatedWater = depressionDepth;
+                        geo.IsDryBasin = false;
+                    }
+                    else
+                    {
+                        // Not connected - water accumulates slowly from rain and rivers
+                        float waterInput = 0;
+
+                        // Rainfall contribution
+                        if (cell.Rainfall > 0.2f)
+                        {
+                            waterInput += cell.Rainfall * 0.001f * deltaTime;
+                        }
+
+                        // River contribution
+                        if (geo.RiverId > 0)
+                        {
+                            waterInput += geo.WaterFlow * 0.01f * deltaTime;
+                        }
+
+                        // Evaporation (hot areas lose water)
+                        float evaporation = 0;
+                        if (cell.Temperature > 15 && geo.AccumulatedWater > 0)
+                        {
+                            evaporation = (cell.Temperature - 15) * 0.0001f * deltaTime;
+                        }
+
+                        geo.AccumulatedWater += waterInput - evaporation;
+                        geo.AccumulatedWater = Math.Clamp(geo.AccumulatedWater, 0, depressionDepth);
+
+                        // Mark as dry basin if no water
+                        geo.IsDryBasin = geo.AccumulatedWater < 0.01f;
+                    }
+                }
+                else
+                {
+                    // Land above sea level - no accumulated water (drains away)
+                    geo.AccumulatedWater = 0;
+                    geo.IsDryBasin = false;
+                    geo.IsConnectedToOcean = false;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Flood-fill algorithm to determine which cells are connected to the main ocean
+    /// </summary>
+    private void UpdateOceanConnectivity()
+    {
+        // Reset connectivity
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                _map.Cells[x, y].GetGeology().IsConnectedToOcean = false;
+            }
+        }
+
+        // Find seed points - deep ocean cells that are definitely ocean
+        var queue = new Queue<(int x, int y)>();
+        var visited = new bool[_map.Width, _map.Height];
+
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                // Deep ocean is definitely connected to ocean
+                if (cell.Elevation < -0.5f)
+                {
+                    queue.Enqueue((x, y));
+                    visited[x, y] = true;
+                    cell.GetGeology().IsConnectedToOcean = true;
+                }
+            }
+        }
+
+        // Flood fill from ocean seeds
+        while (queue.Count > 0)
+        {
+            var (cx, cy) = queue.Dequeue();
+
+            // Check all neighbors
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+
+                    int nx = (cx + dx + _map.Width) % _map.Width;
+                    int ny = cy + dy;
+                    if (ny < 0 || ny >= _map.Height) continue;
+                    if (visited[nx, ny]) continue;
+
+                    var neighbor = _map.Cells[nx, ny];
+
+                    // Water flows into adjacent cells that are below water level
+                    // This includes shallow water and depressions
+                    if (neighbor.Elevation < 0)
+                    {
+                        visited[nx, ny] = true;
+                        neighbor.GetGeology().IsConnectedToOcean = true;
+                        queue.Enqueue((nx, ny));
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Initialize ocean connectivity at map generation
+    /// Should be called once after map is generated
+    /// </summary>
+    public void InitializeOceanConnectivity()
+    {
+        UpdateOceanConnectivity();
+
+        // Set initial accumulated water based on connectivity
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                var geo = cell.GetGeology();
+
+                if (cell.Elevation < 0)
+                {
+                    if (geo.IsConnectedToOcean)
+                    {
+                        geo.AccumulatedWater = Math.Abs(cell.Elevation);
+                        geo.IsDryBasin = false;
+                    }
+                    else
+                    {
+                        // Isolated depression - starts dry or with minimal water
+                        geo.AccumulatedWater = 0;
+                        geo.IsDryBasin = true;
+                    }
                 }
             }
         }

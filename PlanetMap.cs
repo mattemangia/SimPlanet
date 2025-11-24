@@ -87,6 +87,10 @@ public class PlanetMap
         var resourceGenerator = new ResourceGenerator(this, options.Seed);
         resourceGenerator.GenerateResources();
 
+        GenerationProgress = 0.9f;
+        GenerationTask = "Detecting coastal zones...";
+        UpdateCoastalZones();
+
         GenerationProgress = 1.0f;
         GenerationTask = "Complete!";
     }
@@ -450,6 +454,35 @@ public class PlanetMap
             {
                 nx = (nx + Width) % Width; // Wrap horizontally
                 yield return (nx, ny, Cells[nx, ny]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates coastal zone detection for all cells.
+    /// A cell is coastal if it's land and has water neighbors.
+    /// </summary>
+    public void UpdateCoastalZones()
+    {
+        for (int x = 0; x < Width; x++)
+        {
+            for (int y = 0; y < Height; y++)
+            {
+                var cell = Cells[x, y];
+                cell.IsCoastal = false;
+
+                // Only check land cells
+                if (!cell.IsLand) continue;
+
+                // Check if any neighbor is water
+                foreach (var (nx, ny, neighbor) in GetNeighbors(x, y))
+                {
+                    if (neighbor.IsWater)
+                    {
+                        cell.IsCoastal = true;
+                        break;
+                    }
+                }
             }
         }
     }

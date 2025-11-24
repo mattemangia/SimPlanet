@@ -107,10 +107,13 @@ public class DisasterManager
             Magnitude = size
         });
 
-        // Crater formation
-        int craterRadius = size * 3;
-        float craterDepth = 0.2f * size;
+        // MASSIVE crater formation - asteroids are devastating
+        int craterRadius = size * 5;          // Much larger crater
+        int blastRadius = size * 10;          // Thermal blast extends further
+        int devastationRadius = size * 15;    // Total devastation zone
+        float craterDepth = 0.3f * size;      // Deeper crater
 
+        // Phase 1: CRATER - Complete vaporization at ground zero
         for (int dx = -craterRadius; dx <= craterRadius; dx++)
         {
             for (int dy = -craterRadius; dy <= craterRadius; dy++)
@@ -126,39 +129,182 @@ public class DisasterManager
                 var targetGeo = target.GetGeology();
                 float effect = 1.0f - (distance / craterRadius);
 
-                // Crater depression
-                target.Elevation -= craterDepth * effect;
+                // Crater bowl shape (parabolic)
+                float craterProfile = effect * effect;
+                target.Elevation -= craterDepth * craterProfile;
 
-                // Ejecta ring at crater edge
-                if (distance > craterRadius * 0.7f && distance <= craterRadius)
-                {
-                    target.Elevation += 0.1f * size * effect;
-                }
+                // Mark as crater
+                targetGeo.IsInCrater = true;
+                targetGeo.CraterDepth = craterDepth * craterProfile;
+                targetGeo.DisasterYear = year;
 
-                // Heat and destruction
-                if (distance < craterRadius * 0.5f)
+                // Complete vaporization at center
+                if (distance < craterRadius * 0.3f)
                 {
-                    target.Temperature += 500 * effect;
+                    target.Temperature += 2000 * effect;  // Vaporization temperatures
                     target.Biomass = 0;
+                    target.LifeType = LifeForm.None;
+                    targetGeo.ImpactScorching = 1.0f;
+                    targetGeo.BlastDamage = 1.0f;
                 }
+                // Inner crater - melted rock
                 else
                 {
-                    target.Temperature += 100 * effect;
-                    target.Biomass *= (1.0f - 0.8f * effect);
+                    target.Temperature += 1000 * effect;
+                    target.Biomass = 0;
+                    target.LifeType = LifeForm.None;
+                    targetGeo.ImpactScorching = effect;
+                    targetGeo.BlastDamage = effect;
+                    targetGeo.VolcanicRock += 0.3f * effect;  // Melted rock resolidifies
                 }
 
-                // Shockwave damage
-                target.CO2 += 5.0f * effect;
+                // Ejecta ring at crater rim
+                if (distance > craterRadius * 0.8f && distance <= craterRadius)
+                {
+                    target.Elevation += 0.15f * size * (1.0f - effect);
+                }
 
-                // Mark for recovery
-                StartRecovery(nx, ny, DisasterType.Asteroid, effect * 100);
+                StartRecovery(nx, ny, DisasterType.Asteroid, effect * 500);  // Very slow recovery
             }
         }
 
-        // Global effects for large impacts
-        if (size >= 4)
+        // Phase 2: THERMAL BLAST - Incinerates everything
+        for (int dx = -blastRadius; dx <= blastRadius; dx++)
         {
-            _map.SolarEnergy -= 0.1f * size; // Impact winter
+            for (int dy = -blastRadius; dy <= blastRadius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance <= craterRadius || distance > blastRadius) continue;
+
+                var target = _map.Cells[nx, ny];
+                var targetGeo = target.GetGeology();
+                float effect = 1.0f - ((distance - craterRadius) / (blastRadius - craterRadius));
+
+                // Thermal blast - burns everything
+                target.Temperature += 500 * effect;
+                target.Biomass *= (1.0f - 0.95f * effect);
+                if (target.Biomass < 0.1f)
+                {
+                    target.LifeType = LifeForm.None;
+                }
+                targetGeo.ImpactScorching = Math.Max(targetGeo.ImpactScorching, effect * 0.8f);
+                targetGeo.BlastDamage = Math.Max(targetGeo.BlastDamage, effect * 0.6f);
+                targetGeo.DisasterYear = year;
+
+                // Destroy infrastructure
+                if (effect > 0.5f)
+                {
+                    targetGeo.HasRoad = false;
+                    targetGeo.RoadType = RoadType.None;
+                    targetGeo.HasNuclearPlant = false;
+                    targetGeo.HasSolarFarm = false;
+                    targetGeo.HasWindTurbine = false;
+                }
+
+                StartRecovery(nx, ny, DisasterType.Asteroid, effect * 200);
+            }
+        }
+
+        // Phase 3: SHOCKWAVE - Destroys structures, flattens forests
+        for (int dx = -devastationRadius; dx <= devastationRadius; dx++)
+        {
+            for (int dy = -devastationRadius; dy <= devastationRadius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance <= blastRadius || distance > devastationRadius) continue;
+
+                var target = _map.Cells[nx, ny];
+                var targetGeo = target.GetGeology();
+                float effect = 1.0f - ((distance - blastRadius) / (devastationRadius - blastRadius));
+
+                // Shockwave damage
+                target.Temperature += 50 * effect;
+                target.Biomass *= (1.0f - 0.6f * effect);
+                targetGeo.BlastDamage = Math.Max(targetGeo.BlastDamage, effect * 0.3f);
+
+                // CO2 from burning
+                target.CO2 += 3.0f * effect;
+
+                StartRecovery(nx, ny, DisasterType.Asteroid, effect * 50);
+            }
+        }
+
+        // Phase 4: GLOBAL EFFECTS - Impact winter
+        float globalEffect = size * size * 0.02f;  // Exponential with size
+        _map.SolarEnergy -= globalEffect;          // Dust blocks sunlight
+        _map.GlobalCO2 += size * 2.0f;             // Massive CO2 release
+
+        // Trigger secondary effects
+        if (size >= 3)
+        {
+            // Tsunamis if impact is in water or near coast
+            if (cell.IsWater || cell.IsCoastal)
+            {
+                TriggerImpactTsunami(x, y, size, year);
+            }
+
+            // Widespread fires
+            TriggerImpactFires(x, y, size, year);
+        }
+
+        // EXTINCTION-LEVEL EVENT for size 5
+        if (size >= 5)
+        {
+            _map.SolarEnergy -= 0.3f;  // Severe impact winter
+            _map.GlobalCO2 += 20.0f;    // Massive greenhouse gas release
+
+            // Global temperature drop followed by warming
+            for (int mx = 0; mx < _map.Width; mx++)
+            {
+                for (int my = 0; my < _map.Height; my++)
+                {
+                    _map.Cells[mx, my].Temperature -= 5;  // Initial cooling
+                }
+            }
+        }
+    }
+
+    private void TriggerImpactTsunami(int x, int y, int size, int year)
+    {
+        // Use the TsunamiSystem for proper wave propagation
+        TsunamiSystem.InitiateTsunamiFromImpact(_map, x, y, size, year);
+    }
+
+    private void TriggerImpactFires(int x, int y, int size, int year)
+    {
+        // Thermal radiation ignites fires across the region
+        int fireRadius = size * 20;
+        for (int dx = -fireRadius; dx <= fireRadius; dx++)
+        {
+            for (int dy = -fireRadius; dy <= fireRadius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > fireRadius) continue;
+
+                var target = _map.Cells[nx, ny];
+                if (!target.IsLand || target.IsIce) continue;
+
+                // Random fires in flammable areas
+                if (target.Biomass > 0.3f && _random.NextDouble() < 0.1 * (1.0f - distance / fireRadius))
+                {
+                    target.Biomass *= 0.3f;
+                    target.Temperature += 100;
+                    target.CO2 += 2.0f;
+                    target.GetGeology().ImpactScorching = Math.Max(target.GetGeology().ImpactScorching, 0.3f);
+                }
+            }
         }
     }
 
@@ -245,40 +391,192 @@ public class DisasterManager
         }
     }
 
-    public void TriggerNuclearAccident(int x, int y, int year)
+    /// <summary>
+    /// Trigger a nuclear explosion or meltdown with realistic effects
+    /// </summary>
+    /// <param name="x">X coordinate</param>
+    /// <param name="y">Y coordinate</param>
+    /// <param name="year">Current year</param>
+    /// <param name="isWeapon">If true, this is a nuclear weapon (more destructive). If false, it's a reactor meltdown.</param>
+    public void TriggerNuclearAccident(int x, int y, int year, bool isWeapon = false)
     {
+        int magnitude = isWeapon ? 5 : 1;
+
         RecentDisasters.Add(new DisasterEvent
         {
             Type = DisasterType.NuclearAccident,
             X = x,
             Y = y,
             Year = year,
-            Magnitude = 1
+            Magnitude = magnitude
         });
 
-        int radius = 10;
+        // Nuclear weapons have much larger effects than meltdowns
+        int blastRadius = isWeapon ? 15 : 5;          // Thermal/blast radius
+        int radiationRadius = isWeapon ? 30 : 15;     // Radiation contamination
+        int falloutRadius = isWeapon ? 50 : 25;       // Fallout zone
 
-        for (int dx = -radius; dx <= radius; dx++)
+        // Phase 1: FIREBALL - Instant vaporization
+        if (isWeapon)
         {
-            for (int dy = -radius; dy <= radius; dy++)
+            int fireballRadius = 3;
+            for (int dx = -fireballRadius; dx <= fireballRadius; dx++)
+            {
+                for (int dy = -fireballRadius; dy <= fireballRadius; dy++)
+                {
+                    int nx = (x + dx + _map.Width) % _map.Width;
+                    int ny = y + dy;
+                    if (ny < 0 || ny >= _map.Height) continue;
+
+                    float distance = MathF.Sqrt(dx * dx + dy * dy);
+                    if (distance > fireballRadius) continue;
+
+                    var target = _map.Cells[nx, ny];
+                    var targetGeo = target.GetGeology();
+                    float effect = 1.0f - (distance / fireballRadius);
+
+                    // Complete vaporization
+                    target.Temperature += 5000 * effect;  // Nuclear fireball
+                    target.Biomass = 0;
+                    target.LifeType = LifeForm.None;
+                    target.Elevation -= 0.05f * effect;  // Small crater
+
+                    targetGeo.ImpactScorching = 1.0f;
+                    targetGeo.BlastDamage = 1.0f;
+                    targetGeo.RadioactiveContamination = 1.0f;
+                    targetGeo.DisasterYear = year;
+
+                    // Destroy all infrastructure
+                    targetGeo.HasRoad = false;
+                    targetGeo.RoadType = RoadType.None;
+                    targetGeo.HasNuclearPlant = false;
+                    targetGeo.HasSolarFarm = false;
+                    targetGeo.HasWindTurbine = false;
+                }
+            }
+        }
+
+        // Phase 2: THERMAL BLAST - Burns everything
+        for (int dx = -blastRadius; dx <= blastRadius; dx++)
+        {
+            for (int dy = -blastRadius; dy <= blastRadius; dy++)
             {
                 int nx = (x + dx + _map.Width) % _map.Width;
                 int ny = y + dy;
                 if (ny < 0 || ny >= _map.Height) continue;
 
                 float distance = MathF.Sqrt(dx * dx + dy * dy);
-                if (distance > radius) continue;
+                if (distance > blastRadius) continue;
 
                 var target = _map.Cells[nx, ny];
-                float effect = 1.0f - (distance / radius);
+                var targetGeo = target.GetGeology();
+                float effect = 1.0f - (distance / blastRadius);
 
-                // Radioactive contamination
-                target.Biomass *= (1.0f - 0.9f * effect);
-                target.Temperature += 50 * effect;
+                // Thermal damage
+                float tempIncrease = isWeapon ? 1000 * effect : 200 * effect;
+                target.Temperature += tempIncrease;
+                target.Biomass *= (1.0f - 0.95f * effect);
+                if (target.Biomass < 0.1f)
+                {
+                    target.LifeType = LifeForm.None;
+                }
 
-                // Long-lasting contamination
-                StartRecovery(nx, ny, DisasterType.NuclearAccident, effect * 200); // Very slow recovery
+                targetGeo.ImpactScorching = Math.Max(targetGeo.ImpactScorching, effect * 0.9f);
+                targetGeo.BlastDamage = Math.Max(targetGeo.BlastDamage, effect * 0.8f);
+                targetGeo.RadioactiveContamination = Math.Max(targetGeo.RadioactiveContamination, effect * 0.5f);
+                targetGeo.DisasterYear = year;
+
+                // Destroy infrastructure
+                if (effect > 0.3f)
+                {
+                    targetGeo.HasRoad = false;
+                    targetGeo.RoadType = RoadType.None;
+                    targetGeo.HasNuclearPlant = false;
+                    targetGeo.HasSolarFarm = false;
+                    targetGeo.HasWindTurbine = false;
+                }
+
+                StartRecovery(nx, ny, DisasterType.NuclearAccident, effect * 300);
             }
+        }
+
+        // Phase 3: INTENSE RADIATION ZONE
+        for (int dx = -radiationRadius; dx <= radiationRadius; dx++)
+        {
+            for (int dy = -radiationRadius; dy <= radiationRadius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance <= blastRadius || distance > radiationRadius) continue;
+
+                var target = _map.Cells[nx, ny];
+                var targetGeo = target.GetGeology();
+                float effect = 1.0f - ((distance - blastRadius) / (radiationRadius - blastRadius));
+
+                // Radiation kills life
+                target.Biomass *= (1.0f - 0.7f * effect);
+                targetGeo.RadioactiveContamination = Math.Max(targetGeo.RadioactiveContamination, effect * 0.8f);
+                targetGeo.DisasterYear = year;
+
+                // Radiation sickness affects remaining life
+                if (target.Biomass > 0.1f && target.LifeType != LifeForm.None)
+                {
+                    // Mutation/death of complex life
+                    if (target.LifeType >= LifeForm.Mammals && _random.NextDouble() < effect * 0.5)
+                    {
+                        target.LifeType = LifeForm.SimpleAnimals;
+                    }
+                }
+
+                StartRecovery(nx, ny, DisasterType.NuclearAccident, effect * 500);  // Very slow recovery
+            }
+        }
+
+        // Phase 4: FALLOUT ZONE (wind-carried radiation)
+        // Fallout typically spreads in wind direction, but we'll do circular for simplicity
+        for (int dx = -falloutRadius; dx <= falloutRadius; dx++)
+        {
+            for (int dy = -falloutRadius; dy <= falloutRadius; dy++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance <= radiationRadius || distance > falloutRadius) continue;
+
+                var target = _map.Cells[nx, ny];
+                var targetGeo = target.GetGeology();
+                float effect = 1.0f - ((distance - radiationRadius) / (falloutRadius - radiationRadius));
+
+                // Light radiation contamination
+                targetGeo.RadioactiveContamination = Math.Max(targetGeo.RadioactiveContamination, effect * 0.3f);
+
+                // Some biomass damage
+                target.Biomass *= (1.0f - 0.2f * effect);
+
+                StartRecovery(nx, ny, DisasterType.NuclearAccident, effect * 200);
+            }
+        }
+
+        // Phase 5: GLOBAL EFFECTS (for nuclear weapons)
+        if (isWeapon)
+        {
+            // Nuclear winter effect
+            _map.SolarEnergy -= 0.05f;
+            _map.GlobalCO2 += 1.0f;  // Fires release CO2
+
+            // EMP effect could disable electronics (not simulated here)
+        }
+
+        // Phase 6: TSUNAMI - if near water
+        var epicenterCell = _map.Cells[x, y];
+        if (epicenterCell.IsWater || epicenterCell.IsCoastal)
+        {
+            TsunamiSystem.InitiateTsunamiFromNuke(_map, x, y, isWeapon, year);
         }
     }
 
