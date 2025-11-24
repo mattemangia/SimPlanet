@@ -565,6 +565,8 @@ public class ClimateSimulator
                     // Ice accumulation in polar regions
                     if (cell.Temperature < iceFormationTemp)
                     {
+                        cell.IsIce = true; // Mark as ice
+
                         // Sea ice forms on ocean
                         if (cell.IsWater)
                         {
@@ -587,8 +589,10 @@ public class ClimateSimulator
                         }
                     }
                     // Melting
-                    else if (cell.Temperature > iceMeltingTemp && cell.IsIce)
+                    else if (cell.Temperature > iceMeltingTemp)
                     {
+                        cell.IsIce = false; // Mark as melted
+
                         // Glacier retreat
                         if (cell.IsLand && cell.Elevation > 0.2f)
                         {
@@ -606,6 +610,8 @@ public class ClimateSimulator
                     // Ice forms at very cold temperatures
                     if (cell.Temperature < iceFormationTemp)
                     {
+                        cell.IsIce = true; // Mark as ice
+
                         if (cell.IsLand)
                         {
                             // Seasonal snow accumulation
@@ -620,8 +626,10 @@ public class ClimateSimulator
                         }
                     }
                     // Melting
-                    else if (cell.Temperature > iceMeltingTemp && cell.IsIce)
+                    else if (cell.Temperature > iceMeltingTemp)
                     {
+                        cell.IsIce = false; // Mark as melted
+
                         // Rapid melting in non-polar regions
                         if (cell.IsLand && isMountainPeak)
                         {

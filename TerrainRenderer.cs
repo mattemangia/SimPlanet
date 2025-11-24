@@ -1073,7 +1073,7 @@ public class TerrainRenderer
     public void DrawLegend(SpriteBatch spriteBatch, FontRenderer font, int screenWidth, int screenHeight)
     {
         // Don't show legend for Terrain mode (it's self-explanatory)
-        if (Mode == RenderMode.Terrain)
+        if (Mode == RenderMode.Terrain || Mode == RenderMode.TerrainClean)
             return;
 
         int legendWidth = 250; // Increased width for better spacing

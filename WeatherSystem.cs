@@ -194,58 +194,8 @@ public class WeatherSystem
                 cell.Humidity = Math.Clamp(cell.Humidity * rainfallModifier, 0, 1);
 
                 // DYNAMIC ICE SHEET FORMATION AND MELTING
-                // Ice forms/melts based on sustained temperatures, not instant
-                float absLatitude = Math.Abs(latitude);
-
-                // Polar regions (|lat| > 0.7) - Permanent ice caps
-                // Smooth polar ice transition
-                float polarIceChance = Math.Clamp((absLatitude - 0.65f) / 0.1f, 0, 1);
-                if (polarIceChance > 0 && cell.Temperature < -5f && _random.NextDouble() < polarIceChance)
-                {
-                    cell.IsIce = true; // Permanent polar ice
-                }
-                // High latitudes (0.5 < |lat| < 0.7) - Seasonal ice sheets
-                // Smooth high latitude ice transition
-                else if (absLatitude > 0.45f && absLatitude <= 0.7f)
-                {
-                    float highLatIceChance = Math.Clamp((absLatitude - 0.45f) / 0.1f, 0, 1);
-                    if (met.Season == 3 && cell.Temperature < -5f) // Winter
-                    {
-                        cell.IsIce = true; // Winter ice sheets expand
-                    }
-                    else if (met.Season == 1 && cell.Temperature > 5f) // Summer
-                    {
-                        if (cell.IsWater || cell.Elevation < 0.3f)
-                            cell.IsIce = false; // Summer ice sheets retreat
-                    }
-                }
-                // Mid-latitudes - Sea ice forms in winter
-                // Smooth mid-latitude ice transition
-                else if (absLatitude > 0.25f && absLatitude <= 0.5f && cell.IsWater)
-                {
-                    float midLatIceChance = Math.Clamp((absLatitude - 0.25f) / 0.1f, 0, 1);
-                    if (cell.Temperature < -2f)
-                    {
-                        cell.IsIce = true; // Winter sea ice
-                    }
-                    else if (cell.Temperature > 2f)
-                    {
-                        cell.IsIce = false; // Sea ice melts in spring
-                    }
-                }
-                // Temperate and tropical - Ice only on high mountains
-                else
-                {
-                    if (cell.Elevation > 0.7f && cell.Temperature < -10f)
-                    {
-                        cell.IsIce = true; // Mountain glaciers
-                    }
-                    else if (cell.Temperature > 0f)
-                    {
-                        if (cell.IsWater || cell.Elevation < 0.7f)
-                            cell.IsIce = false; // Only high peaks keep ice
-                    }
-                }
+                // Ice logic is now handled centrally by ClimateSimulator to prevent flickering/conflicts.
+                // WeatherSystem should focus on atmospheric effects, not terrain state updates.
             }
         }
     }
