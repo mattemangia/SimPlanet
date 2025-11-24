@@ -80,6 +80,8 @@ public class TerrainRenderer
         if (!_isDirty && !ShowDayNight)
             return;
 
+        _isDirty = false; // Clear dirty flag immediately to catch updates during processing
+
         // Pre-calculate civilization map if needed
         if (Mode == RenderMode.Civilizations && _civilizationManager != null)
         {
@@ -166,7 +168,6 @@ public class TerrainRenderer
         }
 
         _terrainTexture.SetData(_terrainColors);
-        _isDirty = false; // Clear dirty flag after update
     }
 
     private Color ApplyDayNightCycle(Color baseColor, TerrainCell cell, int x, int y)
