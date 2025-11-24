@@ -707,6 +707,26 @@ public class SimPlanetGame : Game
         base.Update(gameTime);
     }
 
+    private bool IsMapZoomBlockedByTool()
+    {
+        if (_lifePainterUI != null && _lifePainterUI.IsVisible)
+        {
+            return true;
+        }
+
+        if (_terraformingTool != null && _terraformingTool.IsVisible)
+        {
+            return true;
+        }
+
+        if (_disasterControlUI != null && _disasterControlUI.IsVisible && _disasterControlUI.IsSelectingTarget)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private void HandleInput(KeyboardState keyState)
     {
         if (_isFastForwarding && keyState.IsKeyDown(Keys.Escape) && _previousKeyState.IsKeyUp(Keys.Escape))
@@ -752,7 +772,8 @@ public class SimPlanetGame : Game
 
         // Mouse wheel for zoom
         int scrollDelta = mouseState.ScrollWheelValue - _previousMouseState.ScrollWheelValue;
-        if (scrollDelta != 0)
+        bool blockMapZoom = IsMapZoomBlockedByTool();
+        if (scrollDelta != 0 && !blockMapZoom)
         {
             float zoomChange = scrollDelta > 0 ? 1.1f : 0.9f;
             _terrainRenderer.ZoomLevel = Math.Clamp(_terrainRenderer.ZoomLevel * zoomChange, 0.5f, 4.0f);

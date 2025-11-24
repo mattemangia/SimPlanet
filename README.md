@@ -1557,6 +1557,7 @@ The greenhouse gas multipliers were treating methane and N2O as if they were at 
 -  **Day/Night Cycle** - Cities light up at night! Auto-enables when time speed drops below 0.5x
 -  **4 New Meteorology Views** - Clouds (F1), Wind (F2), Air Pressure (F3), Storms (F4)
 -  **Mouse Pan & Zoom** - Mouse wheel to zoom (0.5x-4x), middle-click drag to pan
+-  **Tool-Friendly Scrolling** - While Life Painter, Terraforming, or Disaster targeting are active, mouse-wheel actions adjust the tool without zooming the map; zoom control resumes automatically after leaving the tool.
 -  **Civilization Warfare** - Aggressive civs declare war, conduct battles based on military strength
 -  **Transportation Systems** - Civilizations unlock land transport (horses/cars), ships, and planes as they advance
 -  **Enhanced Expansion** - Civs with ships can colonize islands, planes enable rapid global expansion
