@@ -880,6 +880,19 @@ public class TerrainRenderer
             return new Color(50, 50, 50);
         }
 
+        // Keep interior faults minimal: only show major continental ones, unless user placed them
+        bool isBoundaryFault = geo.BoundaryType != PlateBoundaryType.None;
+        if (!isBoundaryFault && !geo.IsManualFault)
+        {
+            bool isContinental = cell.IsLand && geo.CrustType != CrustType.Oceanic;
+            bool isMajor = geo.FaultActivity >= 0.6f || geo.SeismicStress >= 0.75f;
+
+            if (!isContinental || !isMajor)
+            {
+                return new Color(50, 50, 50);
+            }
+        }
+
         // Fault color based on type and activity
         Color baseColor = geo.FaultType switch
         {

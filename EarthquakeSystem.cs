@@ -341,16 +341,21 @@ public static class EarthquakeSystem
                 // Small chance of intraplate faults (within plates, away from boundaries)
                 else
                 {
-                    // Boost probability in areas with relief (mountain belts) to help
-                    // visualize interior faulting.
-                    float intraplateChance = 0.02f;
-                    float reliefBoost = MathF.Max(0f, cell.Elevation - 0.2f) * 0.1f;
+                    bool isContinentalInterior = cell.IsLand && cell.Geology.CrustType != CrustType.Oceanic;
 
-                    if (_random.NextDouble() < intraplateChance + reliefBoost)
+                    if (isContinentalInterior)
                     {
-                        cell.Geology.IsFault = true;
-                        cell.Geology.FaultType = (FaultType)_random.Next(1, 6);
-                        cell.Geology.FaultActivity = 0.2f + (float)_random.NextDouble() * 0.4f; // Moderate activity
+                        // Only draw major continental faults: favor high terrain/stress belts.
+                        float baseChance = 0.005f; // Much rarer by default
+                        float reliefBoost = MathF.Max(0f, cell.Elevation - 0.35f) * 0.05f;
+                        float stressBoost = MathF.Max(0f, cell.Geology.TectonicStress - 0.6f) * 0.03f;
+
+                        if (_random.NextDouble() < baseChance + reliefBoost + stressBoost)
+                        {
+                            cell.Geology.IsFault = true;
+                            cell.Geology.FaultType = (FaultType)_random.Next(1, 6);
+                            cell.Geology.FaultActivity = 0.6f + (float)_random.NextDouble() * 0.4f; // Major, visible faults only
+                        }
                     }
                 }
             }
