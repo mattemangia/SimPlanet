@@ -225,6 +225,14 @@ public class SedimentColumnViewer
             new Vector2(panelX + 10, textY), Color.White);
         textY += lineHeight;
 
+        float altitudeMeters = cell.Elevation * 9000f; // Approx. -9 km (deep ocean) to +9 km (tall peaks)
+        string altitudeText = altitudeMeters >= 0
+            ? $"Altitude: {altitudeMeters:F0} m ASL"
+            : $"Altitude: {Math.Abs(altitudeMeters):F0} m below sea";
+        _font.DrawString(spriteBatch, altitudeText,
+            new Vector2(panelX + 10, textY), Color.LightBlue);
+        textY += lineHeight;
+
         _font.DrawString(spriteBatch, $"Temperature: {cell.Temperature:F1} C",
             new Vector2(panelX + 10, textY), GetTempColor(cell.Temperature));
         textY += lineHeight;

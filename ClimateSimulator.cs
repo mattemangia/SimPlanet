@@ -557,13 +557,13 @@ public class ClimateSimulator
                 float adjustedLatitude = latitude + geoVariation;
 
                 // Gradual transition - not sharp boundary
-                bool isPolarRegion = adjustedLatitude > 0.72f;
-                float polarStrength = Math.Max(0, (adjustedLatitude - 0.72f) / 0.28f); // 0 to 1 gradient
+                bool isPolarRegion = adjustedLatitude > 0.68f; // Slightly expand polar influence for more ice coverage
+                float polarStrength = Math.Max(0, (adjustedLatitude - 0.68f) / 0.32f); // 0 to 1 gradient
                 bool isMountainPeak = cell.Elevation > 0.7f; // High elevation
 
                 // Ice accumulation threshold varies smoothly by location with geographic noise
                 float tempVariation = MathF.Sin(x * 0.25f) * MathF.Cos(y * 0.15f) * 3.0f;
-                float iceFormationTemp = -10f + (polarStrength * 5f) + tempVariation;
+                float iceFormationTemp = -8f + (polarStrength * 5f) + tempVariation; // Warmer threshold to encourage ice
                 float iceMeltingTemp = 5f - (polarStrength * 3f) + (tempVariation * 0.5f);
 
                 // Mountain snow line (permanent ice at high elevations)
