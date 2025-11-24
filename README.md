@@ -26,6 +26,9 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Forest fires** (natural ignition, smoke, rain extinguishing, firefighters)
 - **Disease & pandemic system** (6 pathogen types, realistic spread, civilization responses, cure research)
 - **Manual terraforming tool** (plant forests, create oceans, seed civilizations)
+- **Interactive Toolbar** with 50+ buttons for quick access to all features
+- **Bottom Control Bar** for easy time control and game management
+- **Graphing System** to track planetary metrics over time
 - **Auto-stabilization system** (maintains habitable conditions automatically)
 - **Civilization-aware auto-stabilizer** that keeps settlements safe from drastic flooding/cooling adjustments
 - **World-dependent survival modeling** that keeps the auto-balancer and life support checks tied to each planet's actual climate instead of fixed Earth numbers
@@ -33,6 +36,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Planet presets** (Earth, Mars, Water World, Desert World)
 - **Interactive 3D planet minimap** with manual rotation and tilt controls (just like SimEarth!)
 - **Interactive Toolbar** with clickable buttons for all keybindings - small squared buttons with custom icons and tooltips
+- **Bottom Control Bar** with buttons for speed, pause, save, load, and help
 - **Splash Screen** with beautiful loading animation before game starts
 - **Save/load game system** with quick save/load (F5/F9)
 - **Main menu** with new game, load game, and pause functionality
@@ -260,15 +264,17 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
     - Climate stress drives evolution and adaptation
     - Sedimentation and environmental changes impact survival
   - Biomass dynamics and ecosystem interactions
-- **Manual Terraforming Tool** (Press T):
-  - Plant forests, grasslands, deserts, tundra
-  - Create oceans and raise mountains
-  - **Create fault lines** (5 types: Strike-Slip, Normal, Reverse, Thrust, Oblique)
-  - Seed new civilizations
-  - Adjustable brush size (1-15 radius)
-  - Respects terrain constraints for realistic results
-  - Scroll wheel adjusts brush size
-- **Resource Placement Tool** (Press M):
+- **Manual Planting Tool** (Toolbar -> Plant Tool):
+  - **Plant Life Forms**: Forests, grasslands, deserts, tundra
+  - **Terraform Terrain**: Create oceans and raise mountains
+  - **Create Fault Lines**: 5 types (Strike-Slip, Normal, Reverse, Thrust, Oblique)
+  - **Seed Civilizations**: Manually place a new civilization starter
+  - **Controls**: Select type from left panel, use scroll wheel for brush size
+- **Terraforming Tool** (Press T):
+  - **Height Modification**: Raise or lower terrain directly
+  - **Left Click**: Raise/Lower (Right click to toggle mode)
+  - **Scroll Wheel**: Adjust brush size
+- **Resource Placement Tool** (Access via Toolbar):
   - Place 10 resource types: Iron, Copper, Coal, Gold, Silver, Oil, Gas, Uranium, Platinum, Diamond
   - Adjustable deposit amounts (5-100 units)
   - Scroll wheel adjusts amount, R key cycles resource type
@@ -291,6 +297,7 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Press \ to toggle on/off during gameplay
 - **Planetary Controls UI** (Press X) - SimEarth-style Parameter Control:
   - **Complete Manual Control** - Adjust every planetary parameter in real-time
+  - **Interactive Controls** - Quick access buttons for "Terraform", "Cool Planet", "Seed Life", "Clear CO2"
   - **15 Control Sliders**:
     - **Climate**: Solar Energy (0.5x-1.5x), Global Temperature Offset (-20°C to +20°C)
     - **Atmosphere**: Rainfall Multiplier (0.1x-3.0x), Wind Speed (0.1x-3.0x), Oxygen (0-50%), CO2 (0-10%), Atmospheric Pressure (500-1500 mb)
@@ -318,9 +325,21 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **3D Minimap**: Interactive rotating sphere with accurate spherical projection, realistic ice caps, and manual rotation/tilt controls (SimEarth-style!)
 
 ### New Features
-- **Graphing System**: Press 'Y' to view graphs of key planetary metrics over time, including temperature, oxygen, CO2, population, and biomass.
-- **Life Painter**: Press 'L' to open the life painter tool. Left-click to paint the selected life form onto the planet, right-click to cycle through life forms, and use the scroll wheel to adjust the brush size.
-- **Terraforming Tool**: Press 'T' to open the terraforming tool. Left-click to raise or lower the terrain, right-click to toggle between raising and lowering, and use the scroll wheel to adjust the brush size.
+- **Graphing System (Press Y)**: View real-time graphs of key planetary metrics over time:
+  - **Temperature**: Global average temperature (°C)
+  - **Oxygen**: Atmospheric oxygen percentage
+  - **CO2**: Carbon dioxide levels (ppm)
+  - **Population**: Total civilization population
+  - **Biomass**: Total planetary biomass density
+- **Life Painter (Press L)**: Creative tool for painting specific life forms:
+  - **Left Click**: Paint the selected life form
+  - **Right Click**: Cycle through life forms (Bacteria -> Algae -> Plants -> ... -> Civilization)
+  - **Scroll Wheel**: Adjust brush size (1-20 radius)
+- **Terraforming Tool (Press T)**: Direct terrain height modification:
+  - **Left Click**: Raise or lower terrain height
+  - **Right Click**: Toggle between Raising (default) and Lowering mode
+  - **Scroll Wheel**: Adjust brush size
+- **Bottom Control Bar**: Quick access buttons at the bottom of the screen for simulation speed, pausing, saving/loading, map options, help, and planet regeneration.
 
 ### Visualization Modes (Grouped Cycles)
 
@@ -441,8 +460,8 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **+/-** | Increase/Decrease time speed (also Keypad +/-) |
 | **C** | Toggle day/night cycle (auto-enabled at <0.5x speed) |
 | **L** | Toggle Life Painter |
-| **M** | Toggle resource placement tool (R to cycle) |
-| **T** | Toggle Terraforming Tool |
+| **M** | Toggle Map Options Menu (when in game) |
+| **T** | Toggle Terraforming Tool (Height Modifier) |
 | **Y** | Toggle Graphs |
 | **\** | Toggle auto-stabilization system |
 | **P** | Toggle 3D rotating minimap |
