@@ -81,6 +81,7 @@ All notable changes to this project will be documented in this file.
 - Fixed coastal/beach terrain type never being returned by `GetTerrainType()`
 - Fixed asteroids and nukes having minimal visual/environmental impact
 - Fixed water appearing instantly in any depression regardless of water source
+- Prevented map zoom from triggering while mouse-wheel-driven tools (Life Painter, Terraforming, Disaster targeting) are active, restoring zoom control when the tool closes.
 
 ---
 
