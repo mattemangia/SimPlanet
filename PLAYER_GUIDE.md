@@ -713,178 +713,53 @@ Click on cells to transform them:
 
 ## Visualization Modes
 
-### Terrain & Geography Modes
+Visualization modes are now grouped into 5 logical categories. Press the number key repeatedly to cycle through the modes in that group.
 
-**1 - Terrain Mode** (Default)
-- Realistic planetary view
-- Shows biomes: forests, deserts, ice, oceans
-- Cities visible as gray areas
-- Best for general observation
+### 1 - Terrain & Geography Group
+Press **1** to cycle through:
 
-**2 - Topographic Mode**
-- Elevation visualization
-- Dark blue = deep ocean (-1.0)
-- Light blue = shallow water
-- Green/yellow = lowlands
-- Brown/red = highlands
-- White = peaks (1.0)
+*   **Terrain Mode**: Realistic planetary view (Default)
+*   **Terrain Clean**: Terrain view without overlays
+*   **Elevation Mode**: Topographic map (Blue=Deep, Green=Low, Red=High, White=Peak)
+*   **Biome Mode**: Color-coded ecosystem types (Forest, Desert, Tundra, etc.)
 
-**3 - Biome Mode**
-- Color-coded ecosystem types:
-  - Dark green = forest
-  - Light green = grassland
-  - Yellow = desert
-  - White = tundra/ice
-  - Blue = water
-  - Brown = barren rock
+### 2 - Weather & Climate Group
+Press **2** to cycle through:
 
-### Climate Modes
+*   **Temperature**: Heat distribution (Blue=Cold, Green=Temperate, Red=Hot)
+*   **Rainfall**: Precipitation levels (Blue=Wet, Brown=Dry)
+*   **Pressure**: Atmospheric pressure (Low=Storms, High=Clear)
+*   **Wind**: Wind speed and patterns
+*   **Clouds**: Cloud coverage and weather systems
+*   **Storms**: Storm intensity tracking
 
-**4 - Temperature Mode**
-- Shows temperature distribution
-- Blue = freezing (<-10°C)
-- Cyan/Green = cold to moderate
-- Yellow/Orange = warm
-- Red = hot (>40°C)
-- Visualize climate zones and heat distribution
+### 3 - Atmosphere & Physics Group
+Press **3** to cycle through:
 
-**5 - Rainfall Mode**
-- Precipitation levels
-- Dark blue = arid/desert (<0.2)
-- Light blue/Cyan = moderate (0.2-0.5)
-- Green = wet (0.5-0.7)
-- Yellow = very wet (>0.7)
-- Shows where life can thrive
+*   **Oxygen**: O2 concentration (Green=Breathable)
+*   **CO2**: Carbon dioxide levels (Yellow/Red=High Greenhouse)
+*   **Radiation**: Cosmic ray exposure (Red=Dangerous, Green=Safe)
+*   **Albedo**: Surface reflectivity (White=Reflective Ice, Dark=Absorptive)
+*   **Spectral Bands**: Net radiation budget (Heating vs Cooling)
+*   **Auroras**: Magnetic field visualization (Green/Purple=Protective Shield)
 
-**6 - Humidity Mode**
-- Atmospheric moisture
-- Blue = dry air
-- Green = moderate humidity
-- Yellow = humid
-- Red = saturated (near rain)
+### 4 - Geology & Hazards Group
+Press **4** to cycle through:
 
-**7 - Ice & Glaciers Mode**
-- Ice coverage visualization
-- White = ice covered
-- Blue = water
-- Brown = land
-- Shows polar ice caps and glaciers
+*   **Geological**: Rock types (Volcanic, Sedimentary, Crystalline)
+*   **Tectonic Plates**: Color-coded plates and boundaries
+*   **Volcanoes**: Volcanic activity and hotspots
+*   **Faults**: Fault lines and stress points
+*   **Earthquakes**: Seismic activity intensity
+*   **Tsunamis**: Wave height and coastal flooding
 
-### Atmospheric Modes
+### 5 - Life & Civilization Group
+Press **5** to cycle through:
 
-**8 - Oxygen Mode**
-- O2 concentration
-- Dark red = no oxygen (0%)
-- Orange = low O2 (<10%)
-- Yellow = moderate (10-20%)
-- Green = breathable (20-30%)
-- Cyan = high (>30%)
-
-**9 - CO2 Mode**
-- Carbon dioxide levels
-- Blue = low CO2 (<1%)
-- Cyan = moderate (1-3%)
-- Green = elevated (3-5%)
-- Yellow = high (>5%, toxic)
-
-**10 - Greenhouse Effect Mode**
-- Total greenhouse warming
-- Blue = minimal greenhouse
-- Green = moderate
-- Yellow = strong
-- Red = extreme (runaway)
-- Shows where heating is concentrated
-
-**11 - Air Pressure Mode**
-- Atmospheric pressure
-- Blue = low pressure (950-1000 mb) - storms
-- Green = normal (1000-1020 mb)
-- Red = high pressure (1020-1050 mb) - clear skies
-- Shows weather patterns
-
-**12 - Wind Patterns Mode**
-- Wind direction and speed
-- Arrows show wind direction
-- Color shows speed (blue=calm, red=strong)
-- See trade winds, westerlies, storms
-
-**13 - Clouds Mode**
-- Cloud coverage
-- Dark = clear skies
-- Light = cloudy
-- White = dense clouds
-- Shows weather systems and rain zones
-
-### Life & Ecology Modes
-
-**14 - Life Mode**
-- Life form distribution
-- Gray = no life
-- Brown = bacteria
-- Green = algae/plants
-- Yellow = simple animals
-- Orange = complex animals
-- Red = intelligence
-- Purple = civilization
-
-**15 - Biomass Mode**
-- Population density
-- Black = barren (0.0)
-- Dark green = sparse (0.1-0.3)
-- Green = moderate (0.3-0.6)
-- Light green = healthy (0.6-0.8)
-- Yellow = thriving (0.8-1.0)
-
-### Geological Modes
-
-**16 - Tectonic Plates Mode**
-- Shows all 8 plates
-- Each plate has unique color
-- Borders show plate boundaries
-- See continental drift
-
-**17 - Geological Activity Mode**
-- Active zones
-- Blue = stable
-- Yellow = active (boundaries)
-- Red = very active (volcanoes)
-- Orange = earthquake zones
-
-**18 - Volcano Distribution Mode**
-- Volcanic hotspots
-- Red dots = active volcanoes
-- Orange = dormant but possible
-- Shows ring of fire patterns
-
-**19 - Erosion Mode**
-- Erosion intensity
-- Blue = low erosion (flat/stable)
-- Green = moderate erosion
-- Yellow = high erosion (mountains/rain)
-- Shows landscape evolution
-
-### Advanced Modes
-
-**20 - Sediment Layers Mode**
-- Ocean floor sediment accumulation
-- Blue = thin sediment
-- Green = moderate deposits
-- Yellow = thick sediment layers
-- Click ocean for detailed column view
-
-**21 - Albedo Mode**
-- Surface reflectivity
-- Dark = low albedo (absorbs light)
-- Light = high albedo (reflects light)
-- Ice/snow = brightest (0.85)
-- Ocean = darkest (0.06)
-
-**22 - Radiation Mode**
-- Cosmic ray protection
-- Red = high radiation (no magnetosphere)
-- Yellow = moderate protection
-- Green = good protection
-- Cyan = excellent shielding
+*   **Life**: Life form distribution (Bacteria to Civilization)
+*   **Civilizations**: Political map of territories
+*   **Infrastructure**: Roads, cities, and energy grids
+*   **Resources**: Mineral deposits and resource concentrations
 
 ### Geological Overlays (Toggle Independently)
 
@@ -1259,34 +1134,14 @@ Start with uninhabitable planet:
 
 ## Keyboard Reference
 
-### View Modes
-| Key | Mode | Description |
-|-----|------|-------------|
-| 1 | Terrain | Realistic planetary view |
-| 2 | Topographic | Elevation map |
-| 3 | Biome | Ecosystem types |
-| 4 | Temperature | Heat distribution |
-| 5 | Rainfall | Precipitation levels |
-| 6 | Humidity | Atmospheric moisture |
-| 7 | Ice | Glacier coverage |
-| 8 | Oxygen | O2 concentration |
-| 9 | CO2 | Carbon dioxide levels |
-| 0 | Greenhouse | Greenhouse effect strength |
-
-### Additional Views
-| Key | Mode | Description |
-|-----|------|-------------|
-| - | Pressure | Atmospheric pressure |
-| = | Wind | Wind patterns and speed |
-| [ | Clouds | Cloud coverage |
-| ] | Life | Life form distribution |
-| ; | Biomass | Population density |
-| ' | Plates | Tectonic plates |
-| , | Geology | Geological activity |
-| . | Earthquakes Overlay | Toggle earthquake circles |
-| / | Erosion | Erosion intensity |
-| Z | Political | Civilization territories and borders |
-| S | Spectral | Spectral energy and radiation budget |
+### View Modes (Grouped Cycles)
+| Key | Group | Modes Included |
+|-----|-------|----------------|
+| 1 | Terrain | Terrain, Elevation, Biomes |
+| 2 | Weather | Temperature, Rainfall, Pressure, Wind, Clouds, Storms |
+| 3 | Atmosphere | Oxygen, CO2, Radiation, Albedo, Spectral Bands, Auroras |
+| 4 | Geology | Rock Types, Plates, Volcanoes, Faults, Earthquakes, Tsunamis |
+| 5 | Life & Civ | Life, Civilizations, Infrastructure, Resources |
 
 ### Overlays (Toggle On/Off)
 | Key | Overlay | Description |

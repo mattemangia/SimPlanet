@@ -322,35 +322,24 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Life Painter**: Press 'L' to open the life painter tool. Left-click to paint the selected life form onto the planet, right-click to cycle through life forms, and use the scroll wheel to adjust the brush size.
 - **Terraforming Tool**: Press 'T' to open the terraforming tool. Left-click to raise or lower the terrain, right-click to toggle between raising and lowering, and use the scroll wheel to adjust the brush size.
 
-### Visualization Modes
-**Standard Views (1-0 keys):**
-1. **Terrain**: See the planet surface (oceans, land, forests, deserts, mountains) with day/night cycle and city lights
-2. **Temperature**: Heat map showing temperature distribution
-3. **Rainfall**: Precipitation patterns across the planet
-4. **Life**: Visualization of life forms and biomass
-5. **Oxygen**: Atmospheric oxygen levels
-6. **CO2**: Carbon dioxide concentration
-7. **Elevation**: Height map view
-8. **Geological**: Rock types (volcanic, sedimentary, crystalline), erosion, sedimentation
-9. **Tectonic Plates**: See all 8 plates with boundaries highlighted
-10. **Volcanoes**: Volcanic activity and lava flows
+### Visualization Modes (Grouped Cycles)
 
-**Meteorology Views (F1-F4 keys):**
-11. **Clouds (F1)**: Cloud cover visualization with storm clouds
-12. **Wind (F2)**: Wind speed and direction patterns (calm to extreme)
-13. **Pressure (F3)**: Air pressure systems (low pressure = blue, high pressure = red)
-14. **Storms (F4)**: Active storms with precipitation and wind intensity
+Visualization modes are now grouped by category. Press the corresponding number key repeatedly to cycle through the modes in that group.
 
-**Advanced Views (F10-F12, J keys):**
-15. **Biomes (F10)**: Detailed biome classification (15 types: ocean, desert, forest, tundra, etc.)
-16. **Albedo (F11)**: Surface reflectivity showing ice-albedo feedback (dark absorbs heat, bright reflects)
-17. **Radiation (F12)**: Cosmic ray and solar radiation levels (green=safe, red/purple=deadly)
-18. **Resources (J)**: Natural resource deposits (coal, iron, oil, uranium, rare minerals)
+**1: Terrain & Geography Group**
+- Terrain, Terrain Clean, Elevation, Biomes
 
-**Geological Hazard Views (E, Q, U keys):**
-19. **Earthquakes (E)**: Seismic activity with discrete legend for Epicenters (High/Low Mag), Active Waves, and Stress Buildup levels.
-20. **Faults (Q)**: Fault lines with discrete legend for fault types: Strike-Slip, Normal, Reverse, Thrust, Oblique, and Critical Stress.
-21. **Tsunamis (U)**: Ocean wave propagation with wave height (cyan to white gradient) and coastal flooding (brown)
+**2: Weather & Climate Group**
+- Temperature, Rainfall, Pressure, Wind, Clouds, Storms
+
+**3: Atmosphere & Physics Group**
+- Oxygen, CO2, Radiation, Albedo, Spectral Bands, Auroras
+
+**4: Geology & Hazards Group**
+- Rock Types, Tectonic Plates, Volcanoes, Faults, Earthquakes, Tsunamis
+
+**5: Life & Civilization Group**
+- Life Forms, Civilizations (Political Map), Infrastructure, Resources
 
 ### Geological Overlays (Toggle On/Off)
 - **Volcanoes**: Red triangles showing active volcanoes
@@ -444,31 +433,11 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | Key | Action |
 |-----|--------|
 | **SPACE** | Pause/Resume simulation |
-| **1-0** | Change view modes |
-| **1** | Terrain view |
-| **2** | Temperature view |
-| **3** | Rainfall view |
-| **4** | Life view |
-| **5** | Oxygen view |
-| **6** | CO2 view |
-| **7** | Elevation view |
-| **8** | Geological view (rock types, erosion) |
-| **9** | Tectonic Plates view |
-| **0** | Volcanoes view |
-| **F1** | Clouds view (meteorology) |
-| **F2** | Wind view (meteorology) |
-| **F3** | Air Pressure view (meteorology) |
-| **F4** | Storms view (meteorology) |
-| **F10** | Biomes view (advanced) |
-| **A** | Albedo/Surface reflectivity view (advanced) |
-| **F12** | Radiation levels view (advanced) |
-| **J** | Resources view (advanced) |
-| **O** | Infrastructure view (civilization infrastructure) |
-| **Z** | Political map view (civilization territories) |
-| **S** | Spectral band energy view |
-| **E** | Earthquakes view (geological hazards) |
-| **Q** | Faults view (geological hazards) |
-| **U** | Tsunamis view (geological hazards) |
+| **1** | Cycle Terrain Group (Terrain, Elevation, Biomes) |
+| **2** | Cycle Weather Group (Temp, Rain, Pressure, Wind, Clouds, Storms) |
+| **3** | Cycle Atmosphere Group (O2, CO2, Radiation, Albedo, Spectral, Auroras) |
+| **4** | Cycle Geology Group (Rocks, Plates, Volcanoes, Faults, Quakes, Tsunamis) |
+| **5** | Cycle Life & Civ Group (Life, Political, Infrastructure, Resources) |
 | **+/-** | Increase/Decrease time speed (also Keypad +/-) |
 | **C** | Toggle day/night cycle (auto-enabled at <0.5x speed) |
 | **L** | Toggle Life Painter |

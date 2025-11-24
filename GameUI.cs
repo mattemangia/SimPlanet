@@ -527,34 +527,13 @@ public class GameUI
         DrawTextAt("ESC: Cancel Fast Forward", Color.Cyan, leftColX, leftY); leftY += lineHeight;
         leftY += 8;
 
-        DrawTextAt("=== VIEW MODES (1-0) ===", _accentColor, leftColX, leftY);
+        DrawTextAt("=== VIEW MODES (CYCLES) ===", _accentColor, leftColX, leftY);
         leftY += lineHeight + 5;
-        DrawTextAt("1: Terrain  2: Temperature", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("3: Rainfall  4: Life forms", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("5: Oxygen  6: CO2", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("7: Elevation  8: Geology", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("9: Plates  0: Volcanoes", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        leftY += 8;
-
-        DrawTextAt("=== WEATHER (F1-F4) ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 5;
-        DrawTextAt("F1: Clouds  F2: Wind", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("F3: Pressure  F4: Storms", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        leftY += 8;
-
-        DrawTextAt("=== GEOLOGICAL HAZARDS ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 5;
-        DrawTextAt("E: Earthquakes (Discrete)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("Q: Faults (Discrete)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("U: Tsunamis", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        leftY += 8;
-
-        DrawTextAt("=== ADVANCED VIEWS ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 5;
-        DrawTextAt("F10: Biomes  Z: Political", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("F12: Radiation  A: Albedo", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("J: Resources  S: Energy", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("O: Infrastructure (Civ)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("1: Terrain / Elevation / Biomes", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("2: Weather (Temp/Rain/Wind...)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("3: Atmosphere (O2/CO2/Rad...)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("4: Geology (Plates/Volcanoes...)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
+        DrawTextAt("5: Life / Civilizations", _textLabelColor, leftColX, leftY); leftY += lineHeight;
         leftY += 8;
 
         DrawTextAt("=== SAVE/LOAD ===", _accentColor, leftColX, leftY);
