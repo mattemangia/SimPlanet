@@ -772,7 +772,7 @@ public class SimPlanetGame : Game
 
         // Mouse wheel for zoom
         int scrollDelta = mouseState.ScrollWheelValue - _previousMouseState.ScrollWheelValue;
-        bool blockMapZoom = IsMapZoomBlockedByTool();
+        bool blockMapZoom = IsMapZoomBlockedByTool() || (_ui != null && _ui.IsMouseOver);
         if (scrollDelta != 0 && !blockMapZoom)
         {
             float zoomChange = scrollDelta > 0 ? 1.1f : 0.9f;
