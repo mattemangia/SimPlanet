@@ -33,6 +33,7 @@ public class GameUI
     private int _dragStartScrollOffset = 0;
     private Rectangle _lastScrollbarRect = Rectangle.Empty;
 
+    public bool IsMouseOver { get; private set; }
     public bool ShowHelp { get; set; } = false;
     public bool IsFastForwarding { get; set; } = false;
     public float FastForwardProgress { get; set; } = 0f;
@@ -86,11 +87,11 @@ public class GameUI
         int panelHeight = _graphicsDevice.Viewport.Height - toolbarHeight;
 
         // Check if mouse is over the panel
-        bool isOverPanel = mouseState.X >= panelX && mouseState.X <= panelX + panelWidth &&
+        IsMouseOver = mouseState.X >= panelX && mouseState.X <= panelX + panelWidth &&
                            mouseState.Y >= panelY && mouseState.Y <= panelY + panelHeight;
 
         // Handle Mouse Wheel Scrolling
-        if (isOverPanel)
+        if (IsMouseOver)
         {
             int scrollDelta = mouseState.ScrollWheelValue - previousMouseState.ScrollWheelValue;
             if (scrollDelta != 0)
