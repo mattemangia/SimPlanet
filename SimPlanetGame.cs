@@ -490,6 +490,8 @@ public class SimPlanetGame : Game
         if (_isGenerating)
         {
             // Update loading screen with generation progress
+            // This line is a safeguard. It ensures visibility is maintained even if other UI state
+            // changes attempt to hide it during the transition from the main menu to the game.
             _loadingScreen.IsVisible = true;
             _loadingScreen.Progress = PlanetMap.GenerationProgress;
             _loadingScreen.CurrentTask = PlanetMap.GenerationTask;
@@ -1562,12 +1564,6 @@ public class SimPlanetGame : Game
                 _mainMenu.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
             }
 
-            // Draw loading screen overlay if generating world
-        if (_loadingScreen != null && _loadingScreen.IsVisible)
-            {
-                _loadingScreen.Draw();
-            }
-
             // Draw toolbar LAST (shown in-game only) so tooltips appear on top
             if (_mainMenu.CurrentScreen == GameScreen.InGame)
             {
@@ -1594,6 +1590,12 @@ public class SimPlanetGame : Game
         // Draw profile tool UI
         _profileTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height, (int)_terrainRenderer.CameraX, (int)_terrainRenderer.CameraY, _terrainRenderer.ZoomLevel, _mapRenderOffsetX, _mapRenderOffsetY, _terrainRenderer.CellSize);
         _profileViewer.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Draw loading screen overlay if generating world (on top of everything)
+        if (_loadingScreen != null && _loadingScreen.IsVisible)
+        {
+            _loadingScreen.Draw();
+        }
 
         _spriteBatch.End();
 
