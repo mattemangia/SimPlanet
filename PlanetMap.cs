@@ -69,30 +69,30 @@ public class PlanetMap
             }
         }
 
-        GenerationProgress = 0.1f;
-        GenerationTask = "Generating terrain elevation...";
+        // Detailed progress reporting
+        UpdateProgress(0.1f, "Generating terrain elevation...");
         GenerateTerrain();
 
-        GenerationProgress = 0.4f;
-        GenerationTask = "Initializing geological layers...";
+        UpdateProgress(0.4f, "Initializing geological layers...");
         InitializeGeology();
 
-        GenerationProgress = 0.6f;
-        GenerationTask = "Initializing climate systems...";
+        UpdateProgress(0.6f, "Initializing climate systems...");
         InitializeClimate();
 
-        GenerationProgress = 0.8f;
-        GenerationTask = "Generating natural resources...";
-        // Generate natural resources after terrain and climate are set
+        UpdateProgress(0.8f, "Generating natural resources...");
         var resourceGenerator = new ResourceGenerator(this, options.Seed);
         resourceGenerator.GenerateResources();
 
-        GenerationProgress = 0.9f;
-        GenerationTask = "Detecting coastal zones...";
+        UpdateProgress(0.9f, "Detecting coastal zones...");
         UpdateCoastalZones();
 
-        GenerationProgress = 1.0f;
-        GenerationTask = "Complete!";
+        UpdateProgress(1.0f, "Complete!");
+    }
+
+    private void UpdateProgress(float progress, string task)
+    {
+        GenerationProgress = progress;
+        GenerationTask = task;
     }
 
     private void GenerateTerrain()
@@ -101,6 +101,7 @@ public class PlanetMap
         float scale = 0.01f;
 
         // Step 1: Generate base elevation values
+        UpdateProgress(0.15f, "Generating noise map...");
         float[,] baseElevation = new float[Width, Height];
         List<float> allValues = new List<float>(Width * Height);
 
@@ -137,6 +138,7 @@ public class PlanetMap
         }
 
         // Step 2: Calculate sea level threshold based on LandRatio
+        UpdateProgress(0.25f, "Calibrating sea level...");
         // Sort all elevation values to find the percentile
         allValues.Sort();
         int seaLevelIndex = (int)((1.0f - Options.LandRatio) * allValues.Count);
@@ -144,6 +146,7 @@ public class PlanetMap
         float seaLevelThreshold = allValues[seaLevelIndex];
 
         // Step 3: Apply elevations with proper land/water distribution
+        UpdateProgress(0.3f, "Raising mountains...");
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
@@ -182,6 +185,7 @@ public class PlanetMap
         }
 
         // Step 4: Smooth polar regions (ice caps effect)
+        UpdateProgress(0.35f, "Forming polar caps...");
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
@@ -207,6 +211,7 @@ public class PlanetMap
         var random = new Random(Options.Seed + 5000);
         int totalLayers = 0; // Debug: count total layers added
 
+        UpdateProgress(0.45f, "Building crust...");
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
@@ -377,6 +382,7 @@ public class PlanetMap
 
     private void InitializeClimate()
     {
+        UpdateProgress(0.65f, "Calculating temperatures...");
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
