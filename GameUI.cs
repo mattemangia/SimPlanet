@@ -78,6 +78,18 @@ public class GameUI
         _planetStabilizer = planetStabilizer;
     }
 
+    public bool IsMouseOverPanel(MouseState mouseState, int toolbarHeight)
+    {
+        // Calculate panel dimensions (same as in Draw)
+        int panelX = 0;
+        int panelY = toolbarHeight;
+        int panelWidth = 280;
+        int panelHeight = _graphicsDevice.Viewport.Height - toolbarHeight;
+
+        return mouseState.X >= panelX && mouseState.X <= panelX + panelWidth &&
+               mouseState.Y >= panelY && mouseState.Y <= panelY + panelHeight;
+    }
+
     public void Update(GameTime gameTime, MouseState mouseState, MouseState previousMouseState, int toolbarHeight)
     {
         // Calculate panel dimensions (same as in Draw)
@@ -87,8 +99,7 @@ public class GameUI
         int panelHeight = _graphicsDevice.Viewport.Height - toolbarHeight;
 
         // Check if mouse is over the panel
-        IsMouseOver = mouseState.X >= panelX && mouseState.X <= panelX + panelWidth &&
-                           mouseState.Y >= panelY && mouseState.Y <= panelY + panelHeight;
+        IsMouseOver = IsMouseOverPanel(mouseState, toolbarHeight);
 
         // Handle Mouse Wheel Scrolling
         if (IsMouseOver)

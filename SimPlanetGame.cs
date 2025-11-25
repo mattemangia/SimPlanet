@@ -774,7 +774,9 @@ public class SimPlanetGame : Game
 
         // Mouse wheel for zoom
         int scrollDelta = mouseState.ScrollWheelValue - _previousMouseState.ScrollWheelValue;
-        bool blockMapZoom = IsMapZoomBlockedByTool() || (_ui != null && _ui.IsMouseOver);
+        bool isOverInfoPanel = _ui != null && _toolbar != null && _ui.IsMouseOverPanel(mouseState, _toolbar.ToolbarHeight);
+        bool isTileInfoOpen = _sedimentViewer != null && _sedimentViewer.IsVisible;
+        bool blockMapZoom = IsMapZoomBlockedByTool() || isOverInfoPanel || isTileInfoOpen;
         if (scrollDelta != 0 && !blockMapZoom)
         {
             float zoomChange = scrollDelta > 0 ? 1.1f : 0.9f;
