@@ -133,7 +133,7 @@ public class ProfileTool : IDisposable
             new Rectangle((int)start.X, (int)start.Y, (int)edge.Length(), thickness),
             null,
             color,
-            0,
+            angle,
             Vector2.Zero,
             SpriteEffects.None,
             0);
