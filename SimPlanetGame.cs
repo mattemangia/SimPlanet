@@ -698,6 +698,10 @@ public class SimPlanetGame : Game
                 // Disable day/night at faster speeds (user manually toggling with 'C' overrides this)
                 _terrainRenderer.ShowDayNight = false;
             }
+            
+            // BUGFIX: Update previous mouse state at end of normal flow
+            // This is required for click detection in UI elements like GeologicalEventsUI close button
+            _previousMouseState = mouseState;
         }
 
         base.Update(gameTime);
