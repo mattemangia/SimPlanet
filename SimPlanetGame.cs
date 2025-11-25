@@ -1502,6 +1502,13 @@ public class SimPlanetGame : Game
 
         _terrainRenderer.Draw(_spriteBatch, offsetX, offsetY);
 
+        // Draw city markers on top of terrain (for all view modes except when it would be confusing)
+        if (_currentRenderMode != RenderMode.Geological && _currentRenderMode != RenderMode.TectonicPlates &&
+            _currentRenderMode != RenderMode.Earthquakes && _currentRenderMode != RenderMode.Faults)
+        {
+            _terrainRenderer.DrawCityMarkers(_spriteBatch, offsetX, offsetY);
+        }
+
         // Draw cyclone vortices on weather view modes
         if (_currentRenderMode == RenderMode.Clouds || _currentRenderMode == RenderMode.Storms ||
             _currentRenderMode == RenderMode.Wind || _currentRenderMode == RenderMode.Pressure)

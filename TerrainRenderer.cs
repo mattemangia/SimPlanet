@@ -264,6 +264,168 @@ public class TerrainRenderer
         );
     }
 
+    /// <summary>
+    /// Draw city icons and markers on top of the terrain
+    /// </summary>
+    public void DrawCityMarkers(SpriteBatch spriteBatch, int offsetX, int offsetY)
+    {
+        if (_civilizationManager == null) return;
+
+        // Apply camera offset
+        int camX = offsetX - (int)CameraX;
+        int camY = offsetY - (int)CameraY;
+
+        var civilizations = _civilizationManager.GetAllCivilizations();
+
+        foreach (var civ in civilizations)
+        {
+            for (int i = 0; i < civ.Cities.Count; i++)
+            {
+                var city = civ.Cities[i];
+                bool isCapital = (i == 0); // First city is the capital
+
+                // Calculate screen position
+                int screenX = camX + (int)(city.X * CellSize * ZoomLevel);
+                int screenY = camY + (int)(city.Y * CellSize * ZoomLevel);
+
+                // Size based on zoom and population
+                int baseSize = (int)(CellSize * ZoomLevel * 1.5f);
+                int citySize = isCapital ? baseSize + 2 : baseSize;
+
+                // Larger cities get slightly bigger icons
+                if (city.Type == CityType.Metropolis)
+                    citySize += 1;
+
+                citySize = Math.Max(3, citySize); // Minimum size
+
+                // Draw city icon - different shapes for capitals vs regular cities
+                if (isCapital)
+                {
+                    // Draw a star for capital
+                    DrawStar(spriteBatch, screenX, screenY, citySize, Color.Gold);
+                    // Add a white outline for emphasis
+                    DrawStarOutline(spriteBatch, screenX, screenY, citySize + 1, Color.White);
+                }
+                else
+                {
+                    // Draw a circle for regular cities
+                    DrawCircleFilled(spriteBatch, screenX, screenY, citySize, Color.White);
+                    // Draw inner circle with civ color
+                    Color civColor = GetCivColor(civ.Id);
+                    DrawCircleFilled(spriteBatch, screenX, screenY, citySize - 1, civColor);
+                }
+
+                // Draw city name if zoomed in enough
+                if (ZoomLevel >= 2.0f && citySize > 6)
+                {
+                    // City names appear below the icon
+                    // Note: This would require a FontRenderer parameter - skipping for now
+                    // to avoid breaking the API. Can be added later if needed.
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Draw a filled circle (for city icons)
+    /// </summary>
+    private void DrawCircleFilled(SpriteBatch spriteBatch, int centerX, int centerY, int radius, Color color)
+    {
+        int radiusSq = radius * radius;
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                if (dx * dx + dy * dy <= radiusSq)
+                {
+                    spriteBatch.Draw(_pixelTexture,
+                        new Rectangle(centerX + dx, centerY + dy, 1, 1),
+                        color);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Draw a star shape (for capital cities)
+    /// </summary>
+    private void DrawStar(SpriteBatch spriteBatch, int centerX, int centerY, int size, Color color)
+    {
+        int points = 5;
+        float outerRadius = size;
+        float innerRadius = size * 0.4f;
+
+        for (int i = 0; i < points * 2; i++)
+        {
+            float angle1 = i * MathF.PI / points;
+            float angle2 = (i + 1) * MathF.PI / points;
+            float r1 = (i % 2 == 0) ? outerRadius : innerRadius;
+            float r2 = ((i + 1) % 2 == 0) ? outerRadius : innerRadius;
+
+            int x1 = centerX + (int)(r1 * MathF.Cos(angle1 - MathF.PI / 2));
+            int y1 = centerY + (int)(r1 * MathF.Sin(angle1 - MathF.PI / 2));
+            int x2 = centerX + (int)(r2 * MathF.Cos(angle2 - MathF.PI / 2));
+            int y2 = centerY + (int)(r2 * MathF.Sin(angle2 - MathF.PI / 2));
+
+            DrawLine(spriteBatch, x1, y1, x2, y2, color);
+        }
+
+        // Fill the center
+        DrawCircleFilled(spriteBatch, centerX, centerY, (int)innerRadius, color);
+    }
+
+    /// <summary>
+    /// Draw a star outline
+    /// </summary>
+    private void DrawStarOutline(SpriteBatch spriteBatch, int centerX, int centerY, int size, Color color)
+    {
+        int points = 5;
+        float outerRadius = size;
+        float innerRadius = size * 0.4f;
+
+        for (int i = 0; i < points * 2; i++)
+        {
+            float angle = i * MathF.PI / points;
+            float r = (i % 2 == 0) ? outerRadius : innerRadius;
+
+            int x = centerX + (int)(r * MathF.Cos(angle - MathF.PI / 2));
+            int y = centerY + (int)(r * MathF.Sin(angle - MathF.PI / 2));
+
+            DrawCircleFilled(spriteBatch, x, y, 1, color);
+        }
+    }
+
+    /// <summary>
+    /// Draw a line between two points (Bresenham's algorithm)
+    /// </summary>
+    private void DrawLine(SpriteBatch spriteBatch, int x0, int y0, int x1, int y1, Color color)
+    {
+        int dx = Math.Abs(x1 - x0);
+        int dy = Math.Abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1;
+        int sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+
+        while (true)
+        {
+            spriteBatch.Draw(_pixelTexture, new Rectangle(x0, y0, 1, 1), color);
+
+            if (x0 == x1 && y0 == y1) break;
+
+            int e2 = 2 * err;
+            if (e2 > -dy)
+            {
+                err -= dy;
+                x0 += sx;
+            }
+            if (e2 < dx)
+            {
+                err += dx;
+                y0 += sy;
+            }
+        }
+    }
+
     // Simple hash function for procedural variation
     private static int Hash(int x, int y, int seed = 0)
     {

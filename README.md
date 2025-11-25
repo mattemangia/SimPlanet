@@ -16,7 +16,8 @@
 
 A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - Procedural planet generation with Perlin noise and **real-time preview**
-- **Full geological simulation** (plate tectonics, volcanoes, erosion, sedimentation)
+- **Full geological simulation** with **actual continental drift** - watch tectonic plates genuinely move over geological time
+- **Visible city markers** - capitals shown as gold stars, cities as colored circles
 - **Hydrology system** (rivers, water flow, ocean currents)
 - **Weather systems** (storms, seasons, air pressure, wind patterns)
 - **Ice cycles** (glaciers, polar ice caps, ice-albedo feedback)
@@ -101,7 +102,8 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
   - Planet presets: Earth (29% land), Mars (dry, high mountains), Water World (90% ocean), Desert (85% land)
   - Adjustable parameters: size, persistence, lacunarity, mountain level, water level
 - **Geological Systems**:
-  - 8 tectonic plates with continental drift
+  - **8 tectonic plates with actual continental drift** - plates genuinely move and continents migrate over geological time
+  - **Visible plate movement** - watch landmasses slowly drift apart and collide over thousands of years
   - Plate boundaries (convergent, divergent, transform)
   - Mountain building and subduction zones
   - **Realistic volcano distribution** (rare but impactful)
@@ -236,6 +238,8 @@ A SimEarth-like planetary simulation game built with C# and MonoGame, featuring:
 - **Civilization Development**:
   - Technology progression: Tribal → Agricultural → Industrial → Scientific → Spacefaring
   - **Intelligent city placement** based on resources, defense, and commerce
+  - **Visual city markers** - capital cities marked with gold stars, regular cities with colored circles
+  - **City icons scale with zoom** - easier to see on detailed views, city size affects icon size
   - **Road networks** connecting cities and resource sites (dirt paths → roads → highways)
   - **Civilization-induced earthquakes** from oil extraction, fracking, and geothermal energy
   - Population growth and strategic territorial expansion

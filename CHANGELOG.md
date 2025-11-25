@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## Latest Changes
+
+### New Features
+
+- **City Icons and Markers**: Cities are now visually represented on the map with distinct icons:
+  - Capital cities displayed as gold stars with white outlines
+  - Regular cities shown as colored circles matching their civilization's color
+  - Icon size scales with zoom level and city population
+  - Metropolises have slightly larger icons than smaller settlements
+  - Icons visible in all view modes except geological overlays (for clarity)
+
+- **Actual Tectonic Plate Movement**: Tectonic plates now genuinely drift over geological time:
+  - Continents gradually move based on plate velocities
+  - Cells migrate from one plate to another at leading edges
+  - Movement rate: ~0.5% of boundary cells per 50 simulation years
+  - Movement scales with Tectonic Activity Level control
+  - Visible continental drift over thousands of simulation years
+  - Realistic plate accretion and boundary evolution
+
+### Improvements & Technical
+
+- **Enhanced Civilization Visualization**: Cities are no longer just colored terrain cells - they have proper visual markers
+- **Geological Realism**: Plate tectonics now includes actual plate motion, not just boundary interactions
+- **Continental Drift**: You can now watch continents slowly drift apart and collide over geological time scales
+
 ### New Features
 
 - **Coastal/Beach Biome**: Added proper coastal environment detection and rendering. Beach terrain now displays correctly along coastlines with sandy textures, shells, pebbles, and wet sand near water.

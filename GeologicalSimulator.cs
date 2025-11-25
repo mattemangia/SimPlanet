@@ -297,6 +297,10 @@ public class GeologicalSimulator
         }
     }
 
+    // Plate movement accumulator for gradual continental drift
+    private float _plateMovementAccumulator = 0.0f;
+    private const float PlateMovementThreshold = 50.0f; // Years between plate cell movements
+
     public void Update(float deltaTime, int currentYear)
     {
         // Geological processes are slow, but must scale with simulation time.
@@ -307,6 +311,15 @@ public class GeologicalSimulator
         UpdateCarbonatePlatforms(deltaTime);
         UpdateTurbidites(deltaTime);
         UpdateFiningUpwardSequences(deltaTime);
+
+        // Actual plate movement - continents drift very slowly
+        // Accumulate time and only move plates every ~50 years
+        _plateMovementAccumulator += deltaTime;
+        if (_plateMovementAccumulator >= PlateMovementThreshold)
+        {
+            UpdatePlateMovement();
+            _plateMovementAccumulator = 0.0f;
+        }
 
         // Normalize rock composition and clamp sediment
         UpdateRockComposition();
@@ -1618,6 +1631,90 @@ public class GeologicalSimulator
         }
 
         return lowest;
+    }
+
+    /// <summary>
+    /// Implements actual tectonic plate movement - continents drift over time.
+    /// This method gradually moves cells from one plate to another based on plate velocities.
+    /// </summary>
+    private void UpdatePlateMovement()
+    {
+        // For each plate, move a small number of boundary cells in the direction of movement
+        // This simulates continental drift very slowly over geological time
+
+        foreach (var plate in _plates)
+        {
+            // Skip plates with very low velocity
+            float speed = MathF.Sqrt(plate.VelocityX * plate.VelocityX + plate.VelocityY * plate.VelocityY);
+            if (speed < 0.01f) continue;
+
+            // Normalize velocity to get direction
+            float dirX = plate.VelocityX / speed;
+            float dirY = plate.VelocityY / speed;
+
+            // Find boundary cells that are on the leading edge of the plate
+            var leadingEdgeCells = new List<(int x, int y, int targetX, int targetY)>();
+
+            foreach (var (x, y) in plate.Cells)
+            {
+                // Check if this cell is on the leading edge (has neighbor in direction of movement)
+                int targetX = x + (int)MathF.Round(dirX * 2);
+                int targetY = y + (int)MathF.Round(dirY * 2);
+
+                // Wrap X coordinate (cylindrical world)
+                targetX = (targetX + _map.Width) % _map.Width;
+
+                // Clamp Y coordinate (no wrapping at poles)
+                if (targetY < 0 || targetY >= _map.Height)
+                    continue;
+
+                // Check if target is on a different plate
+                int targetPlateId = _plateMap[targetX, targetY];
+                if (targetPlateId != plate.Id)
+                {
+                    leadingEdgeCells.Add((x, y, targetX, targetY));
+                }
+            }
+
+            // Only move a small percentage of leading edge cells per update
+            // This makes the movement gradual and realistic
+            int cellsToMove = Math.Max(1, leadingEdgeCells.Count / 200); // ~0.5% of boundary
+            cellsToMove = (int)(cellsToMove * TectonicScale); // Scale by tectonic activity
+
+            // Randomly select cells to move
+            for (int i = 0; i < cellsToMove && leadingEdgeCells.Count > 0; i++)
+            {
+                int index = _random.Next(leadingEdgeCells.Count);
+                var (x, y, targetX, targetY) = leadingEdgeCells[index];
+                leadingEdgeCells.RemoveAt(index);
+
+                // Move the target cell to this plate
+                int oldPlateId = _plateMap[targetX, targetY];
+                var oldPlate = _plates[oldPlateId];
+
+                // Update plate membership
+                oldPlate.Cells.Remove((targetX, targetY));
+                plate.Cells.Add((targetX, targetY));
+                _plateMap[targetX, targetY] = plate.Id;
+
+                // Update geological data
+                var targetCell = _map.Cells[targetX, targetY];
+                var targetGeo = targetCell.GetGeology();
+                targetGeo.PlateId = plate.Id;
+
+                // Gradually adjust properties to match new plate
+                // This simulates accretion and modification
+                if (plate.IsOceanic != oldPlate.IsOceanic)
+                {
+                    // Plate type is changing - this is rare but can happen
+                    // Don't instantly change, let natural processes handle it
+                    targetGeo.BoundaryType = PlateBoundaryType.Transform;
+                }
+            }
+        }
+
+        // After moving cells, ensure plate boundaries are updated
+        // This will be handled automatically by UpdatePlateTectonics on the next frame
     }
 
     public TectonicPlate GetPlate(int plateId)
