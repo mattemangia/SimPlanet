@@ -77,6 +77,8 @@ public class GeologicalProfileViewer : IDisposable
         _previousMouseState = mouseState;
     }
 
+    private static readonly RasterizerState ScissorRasterizer = new RasterizerState { ScissorTestEnable = true };
+
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (!IsVisible) return;
@@ -116,7 +118,7 @@ public class GeologicalProfileViewer : IDisposable
         // Clip to graph area
         var originalScissor = spriteBatch.GraphicsDevice.ScissorRectangle;
         spriteBatch.End();
-        spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, new RasterizerState { ScissorTestEnable = true });
+        spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, ScissorRasterizer);
         spriteBatch.GraphicsDevice.ScissorRectangle = graphRect; // Note: Needs intersection with viewport if viewport < graphRect
 
         // 4. Calculate Scales

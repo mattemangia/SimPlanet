@@ -188,9 +188,10 @@ public class DiseaseControlUI
 
         // Calculate panel positions
         _mainPanel = new Rectangle(50, 50, screenWidth - 100, screenHeight - 100);
-        _diseaseSelectorPanel = new Rectangle(_mainPanel.X + 10, _mainPanel.Y + 10, 280, _mainPanel.Height - 20);
-        _statsPanel = new Rectangle(_diseaseSelectorPanel.Right + 10, _mainPanel.Y + 10, 400, 250);
-        _evolutionPanel = new Rectangle(_statsPanel.X, _statsPanel.Bottom + 10, _statsPanel.Width, _mainPanel.Height - _statsPanel.Height - 40);
+        // Sub-panels start below the title bar
+        _diseaseSelectorPanel = new Rectangle(_mainPanel.X + 12, _mainPanel.Y + 56, 280, _mainPanel.Height - 68);
+        _statsPanel = new Rectangle(_diseaseSelectorPanel.Right + 12, _mainPanel.Y + 56, 400, 250);
+        _evolutionPanel = new Rectangle(_statsPanel.X, _statsPanel.Bottom + 10, _statsPanel.Width, _mainPanel.Bottom - 12 - (_statsPanel.Bottom + 10));
 
         // Draw create disease modal
         if (_showCreateDiseaseModal)
@@ -199,17 +200,13 @@ public class DiseaseControlUI
             return;
         }
 
-        // Draw main panel background
-        spriteBatch.Draw(_pixelTexture, _mainPanel, new Color(10, 20, 40, 240));
-        DrawBorder(spriteBatch, _mainPanel.X, _mainPanel.Y, _mainPanel.Width, _mainPanel.Height, new Color(100, 150, 200), 3);
-
-        // Title
-        _font.DrawString(spriteBatch, "DISEASE CONTROL CENTER", new Vector2(_mainPanel.X + 20, _mainPanel.Y + 15), new Color(255, 100, 100), 24);
+        // Draw main panel background and title
+        UITheme.DrawTitledPanel(spriteBatch, _mainPanel, "DISEASE CONTROL CENTER", new Color(255, 110, 110), 44);
 
         // Close button
         _closeButton = new UIButton
         {
-            Bounds = new Rectangle(_mainPanel.Right - 40, _mainPanel.Y + 10, 30, 30),
+            Bounds = new Rectangle(_mainPanel.Right - 38, _mainPanel.Y + 8, 28, 28),
             Label = "X"
         };
         DrawButton(spriteBatch, _closeButton, Color.Red);
@@ -237,8 +234,7 @@ public class DiseaseControlUI
     private void DrawDiseaseSelector(SpriteBatch spriteBatch)
     {
         // Panel background
-        spriteBatch.Draw(_pixelTexture, _diseaseSelectorPanel, new Color(20, 30, 50, 220));
-        DrawBorder(spriteBatch, _diseaseSelectorPanel.X, _diseaseSelectorPanel.Y, _diseaseSelectorPanel.Width, _diseaseSelectorPanel.Height, new Color(80, 120, 160), 2);
+        UITheme.DrawPanel(spriteBatch, _diseaseSelectorPanel, UITheme.PanelBgLight, UITheme.Border, shadow: false);
 
         // Title
         _font.DrawString(spriteBatch, "Active Diseases", new Vector2(_diseaseSelectorPanel.X + 10, _diseaseSelectorPanel.Y + 10), Color.White, 18);
@@ -497,13 +493,10 @@ public class DiseaseControlUI
 
     private void DrawButton(SpriteBatch spriteBatch, UIButton btn, Color color)
     {
-        spriteBatch.Draw(_pixelTexture, btn.Bounds, new Color(color.R, color.G, color.B, (byte)200));
-        DrawBorder(spriteBatch, btn.Bounds.X, btn.Bounds.Y, btn.Bounds.Width, btn.Bounds.Height, color, 2);
-
-        var textSize = _font.MeasureString(btn.Label, 14);
-        _font.DrawString(spriteBatch, btn.Label,
-            new Vector2(btn.Bounds.X + (btn.Bounds.Width - textSize.X) / 2, btn.Bounds.Y + (btn.Bounds.Height - textSize.Y) / 2),
-            Color.White, 14);
+        bool hovered = btn.Bounds.Contains(Mouse.GetState().Position);
+        UITheme.DrawButton(spriteBatch, btn.Bounds, UITheme.Ellipsize(btn.Label, btn.Bounds.Width - 14), hovered, false, color);
+        spriteBatch.Draw(_pixelTexture, new Rectangle(btn.Bounds.X + 6, btn.Bounds.Bottom - 3, btn.Bounds.Width - 12, 2),
+            color * (hovered ? 1f : 0.65f));
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)

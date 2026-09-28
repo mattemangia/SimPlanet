@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 
 namespace SimPlanet;
 
@@ -931,6 +932,35 @@ public class TerrainRenderer
         {
             DrawSettlementLabels(spriteBatch, ordered, civColors, offsetX, offsetY, clip, cellPx, iconScale);
         }
+
+        // --- Hover tooltip for settlements ---
+        var mouse = Mouse.GetState();
+        if (UITheme.Font != null && clip.Contains(mouse.Position) && mouse.LeftButton == ButtonState.Released)
+        {
+            var hovered = FindCityAt(mouse.Position, offsetX, offsetY);
+            if (hovered.HasValue)
+            {
+                DrawCityTooltip(spriteBatch, hovered.Value, data, mouse.Position, viewport);
+            }
+        }
+    }
+
+    private static void DrawCityTooltip(SpriteBatch spriteBatch, CivRenderData.CityInfo city, CivRenderData data, Point mouse, Viewport viewport)
+    {
+        string civName = "";
+        foreach (var civ in data.Civs)
+            if (civ.Id == city.CivId) { civName = civ.Name; break; }
+
+        var lines = new List<string>
+        {
+            city.Name + (city.IsCapital ? "  (capital)" : ""),
+            $"{GetSettlementTypeName(city.Type)} of {civName}",
+            $"Population {city.Population:N0}"
+        };
+        if (!string.IsNullOrEmpty(city.Buildings)) lines.Add(city.Buildings);
+        if (city.UnderSiege) lines.Add($"Under siege ({city.SiegeProgress:P0})");
+        if (city.Starving) lines.Add("Starving");
+        UITheme.DrawTooltip(spriteBatch, string.Join("\n", lines), new Point(mouse.X, mouse.Y + 12), viewport.Width, viewport.Height);
     }
 
     private void DrawSettlementLabels(SpriteBatch spriteBatch, List<CivRenderData.CityInfo> ordered,

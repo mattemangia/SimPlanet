@@ -64,7 +64,8 @@ public class SedimentColumnViewer
         if (mouseState.LeftButton == ButtonState.Pressed &&
             _previousMouseState.LeftButton == ButtonState.Released)
         {
-            _mouseDownPosition = mouseState.Position;
+            // A press that lands on another tool/panel must not become a tile click on release
+            _mouseDownPosition = toolsActive ? null : mouseState.Position;
         }
 
         // Check for left mouse click on map (trigger on release, and only if not dragging)
@@ -162,6 +163,8 @@ public class SedimentColumnViewer
         _previousMouseState = mouseState;
     }
 
+    private static readonly RasterizerState ScissorRasterizer = new RasterizerState { ScissorTestEnable = true };
+
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (!IsVisible || !_selectedTile.HasValue) return;
@@ -176,25 +179,21 @@ public class SedimentColumnViewer
         int panelX = screenWidth - panelWidth - 10;
         int panelY = 40; // Below toolbar (36px high)
 
-        // Draw background
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX, panelY, panelWidth, panelHeight),
-            new Color(0, 0, 0, 220));
-
-        // Draw border
-        DrawBorder(spriteBatch, panelX, panelY, panelWidth, panelHeight, Color.White, 2);
+        // Draw background (opaque so the map does not bleed through the text)
+        UITheme.DrawPanel(spriteBatch, new Rectangle(panelX, panelY, panelWidth, panelHeight), new Color(12, 17, 28, 250), UITheme.BorderBright);
 
         // Draw close button (X) in top right
         Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
-        spriteBatch.Draw(_pixelTexture, closeButtonBounds, new Color(180, 0, 0, 200));
-        _font.DrawString(spriteBatch, "X", new Vector2(closeButtonBounds.X + 7, closeButtonBounds.Y + 3), Color.White, 16);
+        bool hoverClose = closeButtonBounds.Contains(Mouse.GetState().Position);
+        UITheme.FillRounded(spriteBatch, closeButtonBounds, hoverClose ? new Color(200, 60, 60) : new Color(60, 70, 92));
+        UITheme.DrawTextCentered(spriteBatch, "X", closeButtonBounds, Color.White, UITheme.FontNormal);
 
         // Set up clipping rectangle for scrollable content
         Rectangle scissorRect = new Rectangle(panelX, panelY + 35, panelWidth, panelHeight - 70);
         Rectangle oldScissorRect = spriteBatch.GraphicsDevice.ScissorRectangle;
         RasterizerState oldRasterizer = spriteBatch.GraphicsDevice.RasterizerState;
 
-        RasterizerState rasterizerState = new RasterizerState { ScissorTestEnable = true };
+        RasterizerState rasterizerState = ScissorRasterizer;
 
         int textY = panelY + 40 - _scrollOffset; // Apply scroll offset
         int lineHeight = 20;

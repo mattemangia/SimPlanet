@@ -664,6 +664,7 @@ public class SimPlanetGame : Game
                               _divinePowersUI.IsOpen || _diseaseControlUI.IsVisible ||
                               _planetaryControlsUI.IsVisible || _profileTool.IsActive ||
                               _toolbar.IsCapturingMouse || _bottomControlUI.IsMouseOver ||
+                              _playerCivControl.ShowCivSelector || _graphs.IsVisible ||
                               (_chronicleUI != null && _chronicleUI.IsMouseOver);
 
             _sedimentViewer!.Update(Mouse.GetState(), _terrainRenderer!.CellSize,
@@ -1668,8 +1669,8 @@ public class SimPlanetGame : Game
     private void DrawCycloneVortices2D(SpriteBatch spriteBatch, int offsetX, int offsetY)
     {
         var storms = _weatherSystem.GetActiveStorms();
-        var pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
-        pixelTexture.SetData(new[] { Color.White });
+        // Shared 1x1 texture (creating one per frame leaked GPU memory)
+        var pixelTexture = UITheme.Pixel;
 
         foreach (var storm in storms)
         {

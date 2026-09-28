@@ -597,13 +597,27 @@ public class GameUI
         int contentY = UITheme.DrawTitledPanel(_spriteBatch, panel, "COMMAND REFERENCE", _goldColor, 40);
 
         // Lay the sections out in columns, filling each column top to bottom
-        int columns = panelWidth >= 900 ? 3 : 2;
-        int colWidth = (panelWidth - 30) / columns;
         int rowH = 22;
+        int bottomLimit = panel.Bottom - 34;
+        // Use the fewest columns (2..4) that fit everything vertically
+        int columns = 2;
+        for (; columns < 4; columns++)
+        {
+            int cx = 0, cy = contentY + 4;
+            foreach (var (_, sectionItems) in HelpSections)
+            {
+                int h = 26 + sectionItems.Length * rowH + 10;
+                if (cy + h > bottomLimit && cx < columns - 1) { cx++; cy = contentY + 4; }
+                cy += h;
+            }
+            if (cy <= bottomLimit) break;
+        }
+        if (columns < 3 && panelWidth >= 900) columns = 3;
+        int colWidth = (panelWidth - 30) / columns;
         int keyW = 58;
         int x = panelX + 16, y = contentY + 4;
         int col = 0;
-        int bottom = panel.Bottom - 34;
+        int bottom = bottomLimit;
 
         foreach (var (title, items) in HelpSections)
         {
