@@ -399,7 +399,7 @@ public partial class CivilizationManager
         if (civ.Cities.Count == 0) return;
 
         // Early peoples can only hold together a handful of villages
-        int maxSettlements = 3 + civ.TechLevel / 2 + (civ.Government?.Type == GovernmentType.Tribal ? 0 : 3);
+        int maxSettlements = Math.Min(36, 3 + civ.TechLevel / 3 + (civ.Government?.Type == GovernmentType.Tribal ? 0 : 3));
         if (civ.Cities.Count >= maxSettlements) return;
         if (civ.Food < civ.FoodConsumption * 0.3f) return;
 
@@ -432,7 +432,7 @@ public partial class CivilizationManager
 
             int owner = OwnerAt(x, y);
             if (owner != 0 && owner != civ.Id) continue;
-            if (_civilizations.Any(c => c.Cities.Any(city => WrappedDistance(city.X, city.Y, x, y) < 4.5f))) continue;
+            if (_civilizations.Any(c => c.Cities.Any(city => WrappedDistance(city.X, city.Y, x, y) < 5.5f))) continue;
             if (!civ.HasSeaTransport && CountWaterOnLine(source.X, source.Y, x, y) > 1) continue;
 
             float score = EvaluateSettlementSite(civ, x, y) - dist * 0.15f;

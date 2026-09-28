@@ -796,14 +796,49 @@ public class TerrainRenderer
         var ordered = new List<CivRenderData.CityInfo>(data.Cities);
         ordered.Sort((a, b) => (a.Type * 2 + (a.IsCapital ? 1 : 0)).CompareTo(b.Type * 2 + (b.IsCapital ? 1 : 0)));
 
-        foreach (var city in ordered)
+        // Declutter: the most important settlements claim screen space first; smaller ones
+        // that would overlap them are drawn as simple dots in their nation's colour
+        var fullIcon = new bool[ordered.Count];
+        var claimed = new List<(Vector2 pos, float radius)>();
+        for (int i = ordered.Count - 1; i >= 0; i--)
         {
+            var c = ordered[i];
+            var p = CellToScreen(c.X, c.Y, offsetX, offsetY);
+            if (!clip.Contains(p.ToPoint())) continue;
+            float r = SettlementPixelSize[Math.Clamp(c.Type, 0, 3)] * iconScale * 0.45f;
+            bool free = c.IsCapital || c.UnderSiege;
+            if (!free)
+            {
+                free = true;
+                foreach (var (cp, cr) in claimed)
+                {
+                    if (Vector2.DistanceSquared(cp, p) < (cr + r) * (cr + r)) { free = false; break; }
+                }
+            }
+            if (free)
+            {
+                fullIcon[i] = true;
+                claimed.Add((p, r));
+            }
+        }
+
+        for (int index = 0; index < ordered.Count; index++)
+        {
+            var city = ordered[index];
             var pos = CellToScreen(city.X, city.Y, offsetX, offsetY);
             if (!clip.Contains(pos.ToPoint())) continue;
 
             int type = Math.Clamp(city.Type, 0, 3);
             int size = (int)(SettlementPixelSize[type] * iconScale);
             Color civColor = civColors.GetValueOrDefault(city.CivId, Color.White);
+
+            if (!fullIcon[index])
+            {
+                int dot = Math.Max(3, (int)(3 + type * iconScale));
+                spriteBatch.Draw(_pixelTexture, new Rectangle((int)pos.X - dot / 2 - 1, (int)pos.Y - dot / 2 - 1, dot + 2, dot + 2), Color.Black * 0.6f);
+                spriteBatch.Draw(_pixelTexture, new Rectangle((int)pos.X - dot / 2, (int)pos.Y - dot / 2, dot, dot), civColor);
+                continue;
+            }
 
             // Night lights
             float dark = GetDarknessAt(city.X, city.Y);
@@ -930,7 +965,7 @@ public class TerrainRenderer
         // --- Labels (point sampling keeps text crisp) ---
         if (ShowSettlementLabels && UITheme.Font != null)
         {
-            DrawSettlementLabels(spriteBatch, ordered, civColors, offsetX, offsetY, clip, cellPx, iconScale);
+            DrawSettlementLabels(spriteBatch, ordered.Where((_, i) => fullIcon[i]).ToList(), civColors, offsetX, offsetY, clip, cellPx, iconScale);
         }
 
         // --- Hover tooltip for settlements ---

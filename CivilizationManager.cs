@@ -661,8 +661,8 @@ public partial class CivilizationManager
         {
             var cell = _map.Cells[x, y];
 
-            // Local pollution in civilization territory
-            cell.CO2 += actualEmissions * deltaTime;
+            // Local pollution: heavy in built-up areas, light in the countryside
+            cell.CO2 += actualEmissions * deltaTime * (0.1f + cell.HumanFootprint);
 
             // Deforestation (except eco-friendly civs)
             if (cell.IsForest && civ.EcoFriendliness < 0.5f && _random.NextDouble() < 0.001)
