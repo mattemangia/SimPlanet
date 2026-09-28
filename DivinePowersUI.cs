@@ -82,15 +82,44 @@ public class DivinePowersUI
                 "Advance Civilization", Color.CornflowerBlue, () => OpenMode(DivinePowerMode.AdvanceCivilization)),
 
             new Button(new Rectangle(startX, startY + 8 * (buttonHeight + spacing), buttonWidth, buttonHeight),
+                "Armageddon", new Color(200, 30, 20), () => OpenMode(DivinePowerMode.Armageddon)),
+
+            new Button(new Rectangle(startX, startY + 9 * (buttonHeight + spacing), buttonWidth, buttonHeight),
                 "Close Menu", Color.Gray, () => IsOpen = false)
         };
     }
+
+    /// <summary>
+    /// Invoked when the player confirms Armageddon (global nuclear war). The game runs it
+    /// under the simulation lock.
+    /// </summary>
+    public Action? ArmageddonRequested { get; set; }
 
     private void OpenMode(DivinePowerMode mode)
     {
         _currentMode = mode;
         _selectedCiv = null;
         _targetCiv = null;
+
+        if (mode == DivinePowerMode.Armageddon)
+        {
+            // Confirmation step instead of a target list
+            int x = 25 + PanelWidth + 10;
+            _civButtons.Clear();
+            _civButtons.Add(new Button(new Rectangle(x, 320, 220, 34), "LAUNCH EVERYTHING", new Color(220, 30, 20), () =>
+            {
+                ArmageddonRequested?.Invoke();
+                ShowMessage("The missiles fly. May the survivors forgive you.");
+                _currentMode = DivinePowerMode.None;
+                _civButtons.Clear();
+            }));
+            _civButtons.Add(new Button(new Rectangle(x, 362, 220, 30), "Cancel", Color.Gray, () =>
+            {
+                _currentMode = DivinePowerMode.None;
+                _civButtons.Clear();
+            }));
+            return;
+        }
 
         // Build civilization selection buttons
         BuildCivButtons();
@@ -393,7 +422,9 @@ public class DivinePowersUI
         if (_currentMode != DivinePowerMode.None)
         {
             int secPanelX = panelX + PanelWidth + 10;
-            DrawPanel(spriteBatch, secPanelX, panelY, PanelWidth, PanelHeight, "SELECT TARGET");
+            bool armageddon = _currentMode == DivinePowerMode.Armageddon;
+            DrawPanel(spriteBatch, secPanelX, panelY, PanelWidth, PanelHeight, armageddon ? "ARMAGEDDON?" : "SELECT TARGET");
+            if (armageddon) DrawArmageddonWarning(spriteBatch, secPanelX, panelY);
 
             foreach (var button in _civButtons)
             {
@@ -431,6 +462,30 @@ public class DivinePowersUI
 
             _font.DrawString(spriteBatch, _statusMessage, msgPos, Color.Yellow);
         }
+    }
+
+    private void DrawArmageddonWarning(SpriteBatch spriteBatch, int x, int y)
+    {
+        var data = CivRenderData.Latest;
+        int powers = data.Civs.Count(c => c.HasNuclearWeapons && c.NuclearWarheads > 0);
+        int warheads = data.Civs.Sum(c => c.NuclearWarheads);
+        int ty = y + 50;
+        var icons = MapIcons.GetShared(_graphicsDevice);
+        spriteBatch.Draw(icons.Trefoil, new Rectangle(x + PanelWidth / 2 - 24, ty, 48, 48), Color.White);
+        ty += 60;
+        string text = "Every nuclear power declares war on its rivals and launches its whole arsenal. " +
+                      "Cities burn, fallout spreads and soot darkens the sky for years (nuclear winter). This cannot be undone.";
+        foreach (var line in UITheme.WrapText(text, PanelWidth - 30, 13f))
+        {
+            UITheme.DrawText(spriteBatch, line, new Vector2(x + 15, ty), UITheme.Text, 13f);
+            ty += 18;
+        }
+        ty += 8;
+        Color c = powers > 0 ? UITheme.Bad : UITheme.TextMuted;
+        UITheme.DrawText(spriteBatch, $"Nuclear powers: {powers}", new Vector2(x + 15, ty), c, 13f);
+        UITheme.DrawText(spriteBatch, $"Warheads: {warheads:N0}", new Vector2(x + 15, ty + 18), c, 13f);
+        if (powers == 0)
+            UITheme.DrawText(spriteBatch, "(no nation has the bomb yet)", new Vector2(x + 15, ty + 38), UITheme.TextMuted, 12f);
     }
 
     private void DrawPanel(SpriteBatch spriteBatch, int x, int y, int width, int height, string title)
@@ -511,5 +566,6 @@ public enum DivinePowerMode
     Curse,
     ForceAlliance,
     ForceWar,
-    AdvanceCivilization
+    AdvanceCivilization,
+    Armageddon
 }

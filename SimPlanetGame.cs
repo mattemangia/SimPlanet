@@ -112,7 +112,13 @@ public class SimPlanetGame : Game
 
     private readonly List<RenderMode> _lifeModes = new()
     {
-        RenderMode.Life, RenderMode.Civilizations, RenderMode.Infrastructure, RenderMode.Resources
+        RenderMode.Life, RenderMode.Civilizations, RenderMode.Resources
+    };
+
+    private readonly List<RenderMode> _societyModes = new()
+    {
+        RenderMode.Electricity, RenderMode.Energy, RenderMode.Armaments, RenderMode.Governments,
+        RenderMode.Internet, RenderMode.Infrastructure, RenderMode.Epidemics
     };
 
     private void CycleRenderMode(List<RenderMode> modes)
@@ -169,6 +175,7 @@ public class SimPlanetGame : Game
     private CancellationTokenSource _fastForwardCts;
     private SplashScreen? _splash;
     private ChronicleUI? _chronicleUI;
+    private NationPanelUI? _nationPanel;
 
     public SimPlanetGame()
     {
@@ -409,10 +416,12 @@ public class SimPlanetGame : Game
         // Create renderer
         _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);
         _terrainRenderer.SetCivilizationManager(_civilizationManager);
+        _terrainRenderer.SetDiseaseManager(_diseaseManager);
         _terrainRenderer.CellSize = 4;
 
         // Create UI
         _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
+        _ui.NationCardClicked = OpenNationPanelFor;
         _ui.SetManagers(_civilizationManager, _weatherSystem);
         _ui.SetAnimalEvolutionSimulator(_animalEvolutionSimulator);
         _ui.SetPlanetStabilizer(_planetStabilizer);
@@ -430,6 +439,7 @@ public class SimPlanetGame : Game
         _sedimentViewer.SetCivilizationManager(_civilizationManager);
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
+        _divinePowersUI.ArmageddonRequested = TriggerArmageddon;
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font, _mapDataLock, MarkMapVisualsDirty);
         _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
@@ -475,6 +485,7 @@ public class SimPlanetGame : Game
 
         // World chronicle (history panel and event toasts)
         _chronicleUI = new ChronicleUI(GraphicsDevice);
+        _nationPanel = new NationPanelUI(GraphicsDevice);
     }
 
     protected override void Update(GameTime gameTime)
@@ -623,6 +634,7 @@ public class SimPlanetGame : Game
             _ui.Update(gameTime, mouseState, _previousMouseState, _toolbar.ToolbarHeight);
             _bottomControlUI.Update(mouseState);
             _chronicleUI?.Update(realDeltaTime, mouseState);
+            _nationPanel?.Update(mouseState);
             _aboutDialog.Update(mouseState, _previousMouseState);
             
             // If about dialog is visible, block other input
@@ -666,7 +678,8 @@ public class SimPlanetGame : Game
                               _planetaryControlsUI.IsVisible || _profileTool.IsActive ||
                               _toolbar.IsCapturingMouse || _bottomControlUI.IsMouseOver ||
                               _playerCivControl.ShowCivSelector || _graphs.IsVisible ||
-                              (_chronicleUI != null && _chronicleUI.IsMouseOver);
+                              (_chronicleUI != null && _chronicleUI.IsMouseOver) ||
+                              (_nationPanel != null && _nationPanel.IsMouseOver);
 
             _sedimentViewer!.Update(Mouse.GetState(), _terrainRenderer!.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
@@ -735,7 +748,7 @@ public class SimPlanetGame : Game
 
     private bool IsMapZoomBlockedByTool()
     {
-        if (_chronicleUI != null && _chronicleUI.IsMouseOver)
+        if ((_chronicleUI != null && _chronicleUI.IsMouseOver) || (_nationPanel != null && _nationPanel.IsMouseOver))
         {
             return true;
         }
@@ -780,7 +793,8 @@ public class SimPlanetGame : Game
                               (_profileTool != null && _profileTool.IsActive) ||
                               (_toolbar != null && _toolbar.IsCapturingMouse) ||
                               (_bottomControlUI != null && _bottomControlUI.IsMouseOver) ||
-                              (_chronicleUI != null && _chronicleUI.IsMouseOver);
+                              (_chronicleUI != null && _chronicleUI.IsMouseOver) ||
+                              (_nationPanel != null && _nationPanel.IsMouseOver);
 
         // Check if mouse is over the minimap (don't pan if it is)
         bool isOverMinimap = _minimap3D != null && _minimap3D.IsMouseOver(mouseState);
@@ -907,6 +921,10 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.D5) && _previousKeyState.IsKeyUp(Keys.D5))
         {
             CycleRenderMode(_lifeModes);
+        }
+        if (keyState.IsKeyDown(Keys.D6) && _previousKeyState.IsKeyUp(Keys.D6))
+        {
+            CycleRenderMode(_societyModes);
         }
 
         // Apply render mode to terrain renderer (triggers texture update when mode changes)
@@ -1275,10 +1293,12 @@ public class SimPlanetGame : Game
             _terrainRenderer.Dispose();
             _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);
             _terrainRenderer.SetCivilizationManager(_civilizationManager);
+            _terrainRenderer.SetDiseaseManager(_diseaseManager);
             _terrainRenderer.CellSize = 4;
 
             // Update UI
             _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
+            _ui.NationCardClicked = OpenNationPanelFor;
             _ui.SetManagers(_civilizationManager, _weatherSystem);
             _ui.SetPlanetStabilizer(_planetStabilizer);
             _minimap3D.Dispose();
@@ -1322,6 +1342,7 @@ public class SimPlanetGame : Game
             _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
             _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
             _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
+            _divinePowersUI.ArmageddonRequested = TriggerArmageddon;
             _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
             _graphs = new Graphs(GraphicsDevice, _font, _map, _civilizationManager);
             
@@ -1416,10 +1437,12 @@ public class SimPlanetGame : Game
         _terrainRenderer.Dispose();
         _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);
         _terrainRenderer.SetCivilizationManager(_civilizationManager);
+        _terrainRenderer.SetDiseaseManager(_diseaseManager);
         _terrainRenderer.CellSize = 4;
 
         // Update UI
         _ui = new GameUI(_spriteBatch, _font, _map, GraphicsDevice);
+        _ui.NationCardClicked = OpenNationPanelFor;
         _ui.SetManagers(_civilizationManager, _weatherSystem);
         _ui.SetPlanetStabilizer(_planetStabilizer);
         _minimap3D.Dispose();
@@ -1460,6 +1483,7 @@ public class SimPlanetGame : Game
         _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
+        _divinePowersUI.ArmageddonRequested = TriggerArmageddon;
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _graphs = new Graphs(GraphicsDevice, _font, _map, _civilizationManager);
 
@@ -1561,6 +1585,9 @@ public class SimPlanetGame : Game
             _terrainRenderer.DrawCityMarkers(_spriteBatch, offsetX, offsetY);
         }
 
+        // Satellites, stations and bases in orbit; nuclear winter level
+        _terrainRenderer.DrawSpaceOverlay(_spriteBatch, offsetX, offsetY);
+
         // Draw cyclone vortices on weather view modes
         if (_currentRenderMode == RenderMode.Clouds || _currentRenderMode == RenderMode.Storms ||
             _currentRenderMode == RenderMode.Wind || _currentRenderMode == RenderMode.Pressure)
@@ -1621,6 +1648,9 @@ public class SimPlanetGame : Game
 
         // Draw manual planting tool
         _plantingTool.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Nation detail panel (on top of the map panels)
+        _nationPanel?.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height, toolbarHeight, _gameState.Year);
 
             // Draw pause menu overlay if paused
             if (_mainMenu.CurrentScreen == GameScreen.PauseMenu)
@@ -1964,6 +1994,28 @@ public class SimPlanetGame : Game
         {
             _gameState.TimeSpeed = Math.Max(_gameState.TimeSpeed / 2.0f, 0.25f);
         }
+    }
+
+    /// <summary>Divine power: global nuclear war (confirmed in the Divine Powers panel).</summary>
+    private void TriggerArmageddon()
+    {
+        lock (_mapDataLock)
+        {
+            _civilizationManager.TriggerGlobalNuclearWar(_gameState.Year);
+        }
+        _terrainRenderer.MarkDirty();
+    }
+
+    /// <summary>Opens (or closes) the nation detail panel on the largest nation.</summary>
+    public void OpenNationPanel()
+    {
+        _nationPanel?.Toggle();
+    }
+
+    /// <summary>Opens the nation detail panel on a given nation (from the info panel cards).</summary>
+    public void OpenNationPanelFor(int civId)
+    {
+        _nationPanel?.Open(civId);
     }
 
     public void ToggleChronicle()

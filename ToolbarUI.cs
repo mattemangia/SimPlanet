@@ -117,10 +117,20 @@ namespace SimPlanet
             var lifeGroup = CreateGroupButton("Life Group (5)", "Life", "Life & Civ", "5");
             AddModeButton(lifeGroup, "Life View", "Life / Biomass", RenderMode.Life);
             AddModeButton(lifeGroup, "Civilizations", "Nations (political)", RenderMode.Civilizations);
-            AddModeButton(lifeGroup, "Infrastructure", "Infrastructure", RenderMode.Infrastructure);
-            AddModeButton(lifeGroup, "Electricity", "Electricity", RenderMode.Electricity);
             AddModeButton(lifeGroup, "Resources", "Resources", RenderMode.Resources);
             buttons.Add(lifeGroup);
+
+            // --- 6. SOCIETY GROUP (Key 6) ---
+            var societyGroup = CreateGroupButton("Society Group (6)", "Society", "Society", "6");
+            AddModeButton(societyGroup, "Society: Power grid", "Power grid", RenderMode.Electricity);
+            AddModeButton(societyGroup, "Society: Energy", "Energy sources", RenderMode.Energy);
+            AddModeButton(societyGroup, "Society: Armaments", "Armaments", RenderMode.Armaments);
+            AddModeButton(societyGroup, "Society: Government", "Governments", RenderMode.Governments);
+            AddModeButton(societyGroup, "Society: Internet", "Internet", RenderMode.Internet);
+            AddModeButton(societyGroup, "Society: Infrastructure", "Infrastructure", RenderMode.Infrastructure);
+            AddModeButton(societyGroup, "Society: Epidemics", "Epidemics", RenderMode.Epidemics);
+            AddSubButton(societyGroup, "Society: Nation details", "Feature", "Nation details...", "", () => game.OpenNationPanel());
+            buttons.Add(societyGroup);
 
             // --- TOOLS & FEATURES GROUP ---
             var toolsGroup = CreateGroupButton("Tools & Features", "Tools", "Tools", "", categorySpacing);
@@ -152,13 +162,13 @@ namespace SimPlanet
 
             LayoutButtons();
 
-            // Generate icons for all buttons
+            // Generate icons for all buttons (society entries reuse the anti-aliased map sprites)
             foreach (var button in buttons)
             {
-                button.Icon = GenerateIcon(button.Tooltip, button.Category);
+                button.Icon = GetSpriteIcon(button.Tooltip) ?? GenerateIcon(button.Tooltip, button.Category);
                 foreach (var sub in button.SubButtons)
                 {
-                    sub.Icon = GenerateIcon(sub.Tooltip, sub.Category);
+                    sub.Icon = GetSpriteIcon(sub.Tooltip) ?? GenerateIcon(sub.Tooltip, sub.Category);
                 }
             }
         }
@@ -260,6 +270,24 @@ namespace SimPlanet
                 activeGroup = null;
             }
             _menuRect = Rectangle.Empty;
+        }
+
+        private Texture2D? GetSpriteIcon(string tooltip)
+        {
+            MapIcons icons;
+            try { icons = MapIcons.GetShared(graphicsDevice); }
+            catch (Exception) { return null; }
+            if (tooltip.StartsWith("Society Group")) return icons.Capitol;
+            if (!tooltip.StartsWith("Society:")) return null;
+            if (tooltip.Contains("Power grid")) return icons.Bolt;
+            if (tooltip.Contains("Energy")) return icons.SolarPanel;
+            if (tooltip.Contains("Armaments")) return icons.Trefoil;
+            if (tooltip.Contains("Government")) return icons.Capitol;
+            if (tooltip.Contains("Internet")) return icons.Network;
+            if (tooltip.Contains("Infrastructure")) return icons.Plane;
+            if (tooltip.Contains("Epidemics")) return icons.Biohazard;
+            if (tooltip.Contains("Nation details")) return icons.Crown;
+            return null;
         }
 
         private void SetViewMode(RenderMode mode)

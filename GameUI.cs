@@ -35,6 +35,11 @@ public class GameUI
 
     public bool IsMouseOver { get; private set; }
     public bool ShowHelp { get; set; } = false;
+
+    /// <summary>Called with the nation id when a nation card in the info panel is clicked.</summary>
+    public Action<int>? NationCardClicked { get; set; }
+    private readonly List<(Rectangle Rect, int CivId)> _nationCards = new();
+    private Rectangle _nationContentClip;
     public bool IsFastForwarding { get; set; } = false;
     public float FastForwardProgress { get; set; } = 0f;
     public int FastForwardCurrentYear { get; set; } = 0;
@@ -100,6 +105,20 @@ public class GameUI
 
         // Check if mouse is over the panel
         IsMouseOver = IsMouseOverPanel(mouseState, toolbarHeight);
+
+        // Nation cards open the nation detail panel
+        if (IsMouseOver && mouseState.LeftButton == ButtonState.Released && previousMouseState.LeftButton == ButtonState.Pressed &&
+            _nationContentClip.Contains(mouseState.Position))
+        {
+            foreach (var (rect, civId) in _nationCards)
+            {
+                if (rect.Contains(mouseState.Position))
+                {
+                    NationCardClicked?.Invoke(civId);
+                    break;
+                }
+            }
+        }
 
         // Handle Mouse Wheel Scrolling
         if (IsMouseOver)
@@ -381,28 +400,55 @@ public class GameUI
 
         // Civilization Section (from the thread-safe render snapshot)
         var civData = CivRenderData.Latest;
+        _nationCards.Clear();
+        _nationContentClip = new Rectangle(panelX, contentAreaY, panelWidth, contentAreaHeight);
         if (civData.Civs.Count > 0)
         {
             DrawSectionHeader($"NATIONS ({civData.Civs.Count})");
             var civs = new List<CivRenderData.CivInfo>(civData.Civs);
             civs.Sort((a, b) => b.Population.CompareTo(a.Population));
             int civCount = Math.Min(5, civs.Count);
+            var mouse = Mouse.GetState();
             for (int i = 0; i < civCount; i++)
             {
                 var civ = civs[i];
+                var card = new Rectangle(textX - 6, textY - 2, valueRight - textX + 12, 42);
+                _nationCards.Add((card, civ.Id));
                 if (Visible(44))
                 {
+                    bool hover = card.Contains(mouse.Position) && _nationContentClip.Contains(mouse.Position);
+                    if (hover)
+                    {
+                        UITheme.FillRounded(_spriteBatch, card, new Color(40, 56, 86, 200));
+                        UITheme.OutlineRounded(_spriteBatch, card, UITheme.BorderBright * 0.7f);
+                    }
                     Color civColor = TerrainRenderer.GetCivPaletteColor(civ.Id);
                     UITheme.FillRounded(_spriteBatch, new Rectangle(textX, textY + 3, 4, 34), civColor);
-                    string name = UITheme.Ellipsize(civ.Name, 150, 14);
-                    UITheme.DrawText(_spriteBatch, name, new Vector2(textX + 10, textY), _textValueColor, 14);
+
+                    // Right side chips: war and the nation's current posture
+                    int chipRight = valueRight;
                     if (civ.AtWar)
                     {
-                        var war = new Rectangle(valueRight - 38, textY + 1, 38, 17);
+                        var war = new Rectangle(chipRight - 38, textY + 1, 38, 17);
                         UITheme.FillRounded(_spriteBatch, war, new Color(120, 30, 30));
                         UITheme.DrawTextCentered(_spriteBatch, "WAR", war, new Color(255, 200, 190), 11f);
+                        chipRight -= 42;
                     }
-                    string details = $"{civ.CivType} - {FormatPopulation(civ.Population)} - {civ.CityCount} {(civ.CityCount == 1 ? "settlement" : "settlements")}";
+                    if (civ.Posture != NationalPosture.Conquer || !civ.AtWar)
+                    {
+                        Color pc = SocietyStyle.PostureColor(civ.Posture);
+                        string tag = SocietyStyle.PostureTag(civ.Posture);
+                        var postureChip = new Rectangle(chipRight - 36, textY + 1, 36, 17);
+                        UITheme.FillRounded(_spriteBatch, postureChip, Color.Lerp(new Color(20, 26, 40), pc, 0.3f));
+                        UITheme.OutlineRounded(_spriteBatch, postureChip, pc * 0.8f);
+                        UITheme.DrawTextCentered(_spriteBatch, tag, postureChip, Color.Lerp(pc, Color.White, 0.4f), 10.5f);
+                        chipRight -= 40;
+                    }
+
+                    string name = UITheme.Ellipsize(civ.Name, chipRight - textX - 16, 14);
+                    UITheme.DrawText(_spriteBatch, name, new Vector2(textX + 10, textY), _textValueColor, 14);
+                    string gov = civ.GovType?.ToString() ?? civ.CivType;
+                    string details = $"{gov} - {FormatPopulation(civ.Population)} - {civ.CityCount} {(civ.CityCount == 1 ? "settlement" : "settlements")}";
                     if (civ.Gold > 0) details += $" - {civ.Gold:N0} gold";
                     UITheme.DrawText(_spriteBatch, UITheme.Ellipsize(details, valueRight - textX - 10, 12f),
                         new Vector2(textX + 10, textY + 20), _textLabelColor, 12f);
@@ -412,8 +458,18 @@ public class GameUI
 
             if (civs.Count > civCount)
             {
-                DrawText($"+ {civs.Count - civCount} more (G: civilization view)", UITheme.TextMuted, 12);
+                DrawText($"+ {civs.Count - civCount} more (Society menu: Nation details)", UITheme.TextMuted, 12);
             }
+            else
+            {
+                DrawText("Click a nation for details", UITheme.TextMuted, 12);
+            }
+
+            // Space and nuclear winter
+            if (civData.PeopleInSpace > 0 || civData.Orbitals.Count > 0)
+                DrawLabelValue("In space", $"{civData.Orbitals.Count} objects, {civData.PeopleInSpace} people", new Color(200, 180, 255), new Color(180, 150, 255));
+            if (civData.NuclearWinter > 0.005f)
+                DrawMeterRow("Nuclear winter", $"{civData.NuclearWinter:P0}", civData.NuclearWinter, new Color(190, 130, 90));
         }
 
         // Weather Alerts
@@ -533,7 +589,8 @@ public class GameUI
             ("2", "Weather: temperature, rain, wind..."),
             ("3", "Atmosphere: O2, CO2, radiation..."),
             ("4", "Geology: plates, volcanoes, faults..."),
-            ("5", "Life, nations, infrastructure"),
+            ("5", "Life, nations, resources"),
+            ("6", "Society: power, energy, arms, internet..."),
         }),
         ("MAP", new[]
         {
