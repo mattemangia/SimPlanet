@@ -34,7 +34,7 @@ public class ChronicleUI
     private const int MaxToasts = 4;
     private const int InfoPanelWidth = 280;
 
-    private static readonly string[] Filters = { "All", "War", "Diplomacy", "Growth", "Hardship" };
+    private static readonly string[] Filters = { "All", "War", "Diplomacy", "Growth", "Progress", "Hardship" };
 
     public bool IsVisible { get; set; }
     public bool ShowToasts { get; set; } = true;
@@ -59,15 +59,20 @@ public class ChronicleUI
         "Diplomacy" => new Color(150, 200, 255),
         "Disaster" => new Color(255, 205, 70),
         "Growth" => new Color(150, 230, 120),
+        "Epidemic" => new Color(200, 230, 70),
+        "Science" => new Color(110, 190, 255),
+        "Space" => new Color(186, 150, 255),
+        "Politics" => new Color(240, 180, 110),
         _ => new Color(190, 200, 215)
     };
 
     private static bool MatchesFilter(string category, string filter) => filter switch
     {
         "War" => category is "War" or "Battle" or "Conquest" or "Rebellion",
-        "Diplomacy" => category is "Diplomacy" or "Peace",
+        "Diplomacy" => category is "Diplomacy" or "Peace" or "Politics",
         "Growth" => category is "Founding" or "Growth",
-        "Hardship" => category is "Famine" or "Disaster" or "Rebellion",
+        "Progress" => category is "Science" or "Space",
+        "Hardship" => category is "Famine" or "Disaster" or "Rebellion" or "Epidemic",
         _ => true
     };
 

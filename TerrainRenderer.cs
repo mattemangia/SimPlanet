@@ -7,7 +7,7 @@ namespace SimPlanet;
 /// <summary>
 /// Renders the planet terrain using procedural colors
 /// </summary>
-public class TerrainRenderer
+public partial class TerrainRenderer
 {
     private readonly PlanetMap _map;
     private readonly GraphicsDevice _graphicsDevice;
@@ -117,6 +117,7 @@ public class TerrainRenderer
         _cellShade = new float[map.Width * map.Height];
         _cellRoad = new bool[map.Width * map.Height];
         _cellIce = new bool[map.Width * map.Height];
+        _cellRoadType = new byte[map.Width * map.Height];
 
         // Pick the detail scale so the texture stays around half a megapixel and
         // within the Reach profile limit of 2048 texels per side.
@@ -156,7 +157,7 @@ public class TerrainRenderer
         // while the simulation lock is held, so reading the live collections is safe here.
         if ((DateTime.Now - _lastCivSnapshot).TotalMilliseconds > 150)
         {
-            CivData = CivRenderData.Capture(_civilizationManager);
+            CivData = CivRenderData.Capture(_civilizationManager, 200, _diseaseManager);
             _lastCivSnapshot = DateTime.Now;
         }
 
@@ -214,6 +215,8 @@ public class TerrainRenderer
             }
         }
 
+        PrepareSocietyView();
+
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -257,8 +260,8 @@ public class TerrainRenderer
                     RenderMode.Earthquakes => GetEarthquakesColor(cell),
                     RenderMode.Faults => GetFaultsColor(cell),
                     RenderMode.Tsunamis => GetTsunamisColor(cell),
-                    RenderMode.Infrastructure => GetInfrastructureColor(cell),
-                    RenderMode.Electricity => GetElectricityColor(cell),
+                    RenderMode.Infrastructure or RenderMode.Electricity or RenderMode.Energy or RenderMode.Armaments
+                        or RenderMode.Governments or RenderMode.Internet or RenderMode.Epidemics => GetSocietyColor(cell, x, y),
                     RenderMode.SpectralBands => GetSpectralBandsColor(cell),
                     RenderMode.Civilizations => GetCivilizationColor(cell, x, y),
                     RenderMode.Auroras => GetAuroraColor(cell),
@@ -275,6 +278,7 @@ public class TerrainRenderer
                 _cellField[index] = renderedAsWater ? Math.Min(cell.Elevation, -0.002f) : Math.Max(cell.Elevation, 0.002f);
                 _cellRoad[index] = geo.HasRoad && cell.IsLand;
                 _cellIce[index] = cell.IsIce;
+                _cellRoadType[index] = geo.HasRoad && cell.IsLand ? (byte)geo.RoadType : (byte)0;
             }
         }
 
@@ -294,11 +298,11 @@ public class TerrainRenderer
 
     private static bool IsShadedMode(RenderMode mode) => mode is RenderMode.Terrain or RenderMode.TerrainClean
         or RenderMode.Elevation or RenderMode.Biomes or RenderMode.Civilizations or RenderMode.Resources
-        or RenderMode.Infrastructure or RenderMode.Geological or RenderMode.Life;
+        or RenderMode.Geological or RenderMode.Life || IsSocietyMode(mode);
 
     private static bool IsDiscreteMode(RenderMode mode) => mode is RenderMode.TectonicPlates or RenderMode.Civilizations
-        or RenderMode.Biomes or RenderMode.Resources or RenderMode.Infrastructure or RenderMode.Geological
-        or RenderMode.Faults or RenderMode.Electricity or RenderMode.Earthquakes;
+        or RenderMode.Biomes or RenderMode.Resources or RenderMode.Geological
+        or RenderMode.Faults or RenderMode.Earthquakes || IsSocietyMode(mode);
 
     private void ComputeHillShade()
     {
@@ -329,7 +333,9 @@ public class TerrainRenderer
         bool shaded = IsShadedMode(Mode);
         bool discrete = IsDiscreteMode(Mode);
         bool political = Mode == RenderMode.Terrain && _hasTerritory;
-        bool roads = (Mode == RenderMode.Terrain || Mode == RenderMode.Civilizations) && s >= 3;
+        bool roads = (Mode == RenderMode.Terrain || Mode == RenderMode.Civilizations || Mode == RenderMode.Infrastructure) && s >= 3;
+        bool typedRoads = Mode == RenderMode.Infrastructure;
+        bool societyBorders = IsSocietyMode(Mode) && _hasTerritory;
         int mid = s / 2;
 
         Parallel.For(0, dh, py =>
@@ -444,11 +450,44 @@ public class TerrainRenderer
                         }
                     }
 
+                    if (societyBorders)
+                    {
+                        int owner = _civOwnerMap[cellIdx];
+                        if (owner > 0)
+                        {
+                            bool edge =
+                                (lx == 0 && IsForeignLand(cx - 1, cy, owner)) ||
+                                (lx == s - 1 && IsForeignLand(cx + 1, cy, owner)) ||
+                                (ly == 0 && IsForeignLand(cx, cy - 1, owner)) ||
+                                (ly == s - 1 && IsForeignLand(cx, cy + 1, owner));
+                            if (edge)
+                            {
+                                r *= 0.35f; g *= 0.35f; b *= 0.35f;
+                            }
+                        }
+                    }
+
                     if (roads && _cellRoad[cellIdx] && IsRoadTexel(cx, cy, lx, ly, mid))
                     {
-                        r = r * 0.3f + 118 * 0.7f;
-                        g = g * 0.3f + 96 * 0.7f;
-                        b = b * 0.3f + 66 * 0.7f;
+                        if (typedRoads)
+                        {
+                            // Highways gold, paved roads light grey, dirt paths tan
+                            var rc = _cellRoadType[cellIdx] switch
+                            {
+                                3 => new Vector3(255, 196, 70),
+                                2 => new Vector3(226, 226, 232),
+                                _ => new Vector3(176, 146, 100)
+                            };
+                            r = r * 0.15f + rc.X * 0.85f;
+                            g = g * 0.15f + rc.Y * 0.85f;
+                            b = b * 0.15f + rc.Z * 0.85f;
+                        }
+                        else
+                        {
+                            r = r * 0.3f + 118 * 0.7f;
+                            g = g * 0.3f + 96 * 0.7f;
+                            b = b * 0.3f + 66 * 0.7f;
+                        }
                     }
 
                     if (terrainLike)
@@ -736,6 +775,8 @@ public class TerrainRenderer
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
         }
 
+        DrawNuclearWinterHaze(spriteBatch, mapRect);
+
         if (ShowDayNight)
         {
             spriteBatch.Draw(_nightTexture, mapRect, Color.White);
@@ -765,7 +806,8 @@ public class TerrainRenderer
     public void DrawCityMarkers(SpriteBatch spriteBatch, int offsetX, int offsetY)
     {
         var data = CivData;
-        if (data.Cities.Count == 0 && data.Armies.Count == 0 && data.Battles.Count == 0) return;
+        bool society = IsSocietyMode(Mode);
+        if (data.Cities.Count == 0 && data.Armies.Count == 0 && data.Battles.Count == 0 && !(society && data.Civs.Count > 0)) return;
 
         var viewport = _graphicsDevice.Viewport;
         var clip = new Rectangle(offsetX, offsetY, viewport.Width - offsetX, viewport.Height - offsetY);
@@ -779,6 +821,9 @@ public class TerrainRenderer
         // Trade/war context: which civs are at war (for label colouring)
         var civColors = new Dictionary<int, Color>();
         foreach (var civ in data.Civs) civColors[civ.Id] = GetCivColor(civ.Id);
+
+        // --- Networks and glows of the society views (under the settlements) ---
+        if (society) DrawSocietyUnderlay(spriteBatch, data, offsetX, offsetY, clip, iconScale, time);
 
         // --- Army movement lines (under everything else) ---
         foreach (var army in data.Armies)
@@ -959,6 +1004,9 @@ public class TerrainRenderer
             }
         }
 
+        // --- Society view markers on top of the settlements (plants, badges, silos...) ---
+        if (society) DrawSocietyMarkers(spriteBatch, data, ordered, fullIcon, offsetX, offsetY, clip, iconScale, time);
+
         spriteBatch.End();
         spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
@@ -967,8 +1015,9 @@ public class TerrainRenderer
         {
             DrawSettlementLabels(spriteBatch, ordered.Where((_, i) => fullIcon[i]).ToList(), civColors, offsetX, offsetY, clip, cellPx, iconScale);
         }
+        if (society && UITheme.Font != null) DrawNationBadges(spriteBatch, data, offsetX, offsetY, clip);
 
-        // --- Hover tooltip for settlements ---
+        // --- Hover tooltip for settlements (or, in the society views, for the nation under the cursor) ---
         var mouse = Mouse.GetState();
         if (UITheme.Font != null && clip.Contains(mouse.Position) && mouse.LeftButton == ButtonState.Released)
         {
@@ -977,10 +1026,15 @@ public class TerrainRenderer
             {
                 DrawCityTooltip(spriteBatch, hovered.Value, data, mouse.Position, viewport);
             }
+            else if (society)
+            {
+                int owner = GetOwnerAtScreen(mouse.Position, offsetX, offsetY);
+                if (owner > 0) DrawNationTooltip(spriteBatch, owner, data, mouse.Position, viewport);
+            }
         }
     }
 
-    private static void DrawCityTooltip(SpriteBatch spriteBatch, CivRenderData.CityInfo city, CivRenderData data, Point mouse, Viewport viewport)
+    private void DrawCityTooltip(SpriteBatch spriteBatch, CivRenderData.CityInfo city, CivRenderData data, Point mouse, Viewport viewport)
     {
         string civName = "";
         foreach (var civ in data.Civs)
@@ -995,6 +1049,7 @@ public class TerrainRenderer
         if (!string.IsNullOrEmpty(city.Buildings)) lines.Add(city.Buildings);
         if (city.UnderSiege) lines.Add($"Under siege ({city.SiegeProgress:P0})");
         if (city.Starving) lines.Add("Starving");
+        AddSocietyCityLines(lines, city);
         UITheme.DrawTooltip(spriteBatch, string.Join("\n", lines), new Point(mouse.X, mouse.Y + 12), viewport.Width, viewport.Height);
     }
 
@@ -1804,150 +1859,6 @@ public class TerrainRenderer
         return new Color(60, 80, 60);
     }
 
-    private Color GetInfrastructureColor(TerrainCell cell)
-    {
-        var geo = cell.GetGeology();
-
-        // Priority visualization: show most important infrastructure
-
-        // Nuclear power plants (red - highest priority for safety)
-        if (geo.HasNuclearPlant)
-        {
-            // Color intensity based on meltdown risk
-            float risk = geo.MeltdownRisk;
-            if (risk > 0.2f)
-                return Color.Lerp(new Color(255, 100, 0), Color.Red, (risk - 0.2f) / 0.3f); // Orange to red (dangerous)
-            else
-                return Color.Lerp(new Color(150, 0, 150), new Color(255, 100, 0), risk / 0.2f); // Purple to orange (safe to warning)
-        }
-
-        // Solar farms (bright yellow/gold)
-        if (geo.HasSolarFarm)
-        {
-            return new Color(255, 215, 0); // Gold (solar panels)
-        }
-
-        // Wind turbines (cyan/light blue)
-        if (geo.HasWindTurbine)
-        {
-            return new Color(100, 200, 255); // Light blue (wind)
-        }
-
-        // Roads with tunnels (bright green)
-        if (geo.HasTunnel)
-        {
-            return new Color(0, 255, 100); // Bright green (major infrastructure)
-        }
-
-        // Highways (dark gray/black)
-        if (geo.HasRoad && geo.RoadType == RoadType.Highway)
-        {
-            return new Color(50, 50, 50); // Dark gray
-        }
-
-        // Paved roads (medium gray)
-        if (geo.HasRoad && geo.RoadType == RoadType.Road)
-        {
-            return new Color(120, 120, 120); // Medium gray
-        }
-
-        // Dirt paths (light brown)
-        if (geo.HasRoad && geo.RoadType == RoadType.DirtPath)
-        {
-            return new Color(160, 140, 100); // Light brown
-        }
-
-        // Civilization territory (light gray base)
-        if (cell.LifeType == LifeForm.Civilization)
-        {
-            return new Color(80, 80, 80); // Dark gray background
-        }
-
-        // Water (dark blue)
-        if (cell.IsWater)
-        {
-            return new Color(20, 40, 80); // Dark blue
-        }
-
-        // Uninhabited land (dark green)
-        return new Color(40, 60, 40); // Dark green
-    }
-
-    private Color GetElectricityColor(TerrainCell cell)
-    {
-        var geo = cell.GetGeology();
-
-        // Water has no power grid
-        if (cell.IsWater)
-        {
-            return new Color(30, 30, 50); // Dark blue-gray
-        }
-
-        // EMP affected areas - red warning
-        if (geo.IsEMPAffected)
-        {
-            // Pulse effect based on infrastructure
-            if (geo.HasNuclearPlant || geo.HasSolarFarm || geo.HasWindTurbine || geo.HasPowerStation)
-            {
-                return new Color(255, 50, 50);  // Bright red - disabled infrastructure
-            }
-            return new Color(150, 50, 50);  // Dark red - EMP affected zone
-        }
-
-        // Power generation sources (brightest)
-        if (geo.HasNuclearPlant)
-        {
-            // Nuclear plant - yellow/orange based on output
-            float output = Math.Clamp(geo.PowerOutput / 1000f, 0, 1);
-            return Color.Lerp(new Color(255, 150, 0), new Color(255, 255, 100), output);
-        }
-
-        if (geo.HasSolarFarm)
-        {
-            // Solar farm - bright yellow
-            return new Color(255, 220, 50);
-        }
-
-        if (geo.HasWindTurbine)
-        {
-            // Wind turbine - cyan
-            return new Color(100, 200, 255);
-        }
-
-        // Power distribution
-        if (geo.HasPowerStation)
-        {
-            return new Color(255, 150, 0);  // Orange - distribution hub
-        }
-
-        if (geo.HasPowerLine)
-        {
-            return new Color(200, 200, 50);  // Yellow - transmission line
-        }
-
-        // Powered areas (civilization with electricity)
-        if (geo.IsPowered && cell.LifeType == LifeForm.Civilization)
-        {
-            // Green - has power, intensity based on consumption
-            float consumption = Math.Clamp(geo.PowerConsumption / 100f, 0, 1);
-            return Color.Lerp(new Color(50, 150, 50), new Color(100, 255, 100), consumption);
-        }
-
-        // Unpowered civilization
-        if (cell.LifeType == LifeForm.Civilization)
-        {
-            return new Color(100, 50, 50);  // Dark red - no power
-        }
-
-        // Rural/unpopulated land
-        if (cell.IsLand)
-        {
-            return new Color(40, 40, 40);  // Very dark gray
-        }
-
-        return new Color(30, 30, 50);
-    }
-
     private Color GetSpectralBandsColor(TerrainCell cell)
     {
         // Visualize net radiation budget: shortwave + longwave fluxes
@@ -2064,6 +1975,12 @@ public class TerrainRenderer
         if (Mode == RenderMode.Terrain || Mode == RenderMode.TerrainClean)
             return;
 
+        if (IsSocietyMode(Mode))
+        {
+            DrawSocietyLegend(spriteBatch, screenWidth, screenHeight);
+            return;
+        }
+
         bool isGeologicalLegend = Mode == RenderMode.Geological;
         var discreteEntries = isGeologicalLegend ? GetGeologicalLegendEntries() : GetDiscreteLegendEntries();
         bool discrete = discreteEntries != null && discreteEntries.Count > 0;
@@ -2154,8 +2071,6 @@ public class TerrainRenderer
             RenderMode.Resources => "RESOURCES",
             RenderMode.Albedo => "SURFACE ALBEDO",
             RenderMode.Radiation => "RADIATION LEVELS",
-            RenderMode.Infrastructure => "CIVILIZATION INFRASTRUCTURE",
-            RenderMode.Electricity => "POWER GRID & ENERGY",
             RenderMode.SpectralBands => "NET RADIATION BUDGET",
             RenderMode.Civilizations => "POLITICAL MAP",
             RenderMode.Auroras => "AURORA INTENSITY",
@@ -2185,8 +2100,6 @@ public class TerrainRenderer
             RenderMode.Resources => new List<string> { "Few", "Moderate", "Abundant" },
             RenderMode.Albedo => new List<string> { "Absorptive", "Neutral", "Reflective" },
             RenderMode.Radiation => new List<string> { "Safe", "Warning", "Deadly" },
-            RenderMode.Infrastructure => new List<string> { "Roads", "Energy", "Hubs" },
-            RenderMode.Electricity => new List<string> { "No Power", "Powered", "EMP Disabled" },
             RenderMode.SpectralBands => new List<string> { "Cooling", "Balanced", "Heating" },
             RenderMode.Auroras => new List<string> { "None", "Weak", "Strong" },
             RenderMode.Tsunamis => new List<string> { "Calm", "High Wave", "Catastrophic" },
@@ -2227,32 +2140,6 @@ public class TerrainRenderer
                 (ResourceExtensions.GetResourceColor(ResourceType.Uranium), "Uranium"),
                 (ResourceExtensions.GetResourceColor(ResourceType.Platinum), "Platinum"),
                 (ResourceExtensions.GetResourceColor(ResourceType.Diamond), "Diamond"),
-            },
-            RenderMode.Infrastructure => new List<(Color, string)>
-            {
-                (new Color(150, 0, 150), "Nuclear Plant (Stable)"),
-                (Color.Red, "Nuclear Plant (High Risk)"),
-                (new Color(255, 215, 0), "Solar Farm"),
-                (new Color(100, 200, 255), "Wind Turbine"),
-                (new Color(0, 255, 100), "Tunnel / Major Link"),
-                (new Color(50, 50, 50), "Highway"),
-                (new Color(120, 120, 120), "Paved Road"),
-                (new Color(160, 140, 100), "Dirt Path"),
-                (new Color(80, 80, 80), "Civilization Territory"),
-                (new Color(20, 40, 80), "Water / Ocean")
-            },
-            RenderMode.Electricity => new List<(Color, string)>
-            {
-                (new Color(255, 200, 0), "Nuclear Plant"),
-                (new Color(255, 220, 50), "Solar Farm"),
-                (new Color(100, 200, 255), "Wind Turbine"),
-                (new Color(255, 150, 0), "Power Station"),
-                (new Color(200, 200, 50), "Power Line"),
-                (new Color(50, 200, 50), "Powered Area"),
-                (new Color(100, 50, 50), "No Power"),
-                (new Color(255, 50, 50), "EMP Disabled"),
-                (new Color(150, 0, 150), "High Power Output"),
-                (new Color(30, 30, 50), "Unpowered / Water")
             },
             RenderMode.Earthquakes => new List<(Color, string)>
             {
@@ -2875,6 +2762,11 @@ public enum RenderMode
     SpectralBands,             // Radiative transfer with shortwave/longwave fluxes
     Civilizations,             // Political map showing civilization territories
     Auroras,                   // Visualizes aurora intensity and magnetic field protection
-    Electricity,               // Power grid: plants, lines, consumption, EMP damage
-    TerrainClean               // Base terrain only (no overlays)
+    Electricity,               // Power grid: plants, lines, electrified and blacked-out settlements
+    TerrainClean,              // Base terrain only (no overlays)
+    Energy,                    // Nations by dominant energy source
+    Armaments,                 // Military strength, weapons of mass destruction, fallout
+    Governments,               // Nations by form of government
+    Internet,                  // Internet penetration and data cables
+    Epidemics                  // Infection share per nation and disease
 }
