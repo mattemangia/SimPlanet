@@ -354,6 +354,7 @@ public class SimPlanetGame : Game
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
         _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
+        _civilizationManager.SetDiseaseManager(_diseaseManager);
         _ecosystemSimulator = new EcosystemSimulator(_map, _animalEvolutionSimulator, _civilizationManager, _mapOptions.Seed);
         _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator, _animalEvolutionSimulator, _geologicalSimulator, _hydrologySimulator, _weatherSystem, _civilizationManager, _biomeSimulator, _disasterManager, _forestFireManager, _magnetosphereSimulator, _planetStabilizer, _diseaseManager, _ecosystemSimulator);
 
@@ -1257,6 +1258,7 @@ public class SimPlanetGame : Game
             _weatherSystem = new WeatherSystem(_map, saveData.MapOptions.Seed);
             _civilizationManager = new CivilizationManager(_map, saveData.MapOptions.Seed);
             _diseaseManager = new DiseaseManager(_map, _civilizationManager, saveData.MapOptions.Seed);
+            _civilizationManager.SetDiseaseManager(_diseaseManager);
             _biomeSimulator = new BiomeSimulator(_map, saveData.MapOptions.Seed);
             _disasterManager = new DisasterManager(_map, _geologicalSimulator, saveData.MapOptions.Seed);
             _forestFireManager = new ForestFireManager(_map, saveData.MapOptions.Seed);
@@ -1394,6 +1396,7 @@ public class SimPlanetGame : Game
         _weatherSystem = new WeatherSystem(_map, _mapOptions.Seed);
         _civilizationManager = new CivilizationManager(_map, _mapOptions.Seed);
         _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
+        _civilizationManager.SetDiseaseManager(_diseaseManager);
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);

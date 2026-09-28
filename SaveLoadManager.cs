@@ -131,6 +131,15 @@ public class SaveLoadManager
                     Happiness = city.Happiness,
                     OriginalCivilizationId = city.OriginalCivilizationId
                 }).ToList(),
+                Ethnicity = civ.Ethnicity,
+                Homeland = civ.Homeland,
+                DevelopmentModifier = civ.DevelopmentModifier,
+                SpaceStage = civ.SpaceStage,
+                Satellites = civ.Satellites,
+                CompletedProjects = civ.CompletedProjects.Select(p => p.Name).ToList(),
+                ChemicalStockpile = civ.Arsenal.ChemicalStockpile,
+                BioweaponProgram = civ.Arsenal.BioweaponProgram,
+                MissileDefense = civ.Arsenal.MissileDefense,
                 Relations = civ.DiplomaticRelations.Select(r => new RelationData
                 {
                     OtherCivilizationId = r.Key,
@@ -141,6 +150,21 @@ public class SaveLoadManager
                     YearsAtPeace = r.Value.YearsAtPeace
                 }).ToList()
             }).ToList();
+
+        saveData.OrbitalObjects = civManager.GetOrbitalObjects().Select(o => new OrbitalObjectData
+        {
+            CivilizationId = o.CivilizationId,
+            Name = o.Name,
+            Type = o.Type,
+            Crew = o.Crew,
+            OrbitAngle = o.OrbitAngle,
+            OrbitRadius = o.OrbitRadius,
+            LaunchedYear = o.LaunchedYear,
+            Orphaned = o.Orphaned,
+            TechLevel = o.TechLevel,
+            Culture = o.Culture
+        }).ToList();
+        saveData.NuclearWinter = civManager.NuclearWinter;
 
         // Save weather
         saveData.ActiveStorms = weatherSystem.GetActiveStorms()
@@ -259,7 +283,7 @@ public class SaveLoadManager
         }
 
         // Restore civilizations
-        civManager.LoadCivilizations(saveData.Civilizations);
+        civManager.LoadCivilizations(saveData.Civilizations, saveData.OrbitalObjects, saveData.NuclearWinter);
 
         // Restore weather
         weatherSystem.LoadStorms(saveData.ActiveStorms);

@@ -64,6 +64,8 @@ public class OrbitalObject
     public float OrbitRadius { get; set; } = 1f;     // Relative orbit radius, for rendering
     public int LaunchedYear { get; set; }
     public bool Orphaned { get; set; }               // Its nation no longer exists on the surface
+    public int TechLevel { get; set; }               // Knowledge carried by the crew
+    public int Culture { get; set; }                 // Naming culture of the crew's nation
 }
 
 public enum ProjectKind

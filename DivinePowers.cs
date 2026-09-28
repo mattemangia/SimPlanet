@@ -252,7 +252,8 @@ public class DivinePowers
     public Ruler GenerateRandomRuler(Civilization civ, int currentYear)
     {
         int rulerId = civ.AllRulers.Count + 1;
-        string name = GenerateRulerName(_random);
+        // Rulers carry names from their people's culture
+        string name = CivilizationManager.GeneratePersonalName(civ.Culture, _random);
         int age = 20 + _random.Next(40);
 
         var ruler = new Ruler(rulerId, name, age, currentYear)

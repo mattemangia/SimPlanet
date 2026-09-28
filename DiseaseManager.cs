@@ -134,6 +134,9 @@ public class DiseaseManager
     public List<Disease> Diseases => _diseases;
     public Dictionary<(int diseaseId, int civId), CivilizationInfection> Infections => _infections;
 
+    private int _currentYear;
+    private readonly HashSet<(int diseaseId, int civId)> _reported = new();
+
     public DiseaseManager(PlanetMap map, CivilizationManager civManager, int seed)
     {
         _map = map;
@@ -218,6 +221,10 @@ public class DiseaseManager
     /// </summary>
     public void Update(float deltaTime, int currentYear)
     {
+        // Rates below are per game year; the simulation step is in seconds of game time
+        deltaTime /= GameState.SecondsPerGameYear;
+        _currentYear = currentYear;
+
         foreach (var disease in _diseases.Where(d => d.IsActive && !d.CureDeployed).ToList())
         {
             disease.DaysSinceOutbreak += (int)(deltaTime * 365); // Convert years to days
@@ -378,7 +385,17 @@ public class DiseaseManager
 
                 infection.DeadCount += deaths;
                 infection.InfectedCount -= deaths;
-                civ.Population = Math.Max(civ.Population - deaths, 100);
+                civ.Population = Math.Max(civ.Population - deaths, 0);
+
+                // A plague that kills a large share of a nation enters the history books
+                if (infection.DeadCount > 1000 && infection.DeadCount > (civ.Population + infection.DeadCount) * 0.1f &&
+                    _reported.Add((disease.Id, civ.Id)))
+                {
+                    var capital = civ.Capital;
+                    _civManager.RecordHistory(_currentYear, HistoryCategory.Epidemic,
+                        $"The {disease.Name} devastates the {civ.Name}: {infection.DeadCount:N0} dead",
+                        capital?.X ?? civ.CenterX, capital?.Y ?? civ.CenterY, civ.Id);
+                }
             }
 
             // Recovery (if cure is deployed or natural immunity)
@@ -476,6 +493,9 @@ public class DiseaseManager
         if (disease.GlobalCureProgress >= 100f)
         {
             disease.CureDeployed = true;
+            _civManager.RecordHistory(_currentYear, HistoryCategory.Science,
+                $"A cure for the {disease.Name} is found after {disease.TotalDeaths:N0} deaths",
+                disease.OriginX, disease.OriginY, disease.OriginCivId ?? 0);
         }
     }
 

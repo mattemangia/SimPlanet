@@ -101,6 +101,9 @@ public partial class CivilizationManager
         CheckRebellions(currentYear);
         UpdateDisasterResponse(currentYear);
         ApplyEarthquakeDamage(currentYear);
+        UpdateSpace(currentYear);
+        CheckForEpidemics(currentYear);
+        UpdatePolitics(currentYear);
         UpdateHumanFootprint();
 
         foreach (var civ in _civilizations.ToList())
@@ -221,6 +224,8 @@ public partial class CivilizationManager
             otherCiv.DiplomaticRelations[civ.Id] = relation;
         }
 
+        AssignHomeland(civ);
+
         // Every people starts from a single tribal village that becomes its capital
         var capital = FoundSettlement(civ, x, y, 400 + _random.Next(600), currentYear);
         capital.IsCapital = true;
@@ -259,14 +264,17 @@ public partial class CivilizationManager
         // Resource extraction from deposits (mines, wells)
         ExtractNaturalResources(civ, GameState.SecondsPerGameYear);
 
+        // Energy, power grid, internet, airports and spaceports
+        UpdateInfrastructure(civ, currentYear);
+
+        // National research, economic, space and military programmes
+        UpdateNationalProjects(civ, currentYear);
+
         // Technology advancement driven by population, universities and rulers
         AdvanceTechnology(civ, currentYear);
 
-        // Build nuclear stockpile for advanced civilizations
-        if (civ.HasNuclearWeapons && civ.NuclearStockpile < 50 && _random.NextDouble() < 0.1)
-        {
-            civ.NuclearStockpile++;
-        }
+        // Nuclear powers maintain an arsenal sized by their doctrine
+        UpdateArsenal(civ);
 
         // Military strength = standing armies + militia potential
         civ.MilitaryStrength = (int)(GetSoldierCount(civ) * GetTechFactor(civ)) + (civ.Population / 1000) + civ.TechLevel * 10;
@@ -279,8 +287,8 @@ public partial class CivilizationManager
     {
         float science = civ.Cities.Sum(c => c.ScienceProduction);
         float wisdom = civ.Government?.CurrentRuler?.Wisdom ?? 0.5f;
-        float chance = (0.04f + science * 0.006f) * (0.75f + wisdom * 0.5f) * (0.6f + civ.Stability * 0.6f);
-        chance /= 1f + civ.TechLevel / 40f; // Each discovery is harder than the last
+        float chance = (0.04f + science * 0.006f) * (0.75f + wisdom * 0.5f) * (0.6f + civ.Stability * 0.6f) * GetResearchBonus(civ);
+        chance /= 1f + civ.TechLevel / 30f + Math.Max(0, civ.TechLevel - 100) / 15f; // Each discovery is harder than the last
         chance = Math.Min(chance, 0.35f);
 
         if (_random.NextDouble() >= chance)
@@ -347,12 +355,7 @@ public partial class CivilizationManager
         {
             civ.HasAirTransport = true; // Airplanes
         }
-        if (civ.TechLevel >= 70 && !civ.HasNuclearWeapons)
-        {
-            civ.HasNuclearWeapons = true; // Nuclear weapons
-            civ.NuclearStockpile = 5; // Initial stockpile
-            AddChronicle(currentYear, HistoryCategory.War, $"The {civ.Name} develop nuclear weapons", civ.CenterX, civ.CenterY, civ.Id);
-        }
+        // Nuclear weapons are no longer automatic: they require a national weapons programme
 
         // Energy infrastructure at various tech levels
         if (civ.TechLevel == 45)
@@ -858,101 +861,6 @@ public partial class CivilizationManager
         return _civilizations.Any(civ => civ.Territory.Contains((x, y)));
     }
 
-    private void LaunchNuclearStrike(Civilization attacker, Civilization defender, int currentYear)
-    {
-        if (attacker.NuclearStockpile <= 0) return;
-        if (defender.Territory.Count == 0) return;
-
-        // Nuclear doctrine: strike the largest enemy city
-        var targetCity = defender.Cities.OrderByDescending(c => c.Population).FirstOrDefault();
-        var target = targetCity != null
-            ? (x: targetCity.X, y: targetCity.Y)
-            : defender.Territory.ElementAt(_random.Next(defender.Territory.Count));
-        attacker.NuclearStockpile--;
-        attacker.NuclearStrikes.Add((target.x, target.y, currentYear));
-
-        int strikeX = target.x;
-        int strikeY = target.y;
-
-        // Nuclear blast radius (affects 5x5 area)
-        for (int dx = -5; dx <= 5; dx++)
-        {
-            for (int dy = -5; dy <= 5; dy++)
-            {
-                int nx = (strikeX + dx + _map.Width) % _map.Width;
-                int ny = Math.Clamp(strikeY + dy, 0, _map.Height - 1);
-
-                float distance = MathF.Sqrt(dx * dx + dy * dy);
-                if (distance > 5) continue;
-
-                var cell = _map.Cells[nx, ny];
-                float impactStrength = 1.0f - (distance / 5.0f);
-
-                // Massive destruction
-                cell.Biomass *= 0.1f * (1.0f - impactStrength); // 90% of life destroyed at center
-                cell.Temperature += 200 * impactStrength; // Extreme heat
-                cell.CO2 += 10.0f * impactStrength; // Massive CO2 release
-
-                // Crater formation at ground zero
-                if (distance < 2)
-                {
-                    cell.Elevation -= 0.1f * impactStrength;
-                }
-
-                // Radiation contamination
-                var geo = cell.GetGeology();
-                geo.TectonicStress += 0.5f * impactStrength; // Seismic activity
-
-                // Remove from territories
-                foreach (var civ in _civilizations)
-                {
-                    civ.Territory.Remove((nx, ny));
-                }
-
-                // Convert to wasteland
-                if (distance < 3)
-                {
-                    cell.LifeType = LifeForm.None;
-                }
-            }
-        }
-
-        // Global climate impact
-        _map.SolarEnergy += 0.02f; // Nuclear winter temporary effect
-        _map.GlobalCO2 += 0.5f;
-
-        // Casualties are concentrated around ground zero
-        int casualties = 0;
-        foreach (var civ in _civilizations)
-        {
-            foreach (var city in civ.Cities)
-            {
-                if (WrappedDistance(city.X, city.Y, strikeX, strikeY) <= 6)
-                {
-                    int dead = (int)(city.Population * 0.85f);
-                    city.Population -= dead;
-                    casualties += dead;
-                }
-            }
-            RecalculatePopulation(civ);
-        }
-        foreach (var army in _armies)
-        {
-            if (WrappedDistance((int)army.X, (int)army.Y, strikeX, strikeY) <= 6)
-            {
-                army.Soldiers = (int)(army.Soldiers * 0.1f);
-            }
-        }
-        _armies.RemoveAll(a => a.Soldiers < 20);
-
-        defender.Stability = Math.Max(0f, defender.Stability - 0.3f);
-        AddChronicle(currentYear, HistoryCategory.War,
-            $"NUCLEAR STRIKE: the {attacker.Name} bomb {targetCity?.Name ?? "enemy land"} ({casualties:N0} dead)",
-            strikeX, strikeY, attacker.Id);
-        RecordBattle(strikeX, strikeY, currentYear, attacker.Id, defender.Id, casualties);
-        RebuildOwnerMap();
-    }
-
     public List<Civilization> GetAllCivilizations()
     {
         lock (_civLock)
@@ -1362,10 +1270,30 @@ public partial class CivilizationManager
         return city;
     }
 
-    public void LoadCivilizations(List<CivilizationData> civData)
+    public void LoadCivilizations(List<CivilizationData> civData, List<OrbitalObjectData>? orbitalData = null, float nuclearWinter = 0f)
     {
         lock (_civLock)
         {
+            _orbitalObjects.Clear();
+            foreach (var o in orbitalData ?? new List<OrbitalObjectData>())
+            {
+                _orbitalObjects.Add(new OrbitalObject
+                {
+                    Id = _nextOrbitalId++,
+                    CivilizationId = o.CivilizationId,
+                    Name = o.Name,
+                    Type = o.Type,
+                    Crew = o.Crew,
+                    OrbitAngle = o.OrbitAngle,
+                    OrbitRadius = o.OrbitRadius,
+                    LaunchedYear = o.LaunchedYear,
+                    Orphaned = o.Orphaned,
+                    TechLevel = o.TechLevel,
+                    Culture = o.Culture
+                });
+            }
+            NuclearWinter = nuclearWinter;
+
             _civilizations.Clear();
             _armies.Clear();
             _recentBattles.Clear();
@@ -1401,8 +1329,18 @@ public partial class CivilizationManager
                     HasRailTransport = data.HasRailTransport,
                     HasAirTransport = data.HasAirTransport,
                     HasNuclearWeapons = data.HasNuclearWeapons,
-                    NuclearStockpile = data.NuclearStockpile
+                    NuclearStockpile = data.NuclearStockpile,
+                    Ethnicity = data.Ethnicity,
+                    Homeland = data.Homeland,
+                    DevelopmentModifier = data.DevelopmentModifier,
+                    SpaceStage = data.SpaceStage,
+                    Satellites = data.Satellites
                 };
+                civ.CompletedProjects.AddRange(data.CompletedProjects.Select(name => new NationalProject { Name = name, CompletedYear = 0 }));
+                civ.Arsenal.ChemicalStockpile = data.ChemicalStockpile;
+                civ.Arsenal.BioweaponProgram = data.BioweaponProgram;
+                civ.Arsenal.MissileDefense = data.MissileDefense;
+                civ.Arsenal.NuclearWarheads = data.NuclearStockpile;
                 civ.Territory.UnionWith(data.Territory);
 
                 civ.Government = new Government(data.GovernmentType, 0);
@@ -1471,6 +1409,7 @@ public partial class CivilizationManager
                     var capital = FoundSettlement(civ, civ.CenterX, civ.CenterY, Math.Max(200, civ.Population), 0);
                     capital.IsCapital = true;
                 }
+                if (string.IsNullOrEmpty(civ.Ethnicity)) AssignHomeland(civ); // Saves from older versions
                 civ.AtWar = civ.DiplomaticRelations.Values.Any(r => r.Status == DiplomaticStatus.War);
                 _lastKnownAtWar[civ.Id] = civ.AtWar;
                 RecalculatePopulation(civ);
@@ -1528,8 +1467,8 @@ public partial class CivilizationManager
 
         if (civ.Government.IsHereditary)
         {
-            // Hereditary succession
-            var heir = FindHeir(civ, deadRuler);
+            // Hereditary succession along the line of succession
+            var heir = ResolveSuccession(civ, deadRuler, currentYear);
 
             if (heir != null)
             {
@@ -1540,6 +1479,7 @@ public partial class CivilizationManager
             else
             {
                 // No heir - succession crisis
+                HandleSuccessionCrisis(civ, deadRuler, currentYear);
                 civ.Government.Stability -= 0.3f;
                 var newRuler = _divinePowers.GenerateRandomRuler(civ, currentYear);
                 newRuler.Id = _nextRulerId++;
@@ -1584,31 +1524,6 @@ public partial class CivilizationManager
             civ.Government.CurrentRuler = newRuler;
             civ.AllRulers.Add(newRuler);
         }
-    }
-
-    /// <summary>
-    /// Find the heir to a deceased ruler
-    /// </summary>
-    private Ruler? FindHeir(Civilization civ, Ruler deadRuler)
-    {
-        // Look for children
-        if (deadRuler.ChildrenIds.Count > 0)
-        {
-            var heirId = deadRuler.ChildrenIds.First();
-            var heir = civ.AllRulers.FirstOrDefault(r => r.Id == heirId && r.IsAlive);
-            if (heir != null) return heir;
-
-            // Create new heir if not yet generated
-            var newHeir = _divinePowers.GenerateRandomRuler(civ, 0);
-            newHeir.Id = _nextRulerId++;
-            newHeir.Age = 20 + _random.Next(20);
-            newHeir.ParentId = deadRuler.Id;
-            newHeir.DynastyId = deadRuler.DynastyId;
-            civ.AllRulers.Add(newHeir);
-            return newHeir;
-        }
-
-        return null;
     }
 
     /// <summary>
@@ -2306,6 +2221,9 @@ public class Civilization
     public int LastFamineReportYear { get; set; } = int.MinValue / 2;
 
     public City? Capital => Cities.FirstOrDefault(c => c.IsCapital) ?? Cities.FirstOrDefault();
+
+    // Strategic AI
+    public StrategyState Strategy { get; set; } = new();
 
     // Homeland and people
     public string Ethnicity { get; set; } = "";

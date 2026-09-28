@@ -101,6 +101,7 @@ public class HeadlessSimulation
     private int _mapHeight = 256;
     private int _seed = 12345;
     private bool _civOnly = false; // --civ-only: skip planetary physics to quickly test societies
+    private int _doomsdayYear = -1; // --doomsday N: global nuclear war in year N
 
     private void ParseArguments(string[] args)
     {
@@ -112,6 +113,7 @@ public class HeadlessSimulation
                 case "--years": int.TryParse(args[i + 1], out _years); break;
                 case "--civs": int.TryParse(args[i + 1], out _civCount); break;
                 case "--seed": int.TryParse(args[i + 1], out _seed); break;
+                case "--doomsday": int.TryParse(args[i + 1], out _doomsdayYear); break;
                 case "--size":
                     var parts = args[i + 1].Split('x');
                     if (parts.Length == 2 && int.TryParse(parts[0], out int w) && int.TryParse(parts[1], out int h))
@@ -163,6 +165,7 @@ public class HeadlessSimulation
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
         _diseaseManager = new DiseaseManager(_map, _civilizationManager, _mapOptions.Seed);
+        _civilizationManager.SetDiseaseManager(_diseaseManager);
         _ecosystemSimulator = new EcosystemSimulator(_map, _animalEvolutionSimulator, _civilizationManager, _mapOptions.Seed);
 
         _updateManager = new UpdateManager(_map, _climateSimulator, _atmosphereSimulator, _lifeSimulator,
@@ -244,9 +247,16 @@ public class HeadlessSimulation
                 _timeAccumulator -= SecondsPerGameYear;
             }
 
+            if (_year == _doomsdayYear)
+            {
+                _doomsdayYear = -1;
+                _civilizationManager.TriggerGlobalNuclearWar(_year);
+            }
+
             if (_civOnly)
             {
                 _civilizationManager.Update(simDeltaTime, _year);
+                _diseaseManager.Update(simDeltaTime, _year);
                 if (_year != _lastLifeYear)
                 {
                     // Vegetation regrows once per year so hunting grounds recover
@@ -296,6 +306,10 @@ public class HeadlessSimulation
                 if (cell.IsLand && cell.Rainfall > 0.2f && cell.Temperature > 0)
                 {
                     cell.Biomass = Math.Min(1f, cell.Biomass + 0.02f * cell.Rainfall);
+                }
+                if (cell.Temperature > 45f)
+                {
+                    cell.Temperature = 45f; // Stand-in for climate relaxation after blasts and fires
                 }
                 if (cell.CO2 > 0.5f)
                 {
@@ -369,10 +383,18 @@ public class HeadlessSimulation
             var capital = civ.Capital;
             if (capital != null)
             {
-                Console.WriteLine($"      capital {capital.Name}: pop {capital.Population} cap {capital.Capacity} worked {capital.WorkedCells} food {capital.FoodProduction:F1} happy {capital.Happiness:F2} buildings [{capital.Buildings}]");
+                Console.WriteLine($"      capital {capital.Name}: pop {capital.Population} cap {capital.Capacity} happy {capital.Happiness:F2} buildings [{capital.Buildings}]");
+            }
+            var mix = civ.EnergyMix.Count == 0 ? "-" : string.Join(" ", civ.EnergyMix.Where(e => e.Value > 0.05f).OrderByDescending(e => e.Value).Select(e => $"{e.Key}{e.Value:P0}"));
+            Console.WriteLine($"      {civ.Homeland} x{civ.DevelopmentModifier:F2} | {civ.Government?.Type} {civ.RulingParty} | posture {civ.Strategy.Posture} ({civ.Strategy.Rationale}) threat {civ.Strategy.ThreatLevel:F2}");
+            Console.WriteLine($"      project {civ.ActiveProject?.Name ?? "-"} {civ.ActiveProject?.Fraction ?? 0:P0} | done {civ.CompletedProjects.Count} | space {civ.SpaceStage} sats {civ.Satellites} astronauts {civ.Astronauts} | nukes {civ.NuclearStockpile} | grid {civ.Electrification:P0} net {civ.InternetPenetration:P0} | energy {mix}");
+            if (civ.SuccessionLine.Count > 0)
+            {
+                Console.WriteLine($"      heir {civ.HeirApparent?.Name} ({civ.HeirApparent?.Age}) line {civ.SuccessionLine.Count}");
             }
         }
 
+        Console.WriteLine($"   People in space: {_civilizationManager.PeopleInSpace} | Nuclear winter: {_civilizationManager.NuclearWinter:F2} | Active diseases: {_diseaseManager.Diseases.Count(d => d.IsActive && !d.CureDeployed)}");
         Console.WriteLine($"Year: {_year} | Speed: {_timeSpeed}x | " +
                           $"Temp: {_map.GlobalTemperature:F1}C | O2: {_map.GlobalOxygen:F1}% | CO2: {_map.GlobalCO2:F2}% | " +
                           $"Life: {lifeCells} ({lifeCells/(float)totalCells*100:F1}%) | " +

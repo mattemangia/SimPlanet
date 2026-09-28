@@ -117,10 +117,11 @@ public partial class CivilizationManager
     private void UpdateWarfare(int currentYear)
     {
         SyncExternalWarDeclarations(currentYear);
+        UpdateStrategies(currentYear);
         ConsiderNewWars(currentYear);
         UpdateWarWeariness();
         ConsiderPeace(currentYear);
-        ConsiderNuclearEscalation(currentYear);
+        ConsiderWeaponsOfMassDestruction(currentYear);
         RaiseArmies(currentYear);
         PlanArmyMovements();
 
@@ -202,9 +203,13 @@ public partial class CivilizationManager
             if (relation.Status == DiplomaticStatus.War) continue;
             if (relation.YearsAtPeace < 5) continue; // Fresh peace treaties hold for a while
 
-            // Either side may be the aggressor
+            // Either side may be the aggressor, but only by deliberate strategy
             foreach (var (aggressor, victim) in new[] { (a, b), (b, a) })
             {
+                bool desperate = aggressor.Food < aggressor.FoodConsumption * 0.2f && aggressor.Cities.Any(c => c.Starving);
+                bool planned = aggressor.Strategy.Posture == NationalPosture.Conquer && aggressor.Strategy.ConquestTargetId == victim.Id;
+                if (!planned && !desperate) continue;
+
                 float tension = ComputeWarDesire(aggressor, victim, relation, border);
                 if (tension <= 0.55f) continue;
 
@@ -276,6 +281,9 @@ public partial class CivilizationManager
         }
 
         if (relation.Status == DiplomaticStatus.War) return;
+
+        if (!aggressor.AtWar) aggressor.Strategy.CitiesAtWarStart = aggressor.Cities.Count;
+        if (!victim.AtWar) victim.Strategy.CitiesAtWarStart = victim.Cities.Count;
 
         // Breaking a pact is remembered by everyone
         bool brokePact = relation.HasTreaty(TreatyType.NonAggressionPact) || relation.HasTreaty(TreatyType.TradePact);
@@ -415,29 +423,6 @@ public partial class CivilizationManager
         }
     }
 
-    private void ConsiderNuclearEscalation(int currentYear)
-    {
-        foreach (var civ in _civilizations.ToList())
-        {
-            if (!civ.HasNuclearWeapons || civ.NuclearStockpile <= 0) continue;
-            if (_citiesLostThisYear.GetValueOrDefault(civ.Id) == 0) continue;
-
-            float brutality = civ.Government?.CurrentRuler?.Brutality ?? 0.5f;
-            foreach (var enemy in GetEnemies(civ).ToList())
-            {
-                if (_random.NextDouble() < 0.04 * brutality * (1f + civ.WarWeariness))
-                {
-                    LaunchNuclearStrike(civ, enemy, currentYear);
-                    if (enemy.HasNuclearWeapons && enemy.NuclearStockpile > 0 && _random.NextDouble() < 0.7)
-                    {
-                        LaunchNuclearStrike(enemy, civ, currentYear);
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
     /// <summary>
     /// Mobilise soldiers from settlements for civilizations at war.
     /// </summary>
@@ -445,16 +430,28 @@ public partial class CivilizationManager
     {
         foreach (var civ in _civilizations)
         {
-            if (!civ.AtWar || civ.Cities.Count == 0) continue;
+            if (civ.Cities.Count == 0) continue;
 
+            var posture = civ.Strategy.Posture;
+            bool standingArmy = posture is NationalPosture.Fortify or NationalPosture.Militarize or NationalPosture.Conquer;
+            if (!civ.AtWar && !standingArmy) continue;
+
+            // Wartime: the enemy's cities; peacetime: the rival we fear or covet
             var enemies = GetEnemies(civ).ToList();
+            if (enemies.Count == 0)
+            {
+                var rivalId = civ.Strategy.ConquestTargetId ?? civ.Strategy.MainThreatId;
+                var rival = rivalId.HasValue ? GetCivilizationById(rivalId.Value) : null;
+                if (rival != null) enemies.Add(rival);
+            }
             var enemyCities = enemies.SelectMany(e => e.Cities).ToList();
             if (enemyCities.Count == 0) continue;
 
-            float mobilisation = 0.04f + civ.Aggression * 0.04f
-                + (civ.Government?.CurrentRuler?.Brutality ?? 0.5f) * 0.02f
-                + (civ.Government?.Type == GovernmentType.Dictatorship ? 0.03f : 0f)
-                - civ.WarWeariness * 0.04f;
+            float mobilisation = civ.AtWar
+                ? 0.02f + civ.Strategy.MilitaryShare * 0.08f + civ.Aggression * 0.02f
+                  + (civ.Government?.Type == GovernmentType.Dictatorship ? 0.02f : 0f)
+                  + civ.Strategy.ExistentialThreat * 0.05f - civ.WarWeariness * 0.04f
+                : civ.Strategy.MilitaryShare * 0.03f; // Peacetime standing army
             int desired = (int)(civ.Population * Math.Max(0.01f, mobilisation));
             int current = GetSoldierCount(civ);
             int deficit = desired - current;
@@ -536,11 +533,12 @@ public partial class CivilizationManager
 
             if (!civ.AtWar)
             {
+                bool standingArmy = civ.Strategy.Posture is NationalPosture.Fortify or NationalPosture.Militarize or NationalPosture.Conquer;
                 if (army.IsGarrison)
                 {
                     DisbandGarrison(army, civ);
                 }
-                else
+                else if (!standingArmy || army.State != ArmyState.Mustering)
                 {
                     OrderRetreat(army);
                 }
@@ -587,9 +585,7 @@ public partial class CivilizationManager
             {
                 foreach (var city in enemy.Cities)
                 {
-                    float distance = WrappedDistance(city.X, city.Y, (int)army.X, (int)army.Y);
-                    float defense = GetCityDefense(enemy, city);
-                    float score = distance + defense / Math.Max(1f, army.Soldiers) * 10f - (city.IsCapital ? 5f : 0f);
+                    float score = ScoreMilitaryObjective(army, civ, enemy, city);
                     if (score < bestScore)
                     {
                         bestScore = score;
@@ -883,6 +879,22 @@ public partial class CivilizationManager
         int civilianLosses = (int)(city.Population * 0.04f * deltaYears);
         city.Population -= civilianLosses;
         _casualtiesThisYear[owner.Id] = _casualtiesThisYear.GetValueOrDefault(owner.Id) + civilianLosses;
+
+        // Desperate regimes may gas the besieged city
+        if (civ.Strategy.ChemicalWeaponsAuthorized && civ.Arsenal.ChemicalStockpile > 0)
+        {
+            UseChemicalWeapons(army, civ, owner, city, currentYear);
+        }
+
+        // Fighting around a nuclear power plant risks a meltdown
+        if (_random.NextDouble() < 0.03 * deltaYears)
+        {
+            var plant = FindNuclearPlantNear(city.X, city.Y, 3);
+            if (plant != null)
+            {
+                CauseMeltdown(plant.Value.x, plant.Value.y, currentYear, $"fighting around {city.Name}");
+            }
+        }
 
         if (city.SiegeProgress >= 1f)
         {
@@ -1274,6 +1286,9 @@ public partial class CivilizationManager
             _ => GovernmentType.Republic
         };
         rebel.Government = new Government(govType, currentYear);
+        rebel.Ethnicity = parent.Ethnicity;
+        rebel.Homeland = parent.Homeland;
+        rebel.DevelopmentModifier = parent.DevelopmentModifier;
         var ruler = _divinePowers.GenerateRandomRuler(rebel, currentYear);
         ruler.Id = _nextRulerId++;
         rebel.Government.CurrentRuler = ruler;

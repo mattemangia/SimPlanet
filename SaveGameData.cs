@@ -28,6 +28,8 @@ public class SaveGameData
 
     // Civilization data
     public List<CivilizationData> Civilizations { get; set; } = new();
+    public List<OrbitalObjectData> OrbitalObjects { get; set; } = new();
+    public float NuclearWinter { get; set; }
 
     // Weather patterns
     public List<StormData> ActiveStorms { get; set; } = new();
@@ -101,6 +103,31 @@ public class CivilizationData
     public int NuclearStockpile { get; set; }
     public List<CityData> Cities { get; set; } = new();
     public List<RelationData> Relations { get; set; } = new();
+
+    // Development
+    public string Ethnicity { get; set; } = "";
+    public HomelandClimate Homeland { get; set; }
+    public float DevelopmentModifier { get; set; } = 1f;
+    public SpaceStage SpaceStage { get; set; }
+    public int Satellites { get; set; }
+    public List<string> CompletedProjects { get; set; } = new();
+    public int ChemicalStockpile { get; set; }
+    public bool BioweaponProgram { get; set; }
+    public bool MissileDefense { get; set; }
+}
+
+public class OrbitalObjectData
+{
+    public int CivilizationId { get; set; }
+    public string Name { get; set; } = "";
+    public OrbitalObjectType Type { get; set; }
+    public int Crew { get; set; }
+    public float OrbitAngle { get; set; }
+    public float OrbitRadius { get; set; }
+    public int LaunchedYear { get; set; }
+    public bool Orphaned { get; set; }
+    public int TechLevel { get; set; }
+    public int Culture { get; set; }
 }
 
 public class CityData

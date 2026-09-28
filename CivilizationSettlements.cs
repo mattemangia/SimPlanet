@@ -189,6 +189,17 @@ public partial class CivilizationManager
         return char.ToUpper(word[0]) + word.Substring(1);
     }
 
+    /// <summary>
+    /// Personal names in the style of a people's culture (used for rulers and heirs).
+    /// </summary>
+    public static string GeneratePersonalName(int culture, Random random)
+    {
+        var syllables = CultureSyllables[((culture % CultureSyllables.Length) + CultureSyllables.Length) % CultureSyllables.Length];
+        int count = random.Next(2, 4);
+        var word = string.Concat(Enumerable.Range(0, count).Select(_ => syllables[random.Next(syllables.Length)]));
+        return char.ToUpper(word[0]) + word.Substring(1);
+    }
+
     private string GenerateCivilizationName(int culture, out string root)
     {
         root = GenerateWord(culture, 2, 3);
@@ -301,6 +312,14 @@ public partial class CivilizationManager
             fishing = 0.3f + Math.Min(marineLife, 2f) * 0.3f;
             if (city != null && city.Has(CityBuilding.Harbor)) fishing += 1.0f;
             if (civ.CivType >= CivType.Industrial) fishing *= 1.8f;
+        }
+
+        // Fallout poisons crops and game
+        float contamination = geo.RadioactiveContamination;
+        if (contamination > 0.05f)
+        {
+            farming *= 1f - contamination;
+            gathering *= 1f - contamination;
         }
 
         bool farmed = farming > gathering;
@@ -589,6 +608,7 @@ public partial class CivilizationManager
             city.WorkedCells = worked;
 
             if (city.Has(CityBuilding.Granary)) food *= 1.15f;
+            food *= GetFoodBonus(civ) * (1f - NuclearWinter * 0.6f); // Nuclear winter ruins harvests
             if (city.Has(CityBuilding.Workshop))
             {
                 stone *= 1.5f;
@@ -609,6 +629,7 @@ public partial class CivilizationManager
             if (city.Has(CityBuilding.Market)) gold *= 2f;
             if (city.Has(CityBuilding.Harbor)) gold += 1f;
             if (city.Coastal || city.NearRiver) gold *= 1.2f;
+            gold *= GetGoldBonus(civ);
             city.GoldProduction = gold;
             city.TradeProduction = gold;
 
@@ -693,6 +714,14 @@ public partial class CivilizationManager
         foreach (var city in civ.Cities)
         {
             float cap = Math.Max(150f, city.Capacity);
+
+            // Radiation sickness in contaminated settlements
+            float radiation = _map.Cells[city.X, city.Y].GetGeology().RadioactiveContamination;
+            if (radiation > 0.3f)
+            {
+                city.Population -= (int)(city.Population * (radiation - 0.3f) * 0.3f);
+                city.Happiness = Math.Max(0f, city.Happiness - 0.1f);
+            }
 
             if (famine)
             {
@@ -884,15 +913,7 @@ public partial class CivilizationManager
 
         foreach (var civ in _civilizations)
         {
-            float era = civ.CivType switch
-            {
-                CivType.Tribal => 0.01f,
-                CivType.Agricultural => 0.05f,
-                CivType.Industrial => 0.6f,
-                CivType.Scientific => 0.4f,
-                CivType.Spacefaring => 0.15f,
-                _ => 0f
-            };
+            float era = GetEmissionIntensity(civ);
             float policy = (1f - civ.EmissionReduction) * (1f - civ.EcoFriendliness * 0.5f);
             float rural = era * policy * 0.25f;
 
@@ -992,7 +1013,7 @@ public partial class CivilizationManager
 
     private void ConstructBuildings(Civilization civ, int currentYear)
     {
-        bool threatened = civ.AtWar || _borders.Keys.Any(k =>
+        bool threatened = civ.AtWar || civ.Strategy.Posture == NationalPosture.Fortify || _borders.Keys.Any(k =>
             (k.Item1 == civ.Id || k.Item2 == civ.Id) &&
             civ.DiplomaticRelations.TryGetValue(k.Item1 == civ.Id ? k.Item2 : k.Item1, out var r) &&
             r.Status <= DiplomaticStatus.Hostile);
