@@ -14,7 +14,7 @@ public partial class CivilizationManager
     private readonly Dictionary<int, int> _citiesLostThisYear = new();
     private int _nextArmyId = 1;
 
-    private const float BattleEffectDuration = 30f; // Simulation seconds (3 game years)
+    private const float BattleEffectDuration = 200f; // Simulation seconds (20 game years); the renderer fades them in real time
 
     public List<Army> GetArmies()
     {

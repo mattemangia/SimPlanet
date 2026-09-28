@@ -402,7 +402,7 @@ public class GameUI
                         UITheme.FillRounded(_spriteBatch, war, new Color(120, 30, 30));
                         UITheme.DrawTextCentered(_spriteBatch, "WAR", war, new Color(255, 200, 190), 11f);
                     }
-                    string details = $"{civ.CivType} - {FormatPopulation(civ.Population)} - {civ.CityCount} cities";
+                    string details = $"{civ.CivType} - {FormatPopulation(civ.Population)} - {civ.CityCount} {(civ.CityCount == 1 ? "settlement" : "settlements")}";
                     if (civ.Gold > 0) details += $" - {civ.Gold:N0} gold";
                     UITheme.DrawText(_spriteBatch, UITheme.Ellipsize(details, valueRight - textX - 10, 12f),
                         new Vector2(textX + 10, textY + 20), _textLabelColor, 12f);
