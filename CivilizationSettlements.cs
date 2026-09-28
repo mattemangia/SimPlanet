@@ -257,7 +257,23 @@ public partial class CivilizationManager
             Biome.Desert => 0.1f,
             _ => 0.2f
         };
-        float gathering = gatherBase * Math.Clamp(cell.Biomass, 0f, 1.2f);
+        // Game animals roam the wild land around the fields
+        float wildlife = 0f;
+        float marineLife = 0f;
+        bool coastal = cell.IsCoastal;
+        foreach (var (_, _, neighbor) in _map.GetNeighbors(x, y))
+        {
+            if (neighbor.IsWater)
+            {
+                coastal = true;
+                marineLife += neighbor.Biomass;
+            }
+            else if (IsGameAnimal(neighbor.LifeType))
+            {
+                wildlife += neighbor.Biomass;
+            }
+        }
+        float gathering = gatherBase * (Math.Clamp(cell.Biomass, 0f, 1.2f) * 0.7f + Math.Min(wildlife, 1.5f) * 0.4f);
 
         // Farming needs knowledge, water and a suitable temperature
         float farming = 0f;
@@ -279,9 +295,10 @@ public partial class CivilizationManager
 
         // Fishing on coasts
         float fishing = 0f;
-        if (cell.IsCoastal || _map.GetNeighbors(x, y).Any(n => n.cell.IsWater))
+        if (coastal)
         {
-            fishing = 0.6f;
+            // Fish stocks depend on the life in nearby waters
+            fishing = 0.3f + Math.Min(marineLife, 2f) * 0.3f;
             if (city != null && city.Has(CityBuilding.Harbor)) fishing += 1.0f;
             if (civ.CivType >= CivType.Industrial) fishing *= 1.8f;
         }
@@ -711,7 +728,8 @@ public partial class CivilizationManager
                 - civ.WarWeariness * 0.25f
                 - warPenalty
                 - (civ.Gold < 0 ? 0.1f : 0f)
-                - (city.OriginalCivilizationId != civ.Id ? 0.1f : 0f); // Conquered peoples resent their rulers
+                - (city.OriginalCivilizationId != civ.Id ? 0.1f : 0f) // Conquered peoples resent their rulers
+                - Math.Clamp((_map.Cells[city.X, city.Y].CO2 - 2f) * 0.03f, 0f, 0.2f); // Smog
             city.Happiness = Math.Clamp(city.Happiness + (target - city.Happiness) * 0.3f, 0f, 1f);
 
             // Promotions
@@ -785,8 +803,53 @@ public partial class CivilizationManager
         }
         else
         {
-            // Hunting and gathering thins wildlife
+            // Hunting and gathering thins vegetation and game
             cell.Biomass = Math.Max(0.1f, cell.Biomass - 0.008f * (1f - care * 0.5f));
+        }
+
+        // Hunting pressure on wild animals and fishing pressure on nearby waters
+        float huntPressure = (farmed ? 0.004f : 0.012f) * (1f - care * 0.6f);
+        float fishPressure = 0.002f * (civ.CivType >= CivType.Industrial ? 3f : 1f) * (1f - care * 0.6f);
+        foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+        {
+            if (neighbor.IsWater)
+            {
+                if (neighbor.Biomass > 0.05f)
+                {
+                    neighbor.Biomass = Math.Max(0.05f, neighbor.Biomass - fishPressure);
+                }
+            }
+            else if (IsGameAnimal(neighbor.LifeType) && OwnerAt(nx, ny) == 0)
+            {
+                neighbor.Biomass -= huntPressure;
+                if (neighbor.Biomass < 0.05f)
+                {
+                    // Hunted out: the species disappears from this land
+                    RecordLocalExtinction(civ, neighbor.LifeType, nx, ny);
+                    neighbor.LifeType = LifeForm.PlantLife;
+                    neighbor.Biomass = 0.2f;
+                }
+            }
+        }
+    }
+
+    private static bool IsGameAnimal(LifeForm life) => life is LifeForm.Mammals or LifeForm.Birds or LifeForm.Reptiles
+        or LifeForm.Amphibians or LifeForm.Dinosaurs or LifeForm.ComplexAnimals or LifeForm.SimpleAnimals;
+
+    private void RecordLocalExtinction(Civilization civ, LifeForm species, int x, int y)
+    {
+        civ.WildlifeHuntedOut++;
+        if (civ.WildlifeHuntedOut == 10 || civ.WildlifeHuntedOut == 100 || civ.WildlifeHuntedOut == 500)
+        {
+            string what = species switch
+            {
+                LifeForm.Dinosaurs => "the great saurians",
+                LifeForm.Mammals => "the herds",
+                LifeForm.Birds => "the flocks",
+                _ => "the wild game"
+            };
+            AddChronicle(_lastYearProcessed + 1, HistoryCategory.Disaster,
+                $"The {civ.Name} have hunted {what} from {civ.WildlifeHuntedOut} regions", x, y, civ.Id);
         }
     }
 

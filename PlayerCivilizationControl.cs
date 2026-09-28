@@ -146,8 +146,12 @@ public class PlayerCivilizationControl
     {
         if (PlayerCivilization == null) return;
 
+        // Attack the closest neighbour we are not already fighting
+        var player = PlayerCivilization;
         var otherCivs = _civManager.GetAllCivilizations()
-            .Where(c => c.Id != PlayerCivilization.Id && !c.AtWar)
+            .Where(c => c.Id != player.Id &&
+                        !(player.DiplomaticRelations.TryGetValue(c.Id, out var r) && r.Status == DiplomaticStatus.War))
+            .OrderBy(c => Math.Pow(c.CenterX - player.CenterX, 2) + Math.Pow(c.CenterY - player.CenterY, 2))
             .ToList();
 
         if (otherCivs.Any())

@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## Latest Changes
 
+### Living Civilizations: villages, economy, armies and history
+
+- **Settlements that grow**: every people starts as a single tribal village. Settlements work
+  the land around them (hunting, gathering, farming, fishing, forestry, quarrying, mining),
+  grow into towns, cities and metropolises, and send settlers to found new villages on fertile
+  river valleys and coasts. Overcrowded settlements lose people to emigration; failed harvests
+  bring famine.
+- **Economy**: food, wood, stone, metal and gold stockpiles. Trade routes and markets bring gold,
+  armies cost upkeep, and trading cities import the realm's surplus harvest.
+- **City buildings**: granaries, walls, temples, markets, barracks, harbours, workshops and
+  universities, chosen according to each city's needs (famine, threats, unrest).
+- **Real wars**: wars start from border friction, hunger for land, ambition and relative strength
+  (nuclear powers deter attacks). Allies honour defensive pacts. Armies are levied from cities,
+  march across the map with pathfinding (ships once seafaring is known), fight battles
+  influenced by technology, morale, experience, weapons and terrain, besiege and capture cities,
+  leave garrisons and annex peoples that lose all their cities. War weariness leads to peace
+  treaties with reparations.
+- **Rebellions**: unhappy, distant provinces of unstable realms can break away and form new
+  nations; unstable governments can fall to revolutions.
+- **Diplomacy**: opinions drift with shared borders, trade, royal marriages and forms of
+  government; trade pacts and defensive alliances are signed and renewed.
+- **Biosphere feedback**: hunting thins wildlife (and can wipe it out locally), fishing depletes
+  coastal waters, farming clears forests, tires the soil and releases methane, and harvests
+  depend on each region's rainfall and temperature, so climate change causes famines.
+- **Names and history**: each people has its own naming culture; its formal name follows its
+  government (Kingdom, Republic, Empire...). A chronicle records foundings, wars, battles,
+  conquests, famines, revolutions and treaties.
+- **Save games** now keep settlements, resources and diplomatic relations.
+- **Headless testing**: `--no-gui --years N --civs N --size WxH --seed N [--civ-only]` runs long
+  simulations and prints the chronicle.
+
+### Performance
+
+- Faster atmosphere mixing, ocean currents, thermohaline circulation, cyclone eddies and
+  neighbour lookups (about 25-30% less time per simulation step, same physics).
+- Societies update once per game year instead of every frame.
+
 ### New Features
 
 - **City Icons and Markers**: Cities are now visually represented on the map with distinct icons:

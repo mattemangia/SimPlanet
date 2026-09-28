@@ -2303,6 +2303,7 @@ public class Civilization
     public int WarCasualties { get; set; } = 0;           // Soldiers lost in the current wars
     public int LastKnownPopulation { get; set; } = 0;     // Used to absorb external population changes
     public int SettlementsFounded { get; set; } = 0;
+    public int WildlifeHuntedOut { get; set; } = 0;       // Wild regions emptied by hunting
     public int CitiesConquered { get; set; } = 0;
     public int CitiesLost { get; set; } = 0;
     public int LastRebellionYear { get; set; } = int.MinValue / 2;

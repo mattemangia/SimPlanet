@@ -391,6 +391,56 @@ Greenhouse gases trap heat:
 
 ### Civilization & Government
 
+**Settlements and growth:**
+
+Every people begins as a single tribal village (its capital). Each settlement works the land
+within its reach, and the best fields are worked first as the population grows:
+
+| Settlement | Population | Land radius |
+|------------|------------|-------------|
+| Village | < 1,000 | 2 cells |
+| Town | 1,000 - 5,000 | 3 cells |
+| City | 5,000 - 50,000 | 4 cells |
+| Metropolis | 50,000+ | 5 cells |
+
+- **Food** comes from hunting and gathering (depends on vegetation and wild animals nearby),
+  farming (from tech level 3; needs rain or a river and a mild temperature) and fishing (depends
+  on sea life along the coast). Each 100 people eat 1 food per year; soldiers eat more.
+- **Wood** comes from forests, **stone** from hills and mountains, **metal** from rocky ground and
+  iron or copper deposits (from tech level 8), **gold** from taxes, markets and trade routes.
+- Settlements grow toward the number of people their land can feed. Trading cities (markets,
+  harbours, the capital) import the realm's surplus harvest. When the granaries run out, famine
+  kills people and makes everyone unhappy.
+- Crowded settlements send **settlers** to found new villages on fertile river valleys and coasts.
+  Tribes can only hold a few villages together; more advanced governments manage larger realms.
+- Settlements construct buildings when the realm can afford them: **Granary** (more food, faster
+  growth), **Walls** (siege defense), **Temple** (happiness), **Market** (gold, imports),
+  **Barracks** (larger, more experienced armies), **Harbor** (fishing, trade), **Workshop**
+  (stone and metal), **University** (research).
+
+**Impact on the biosphere:** hunting thins wildlife and can wipe it out from a region, fishing
+depletes coastal waters, farming clears forests, tires the soil (fields recover when left fallow)
+and releases methane. Harvests follow the local climate, so droughts, cooling or warming cause
+famines. Smog in polluted cities lowers happiness.
+
+**War:**
+- Neighbours (or peoples within reach across the sea once ships are known) may go to war over
+  border friction, hunger for land, a ruler's ambition or brutality, or an opponent's weakness.
+  Treaties, royal marriages, trade and democratic governments make war less likely; nuclear
+  weapons deter attacks. Allies with defensive pacts join a war on the victim's side.
+- Armies are levied from settlements (barracks raise more), gather at the city closest to the
+  enemy and march along the easiest route. Hills, forests, mountains and home ground help the
+  defender; technology, morale, experience and metal weapons decide battles.
+- Armies besiege enemy cities. Walls, high ground and happy defenders make sieges long. A captured
+  city changes hands with the land around it, is plundered, and receives a garrison. A people
+  that loses all its cities is absorbed by the conqueror.
+- Casualties, lost cities, famine and empty treasuries raise **war weariness** until one side
+  asks for peace and pays reparations. Desperate nuclear powers may use their weapons on cities.
+- Unhappy, distant provinces of an unstable realm can **rebel** and become a new nation.
+
+**The Chronicle:** everything important is recorded year by year: new peoples and villages,
+cities growing, wars, battles, conquests, famines, revolutions, treaties.
+
 **Government Types:**
 
 Civilizations evolve different government systems:
@@ -406,6 +456,9 @@ Civilizations evolve different government systems:
 | Oligarchy | Moderate | Moderate | Elite rule |
 | Dictatorship | Variable | Fast | Authoritarian |
 | Federation | Very High | Very Fast | Advanced unified state |
+
+A people's formal name follows its government: the "Kalans" become the "Kingdom of Kal", then
+the "Kal Republic" or the "Kal Commonwealth".
 
 **Rulers & Traits:**
 - Each civilization has a named ruler
