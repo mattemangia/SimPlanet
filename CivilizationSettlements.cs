@@ -866,6 +866,64 @@ public partial class CivilizationManager
 
     #endregion
 
+    #region Earthquakes
+
+    private readonly HashSet<(int x, int y, int year, float magnitude)> _processedEarthquakes = new();
+
+    /// <summary>
+    /// Strong earthquakes (M6+) damage the settlements close to the epicentre.
+    /// </summary>
+    private void ApplyEarthquakeDamage(int currentYear)
+    {
+        _processedEarthquakes.RemoveWhere(q => q.year < currentYear - 2);
+
+        foreach (var quake in EarthquakeSystem.RecentSystemEarthquakes.ToArray())
+        {
+            if (quake.Year < currentYear - 1 || quake.Magnitude < 6f) continue;
+            if (!_processedEarthquakes.Add((quake.X, quake.Y, quake.Year, quake.Magnitude))) continue;
+
+            float reach = quake.Magnitude * 2.5f;
+            foreach (var civ in _civilizations)
+            {
+                int dead = 0;
+                City? worstHit = null;
+                foreach (var city in civ.Cities)
+                {
+                    float distance = WrappedDistance(city.X, city.Y, quake.X, quake.Y);
+                    if (distance > reach) continue;
+
+                    float shaking = 1f - distance / reach;
+                    float rate = (quake.Magnitude - 5.5f) * 0.04f * shaking * (1f - civ.DisasterPreparedness);
+                    int cityDead = (int)(city.Population * Math.Clamp(rate, 0f, 0.35f));
+                    city.Population -= cityDead;
+                    city.Happiness = Math.Max(0f, city.Happiness - 0.1f * shaking);
+                    dead += cityDead;
+                    if (worstHit == null || cityDead > 0 && shaking > 0.5f) worstHit = city;
+                }
+
+                if (dead == 0) continue;
+
+                RecalculatePopulation(civ);
+                civ.PopulationLostToDisasters += dead;
+                civ.DisastersSurvived++;
+                civ.DisasterPreparedness = Math.Min(civ.DisasterPreparedness + 0.03f, 0.9f);
+                if (civ.Government != null)
+                {
+                    civ.Government.Stability -= Math.Min(0.1f, dead / (float)Math.Max(1, civ.Population) * 2f);
+                }
+
+                if (dead >= 200 && worstHit != null)
+                {
+                    AddChronicle(currentYear, HistoryCategory.Disaster,
+                        $"A magnitude {quake.Magnitude:F1} earthquake strikes near {worstHit.Name} ({civ.Name}): {dead:N0} dead",
+                        quake.X, quake.Y, civ.Id);
+                }
+            }
+        }
+    }
+
+    #endregion
+
     #region Buildings
 
     private static readonly (CityBuilding building, int tech, float wood, float stone, float metal, float gold)[] BuildingCosts =
