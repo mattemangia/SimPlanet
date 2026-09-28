@@ -35,6 +35,44 @@ All notable changes to this project will be documented in this file.
 - **Headless testing**: `--no-gui --years N --civs N --size WxH --seed N [--civ-only]` runs long
   simulations and prints the chronicle.
 
+### Strategic AI, weapons of mass destruction, space and politics
+
+- **Strategic AI**: every year each nation assesses threats (neighbours' strength and hostility),
+  opportunities (weak, isolated neighbours with fertile land), needs (famine, instability) and the
+  personality of its ruler and ruling party, then picks a posture — develop, expand, research,
+  fortify, militarize, conquer, space race or recover — with a matching budget. Wars are deliberate
+  decisions against a chosen target, armed nations keep standing armies, and armies avoid fighting
+  near nuclear power plants.
+- **Weapons of mass destruction, used as a last resort**: nuclear weapons require a national
+  programme, pursued mostly when a rival already has them. First use needs an existential threat
+  and ruthless, unaccountable leaders, and is strongly deterred by the enemy's ability to retaliate;
+  a nuclear attack is almost always answered. Missile defence can intercept warheads. Each strike
+  devastates a city (blast, fallout, EMP, tsunamis), melts down nearby reactors, lofts soot that
+  causes a nuclear winter (less sunlight, failed harvests, famine) and outrages the whole world.
+  Brutal regimes may gas besieged cities; engineered plagues are a reckless last gamble.
+  Battles around nuclear power plants can cause meltdowns and fallout.
+- **Space**: rocketry, satellites (better disaster preparedness), crewed flight, space stations,
+  lunar bases and off-world colonies. When a nation is destroyed its crews survive in space and,
+  once the skies clear, return to the surface to found a new nation with their knowledge.
+- **National programmes**: research (Great Library, Printing Press, Scientific Academy,
+  Electrification, Computer Revolution, Genome Project, Artificial Intelligence, Fusion Power),
+  economic (Irrigation, Roads, Central Bank, Industrialization, Green Revolution, Global Trade),
+  environmental (National Parks, Renewable Transition, Carbon Capture), space and military ones.
+- **Energy, grid and internet**: energy mix evolving from biomass to coal, oil, hydro, nuclear,
+  wind, solar and fusion (emissions follow the mix), power grids with blackouts, internet with
+  backbone and undersea cables, airports and spaceports.
+- **Peoples and geography**: every nation has an ethnicity and a homeland climate; temperate river
+  valleys develop fastest, deserts, jungles, highlands and cold lands more slowly.
+- **Epidemics**: crowded cities, livestock, trade and tropical climates breed plagues that spread
+  between nations; medicine and the Genome Project make them rarer; cures are researched.
+  Diseases now run on game years and can wipe out whole peoples.
+- **Politics**: republics and democracies have parties (conservative, liberal, socialist, green,
+  nationalist, technocratic, religious) and elections; voters punish famine, war and hardship, and
+  the ruling ideology steers the nation. Monarchies have royal families, primogeniture lines of
+  succession, regnal numbers, regencies for child monarchs, succession crises and wars of
+  succession. Rulers are named in their people's language.
+- **Headless**: `--doomsday N` starts a global nuclear war in year N.
+
 ### Performance
 
 - Faster atmosphere mixing, ocean currents, thermohaline circulation, cyclone eddies and
