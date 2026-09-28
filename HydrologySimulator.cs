@@ -506,10 +506,56 @@ public class HydrologySimulator
         });
     }
 
+    // Per-cell accumulation buffers for heat and salt transport (replaces per-cell dictionary updates)
+    private float[] _tempDelta = Array.Empty<float>();
+    private float[] _saltDelta = Array.Empty<float>();
+
+    private void PrepareDeltaGrids()
+    {
+        int size = _map.Width * _map.Height;
+        if (_tempDelta.Length != size)
+        {
+            _tempDelta = new float[size];
+            _saltDelta = new float[size];
+        }
+        else
+        {
+            Array.Clear(_tempDelta);
+            Array.Clear(_saltDelta);
+        }
+    }
+
+    private void AddDelta(float[] grid, int x, int y, float value)
+    {
+        // Lock-free add: neighbouring columns are processed in parallel
+        ref float slot = ref grid[y * _map.Width + x];
+        float initial, computed;
+        do
+        {
+            initial = slot;
+            computed = initial + value;
+        }
+        while (Interlocked.CompareExchange(ref slot, computed, initial) != initial);
+    }
+
+    private void ApplyDeltaGrids()
+    {
+        int width = _map.Width;
+        for (int i = 0; i < _tempDelta.Length; i++)
+        {
+            float dt = _tempDelta[i];
+            float ds = _saltDelta[i];
+            if (dt == 0f && ds == 0f) continue;
+
+            var cell = _map.Cells[i % width, i / width];
+            if (dt != 0f) cell.Temperature += dt;
+            if (ds != 0f) cell.GetGeology().Salinity += ds;
+        }
+    }
+
     private void UpdateOceanCurrents()
     {
-        var tempChanges = new ConcurrentDictionary<(int, int), float>();
-        var saltChanges = new ConcurrentDictionary<(int, int), float>();
+        PrepareDeltaGrids();
 
         // Wind-driven surface ocean currents
         // Based on atmospheric circulation and Coriolis effect
@@ -575,25 +621,18 @@ public class HydrologySimulator
                     {
                         // Heat and salt transport
                         float tempDiff = cell.Temperature - targetCell.Temperature;
-                        tempChanges.AddOrUpdate((x, y), -tempDiff * currentStrength * 0.05f, (key, old) => old - tempDiff * currentStrength * 0.05f);
-                        tempChanges.AddOrUpdate((targetX, targetY), tempDiff * currentStrength * 0.05f, (key, old) => old + tempDiff * currentStrength * 0.05f);
+                        AddDelta(_tempDelta, x, y, -tempDiff * currentStrength * 0.05f);
+                        AddDelta(_tempDelta, targetX, targetY, tempDiff * currentStrength * 0.05f);
 
                         float saltDiff = geo.Salinity - targetCell.GetGeology().Salinity;
-                        saltChanges.AddOrUpdate((x, y), -saltDiff * currentStrength * 0.03f, (key, old) => old - saltDiff * currentStrength * 0.03f);
-                        saltChanges.AddOrUpdate((targetX, targetY), saltDiff * currentStrength * 0.03f, (key, old) => old + saltDiff * currentStrength * 0.03f);
+                        AddDelta(_saltDelta, x, y, -saltDiff * currentStrength * 0.03f);
+                        AddDelta(_saltDelta, targetX, targetY, saltDiff * currentStrength * 0.03f);
                     }
                 }
             }
         });
 
-        foreach (var change in tempChanges)
-        {
-            _map.Cells[change.Key.Item1, change.Key.Item2].Temperature += change.Value;
-        }
-        foreach (var change in saltChanges)
-        {
-            _map.Cells[change.Key.Item1, change.Key.Item2].GetGeology().Salinity += change.Value;
-        }
+        ApplyDeltaGrids();
     }
 
     /// <summary>
@@ -605,8 +644,7 @@ public class HydrologySimulator
     /// </summary>
     private void UpdateThermohalineCirculation(float deltaTime)
     {
-        var tempChanges = new ConcurrentDictionary<(int, int), float>();
-        var saltChanges = new ConcurrentDictionary<(int, int), float>();
+        PrepareDeltaGrids();
 
         // Thermohaline circulation: density-driven deep ocean currents
         // Dense water sinks at high latitudes (North Atlantic, Antarctica)
@@ -650,10 +688,10 @@ public class HydrologySimulator
                                     float sinkingRate = densityDiff * 0.5f * deltaTime;
 
                                     // Cool the deeper water
-                                    tempChanges.AddOrUpdate((nx, ny), -sinkingRate * 2.0f, (key, old) => old - sinkingRate * 2.0f);
+                                    AddDelta(_tempDelta, nx, ny, -sinkingRate * 2.0f);
 
                                     // Increase salinity in deeper water
-                                    saltChanges.AddOrUpdate((nx, ny), sinkingRate * 0.5f, (key, old) => old + sinkingRate * 0.5f);
+                                    AddDelta(_saltDelta, nx, ny, sinkingRate * 0.5f);
                                 }
                             }
                         }
@@ -695,12 +733,12 @@ public class HydrologySimulator
 
                             // Transport heat and salt
                             float tempDiff = cell.Temperature - targetCell.Temperature;
-                            tempChanges.AddOrUpdate((x, y), -tempDiff * deepCurrentStrength, (key, old) => old - tempDiff * deepCurrentStrength);
-                            tempChanges.AddOrUpdate((targetX, targetY), tempDiff * deepCurrentStrength, (key, old) => old + tempDiff * deepCurrentStrength);
+                            AddDelta(_tempDelta, x, y, -tempDiff * deepCurrentStrength);
+                            AddDelta(_tempDelta, targetX, targetY, tempDiff * deepCurrentStrength);
 
                             float saltDiff = geo.Salinity - targetCell.GetGeology().Salinity;
-                            saltChanges.AddOrUpdate((x, y), -saltDiff * deepCurrentStrength, (key, old) => old - saltDiff * deepCurrentStrength);
-                            saltChanges.AddOrUpdate((targetX, targetY), saltDiff * deepCurrentStrength, (key, old) => old + saltDiff * deepCurrentStrength);
+                            AddDelta(_saltDelta, x, y, -saltDiff * deepCurrentStrength);
+                            AddDelta(_saltDelta, targetX, targetY, saltDiff * deepCurrentStrength);
                         }
                     }
                 }
@@ -721,21 +759,14 @@ public class HydrologySimulator
                         {
                             // Bring up cooler, nutrient-rich water
                             float upwellingRate = 0.01f * deltaTime;
-                            tempChanges.AddOrUpdate((x, y), -upwellingRate * 0.5f, (key, old) => old - upwellingRate * 0.5f);
+                            AddDelta(_tempDelta, x, y, -upwellingRate * 0.5f);
                         }
                     }
                 }
             }
         });
 
-        foreach (var change in tempChanges)
-        {
-            _map.Cells[change.Key.Item1, change.Key.Item2].Temperature += change.Value;
-        }
-        foreach (var change in saltChanges)
-        {
-            _map.Cells[change.Key.Item1, change.Key.Item2].GetGeology().Salinity += change.Value;
-        }
+        ApplyDeltaGrids();
     }
 
     private void UpdateTides(float deltaTime)

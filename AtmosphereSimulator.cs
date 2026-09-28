@@ -541,38 +541,63 @@ public class AtmosphereSimulator
     // This eliminates a redundant 28,800-cell scan every frame (240x120 map)
     // Global stats are now calculated once per second in a single combined pass
 
+    private float[] _mixValues = Array.Empty<float>();
+    private float[] _mixResults = Array.Empty<float>();
+
     private void MixAtmosphere(Func<TerrainCell, float> getValue, Action<TerrainCell, float> setValue, float deltaTime)
     {
-        var newValues = new float[_map.Width, _map.Height];
-
-        for (int x = 0; x < _map.Width; x++)
+        int width = _map.Width;
+        int height = _map.Height;
+        if (_mixValues.Length != width * height)
         {
-            for (int y = 0; y < _map.Height; y++)
+            _mixValues = new float[width * height];
+            _mixResults = new float[width * height];
+        }
+
+        // Snapshot the gas concentration once per cell
+        var values = _mixValues;
+        var results = _mixResults;
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
             {
-                var cell = _map.Cells[x, y];
-                float currentValue = getValue(cell);
+                values[y * width + x] = getValue(_map.Cells[x, y]);
+            }
+        }
 
-                // Diffusion mixing with neighbors
-                float neighborAvg = 0;
+        // Base diffusion mixing (faster rate for better atmospheric circulation)
+        float diffusionRate = 0.15f * deltaTime;
+
+        Parallel.For(0, width, x =>
+        {
+            int left = (x - 1 + width) % width;
+            int right = (x + 1) % width;
+
+            for (int y = 0; y < height; y++)
+            {
+                float currentValue = values[y * width + x];
+
+                // Diffusion mixing with the 8 neighbours (wrapping horizontally)
+                float neighborSum = 0;
                 int count = 0;
-
-                foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                for (int ny = y - 1; ny <= y + 1; ny++)
                 {
-                    neighborAvg += getValue(neighbor);
-                    count++;
+                    if (ny < 0 || ny >= height) continue;
+                    int row = ny * width;
+                    neighborSum += values[row + left] + values[row + right];
+                    count += 2;
+                    if (ny != y)
+                    {
+                        neighborSum += values[row + x];
+                        count++;
+                    }
                 }
 
-                if (count > 0)
-                {
-                    neighborAvg /= count;
-                }
-
-                // Base diffusion mixing (faster rate for better atmospheric circulation)
-                float diffusionRate = 0.15f * deltaTime;
+                float neighborAvg = count > 0 ? neighborSum / count : 0;
                 float diffusedValue = currentValue + (neighborAvg - currentValue) * diffusionRate;
 
                 // Wind-driven advection (gases carried by wind)
-                var met = cell.GetMeteorology();
+                var met = _map.Cells[x, y].GetMeteorology();
                 float windTransport = 0;
 
                 // Calculate wind direction and fetch upwind gas concentration
@@ -584,10 +609,10 @@ public class AtmosphereSimulator
 
                     if (windDx != 0 || windDy != 0)
                     {
-                        int upwindX = (x + windDx + _map.Width) % _map.Width;
-                        int upwindY = Math.Clamp(y + windDy, 0, _map.Height - 1);
+                        int upwindX = (x + windDx + width) % width;
+                        int upwindY = Math.Clamp(y + windDy, 0, height - 1);
 
-                        float upwindValue = getValue(_map.Cells[upwindX, upwindY]);
+                        float upwindValue = values[upwindY * width + upwindX];
                         float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
 
                         // Transport rate proportional to wind speed
@@ -596,16 +621,16 @@ public class AtmosphereSimulator
                     }
                 }
 
-                newValues[x, y] = Math.Clamp(diffusedValue + windTransport, 0, 100);
+                results[y * width + x] = Math.Clamp(diffusedValue + windTransport, 0, 100);
             }
-        }
+        });
 
         // Apply new values
-        for (int x = 0; x < _map.Width; x++)
+        for (int x = 0; x < width; x++)
         {
-            for (int y = 0; y < _map.Height; y++)
+            for (int y = 0; y < height; y++)
             {
-                setValue(_map.Cells[x, y], newValues[x, y]);
+                setValue(_map.Cells[x, y], results[y * width + x]);
             }
         }
     }

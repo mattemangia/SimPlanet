@@ -450,18 +450,64 @@ public class PlanetMap
     private static readonly int[] NeighborDx = { -1, 0, 1, -1, 1, -1, 0, 1 };
     private static readonly int[] NeighborDy = { -1, -1, -1, 0, 0, 1, 1, 1 };
 
-    public IEnumerable<(int x, int y, TerrainCell cell)> GetNeighbors(int x, int y)
-    {
-        for (int i = 0; i < 8; i++)
-        {
-            int nx = x + NeighborDx[i];
-            int ny = y + NeighborDy[i];
+    /// <summary>
+    /// The 8 surrounding cells (wrapping horizontally). Returns an allocation-free
+    /// enumerable when used with foreach; LINQ still works on it.
+    /// </summary>
+    public NeighborEnumerable GetNeighbors(int x, int y) => new(this, x, y);
 
-            if (ny >= 0 && ny < Height)
+    public readonly struct NeighborEnumerable : IEnumerable<(int x, int y, TerrainCell cell)>
+    {
+        private readonly PlanetMap _map;
+        private readonly int _x;
+        private readonly int _y;
+
+        public NeighborEnumerable(PlanetMap map, int x, int y)
+        {
+            _map = map;
+            _x = x;
+            _y = y;
+        }
+
+        public Enumerator GetEnumerator() => new(_map, _x, _y);
+        IEnumerator<(int x, int y, TerrainCell cell)> IEnumerable<(int x, int y, TerrainCell cell)>.GetEnumerator() => GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public struct Enumerator : IEnumerator<(int x, int y, TerrainCell cell)>
+        {
+            private readonly PlanetMap _map;
+            private readonly int _x;
+            private readonly int _y;
+            private int _index;
+
+            public Enumerator(PlanetMap map, int x, int y)
             {
-                nx = (nx + Width) % Width; // Wrap horizontally
-                yield return (nx, ny, Cells[nx, ny]);
+                _map = map;
+                _x = x;
+                _y = y;
+                _index = -1;
+                Current = default;
             }
+
+            public (int x, int y, TerrainCell cell) Current { get; private set; }
+            object System.Collections.IEnumerator.Current => Current;
+
+            public bool MoveNext()
+            {
+                while (++_index < 8)
+                {
+                    int ny = _y + NeighborDy[_index];
+                    if (ny < 0 || ny >= _map.Height) continue;
+
+                    int nx = (_x + NeighborDx[_index] + _map.Width) % _map.Width; // Wrap horizontally
+                    Current = (nx, ny, _map.Cells[nx, ny]);
+                    return true;
+                }
+                return false;
+            }
+
+            public void Reset() => _index = -1;
+            public void Dispose() { }
         }
     }
 

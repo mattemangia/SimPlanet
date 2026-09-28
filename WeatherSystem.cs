@@ -276,8 +276,8 @@ public class WeatherSystem
 
                 // *** ENHANCED: STRONGER PRESSURE GRADIENT WINDS ***
                 // This is the key to creating cellular patterns!
-                var neighbors = _map.GetNeighbors(x, y).ToList();
-                if (neighbors.Count > 0)
+                var neighbors = _map.GetNeighbors(x, y);
+                if (_map.Height > 1) // Every cell has neighbours on a real map
                 {
                     // Calculate pressure gradient in each direction
                     float pressureGradX = 0;
@@ -460,8 +460,7 @@ public class WeatherSystem
                 int count = 0;
 
                 // Sample neighbors to calculate derivatives
-                var neighbors = _map.GetNeighbors(x, y).ToList();
-                foreach (var (nx, ny, neighbor) in neighbors)
+                foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
                 {
                     var neighborMet = neighbor.GetMeteorology();
 
@@ -518,6 +517,26 @@ public class WeatherSystem
                 }
             }
         }
+    }
+
+    private const int EddyRadius = 10;
+
+    // Offsets within the eddy radius with their radial direction and linear falloff
+    private static readonly (int dx, int dy, float cos, float sin, float falloff)[] EddyKernel = BuildEddyKernel();
+
+    private static (int dx, int dy, float cos, float sin, float falloff)[] BuildEddyKernel()
+    {
+        var kernel = new List<(int, int, float, float, float)>();
+        for (int dx = -EddyRadius; dx <= EddyRadius; dx++)
+        {
+            for (int dy = -EddyRadius; dy <= EddyRadius; dy++)
+            {
+                float dist = MathF.Sqrt(dx * dx + dy * dy);
+                if (dist > EddyRadius || dist < 1) continue;
+                kernel.Add((dx, dy, dx / dist, dy / dist, 1f - dist / EddyRadius));
+            }
+        }
+        return kernel.ToArray();
     }
 
     private void UpdateBaroclinicInstability(float deltaTime)
@@ -583,29 +602,21 @@ public class WeatherSystem
                     // Increase vorticity (spin up the eddy)
                     met.Vorticity += eddyStrength * rotationSign;
 
-                    // Add circular wind component
-                    int radius = 10;
-                    for (int dx = -radius; dx <= radius; dx++)
+                    // Add circular wind component (tangential flow from a precomputed kernel)
+                    foreach (var k in EddyKernel)
                     {
-                        for (int dy = -radius; dy <= radius; dy++)
-                        {
-                            float dist = MathF.Sqrt(dx * dx + dy * dy);
-                            if (dist > radius || dist < 1) continue;
+                        int nx = (x + k.dx + _map.Width) % _map.Width;
+                        int ny = y + k.dy;
+                        if (ny < 0 || ny >= _map.Height) continue;
 
-                            int nx = (x + dx + _map.Width) % _map.Width;
-                            int ny = y + dy;
-                            if (ny < 0 || ny >= _map.Height) continue;
+                        var neighborMet = _map.Cells[nx, ny].GetMeteorology();
 
-                            var neighborMet = _map.Cells[nx, ny].GetMeteorology();
-
-                            // Add tangential wind (circular flow)
-                            float angle = MathF.Atan2(dy, dx);
-                            float tangentialAngle = angle + (rotationSign * MathF.PI / 2f);
-
-                            float tangentialSpeed = eddyStrength * (1f - dist / radius);
-                            neighborMet.WindSpeedX += MathF.Cos(tangentialAngle) * tangentialSpeed;
-                            neighborMet.WindSpeedY += MathF.Sin(tangentialAngle) * tangentialSpeed;
-                        }
+                        // Direction is the radial angle rotated by +/-90 degrees depending on hemisphere
+                        float tangentialSpeed = eddyStrength * k.falloff;
+                        float dirX = rotationSign > 0 ? -k.sin : rotationSign < 0 ? k.sin : k.cos;
+                        float dirY = rotationSign > 0 ? k.cos : rotationSign < 0 ? -k.cos : k.sin;
+                        neighborMet.WindSpeedX += dirX * tangentialSpeed;
+                        neighborMet.WindSpeedY += dirY * tangentialSpeed;
                     }
                 }
             }
