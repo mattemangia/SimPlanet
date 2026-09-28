@@ -1032,9 +1032,12 @@ public partial class CivilizationManager
             {
                 if (i == j) continue;
                 var city2 = civ.Cities[j];
+                // Railways run over land and do not cross the map seam
+                if (Math.Abs(city1.X - city2.X) > _map.Width / 2) continue;
+                if (CountWaterOnLine(city1.X, city1.Y, city2.X, city2.Y) > 1) continue;
                 float dist = MathF.Sqrt((city1.X - city2.X) * (city1.X - city2.X) +
                                        (city1.Y - city2.Y) * (city1.Y - city2.Y));
-                if (dist < minDist)
+                if (dist < minDist && dist < 30)
                 {
                     minDist = dist;
                     nearestCity = city2;

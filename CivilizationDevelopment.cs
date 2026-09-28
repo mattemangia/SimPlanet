@@ -120,7 +120,9 @@ public partial class CivilizationManager
             float reach = 10f + (tech - 28) * 0.4f + (civ.HasProject("Electrification") ? 8f : 0f);
             foreach (var city in civ.Cities.Where(c => c != capital).OrderBy(c => capital == null ? 0 : WrappedDistance(c.X, c.Y, capital.X, capital.Y)))
             {
-                var nearest = electrified.OrderBy(e => WrappedDistance(e.X, e.Y, city.X, city.Y)).FirstOrDefault();
+                var nearest = electrified
+                    .Where(e => Math.Abs(e.X - city.X) <= _map.Width / 2) // Lines do not cross the map seam
+                    .OrderBy(e => WrappedDistance(e.X, e.Y, city.X, city.Y)).FirstOrDefault();
                 if (nearest != null && WrappedDistance(nearest.X, nearest.Y, city.X, city.Y) <= reach && city.Type >= CityType.Town || nearest != null && tech >= 55)
                 {
                     city.Electrified = true;
@@ -188,7 +190,7 @@ public partial class CivilizationManager
                     if (otherId < civ.Id || !relation.HasTreaty(TreatyType.TradePact)) continue;
                     var other = GetCivilizationById(otherId);
                     var otherHub = other?.Cities.Where(c => c.Coastal && c.Online).OrderByDescending(c => c.Population).FirstOrDefault();
-                    if (otherHub != null) civ.DataCables.Add((hub.X, hub.Y, otherHub.X, otherHub.Y));
+                    if (otherHub != null && Math.Abs(otherHub.X - hub.X) <= _map.Width / 2) civ.DataCables.Add((hub.X, hub.Y, otherHub.X, otherHub.Y));
                 }
             }
         }
