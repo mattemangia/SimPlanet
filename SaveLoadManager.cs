@@ -98,7 +98,48 @@ public class SaveLoadManager
                 EcoFriendliness = civ.EcoFriendliness,
                 Prosperity = civ.Prosperity,
                 Stability = civ.Stability,
-                CollapseRisk = civ.CollapseRisk
+                CollapseRisk = civ.CollapseRisk,
+                Culture = civ.Culture,
+                NameRoot = civ.NameRoot,
+                TribalName = civ.TribalName,
+                GovernmentType = civ.Government?.Type ?? GovernmentType.Tribal,
+                Food = civ.Food,
+                Wood = civ.Wood,
+                Stone = civ.Stone,
+                Metal = civ.Metal,
+                Gold = civ.Gold,
+                WarWeariness = civ.WarWeariness,
+                HasLandTransport = civ.HasLandTransport,
+                HasSeaTransport = civ.HasSeaTransport,
+                HasRailTransport = civ.HasRailTransport,
+                HasAirTransport = civ.HasAirTransport,
+                HasNuclearWeapons = civ.HasNuclearWeapons,
+                NuclearStockpile = civ.NuclearStockpile,
+                Cities = civ.Cities.Select(city => new CityData
+                {
+                    Id = city.Id,
+                    Name = city.Name,
+                    X = city.X,
+                    Y = city.Y,
+                    Population = city.Population,
+                    Founded = city.Founded,
+                    IsCapital = city.IsCapital,
+                    Buildings = city.Buildings,
+                    Coastal = city.Coastal,
+                    NearRiver = city.NearRiver,
+                    OnHighGround = city.OnHighGround,
+                    Happiness = city.Happiness,
+                    OriginalCivilizationId = city.OriginalCivilizationId
+                }).ToList(),
+                Relations = civ.DiplomaticRelations.Select(r => new RelationData
+                {
+                    OtherCivilizationId = r.Key,
+                    Status = r.Value.Status,
+                    Opinion = r.Value.Opinion,
+                    TrustLevel = r.Value.TrustLevel,
+                    YearsAtWar = r.Value.YearsAtWar,
+                    YearsAtPeace = r.Value.YearsAtPeace
+                }).ToList()
             }).ToList();
 
         // Save weather

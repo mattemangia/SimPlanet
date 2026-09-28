@@ -64,6 +64,8 @@ public class HeadlessSimulation
         _updateManager = null!;
         _mapOptions = null!;
 
+        ParseArguments(args);
+        CivilizationManager.LogChronicleToConsole = true;
         Initialize();
 
         Console.WriteLine("Initialization Complete.");
@@ -72,12 +74,14 @@ public class HeadlessSimulation
         Console.Out.Flush();
 
         // Define test phases
-        var phases = new[]
-        {
-            new { DurationYears = 100, Speed = 64.0f }, // Fast forward 100 years
-            new { DurationYears = 50, Speed = 32.0f },  // Slow down a bit
-            new { DurationYears = 10, Speed = 1.0f }    // Detailed observation
-        };
+        var phases = _years > 0
+            ? new[] { new { DurationYears = _years, Speed = 64.0f } }
+            : new[]
+            {
+                new { DurationYears = 100, Speed = 64.0f }, // Fast forward 100 years
+                new { DurationYears = 50, Speed = 32.0f },  // Slow down a bit
+                new { DurationYears = 10, Speed = 1.0f }    // Detailed observation
+            };
 
         foreach (var phase in phases)
         {
@@ -90,14 +94,44 @@ public class HeadlessSimulation
         Console.Out.Flush();
     }
 
+    // Command line options: --years N, --civs N, --size WxH, --seed N
+    private int _years = 0;
+    private int _civCount = 1;
+    private int _mapWidth = 512;
+    private int _mapHeight = 256;
+    private int _seed = 12345;
+    private bool _civOnly = false; // --civ-only: skip planetary physics to quickly test societies
+
+    private void ParseArguments(string[] args)
+    {
+        _civOnly = args.Contains("--civ-only");
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            switch (args[i])
+            {
+                case "--years": int.TryParse(args[i + 1], out _years); break;
+                case "--civs": int.TryParse(args[i + 1], out _civCount); break;
+                case "--seed": int.TryParse(args[i + 1], out _seed); break;
+                case "--size":
+                    var parts = args[i + 1].Split('x');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out int w) && int.TryParse(parts[1], out int h))
+                    {
+                        _mapWidth = w;
+                        _mapHeight = h;
+                    }
+                    break;
+            }
+        }
+    }
+
     private void Initialize()
     {
         // Initialize map generation options
         _mapOptions = new MapGenerationOptions
         {
-            Seed = 12345,
-            MapWidth = 512,  // Testing larger resolution as requested
-            MapHeight = 256,
+            Seed = _seed,
+            MapWidth = _mapWidth,
+            MapHeight = _mapHeight,
             LandRatio = 0.29f,
             MountainLevel = 0.6f,
             WaterLevel = 0.0f,
@@ -155,26 +189,31 @@ public class HeadlessSimulation
 
     private void SeedCivilization()
     {
-        Console.WriteLine("Attempting to seed a test civilization...");
+        Console.WriteLine($"Attempting to seed {_civCount} test civilization(s)...");
         Console.Out.Flush();
-        // Find a suitable land spot
-        for (int x = 0; x < _map.Width; x++)
+
+        // Find suitable land spots spread across the map
+        var random = new Random(_seed);
+        int created = 0;
+        for (int attempt = 0; attempt < 20000 && created < _civCount; attempt++)
         {
-            for (int y = 0; y < _map.Height; y++)
+            int x = random.Next(_map.Width);
+            int y = random.Next(_map.Height / 8, _map.Height * 7 / 8);
+            var cell = _map.Cells[x, y];
+            if (cell.IsLand && cell.Temperature > 5 && cell.Temperature < 32 && cell.Rainfall > 0.25f)
             {
-                var cell = _map.Cells[x, y];
-                if (cell.IsLand && cell.Temperature > 10 && cell.Temperature < 30 && cell.Rainfall > 0.3f)
+                if (_civilizationManager.TryCreateCivilizationAt(x, y, 0))
                 {
-                    if (_civilizationManager.TryCreateCivilizationAt(x, y, 0))
-                    {
-                        Console.WriteLine($"Civilization created at {x}, {y}");
-                        Console.Out.Flush();
-                        return;
-                    }
+                    Console.WriteLine($"Civilization created at {x}, {y}");
+                    created++;
                 }
             }
         }
-        Console.WriteLine("Could not find suitable location for civilization.");
+
+        if (created == 0)
+        {
+            Console.WriteLine("Could not find suitable location for civilization.");
+        }
         Console.Out.Flush();
     }
 
@@ -205,7 +244,20 @@ public class HeadlessSimulation
                 _timeAccumulator -= SecondsPerGameYear;
             }
 
-            _updateManager.Update(simDeltaTime, _year, _timeSpeed);
+            if (_civOnly)
+            {
+                _civilizationManager.Update(simDeltaTime, _year);
+                if (_year != _lastLifeYear)
+                {
+                    // Vegetation regrows once per year so hunting grounds recover
+                    _lastLifeYear = _year;
+                    RegrowVegetation();
+                }
+            }
+            else
+            {
+                _updateManager.Update(simDeltaTime, _year, _timeSpeed);
+            }
 
             // Check for NaNs
             if (float.IsNaN(_map.GlobalTemperature))
@@ -230,6 +282,27 @@ public class HeadlessSimulation
         sw.Stop();
         Console.WriteLine($"Phase finished in {sw.Elapsed.TotalSeconds:F2}s real time.");
         Console.Out.Flush();
+    }
+
+    private int _lastLifeYear = -1;
+
+    private void RegrowVegetation()
+    {
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var cell = _map.Cells[x, y];
+                if (cell.IsLand && cell.Rainfall > 0.2f && cell.Temperature > 0)
+                {
+                    cell.Biomass = Math.Min(1f, cell.Biomass + 0.02f * cell.Rainfall);
+                }
+                if (cell.CO2 > 0.5f)
+                {
+                    cell.CO2 *= 0.5f; // Stand-in for atmospheric mixing
+                }
+            }
+        }
     }
 
     private void ValidateParameters()
@@ -285,6 +358,20 @@ public class HeadlessSimulation
         for(int x=0; x<_map.Width; x++)
              for(int y=0; y<_map.Height; y++)
                  if(_map.Cells[x,y].LifeType != LifeForm.None) lifeCells++;
+
+        foreach (var civ in _civilizationManager.Civilizations)
+        {
+            int soldiers = _civilizationManager.GetArmies().Where(a => a.CivilizationId == civ.Id).Sum(a => a.Soldiers);
+            var types = string.Join(",", civ.Cities.GroupBy(c => c.Type).OrderBy(g => g.Key).Select(g => $"{g.Count()}{g.Key.ToString()[0]}"));
+            Console.WriteLine($"   {civ.Name,-24} pop {civ.Population,8:N0} | settlements {civ.Cities.Count,2} ({types}) | tech {civ.TechLevel,3} {civ.CivType,-12} | " +
+                              $"food {civ.Food,6:F0} (+{civ.FoodProduction:F0}/-{civ.FoodConsumption:F0}) gold {civ.Gold,6:F0} | land {civ.Territory.Count,4} | " +
+                              $"{(civ.AtWar ? "WAR" : "peace")} soldiers {soldiers} weary {civ.WarWeariness:F2} stab {civ.Stability:F2}");
+            var capital = civ.Capital;
+            if (capital != null)
+            {
+                Console.WriteLine($"      capital {capital.Name}: pop {capital.Population} cap {capital.Capacity} worked {capital.WorkedCells} food {capital.FoodProduction:F1} happy {capital.Happiness:F2} buildings [{capital.Buildings}]");
+            }
+        }
 
         Console.WriteLine($"Year: {_year} | Speed: {_timeSpeed}x | " +
                           $"Temp: {_map.GlobalTemperature:F1}C | O2: {_map.GlobalOxygen:F1}% | CO2: {_map.GlobalCO2:F2}% | " +

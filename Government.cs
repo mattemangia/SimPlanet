@@ -137,14 +137,14 @@ public class Government
     /// </summary>
     public bool ShouldCollapse(Random random)
     {
-        // Low stability increases revolution chance
-        float collapseChance = (1.0f - Stability) * 0.1f;
+        // Evaluated once per game year: only genuinely unstable regimes fall
+        float collapseChance = Math.Max(0f, 0.35f - Stability) * 0.2f;
 
         // High corruption increases instability
-        collapseChance += Corruption * 0.05f;
+        collapseChance += Corruption * 0.01f;
 
         // Low legitimacy increases revolution
-        collapseChance += (1.0f - Legitimacy) * 0.08f;
+        collapseChance += Math.Max(0f, 0.5f - Legitimacy) * 0.05f;
 
         return random.NextDouble() < collapseChance;
     }
