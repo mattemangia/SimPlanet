@@ -72,13 +72,8 @@ public class MapOptionsUI
             return false;
         }
 
-        int panelX = 300;
-        int panelY = 50;
-        int panelWidth = 680;
-        int panelHeight = 660;
-
-        // Update UI elements positions
-        UpdateUIElements(panelX, panelY, panelWidth, options);
+        // Update UI elements positions (shared with Draw)
+        ComputeLayout(options);
 
         // Handle seed text input
         var keyState = Keyboard.GetState();
@@ -89,11 +84,10 @@ public class MapOptionsUI
         _previousKeyState = keyState;
 
         // Handle close button
-        Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
         if (mouseState.LeftButton == ButtonState.Released &&
             _previousMouseState.LeftButton == ButtonState.Pressed)
         {
-            if (closeButtonBounds.Contains(mouseState.Position))
+            if (_closeRect.Contains(mouseState.Position))
             {
                 IsVisible = false;
                 closeButtonClicked = true;
@@ -103,11 +97,23 @@ public class MapOptionsUI
         // Handle slider dragging
         if (mouseState.LeftButton == ButtonState.Pressed)
         {
+            // Only start a drag on a fresh press, then keep dragging that slider
+            if (_activeSlider == null && _previousMouseState.LeftButton == ButtonState.Released)
+            {
+                foreach (var slider in _sliders)
+                {
+                    if (slider.Bounds.Contains(mouseState.Position))
+                    {
+                        _activeSlider = slider.Name;
+                        break;
+                    }
+                }
+            }
+
             foreach (var slider in _sliders)
             {
-                if (_activeSlider == slider.Name || slider.Bounds.Contains(mouseState.Position))
+                if (_activeSlider == slider.Name)
                 {
-                    _activeSlider = slider.Name;
                     float newValue = (mouseState.X - slider.Bounds.X) / (float)slider.Bounds.Width;
                     newValue = Math.Clamp(newValue, 0f, 1f);
 
@@ -138,21 +144,14 @@ public class MapOptionsUI
                 }
             }
 
-            // Handle seed control buttons
-            int seedY = panelY + panelHeight - 60;
-            Rectangle seedInputBox = new Rectangle(panelX + 80, seedY - 2, 110, 20);
-            Rectangle decreaseSeedBtn = new Rectangle(panelX + 195, seedY - 2, 30, 20);
-            Rectangle increaseSeedBtn = new Rectangle(panelX + 230, seedY - 2, 30, 20);
-            Rectangle randomSeedBtn = new Rectangle(panelX + 265, seedY - 2, 80, 20);
-
             // Check if clicking on seed input box
-            if (seedInputBox.Contains(mouseState.Position))
+            if (_seedBox.Contains(mouseState.Position))
             {
                 _seedInputActive = true;
                 _seedInputText = options.Seed.ToString();
             }
             // Check if clicking outside to deactivate
-            else if (!seedInputBox.Contains(mouseState.Position))
+            else
             {
                 if (_seedInputActive)
                 {
@@ -166,19 +165,19 @@ public class MapOptionsUI
                 _seedInputActive = false;
             }
 
-            if (decreaseSeedBtn.Contains(mouseState.Position))
+            if (_seedMinus.Contains(mouseState.Position))
             {
                 options.Seed = Math.Max(0, options.Seed - 1);
                 NeedsPreviewUpdate = true;
                 _seedInputActive = false;
             }
-            else if (increaseSeedBtn.Contains(mouseState.Position))
+            else if (_seedPlus.Contains(mouseState.Position))
             {
                 options.Seed++;
                 NeedsPreviewUpdate = true;
                 _seedInputActive = false;
             }
-            else if (randomSeedBtn.Contains(mouseState.Position))
+            else if (_seedRandom.Contains(mouseState.Position))
             {
                 options.Seed = new Random().Next();
                 NeedsPreviewUpdate = true;
@@ -190,87 +189,86 @@ public class MapOptionsUI
         return closeButtonClicked;
     }
 
-    private void UpdateUIElements(int panelX, int panelY, int panelWidth, MapGenerationOptions options)
+    // Layout rectangles (computed once per frame, used by Update and Draw)
+    private Rectangle _panelRect, _closeRect, _previewRect, _seedBox, _seedMinus, _seedPlus, _seedRandom;
+    private int _sizeLabelY, _presetLabelY, _shapeLabelY, _seedLabelY;
+    private const int PanelWidth = 920;
+    private const int PanelHeight = 548;
+
+    private void ComputeLayout(MapGenerationOptions options)
     {
         _buttons.Clear();
         _sliders.Clear();
 
-        int buttonY = panelY + 250;
-        int buttonWidth = 150;
-        int buttonHeight = 35;
-        int buttonSpacing = 10;
+        var vp = _graphicsDevice.Viewport;
+        int panelX = Math.Max(10, (vp.Width - PanelWidth) / 2);
+        int panelY = Math.Max(10, (vp.Height - PanelHeight) / 2);
+        _panelRect = new Rectangle(panelX, panelY, PanelWidth, PanelHeight);
+        _closeRect = new Rectangle(panelX + PanelWidth - 32, panelY + 10, 22, 22);
 
-        // Map Size Buttons
-        int sizeButtonWidth = (panelWidth - 40 - (buttonSpacing * 3)) / 4;
-        int startX = panelX + 20;
+        // ---- Left column: preview, size and presets ----
+        int leftX = panelX + 20;
+        int leftW = 440;
+        _previewRect = new Rectangle(leftX, panelY + 58, leftW, leftW / 2);
 
-        // Small
-        _buttons.Add(new UIButton("Small\n128x64", new Rectangle(startX, buttonY, sizeButtonWidth, buttonHeight),
-            options.MapWidth == 128 ? new Color(100, 200, 100) : new Color(80, 80, 80),
-            (opt) => { opt.MapWidth = 128; opt.MapHeight = 64; }));
+        _sizeLabelY = _previewRect.Bottom + 14;
+        int sizeY = _sizeLabelY + 20;
+        int spacing = 8;
+        int sizeW = (leftW - spacing * 3) / 4;
+        var sizes = new (string Label, int W, int H)[] { ("Small", 128, 64), ("Standard", 240, 120), ("Large", 512, 256), ("Huge", 1024, 512) };
+        for (int i = 0; i < sizes.Length; i++)
+        {
+            var sz = sizes[i];
+            _buttons.Add(new UIButton(sz.Label, new Rectangle(leftX + i * (sizeW + spacing), sizeY, sizeW, 44),
+                UITheme.Accent, (opt) => { opt.MapWidth = sz.W; opt.MapHeight = sz.H; })
+            {
+                Label = $"{sz.Label}\n{sz.W} x {sz.H}",
+                Selected = options.MapWidth == sz.W
+            });
+        }
 
-        // Standard
-        _buttons.Add(new UIButton("Standard\n240x120", new Rectangle(startX + sizeButtonWidth + buttonSpacing, buttonY, sizeButtonWidth, buttonHeight),
-            options.MapWidth == 240 ? new Color(100, 200, 100) : new Color(80, 80, 80),
-            (opt) => { opt.MapWidth = 240; opt.MapHeight = 120; }));
+        _presetLabelY = sizeY + 44 + 14;
+        int presetY = _presetLabelY + 20;
+        var presets = new (string Name, Color Color, Action<MapGenerationOptions> Apply)[]
+        {
+            ("Earth", new Color(70, 160, 255), ApplyEarthPreset),
+            ("Mars", new Color(220, 110, 60), ApplyMarsPreset),
+            ("Water World", new Color(60, 120, 220), ApplyWaterWorldPreset),
+            ("Desert", new Color(225, 185, 100), ApplyDesertWorldPreset)
+        };
+        for (int i = 0; i < presets.Length; i++)
+        {
+            var pr = presets[i];
+            _buttons.Add(new UIButton(pr.Name, new Rectangle(leftX + i * (sizeW + spacing), presetY, sizeW, 36), pr.Color, pr.Apply));
+        }
 
-        // Large
-        _buttons.Add(new UIButton("Large\n512x256", new Rectangle(startX + (sizeButtonWidth + buttonSpacing) * 2, buttonY, sizeButtonWidth, buttonHeight),
-            options.MapWidth == 512 ? new Color(100, 200, 100) : new Color(80, 80, 80),
-            (opt) => { opt.MapWidth = 512; opt.MapHeight = 256; }));
+        // ---- Right column: shape sliders, seed and actions ----
+        int rightX = panelX + 490;
+        int rightW = PanelWidth - 490 - 24;
+        _shapeLabelY = panelY + 58;
+        int sliderY = _shapeLabelY + 24;
+        foreach (var name in new[] { "LandRatio", "MountainLevel", "WaterLevel", "Persistence", "Lacunarity" })
+        {
+            // Bounds cover the label row and the track so the whole row is easy to grab
+            _sliders.Add(new UISlider(name, new Rectangle(rightX, sliderY + 20, rightW, 18)));
+            sliderY += 50;
+        }
 
-        // Huge
-        _buttons.Add(new UIButton("Huge\n1024x512", new Rectangle(startX + (sizeButtonWidth + buttonSpacing) * 3, buttonY, sizeButtonWidth, buttonHeight),
-            options.MapWidth == 1024 ? new Color(100, 200, 100) : new Color(80, 80, 80),
-            (opt) => { opt.MapWidth = 1024; opt.MapHeight = 512; }));
+        _seedLabelY = sliderY + 4;
+        int seedY = _seedLabelY + 20;
+        _seedBox = new Rectangle(rightX, seedY, 150, 32);
+        _seedMinus = new Rectangle(_seedBox.Right + 8, seedY, 32, 32);
+        _seedPlus = new Rectangle(_seedMinus.Right + 6, seedY, 32, 32);
+        _seedRandom = new Rectangle(_seedPlus.Right + 8, seedY, rightX + rightW - (_seedPlus.Right + 8), 32);
 
-
-        // Preset buttons
-        buttonY += buttonHeight + 15;
-        startX = panelX + (panelWidth - (buttonWidth * 4 + buttonSpacing * 3)) / 2;
-
-        _buttons.Add(new UIButton("Earth", new Rectangle(startX, buttonY, buttonWidth, buttonHeight),
-            new Color(50, 150, 255), (opt) => ApplyEarthPreset(opt)));
-
-        _buttons.Add(new UIButton("Mars", new Rectangle(startX + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight),
-            new Color(200, 100, 50), (opt) => ApplyMarsPreset(opt)));
-
-        _buttons.Add(new UIButton("Water World", new Rectangle(startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight),
-            new Color(50, 100, 200), (opt) => ApplyWaterWorldPreset(opt)));
-
-        _buttons.Add(new UIButton("Desert", new Rectangle(startX + (buttonWidth + buttonSpacing) * 3, buttonY, buttonWidth, buttonHeight),
-            new Color(220, 180, 100), (opt) => ApplyDesertWorldPreset(opt)));
-
-        // Action buttons
-        buttonY += buttonHeight + 15;
-        int actionButtonWidth = (panelWidth - 60) / 2;
-
-        _buttons.Add(new UIButton("Randomize Seed", new Rectangle(panelX + 20, buttonY, actionButtonWidth, buttonHeight),
-            new Color(150, 100, 200), (opt) => opt.Seed = new Random().Next()));
-
-        _buttons.Add(new UIButton("Generate", new Rectangle(panelX + panelWidth - actionButtonWidth - 20, buttonY, actionButtonWidth, buttonHeight),
-            new Color(50, 200, 50), (opt) => { }));
-
-        // Sliders
-        int sliderY = buttonY + buttonHeight + 25;
-        int sliderX = panelX + 200;
-        int sliderWidth = panelWidth - 250;
-        int sliderHeight = 20;
-        int sliderSpacing = 35;
-
-        _sliders.Add(new UISlider("LandRatio", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
-        sliderY += sliderSpacing;
-
-        _sliders.Add(new UISlider("MountainLevel", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
-        sliderY += sliderSpacing;
-
-        _sliders.Add(new UISlider("WaterLevel", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
-        sliderY += sliderSpacing;
-
-        _sliders.Add(new UISlider("Persistence", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
-        sliderY += sliderSpacing;
-
-        _sliders.Add(new UISlider("Lacunarity", new Rectangle(sliderX, sliderY, sliderWidth, sliderHeight)));
+        // Actions (bottom right)
+        int actionY = panelY + PanelHeight - 64;
+        int generateW = 230;
+        _buttons.Add(new UIButton("Generate", new Rectangle(rightX + rightW - generateW, actionY, generateW, 44),
+            UITheme.Good, (opt) => { })
+        { Label = "Generate World", Primary = true });
+        _buttons.Add(new UIButton("Randomize Seed", new Rectangle(rightX, actionY, rightW - generateW - 10, 44),
+            new Color(170, 120, 230), (opt) => opt.Seed = new Random().Next()));
     }
 
     private void ApplySliderValue(string sliderName, float normalizedValue, MapGenerationOptions options)
@@ -373,178 +371,155 @@ public class MapOptionsUI
     private Color GetPreviewColor(TerrainCell cell)
     {
         if (cell.IsIce)
-            return new Color(240, 250, 255);
+            return new Color(236, 244, 250);
 
         if (cell.IsWater)
         {
-            if (cell.Elevation < -0.5f)
-                return new Color(10, 50, 120); // Deep ocean
-            else
-                return new Color(50, 100, 180); // Shallow water
+            // Same bathymetry palette as the main map
+            float d = Math.Clamp(-cell.Elevation, 0f, 1f);
+            return d < 0.12f ? Color.Lerp(new Color(52, 160, 200), new Color(28, 110, 174), d / 0.12f)
+                 : d < 0.45f ? Color.Lerp(new Color(28, 110, 174), new Color(14, 54, 120), (d - 0.12f) / 0.33f)
+                 : Color.Lerp(new Color(14, 54, 120), new Color(6, 24, 68), Math.Min(1f, (d - 0.45f) / 0.5f));
         }
 
-        if (cell.Elevation > 0.7f)
-            return new Color(140, 130, 120); // Mountains
-        if (cell.Elevation > 0.4f)
-            return new Color(100, 150, 80); // Hills
-        if (cell.IsDesert)
-            return new Color(230, 200, 140); // Desert
-
-        return new Color(80, 140, 60); // Grassland/forest
+        float e = Math.Clamp(cell.Elevation, 0f, 1f);
+        if (cell.IsDesert && e < 0.6f)
+            return Color.Lerp(new Color(226, 200, 140), new Color(190, 150, 100), e / 0.6f);
+        if (e < 0.08f) return new Color(214, 200, 150);                                  // coast
+        if (e < 0.45f) return Color.Lerp(new Color(86, 150, 64), new Color(58, 110, 46), (e - 0.08f) / 0.37f);
+        if (e < 0.7f) return Color.Lerp(new Color(120, 120, 80), new Color(130, 110, 90), (e - 0.45f) / 0.25f);
+        return Color.Lerp(new Color(140, 132, 124), new Color(235, 235, 240), (e - 0.7f) / 0.3f);
     }
 
     public void Draw(MapGenerationOptions options)
     {
         if (!IsVisible) return;
 
-        int panelX = 300;
-        int panelY = 50;
-        int panelWidth = 680;
-        int panelHeight = 660;
-
-        // Draw background with gradient
-        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(20, 20, 40, 250));
-        DrawRectangle(panelX, panelY, panelWidth, 4, new Color(100, 150, 255, 255)); // Top border
-        DrawRectangle(panelX, panelY + panelHeight - 4, panelWidth, 4, new Color(100, 150, 255, 255)); // Bottom border
-
-        // Draw close button (X)
-        Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
+        ComputeLayout(options);
         var mousePos = Mouse.GetState().Position;
-        Color closeColor = closeButtonBounds.Contains(mousePos) ? new Color(255, 50, 50) : new Color(180, 0, 0, 200);
-        DrawRectangle(closeButtonBounds.X, closeButtonBounds.Y, closeButtonBounds.Width, closeButtonBounds.Height, closeColor);
-        _font.DrawString(_spriteBatch, "X", new Vector2(closeButtonBounds.X + 7, closeButtonBounds.Y + 3), Color.White, 16);
 
-        // Title
-        _font.DrawString(_spriteBatch, "WORLD GENERATOR", new Vector2(panelX + 230, panelY + 15), Color.Yellow, 20);
+        _spriteBatch.End();
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
 
-        // Draw preview
-        int previewWidth = 500;
-        int previewHeight = 200;
-        int previewX = panelX + (panelWidth - previewWidth) / 2;
-        int previewY = panelY + 45;
+        // Dim whatever is behind the dialog
+        var vp = _graphicsDevice.Viewport;
+        DrawRectangle(0, 0, vp.Width, vp.Height, new Color(4, 6, 12) * 0.55f);
 
+        UITheme.DrawTitledPanel(_spriteBatch, _panelRect, "WORLD GENERATOR", UITheme.Gold, 44);
+
+        // Close button (X)
+        bool hoverClose = _closeRect.Contains(mousePos);
+        UITheme.FillRounded(_spriteBatch, _closeRect, hoverClose ? new Color(200, 60, 60) : new Color(60, 70, 92));
+        var cc = _closeRect.Center.ToVector2();
+        UITheme.DrawLine(_spriteBatch, cc + new Vector2(-5, -5), cc + new Vector2(5, 5), Color.White, 1.8f);
+        UITheme.DrawLine(_spriteBatch, cc + new Vector2(-5, 5), cc + new Vector2(5, -5), Color.White, 1.8f);
+
+        // Preview
+        UITheme.FillRounded(_spriteBatch, new Rectangle(_previewRect.X - 3, _previewRect.Y - 3, _previewRect.Width + 6, _previewRect.Height + 6), new Color(4, 8, 16));
         if (_previewTexture != null)
         {
-            _spriteBatch.Draw(_previewTexture,
-                new Rectangle(previewX, previewY, previewWidth, previewHeight),
-                Color.White);
+            _spriteBatch.Draw(_previewTexture, _previewRect, Color.White);
         }
         else
         {
-            // Show loading text
-            DrawRectangle(previewX, previewY, previewWidth, previewHeight, new Color(30, 30, 50));
-            _font.DrawString(_spriteBatch, "Generating Preview...",
-                new Vector2(previewX + 160, previewY + 90), Color.Gray, 18);
+            DrawRectangle(_previewRect.X, _previewRect.Y, _previewRect.Width, _previewRect.Height, new Color(20, 28, 44));
+            UITheme.DrawTextCentered(_spriteBatch, "Generating preview...", _previewRect, UITheme.TextDim, UITheme.FontMedium);
         }
+        UITheme.OutlineRounded(_spriteBatch, new Rectangle(_previewRect.X - 3, _previewRect.Y - 3, _previewRect.Width + 6, _previewRect.Height + 6), UITheme.BorderBright);
+        // Caption over the preview
+        string caption = $"Seed {options.Seed}   {options.MapWidth} x {options.MapHeight}";
+        var capSize = UITheme.Measure(caption, UITheme.FontSmall);
+        var capRect = new Rectangle(_previewRect.X + 6, _previewRect.Bottom - (int)capSize.Y - 10, (int)capSize.X + 14, (int)capSize.Y + 6);
+        UITheme.FillRounded(_spriteBatch, capRect, new Color(0, 0, 0) * 0.6f);
+        UITheme.DrawText(_spriteBatch, caption, new Vector2(capRect.X + 7, capRect.Y + 3), UITheme.Text, UITheme.FontSmall);
 
-        // Preview border
-        DrawRectangleBorder(previewX - 2, previewY - 2, previewWidth + 4, previewHeight + 4, Color.White, 2);
+        void SectionLabel(string text, int x, int y) => UITheme.DrawText(_spriteBatch, text, new Vector2(x, y), UITheme.Accent, 12f);
+        SectionLabel("MAP SIZE", _previewRect.X, _sizeLabelY);
+        SectionLabel("PRESETS", _previewRect.X, _presetLabelY);
+        int rightX = _sliders.Count > 0 ? _sliders[0].Bounds.X : _panelRect.X + 490;
+        SectionLabel("TERRAIN SHAPE", rightX, _shapeLabelY);
+        SectionLabel("SEED", rightX, _seedLabelY);
 
-        // Draw preset buttons
+        // Buttons
         foreach (var button in _buttons)
         {
             bool hover = button.Bounds.Contains(mousePos);
-            Color bgColor = hover ? Color.Lerp(button.Color, Color.White, 0.3f) : button.Color;
+            if (button.Primary)
+            {
+                var r = button.Bounds;
+                UITheme.FillRounded(_spriteBatch, r, hover ? new Color(60, 170, 90) : new Color(44, 140, 72));
+                UITheme.FillGradient(_spriteBatch, new Rectangle(r.X + 1, r.Y + 1, r.Width - 2, r.Height / 2), Color.White * 0.12f);
+                UITheme.OutlineRounded(_spriteBatch, r, new Color(140, 240, 160));
+                UITheme.DrawTextCentered(_spriteBatch, button.Label, r, Color.White, UITheme.FontMedium + 1);
+                continue;
+            }
 
-            DrawRectangle(button.Bounds.X, button.Bounds.Y, button.Bounds.Width, button.Bounds.Height, bgColor);
-            DrawRectangleBorder(button.Bounds.X, button.Bounds.Y, button.Bounds.Width, button.Bounds.Height, Color.White, 2);
-
-            var textSize = _font.MeasureString(button.Name, 16);
-            float textX = button.Bounds.X + (button.Bounds.Width - textSize.X) / 2;
-            float textY = button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2;
-            _font.DrawString(_spriteBatch, button.Name, new Vector2(textX, textY), Color.White, 16);
+            UITheme.DrawButton(_spriteBatch, button.Bounds, button.Label, hover, button.Selected, button.Color, UITheme.FontNormal);
+            // Colour key along the bottom edge (presets / selected size)
+            _spriteBatch.Draw(_pixelTexture, new Rectangle(button.Bounds.X + 8, button.Bounds.Bottom - 3, button.Bounds.Width - 16, 2),
+                button.Color * (hover || button.Selected ? 1f : 0.55f));
         }
 
-        // Draw sliders
-        int labelX = panelX + 20;
+        // Sliders
         foreach (var slider in _sliders)
         {
             float value = GetSliderValue(slider.Name, options);
 
-            // Label
-            string label = slider.Name switch
+            (string label, string valueText, Color color) = slider.Name switch
             {
-                "LandRatio" => $"Land Ratio: {value:P0}",
-                "MountainLevel" => $"Mountains: {value:P0}",
-                "WaterLevel" => $"Water: {(value * 2f - 1f):F2}",
-                "Persistence" => $"Smoothness: {value:F2}",
-                "Lacunarity" => $"Detail: {(1f + value * 3f):F2}",
-                _ => slider.Name
+                "LandRatio" => ("Land coverage", $"{value:P0}", new Color(120, 220, 120)),
+                "MountainLevel" => ("Mountains", $"{value:P0}", new Color(230, 160, 80)),
+                "WaterLevel" => ("Sea level", $"{(value * 2f - 1f):+0.00;-0.00;0.00}", new Color(100, 180, 255)),
+                "Persistence" => ("Roughness", $"{value:F2}", new Color(210, 130, 230)),
+                "Lacunarity" => ("Detail", $"{(1f + value * 3f):F2}", new Color(250, 220, 90)),
+                _ => (slider.Name, $"{value:F2}", Color.White)
             };
 
-            Color labelColor = slider.Name switch
-            {
-                "LandRatio" => Color.LightGreen,
-                "MountainLevel" => Color.Orange,
-                "WaterLevel" => Color.LightBlue,
-                "Persistence" => Color.Magenta,
-                "Lacunarity" => Color.Yellow,
-                _ => Color.White
-            };
+            int labelY = slider.Bounds.Y - 20;
+            UITheme.DrawText(_spriteBatch, label, new Vector2(slider.Bounds.X, labelY), UITheme.Text, UITheme.FontNormal);
+            var vs = UITheme.Measure(valueText, UITheme.FontNormal);
+            UITheme.DrawText(_spriteBatch, valueText, new Vector2(slider.Bounds.Right - vs.X, labelY), color, UITheme.FontNormal);
 
-            _font.DrawString(_spriteBatch, label, new Vector2(labelX, slider.Bounds.Y), labelColor, 14);
+            var track = new Rectangle(slider.Bounds.X, slider.Bounds.Y + 6, slider.Bounds.Width, 6);
+            UITheme.FillRounded(_spriteBatch, new Rectangle(track.X, track.Y - 1, track.Width, track.Height + 2), new Color(0, 0, 0, 150));
+            int fillWidth = (int)(track.Width * value);
+            if (fillWidth > 0)
+                DrawRectangle(track.X, track.Y, fillWidth, track.Height, color * 0.9f);
 
-            // Slider background
-            DrawRectangle(slider.Bounds.X, slider.Bounds.Y, slider.Bounds.Width, slider.Bounds.Height, new Color(40, 40, 40, 200));
-
-            // Slider fill
-            int fillWidth = (int)(slider.Bounds.Width * value);
-            DrawRectangle(slider.Bounds.X, slider.Bounds.Y, fillWidth, slider.Bounds.Height, labelColor);
-
-            // Slider border
-            DrawRectangleBorder(slider.Bounds.X, slider.Bounds.Y, slider.Bounds.Width, slider.Bounds.Height, Color.White, 1);
-
-            // Slider handle
-            int handleX = slider.Bounds.X + fillWidth - 5;
-            DrawRectangle(handleX, slider.Bounds.Y - 2, 10, slider.Bounds.Height + 4, Color.White);
+            bool active = _activeSlider == slider.Name || slider.Bounds.Contains(mousePos);
+            var handle = new Vector2(track.X + fillWidth, track.Y + track.Height / 2f);
+            UITheme.DrawGlow(_spriteBatch, handle, active ? 14 : 10, color * 0.35f);
+            UITheme.FillRounded(_spriteBatch, new Rectangle((int)handle.X - 7, (int)handle.Y - 7, 14, 14), Color.White);
+            UITheme.FillRounded(_spriteBatch, new Rectangle((int)handle.X - 4, (int)handle.Y - 4, 8, 8), color);
         }
 
-        // Seed controls
-        int seedY = panelY + panelHeight - 60;
-        _font.DrawString(_spriteBatch, "Seed:", new Vector2(panelX + 20, seedY), Color.Cyan, 14);
-
-        // Seed input box
-        Rectangle seedInputBox = new Rectangle(panelX + 80, seedY - 2, 110, 20);
-        Color inputBgColor = _seedInputActive ? new Color(80, 80, 120) : new Color(40, 40, 60);
-        Color inputBorderColor = _seedInputActive ? new Color(150, 200, 255) : Color.White;
-        DrawRectangle(seedInputBox.X, seedInputBox.Y, seedInputBox.Width, seedInputBox.Height, inputBgColor);
-        DrawRectangleBorder(seedInputBox.X, seedInputBox.Y, seedInputBox.Width, seedInputBox.Height, inputBorderColor, _seedInputActive ? 2 : 1);
-
-        // Draw seed text (either editing or current value)
+        // Seed input
+        Color inputBg = _seedInputActive ? new Color(40, 56, 88) : new Color(10, 14, 24);
+        UITheme.FillRounded(_spriteBatch, _seedBox, inputBg);
+        UITheme.OutlineRounded(_spriteBatch, _seedBox, _seedInputActive ? UITheme.Accent : UITheme.Border);
         string seedText = _seedInputActive ? _seedInputText : options.Seed.ToString();
-        _font.DrawString(_spriteBatch, seedText, new Vector2(seedInputBox.X + 4, seedInputBox.Y + 2), Color.White, 12);
-
-        // Draw cursor if active
+        var st = UITheme.Measure(seedText.Length > 0 ? seedText : "0", UITheme.FontMedium);
+        UITheme.DrawText(_spriteBatch, seedText, new Vector2(_seedBox.X + 10, _seedBox.Y + (_seedBox.Height - st.Y) / 2f), Color.White, UITheme.FontMedium);
         if (_seedInputActive && (DateTime.Now.Millisecond / 500) % 2 == 0)
         {
-            var textSize = _font.MeasureString(seedText, 12);
-            DrawRectangle((int)(seedInputBox.X + 4 + textSize.X), seedInputBox.Y + 3, 2, 14, Color.White);
+            var textSize = UITheme.Measure(seedText, UITheme.FontMedium);
+            DrawRectangle((int)(_seedBox.X + 11 + textSize.X), _seedBox.Y + 7, 2, _seedBox.Height - 14, Color.White);
+        }
+        if (!_seedInputActive && _seedBox.Contains(mousePos))
+        {
+            UITheme.DrawTooltip(_spriteBatch, "Click to type a seed", new Point(_seedBox.Center.X, _seedBox.Bottom), vp.Width, vp.Height);
         }
 
-        // Seed buttons
-        Rectangle decreaseSeedBtn = new Rectangle(panelX + 195, seedY - 2, 30, 20);
-        Rectangle increaseSeedBtn = new Rectangle(panelX + 230, seedY - 2, 30, 20);
-        Rectangle randomSeedBtn = new Rectangle(panelX + 265, seedY - 2, 80, 20);
+        UITheme.DrawButton(_spriteBatch, _seedMinus, "-", _seedMinus.Contains(mousePos), false, null, UITheme.FontMedium);
+        UITheme.DrawButton(_spriteBatch, _seedPlus, "+", _seedPlus.Contains(mousePos), false, null, UITheme.FontMedium);
+        UITheme.DrawButton(_spriteBatch, _seedRandom, "Random", _seedRandom.Contains(mousePos), false, null, UITheme.FontNormal);
 
-        // Draw seed buttons
-        DrawRectangle(decreaseSeedBtn.X, decreaseSeedBtn.Y, decreaseSeedBtn.Width, decreaseSeedBtn.Height,
-            decreaseSeedBtn.Contains(mousePos) ? new Color(100, 100, 150) : new Color(60, 60, 100));
-        DrawRectangleBorder(decreaseSeedBtn.X, decreaseSeedBtn.Y, decreaseSeedBtn.Width, decreaseSeedBtn.Height, Color.White, 1);
-        _font.DrawString(_spriteBatch, "-", new Vector2(decreaseSeedBtn.X + 10, decreaseSeedBtn.Y + 2), Color.White, 14);
+        // Footer hint
+        UITheme.DrawText(_spriteBatch, "ESC: back   -   tip: presets set the sliders, then fine-tune",
+            new Vector2(_panelRect.X + 20, _panelRect.Bottom - 26), UITheme.TextMuted, UITheme.FontSmall);
 
-        DrawRectangle(increaseSeedBtn.X, increaseSeedBtn.Y, increaseSeedBtn.Width, increaseSeedBtn.Height,
-            increaseSeedBtn.Contains(mousePos) ? new Color(100, 100, 150) : new Color(60, 60, 100));
-        DrawRectangleBorder(increaseSeedBtn.X, increaseSeedBtn.Y, increaseSeedBtn.Width, increaseSeedBtn.Height, Color.White, 1);
-        _font.DrawString(_spriteBatch, "+", new Vector2(increaseSeedBtn.X + 9, increaseSeedBtn.Y + 2), Color.White, 14);
-
-        DrawRectangle(randomSeedBtn.X, randomSeedBtn.Y, randomSeedBtn.Width, randomSeedBtn.Height,
-            randomSeedBtn.Contains(mousePos) ? new Color(100, 150, 100) : new Color(60, 100, 60));
-        DrawRectangleBorder(randomSeedBtn.X, randomSeedBtn.Y, randomSeedBtn.Width, randomSeedBtn.Height, Color.White, 1);
-        _font.DrawString(_spriteBatch, "Random", new Vector2(randomSeedBtn.X + 10, randomSeedBtn.Y + 2), Color.White, 12);
-
-        // Instructions
-        string info = $"Size: {options.MapWidth}x{options.MapHeight}";
-        _font.DrawString(_spriteBatch, info, new Vector2(panelX + 20, panelY + panelHeight - 30), Color.Gray, 12);
+        _spriteBatch.End();
+        _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
     }
 
     private void DrawRectangle(int x, int y, int width, int height, Color color)
@@ -653,6 +628,9 @@ public class MapOptionsUI
     private class UIButton
     {
         public string Name { get; set; }
+        public string Label { get; set; }
+        public bool Selected { get; set; }
+        public bool Primary { get; set; }
         public Rectangle Bounds { get; set; }
         public Color Color { get; set; }
         public Action<MapGenerationOptions> OnClick { get; set; }
@@ -660,6 +638,7 @@ public class MapOptionsUI
         public UIButton(string name, Rectangle bounds, Color color, Action<MapGenerationOptions> onClick)
         {
             Name = name;
+            Label = name;
             Bounds = bounds;
             Color = color;
             OnClick = onClick;

@@ -88,6 +88,9 @@ public sealed partial class CivRenderData
 
     public static readonly CivRenderData Empty = new CivRenderData();
 
+    /// <summary>Most recent snapshot taken by the renderer (for UI panels).</summary>
+    public static CivRenderData Latest { get; private set; } = Empty;
+
     public List<CivInfo> Civs { get; } = new();
     public List<CityInfo> Cities { get; } = new();
     public List<ArmyInfo> Armies { get; } = new();
@@ -222,6 +225,7 @@ public sealed partial class CivRenderData
         }
 
         AugmentSnapshot(data, manager);
+        Latest = data;
         return data;
     }
 

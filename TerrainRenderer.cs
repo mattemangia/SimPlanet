@@ -74,6 +74,13 @@ public class TerrainRenderer
     private bool _isDirty = true;
     public void MarkDirty() => _isDirty = true;
 
+    /// <summary>
+    /// True when the visible texture is stale enough (view mode changed, or no refresh for a
+    /// second) that the caller should wait briefly for the simulation lock instead of skipping.
+    /// </summary>
+    public bool NeedsUrgentUpdate => _isDirty &&
+        (_lastRenderedMode != Mode || (DateTime.Now - _lastTextureUpdate).TotalMilliseconds > 1000);
+
     // Camera controls
     public float CameraX { get; set; } = 0;
     public float CameraY { get; set; } = 0;
@@ -1964,7 +1971,7 @@ public class TerrainRenderer
         return new Color(80, 80, 80); // Unclaimed land
     }
 
-    private Color[] _civPalette = new[]
+    private static readonly Color[] _civPalette = new[]
     {
         new Color(65, 105, 225), // Royal Blue
         new Color(220, 20, 60),  // Crimson
@@ -1978,7 +1985,10 @@ public class TerrainRenderer
         new Color(128, 128, 128) // Gray
     };
 
-    private Color GetCivColor(int civId)
+    /// <summary>Colour used for a civilization on maps and in panels.</summary>
+    public static Color GetCivPaletteColor(int civId) => GetCivColor(civId);
+
+    private static Color GetCivColor(int civId)
     {
         return _civPalette[Math.Abs(civId - 1) % _civPalette.Length];
     }
@@ -1989,128 +1999,74 @@ public class TerrainRenderer
         if (Mode == RenderMode.Terrain || Mode == RenderMode.TerrainClean)
             return;
 
-        int legendWidth = 250; // Increased width for better spacing
         bool isGeologicalLegend = Mode == RenderMode.Geological;
-        var discreteEntries = GetDiscreteLegendEntries();
-        int legendHeight = isGeologicalLegend
-            ? 200
-            : (discreteEntries != null && discreteEntries.Count > 0)
-                ? Math.Min(320, 60 + discreteEntries.Count * 22)
-                : 200; // Increased height for more labels
-        // Position legend in bottom-right corner (empty space)
-        int legendX = screenWidth - legendWidth - 10;
-        int legendY = screenHeight - legendHeight - 10;
+        var discreteEntries = isGeologicalLegend ? GetGeologicalLegendEntries() : GetDiscreteLegendEntries();
+        bool discrete = discreteEntries != null && discreteEntries.Count > 0;
 
-        // Background
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(legendX, legendY, legendWidth, legendHeight),
-            new Color(0, 0, 0, 220)); // Darker background
+        const int rowH = 20;
+        int legendWidth = 250;
+        bool twoColumns = discrete && discreteEntries!.Count > 9;
+        if (twoColumns) legendWidth = 340;
+        int rows = discrete ? (twoColumns ? (discreteEntries!.Count + 1) / 2 : discreteEntries!.Count) : 0;
+        int legendHeight = discrete ? 44 + rows * rowH + 8 : 100;
+        if (isGeologicalLegend) legendHeight += 18;
 
-        // Border
-        DrawBorder(spriteBatch, legendX, legendY, legendWidth, legendHeight, Color.Gray, 1);
+        // Bottom-right corner, above the time control bar region
+        int legendX = screenWidth - legendWidth - 12;
+        int legendY = screenHeight - legendHeight - 12;
+        var rect = new Rectangle(legendX, legendY, legendWidth, legendHeight);
 
-        // Title
-        string title = GetLegendTitle();
-        font.DrawString(spriteBatch, title, new Vector2(legendX + 10, legendY + 10), Color.White, 16);
+        UITheme.DrawTitledPanel(spriteBatch, rect, GetLegendTitle(), UITheme.Accent, 30);
 
-        if (isGeologicalLegend)
+        if (discrete)
         {
-            DrawGeologicalLegend(spriteBatch, font, legendX, legendY);
+            int columnWidth = twoColumns ? (legendWidth - 24) / 2 : legendWidth - 24;
+            for (int i = 0; i < discreteEntries!.Count; i++)
+            {
+                int col = twoColumns && i >= rows ? 1 : 0;
+                int row = twoColumns && i >= rows ? i - rows : i;
+                int x = legendX + 12 + col * columnWidth;
+                int y = legendY + 40 + row * rowH;
+                var entry = discreteEntries[i];
+                var swatch = new Rectangle(x, y + 3, 14, 14);
+                spriteBatch.Draw(_pixelTexture, swatch, entry.Color);
+                UITheme.DrawRectOutline(spriteBatch, swatch, new Color(0, 0, 0, 160));
+                string label = UITheme.Ellipsize(entry.Label, columnWidth - 26, 12f);
+                UITheme.DrawText(spriteBatch, label, new Vector2(x + 20, y + 2), UITheme.Text, 12f);
+            }
+            if (isGeologicalLegend)
+            {
+                UITheme.DrawText(spriteBatch, "Dominant rock type per tile", new Vector2(legendX + 12, legendY + legendHeight - 22), UITheme.TextMuted, 11f);
+            }
             return;
         }
 
-        if (discreteEntries != null && discreteEntries.Count > 0)
-        {
-            DrawDiscreteLegend(spriteBatch, font, legendX, legendY, discreteEntries);
-            return;
-        }
-
-        // Draw color gradient and labels
-        int gradientX = legendX + 15;
-        int gradientY = legendY + 45;
-        int gradientWidth = legendWidth - 30;
-        int gradientHeight = 25; // Thicker gradient bar
+        // Continuous data: gradient bar and labels
+        int gradientX = legendX + 12;
+        int gradientY = legendY + 42;
+        int gradientWidth = legendWidth - 24;
+        int gradientHeight = 16;
 
         DrawGradientBar(spriteBatch, gradientX, gradientY, gradientWidth, gradientHeight);
 
-        // Labels with more detail
         var labels = GetLegendLabels();
-        int labelY = gradientY + gradientHeight + 10;
-
-        if (labels.Count >= 2)
+        int labelY = gradientY + gradientHeight + 8;
+        if (labels.Count >= 3)
         {
-            // Min, Max, and Mid labels for continuous data
-            font.DrawString(spriteBatch, labels[0], new Vector2(gradientX, labelY), Color.White, 12);
-            var midLabelSize = font.MeasureString(labels[1], 12);
-            font.DrawString(spriteBatch, labels[1], new Vector2(gradientX + (gradientWidth - midLabelSize.X) / 2, labelY), Color.White, 12);
-            var maxSize = font.MeasureString(labels[2], 12);
-            font.DrawString(spriteBatch, labels[2], new Vector2(gradientX + gradientWidth - maxSize.X, labelY), Color.White, 12);
+            UITheme.DrawText(spriteBatch, labels[0], new Vector2(gradientX, labelY), UITheme.TextDim, 12f);
+            var midLabelSize = UITheme.Measure(labels[1], 12f);
+            UITheme.DrawText(spriteBatch, labels[1], new Vector2(gradientX + (gradientWidth - midLabelSize.X) / 2, labelY), UITheme.TextDim, 12f);
+            var maxSize = UITheme.Measure(labels[2], 12f);
+            UITheme.DrawText(spriteBatch, labels[2], new Vector2(gradientX + gradientWidth - maxSize.X, labelY), UITheme.TextDim, 12f);
         }
     }
 
-    private void DrawGeologicalLegend(SpriteBatch spriteBatch, FontRenderer font, int legendX, int legendY)
+    private static List<(Color Color, string Label)> GetGeologicalLegendEntries() => new()
     {
-        int swatchX = legendX + 15;
-        int swatchY = legendY + 40;
-        int swatchSize = 24;
-
-        var entries = new (Color Color, string Label)[]
-        {
-            (new Color(75, 65, 65), "Volcanic (Basalt/Lava)"),
-            (new Color(180, 160, 120), "Sedimentary (Sandstone/Limestone)"),
-            (new Color(135, 135, 145), "Crystalline (Granite/Metamorphic)")
-        };
-
-        foreach (var entry in entries)
-        {
-            var swatchRect = new Rectangle(swatchX, swatchY, swatchSize, swatchSize);
-            spriteBatch.Draw(_pixelTexture, swatchRect, entry.Color);
-            DrawBorder(spriteBatch, swatchRect.X, swatchRect.Y, swatchRect.Width, swatchRect.Height, Color.White, 1);
-
-            font.DrawString(spriteBatch, entry.Label, new Vector2(swatchX + swatchSize + 10, swatchY + 4), Color.White, 11);
-
-            swatchY += swatchSize + 15;
-        }
-
-        // Small note tying colors to gameplay data
-        font.DrawString(
-            spriteBatch,
-            "Colors reflect dominant rock type per tile",
-            new Vector2(swatchX, swatchY + 5),
-            new Color(200, 200, 200),
-            9);
-    }
-
-    private void DrawDiscreteLegend(SpriteBatch spriteBatch, FontRenderer font, int legendX, int legendY,
-        List<(Color Color, string Label)> entries)
-    {
-        int swatchX = legendX + 15;
-        int swatchY = legendY + 40;
-        int swatchSize = 18;
-        int startY = swatchY;
-        int columnWidth = 140;
-        bool useTwoColumns = entries.Count > 8; // Auto-split if too many items (like Infrastructure)
-
-        for (int i = 0; i < entries.Count; i++)
-        {
-            var entry = entries[i];
-
-            // Handle column wrapping
-            if (useTwoColumns && i == (entries.Count + 1) / 2)
-            {
-                swatchX += columnWidth;
-                swatchY = startY;
-            }
-
-            var rect = new Rectangle(swatchX, swatchY, swatchSize, swatchSize);
-            spriteBatch.Draw(_pixelTexture, rect, entry.Color);
-            DrawBorder(spriteBatch, rect.X, rect.Y, rect.Width, rect.Height, Color.White, 1);
-
-            font.DrawString(spriteBatch, entry.Label, new Vector2(swatchX + swatchSize + 10, swatchY + 2), Color.White, 11);
-
-            swatchY += swatchSize + 8;
-        }
-    }
+        (new Color(75, 65, 65), "Volcanic (basalt, lava)"),
+        (new Color(180, 160, 120), "Sedimentary (sandstone)"),
+        (new Color(135, 135, 145), "Crystalline (granite)")
+    };
 
     private string GetLegendTitle()
     {
@@ -2275,7 +2231,7 @@ public class TerrainRenderer
         }
 
         // Border around gradient
-        DrawBorder(spriteBatch, x, y, width, height, Color.Gray, 1);
+        UITheme.DrawRectOutline(spriteBatch, new Rectangle(x, y, width, height), new Color(0, 0, 0, 170));
     }
 
     private Color GetGradientColor(float t)

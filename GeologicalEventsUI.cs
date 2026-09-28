@@ -785,47 +785,39 @@ public class GeologicalEventsUI
         if (!ShowEvents || _eventLog.Count == 0) return;
 
         int panelWidth = 340;
-        int panelHeight = 160;
+        int lineHeight = 21;
+        int panelHeight = 36 + _eventLog.Count * lineHeight + 8;
         int panelX = screenWidth - panelWidth - 10;
         int panelY = toolbarHeight + 10;
+        var panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
 
-        // Background
-        _spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX, panelY, panelWidth, panelHeight),
-            new Color(10, 15, 30, 230));
-
-        // Border
-        DrawRectangleOutline(panelX, panelY, panelWidth, panelHeight, new Color(255, 150, 50), 2);
-
-        // Header bar
-        _spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX, panelY, panelWidth, 28),
-            new Color(80, 40, 10, 220));
+        UITheme.DrawTitledPanel(_spriteBatch, panel, "RECENT EVENTS", UITheme.Warn, 30);
 
         _closeButtonRect = CalculateCloseButtonRect(screenWidth, toolbarHeight);
-        int closeSize = _closeButtonRect.Width;
+        DrawCloseButton(_closeButtonRect, _isHoveringClose);
 
-        Color closeColor = _isHoveringClose ? Color.Red : new Color(200, 50, 50);
-        _spriteBatch.Draw(_pixelTexture, _closeButtonRect, closeColor);
-        DrawRectangleOutline(_closeButtonRect.X, _closeButtonRect.Y, closeSize, closeSize, Color.White, 1);
-
-        // Draw X
-        int padding = 4;
-        // Using DrawLine approach via DrawTexture logic isn't available, so we just use small rects or font
-        _font.DrawString(_spriteBatch, "X", new Vector2(_closeButtonRect.X + 5, _closeButtonRect.Y + 2), Color.White);
-
-        // Title
-        _font.DrawString(_spriteBatch, "GEOLOGICAL EVENTS",
-            new Vector2(panelX + 70, panelY + 7), new Color(255, 200, 100), 15);
-
-        // Events
-        int textY = panelY + 35;
-        foreach (var eventText in _eventLog)
+        // Events, newest first, with a small severity marker
+        int textY = panelY + 38;
+        var entries = _eventLog.ToArray();
+        for (int i = entries.Length - 1; i >= 0; i--)
         {
-            _font.DrawString(_spriteBatch, eventText,
-                new Vector2(panelX + 10, textY), new Color(255, 255, 200), 13);
-            textY += 22;
+            string eventText = entries[i];
+            Color marker = eventText.Contains("Major") || eventText.Contains("M7") || eventText.Contains("M8") || eventText.Contains("M9")
+                ? UITheme.Bad : UITheme.Warn;
+            UITheme.FillRounded(_spriteBatch, new Rectangle(panelX + 12, textY + 5, 7, 7), marker);
+            string fitted = UITheme.Ellipsize(eventText, panelWidth - 40, 13);
+            UITheme.DrawText(_spriteBatch, fitted, new Vector2(panelX + 26, textY), i == entries.Length - 1 ? UITheme.Text : UITheme.TextDim, 13);
+            textY += lineHeight;
         }
+    }
+
+    private void DrawCloseButton(Rectangle rect, bool hovered)
+    {
+        UITheme.FillRounded(_spriteBatch, rect, hovered ? new Color(190, 60, 60) : new Color(60, 70, 92));
+        var c = rect.Center.ToVector2();
+        float r = rect.Width * 0.22f;
+        UITheme.DrawLine(_spriteBatch, c + new Vector2(-r, -r), c + new Vector2(r, r), Color.White, 1.6f);
+        UITheme.DrawLine(_spriteBatch, c + new Vector2(-r, r), c + new Vector2(r, -r), Color.White, 1.6f);
     }
 
     private static Rectangle CalculateCloseButtonRect(int screenWidth, int toolbarHeight)
@@ -835,7 +827,7 @@ public class GeologicalEventsUI
         int panelY = toolbarHeight + 10;
 
         int closeSize = 20;
-        return new Rectangle(panelX + panelWidth - closeSize - 4, panelY + 4, closeSize, closeSize);
+        return new Rectangle(panelX + panelWidth - closeSize - 6, panelY + 5, closeSize, closeSize);
     }
 
     public void DrawLegend(int screenHeight)

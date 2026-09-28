@@ -168,6 +168,7 @@ public class SimPlanetGame : Game
     private bool _isFastForwarding = false;
     private CancellationTokenSource _fastForwardCts;
     private SplashScreen? _splash;
+    private ChronicleUI? _chronicleUI;
 
     public SimPlanetGame()
     {
@@ -470,6 +471,9 @@ public class SimPlanetGame : Game
 
         // Create bottom controls
         _bottomControlUI = new BottomControlUI(this, GraphicsDevice, _font);
+
+        // World chronicle (history panel and event toasts)
+        _chronicleUI = new ChronicleUI(GraphicsDevice);
     }
 
     protected override void Update(GameTime gameTime)
@@ -617,6 +621,7 @@ public class SimPlanetGame : Game
             _toolbar.Update(mouseState);
             _ui.Update(gameTime, mouseState, _previousMouseState, _toolbar.ToolbarHeight);
             _bottomControlUI.Update(mouseState);
+            _chronicleUI?.Update(realDeltaTime, mouseState);
             _aboutDialog.Update(mouseState, _previousMouseState);
             
             // If about dialog is visible, block other input
@@ -658,7 +663,8 @@ public class SimPlanetGame : Game
             bool toolsActive = _plantingTool.IsActive || _disasterControlUI.IsVisible ||
                               _divinePowersUI.IsOpen || _diseaseControlUI.IsVisible ||
                               _planetaryControlsUI.IsVisible || _profileTool.IsActive ||
-                              _toolbar.IsCapturingMouse || _bottomControlUI.IsMouseOver;
+                              _toolbar.IsCapturingMouse || _bottomControlUI.IsMouseOver ||
+                              (_chronicleUI != null && _chronicleUI.IsMouseOver);
 
             _sedimentViewer!.Update(Mouse.GetState(), _terrainRenderer!.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
@@ -727,6 +733,11 @@ public class SimPlanetGame : Game
 
     private bool IsMapZoomBlockedByTool()
     {
+        if (_chronicleUI != null && _chronicleUI.IsMouseOver)
+        {
+            return true;
+        }
+
         if (_lifePainterUI != null && _lifePainterUI.IsVisible)
         {
             return true;
@@ -766,7 +777,8 @@ public class SimPlanetGame : Game
                               (_manualFaultTool != null && _manualFaultTool.IsActive) ||
                               (_profileTool != null && _profileTool.IsActive) ||
                               (_toolbar != null && _toolbar.IsCapturingMouse) ||
-                              (_bottomControlUI != null && _bottomControlUI.IsMouseOver);
+                              (_bottomControlUI != null && _bottomControlUI.IsMouseOver) ||
+                              (_chronicleUI != null && _chronicleUI.IsMouseOver);
 
         // Check if mouse is over the minimap (don't pan if it is)
         bool isOverMinimap = _minimap3D != null && _minimap3D.IsMouseOver(mouseState);
@@ -973,6 +985,12 @@ public class SimPlanetGame : Game
         if (keyState.IsKeyDown(Keys.E) && _previousKeyState.IsKeyUp(Keys.E))
         {
             ToggleGeologicalEvents();
+        }
+
+        // Toggle world chronicle (O)
+        if (keyState.IsKeyDown(Keys.O) && _previousKeyState.IsKeyUp(Keys.O))
+        {
+            ToggleChronicle();
         }
 
         // Control civilization (G key)
@@ -1481,7 +1499,8 @@ public class SimPlanetGame : Game
 
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
-        bool inGame = _mainMenu.CurrentScreen == GameScreen.InGame;
+        // The pause menu is drawn on top of the (frozen) world
+        bool inGame = _mainMenu.CurrentScreen == GameScreen.InGame || _mainMenu.CurrentScreen == GameScreen.PauseMenu;
 
         if (!inGame)
         {
@@ -1501,8 +1520,9 @@ public class SimPlanetGame : Game
             _terrainRenderer.Mode = _currentRenderMode;
 
             // Update terrain texture only when dirty (performance optimization)
-            // Avoid blocking the render thread if the simulation is writing map data
-            if (Monitor.TryEnter(_mapDataLock))
+            // Avoid blocking the render thread if the simulation is writing map data,
+            // but wait a little when the view is stale (e.g. right after a view mode change)
+            if (Monitor.TryEnter(_mapDataLock, _terrainRenderer.NeedsUrgentUpdate ? 60 : 0))
             {
                 try
                 {
@@ -1553,6 +1573,9 @@ public class SimPlanetGame : Game
 
         // Draw view mode legend
         _terrainRenderer.DrawLegend(_spriteBatch, _font, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // World chronicle toasts / panel (under the other panels)
+        _chronicleUI?.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height, toolbarHeight);
 
         // Draw UI with current zoom and overlay states (below toolbar)
         _ui.Draw(_gameState, _currentRenderMode, _terrainRenderer.ZoomLevel,
@@ -1937,6 +1960,11 @@ public class SimPlanetGame : Game
         {
             _gameState.TimeSpeed = Math.Max(_gameState.TimeSpeed / 2.0f, 0.25f);
         }
+    }
+
+    public void ToggleChronicle()
+    {
+        _chronicleUI?.Toggle();
     }
 
     public void ToggleHelp()

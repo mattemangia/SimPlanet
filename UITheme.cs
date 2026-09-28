@@ -134,6 +134,20 @@ public static class UITheme
         sb.Draw(_vGradient, rect, top);
     }
 
+    /// <summary>
+    /// Horizontal gradient. With <paramref name="fadeToRight"/> the colour is solid on the left and
+    /// transparent on the right; otherwise transparent on the left and solid on the right.
+    /// </summary>
+    public static void FillGradientHorizontal(SpriteBatch sb, Rectangle rect, Color color, bool fadeToRight = true)
+    {
+        // Rotate the vertical gradient texture by -90 degrees (top -> left) or +90 (top -> right)
+        float rotation = fadeToRight ? -MathF.PI / 2f : MathF.PI / 2f;
+        var origin = Vector2.Zero;
+        var pos = fadeToRight ? new Vector2(rect.X, rect.Bottom) : new Vector2(rect.Right, rect.Y);
+        var scale = new Vector2(rect.Height / 1f, rect.Width / 64f);
+        sb.Draw(_vGradient, pos, null, color, rotation, origin, scale, SpriteEffects.None, 0f);
+    }
+
     /// <summary>Soft round glow / blob centred on a point.</summary>
     public static void DrawGlow(SpriteBatch sb, Vector2 center, float radius, Color color)
     {

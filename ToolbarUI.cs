@@ -138,7 +138,8 @@ namespace SimPlanet
 
             // --- OVERLAYS & UI GROUP ---
             var uiGroup = CreateGroupButton("Overlays & UI", "Overlays", "Overlays", "");
-            AddSubButton(uiGroup, "Geological Log (E)", "UI", "Event Log", "E", () => game.ToggleGeologicalEvents());
+            AddSubButton(uiGroup, "Chronicle", "UI", "World Chronicle", "O", () => game.ToggleChronicle());
+            AddSubButton(uiGroup, "Geological Log (E)", "UI", "Geological Event Log", "E", () => game.ToggleGeologicalEvents());
             AddSubButton(uiGroup, "Graphs (Y)", "UI", "Graphs", "Y", () => game.ToggleGraphs());
             AddSubButton(uiGroup, "Minimap (P)", "UI", "3D Globe", "P", () => game.ToggleMinimap());
             AddSubButton(uiGroup, "Day/Night (C)", "UI", "Day / Night", "C", () => game.ToggleDayNight());
@@ -325,6 +326,7 @@ namespace SimPlanet
             else if (tooltip.Contains("Spectral")) DrawSpectralIcon(data, size);
             else if (tooltip.Contains("Auroras")) DrawAuroraIcon(data, size);
             else if (tooltip.Contains("Geological Log")) DrawGeologicalLogIcon(data, size);
+            else if (tooltip.Contains("Chronicle")) DrawChronicleIcon(data, size);
             // New Group Icons
             else if (tooltip.Contains("Weather Group")) DrawWeatherGroupIcon(data, size);
             else if (tooltip.Contains("Atmosphere Group")) DrawAtmosphereGroupIcon(data, size);
@@ -594,6 +596,12 @@ namespace SimPlanet
                     data[y * size + x] = white;
                 }
             }
+        }
+        private void DrawChronicleIcon(Color[] data, int size) {
+            Color parchment = new Color(230, 210, 160); Color ink = new Color(110, 80, 40);
+            for (int y = 4; y < size - 4; y++) for (int x = 6; x < size - 6; x++) data[y * size + x] = parchment;
+            for (int x = 4; x < size - 4; x++) { data[4 * size + x] = ink; data[(size - 5) * size + x] = ink; }
+            for (int y = 9; y < size - 8; y += 4) for (int x = 9; x < size - 9; x++) data[y * size + x] = ink;
         }
         private void DrawCircle(Color[] data, int size, int centerX, int centerY, int radius, Color color) {
             for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) { int dx = x - centerX; int dy = y - centerY; if (dx * dx + dy * dy <= radius * radius) data[y * size + x] = color; }
