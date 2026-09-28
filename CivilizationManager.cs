@@ -2307,6 +2307,41 @@ public class Civilization
 
     public City? Capital => Cities.FirstOrDefault(c => c.IsCapital) ?? Cities.FirstOrDefault();
 
+    // Homeland and people
+    public string Ethnicity { get; set; } = "";
+    public HomelandClimate Homeland { get; set; } = HomelandClimate.Temperate;
+    public float DevelopmentModifier { get; set; } = 1.0f; // Research/growth multiplier from geography
+
+    // Energy and networks
+    public Dictionary<EnergySource, float> EnergyMix { get; set; } = new(); // Share of production, sums to 1
+    public float EnergyProduction { get; set; }            // Arbitrary energy units per year
+    public float EnergyDemand { get; set; }
+    public float Electrification { get; set; }             // Share of settlements on the grid, 0-1
+    public float InternetPenetration { get; set; }         // 0-1
+    public List<(int x1, int y1, int x2, int y2)> PowerLines { get; set; } = new();
+    public List<(int x1, int y1, int x2, int y2)> DataCables { get; set; } = new(); // Backbone and undersea cables
+
+    // Weapons of mass destruction
+    public Arsenal Arsenal { get; set; } = new();
+
+    // Space
+    public SpaceStage SpaceStage { get; set; } = SpaceStage.None;
+    public int Satellites { get; set; }
+    public int Astronauts { get; set; }
+
+    // National programmes
+    public NationalProject? ActiveProject { get; set; }
+    public List<NationalProject> CompletedProjects { get; set; } = new();
+    public bool HasProject(string name) => CompletedProjects.Any(p => p.Name == name);
+
+    // Politics
+    public List<PoliticalParty> Parties { get; set; } = new();
+    public string RulingParty { get; set; } = "";
+    public int NextElectionYear { get; set; }
+    public List<ElectionResult> Elections { get; set; } = new();
+    public Ruler? HeirApparent { get; set; }
+    public List<Ruler> SuccessionLine { get; set; } = new();   // Ordered claimants (hereditary governments)
+
     public float DisasterPreparedness { get; set; } = 0.0f; // 0-1, how prepared for disasters
     public int DisastersSurvived { get; set; } = 0;
     public int PopulationLostToDisasters { get; set; } = 0;
@@ -2360,6 +2395,14 @@ public class City
     public int OriginalCivilizationId { get; set; }
 
     public CityType LargestTypeReached { get; set; } = CityType.Village;
+
+    // Infrastructure
+    public bool Electrified { get; set; }                 // Connected to the power grid
+    public bool Online { get; set; }                      // Connected to the internet
+    public bool HasAirport { get; set; }
+    public bool HasSpaceport { get; set; }
+    public bool HasPowerPlant { get; set; }
+    public EnergySource? PowerPlantType { get; set; }
 
     public bool Has(CityBuilding building) => (Buildings & building) != 0;
 }

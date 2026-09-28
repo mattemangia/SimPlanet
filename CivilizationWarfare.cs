@@ -24,6 +24,34 @@ public partial class CivilizationManager
         }
     }
 
+    private readonly List<OrbitalObject> _orbitalObjects = new();
+
+    /// <summary>
+    /// Satellites, space stations and off-world bases, including those whose nation has fallen.
+    /// </summary>
+    public List<OrbitalObject> GetOrbitalObjects()
+    {
+        lock (_civLock)
+        {
+            return _orbitalObjects.ToList();
+        }
+    }
+
+    /// <summary>People alive in space (station crews, lunar bases, colonies).</summary>
+    public int PeopleInSpace
+    {
+        get
+        {
+            lock (_civLock)
+            {
+                return _orbitalObjects.Sum(o => o.Crew);
+            }
+        }
+    }
+
+    /// <summary>Soot in the stratosphere from burning cities (0 = clear sky, 1 = full nuclear winter).</summary>
+    public float NuclearWinter { get; private set; }
+
     public List<BattleEvent> GetRecentBattles()
     {
         lock (_civLock)

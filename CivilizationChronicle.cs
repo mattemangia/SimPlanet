@@ -22,6 +22,17 @@ public partial class CivilizationManager
         }
     }
 
+    /// <summary>
+    /// Lets other systems (diseases, disasters) record events in the world chronicle.
+    /// </summary>
+    public void RecordHistory(int year, HistoryCategory category, string text, int x, int y, int civId)
+    {
+        lock (_civLock)
+        {
+            AddChronicle(year, category, text, x, y, civId);
+        }
+    }
+
     private void AddChronicle(int year, HistoryCategory category, string text, int x, int y, int civId)
     {
         _chronicle.Add(new HistoryEvent
@@ -57,7 +68,11 @@ public enum HistoryCategory
     Rebellion,
     Diplomacy,
     Disaster,
-    Growth
+    Growth,
+    Epidemic,
+    Science,
+    Space,
+    Politics
 }
 
 public class HistoryEvent
