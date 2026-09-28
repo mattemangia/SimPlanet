@@ -1,154 +1,120 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using System;
-using System.IO;
 using System.Reflection;
 
 namespace SimPlanet
 {
     /// <summary>
-    /// Cross-platform splash screen using MonoGame
-    /// Displays the game logo before the main game starts
+    /// Splash screen drawn by the main game window during the first seconds.
+    ///
+    /// This used to be a separate MonoGame <see cref="Game"/> that ran before SimPlanetGame.
+    /// Running two Game instances in the same process is not supported by MonoGame DesktopGL:
+    /// the first instance's GL context is queued for deletion and is only destroyed after
+    /// SDL has been shut down and re-initialised by the second instance, which crashes
+    /// (SIGSEGV in X11_GL_DeleteContext / GLXBadContext) on Mesa and other Linux drivers.
+    /// Drawing the splash inside the main game avoids the second context entirely.
     /// </summary>
-    public class SplashScreen : Game
+    public class SplashScreen : IDisposable
     {
-        private GraphicsDeviceManager graphics;
-        private SpriteBatch spriteBatch;
-        private Texture2D splashTexture;
-        private DateTime startTime;
-        private const float DISPLAY_DURATION = 3.0f; // 3 seconds
-        private const float FADE_IN_DURATION = 0.3f; // 300ms fade in
-        private const float FADE_OUT_DURATION = 0.3f; // 300ms fade out
-        private float elapsedTime = 0f;
-        private float alpha = 0f;
+        private const float DISPLAY_DURATION = 2.6f;
+        private const float FADE_IN_DURATION = 0.3f;
+        private const float FADE_OUT_DURATION = 0.4f;
 
-        public SplashScreen()
+        private readonly Texture2D? _splashTexture;
+        private readonly Texture2D _pixel;
+        private float _elapsed;
+        private bool _skipped;
+
+        public bool IsActive { get; private set; } = true;
+
+        public SplashScreen(GraphicsDevice graphicsDevice)
         {
-            graphics = new GraphicsDeviceManager(this);
-            Content.RootDirectory = "Content";
-            IsMouseVisible = false;
+            _pixel = new Texture2D(graphicsDevice, 1, 1);
+            _pixel.SetData(new[] { Color.White });
 
-            // Borderless window
-            Window.IsBorderless = true;
+            // Allow disabling the splash (useful for automated runs)
+            if (Environment.GetEnvironmentVariable("SIMPLANET_NO_SPLASH") == "1")
+            {
+                IsActive = false;
+                return;
+            }
 
-            // Set resolution
-            graphics.PreferredBackBufferWidth = 1920;
-            graphics.PreferredBackBufferHeight = 1080;
-            graphics.IsFullScreen = false;
-        }
-
-        protected override void Initialize()
-        {
-            startTime = DateTime.Now;
-            base.Initialize();
-        }
-
-        protected override void LoadContent()
-        {
-            spriteBatch = new SpriteBatch(GraphicsDevice);
-
-            // Load splash.png from embedded resource
             try
             {
                 var assembly = Assembly.GetExecutingAssembly();
-                using (var stream = assembly.GetManifestResourceStream("SimPlanet.splash.png"))
+                using var stream = assembly.GetManifestResourceStream("SimPlanet.splash.png");
+                if (stream != null)
                 {
-                    if (stream != null)
-                    {
-                        splashTexture = Texture2D.FromStream(GraphicsDevice, stream);
-
-                        // Adjust window size to match image
-                        graphics.PreferredBackBufferWidth = splashTexture.Width;
-                        graphics.PreferredBackBufferHeight = splashTexture.Height;
-                        graphics.ApplyChanges();
-
-                        // Center window on screen
-                        var screen = GraphicsDevice.Adapter.CurrentDisplayMode;
-                        Window.Position = new Point(
-                            (screen.Width - graphics.PreferredBackBufferWidth) / 2,
-                            (screen.Height - graphics.PreferredBackBufferHeight) / 2
-                        );
-                    }
-                    else
-                    {
-                        Console.WriteLine("Failed to load splash.png from embedded resource");
-                    }
+                    _splashTexture = Texture2D.FromStream(graphicsDevice, stream);
+                }
+                else
+                {
+                    Console.WriteLine("Failed to load splash.png from embedded resource");
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Failed to load splash.png: {ex.Message}");
             }
-        }
 
-        protected override void Update(GameTime gameTime)
-        {
-            elapsedTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            // Calculate alpha based on time
-            if (elapsedTime < FADE_IN_DURATION)
-            {
-                // Fade in
-                alpha = elapsedTime / FADE_IN_DURATION;
-            }
-            else if (elapsedTime < DISPLAY_DURATION)
-            {
-                // Fully visible
-                alpha = 1.0f;
-            }
-            else if (elapsedTime < DISPLAY_DURATION + FADE_OUT_DURATION)
-            {
-                // Fade out
-                float fadeOutProgress = (elapsedTime - DISPLAY_DURATION) / FADE_OUT_DURATION;
-                alpha = 1.0f - fadeOutProgress;
-            }
-            else
-            {
-                // Done - exit splash screen
-                Exit();
-            }
-
-            base.Update(gameTime);
-        }
-
-        protected override void Draw(GameTime gameTime)
-        {
-            GraphicsDevice.Clear(Color.Black);
-
-            if (splashTexture != null)
-            {
-                spriteBatch.Begin();
-                spriteBatch.Draw(
-                    splashTexture,
-                    new Rectangle(0, 0, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight),
-                    Color.White * alpha
-                );
-                spriteBatch.End();
-            }
-
-            base.Draw(gameTime);
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                splashTexture?.Dispose();
-                spriteBatch?.Dispose();
-                graphics?.Dispose();
-            }
-            base.Dispose(disposing);
+            if (_splashTexture == null)
+                IsActive = false;
         }
 
         /// <summary>
-        /// Show the splash screen (cross-platform compatible)
+        /// Advance the splash animation. Any key or mouse click skips it.
         /// </summary>
-        public static void ShowSplash()
+        public void Update(GameTime gameTime, KeyboardState keyState, MouseState mouseState)
         {
-            using (var splash = new SplashScreen())
+            if (!IsActive) return;
+
+            // Clamp the first (possibly very long) frame so the fade-in is visible
+            _elapsed += Math.Min(0.1f, (float)gameTime.ElapsedGameTime.TotalSeconds);
+
+            if (!_skipped && _elapsed > 0.5f &&
+                (keyState.GetPressedKeyCount() > 0 || mouseState.LeftButton == ButtonState.Pressed))
             {
-                splash.Run();
+                _skipped = true;
+                _elapsed = Math.Max(_elapsed, DISPLAY_DURATION);
             }
+
+            if (_elapsed >= DISPLAY_DURATION + FADE_OUT_DURATION)
+                IsActive = false;
+        }
+
+        private float Alpha
+        {
+            get
+            {
+                if (_elapsed < FADE_IN_DURATION) return _elapsed / FADE_IN_DURATION;
+                if (_elapsed < DISPLAY_DURATION) return 1f;
+                return Math.Max(0f, 1f - (_elapsed - DISPLAY_DURATION) / FADE_OUT_DURATION);
+            }
+        }
+
+        /// <summary>
+        /// Draw the splash covering the whole screen (letterboxed, aspect preserved).
+        /// Must be called inside an active SpriteBatch.Begin/End.
+        /// </summary>
+        public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
+        {
+            if (!IsActive || _splashTexture == null) return;
+
+            spriteBatch.Draw(_pixel, new Rectangle(0, 0, screenWidth, screenHeight), Color.Black);
+
+            float scale = Math.Min((float)screenWidth / _splashTexture.Width, (float)screenHeight / _splashTexture.Height);
+            int w = (int)(_splashTexture.Width * scale);
+            int h = (int)(_splashTexture.Height * scale);
+            var dest = new Rectangle((screenWidth - w) / 2, (screenHeight - h) / 2, w, h);
+            spriteBatch.Draw(_splashTexture, dest, Color.White * Alpha);
+        }
+
+        public void Dispose()
+        {
+            _splashTexture?.Dispose();
+            _pixel.Dispose();
         }
     }
 }

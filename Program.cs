@@ -29,16 +29,8 @@ if (headless)
 }
 else
 {
-    // Show splash screen before starting the game (cross-platform MonoGame splash)
-    try
-    {
-        SplashScreen.ShowSplash();
-    }
-    catch (Exception ex)
-    {
-        // If splash screen fails, just continue to game
-        Console.WriteLine($"Splash screen error: {ex.Message}");
-    }
+    // The splash screen is drawn by SimPlanetGame itself (see SplashScreen.cs).
+    // Running a separate MonoGame Game instance for it crashes on Linux/Mesa.
 
     // Start the main game
     using var game = new SimPlanetGame();

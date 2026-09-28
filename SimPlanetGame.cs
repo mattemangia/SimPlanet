@@ -167,6 +167,7 @@ public class SimPlanetGame : Game
     private PlanetMap _newMap;
     private bool _isFastForwarding = false;
     private CancellationTokenSource _fastForwardCts;
+    private SplashScreen? _splash;
 
     public SimPlanetGame()
     {
@@ -394,6 +395,7 @@ public class SimPlanetGame : Game
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
+        _splash = new SplashScreen(GraphicsDevice);
 
         // Set custom window icon (procedurally generated planet)
         SetCustomIcon();
@@ -471,6 +473,18 @@ public class SimPlanetGame : Game
 
     protected override void Update(GameTime gameTime)
     {
+        // Splash screen: swallow input until it has faded out (runs even without focus)
+        if (_splash != null && _splash.IsActive)
+        {
+            var splashKeys = IsActive ? Keyboard.GetState() : default;
+            var splashMouse = IsActive ? Mouse.GetState() : default;
+            _splash.Update(gameTime, splashKeys, splashMouse);
+            _previousKeyState = Keyboard.GetState();
+            _previousMouseState = Mouse.GetState();
+            base.Update(gameTime);
+            return;
+        }
+
         // Check if game window has focus
         if (!IsActive)
         {
@@ -1605,6 +1619,9 @@ public class SimPlanetGame : Game
         {
             _loadingScreen.Draw();
         }
+
+        // Splash screen covers everything during startup
+        _splash?.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         _spriteBatch.End();
 
