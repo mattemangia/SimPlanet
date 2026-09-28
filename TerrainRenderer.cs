@@ -1050,7 +1050,7 @@ public partial class TerrainRenderer
         if (city.UnderSiege) lines.Add($"Under siege ({city.SiegeProgress:P0})");
         if (city.Starving) lines.Add("Starving");
         AddSocietyCityLines(lines, city);
-        UITheme.DrawTooltip(spriteBatch, string.Join("\n", lines), new Point(mouse.X, mouse.Y + 12), viewport.Width, viewport.Height);
+        QueueTooltip(string.Join("\n", lines), new Point(mouse.X, mouse.Y + 12));
     }
 
     private void DrawSettlementLabels(SpriteBatch spriteBatch, List<CivRenderData.CityInfo> ordered,
@@ -1995,7 +1995,7 @@ public partial class TerrainRenderer
 
         // Bottom-right corner, above the time control bar region
         int legendX = screenWidth - legendWidth - 12;
-        int legendY = screenHeight - legendHeight - 12;
+        int legendY = AvoidBottomBar(legendX, screenHeight - legendHeight - 12, legendWidth, legendHeight);
         var rect = new Rectangle(legendX, legendY, legendWidth, legendHeight);
 
         UITheme.DrawTitledPanel(spriteBatch, rect, GetLegendTitle(), UITheme.Accent, 30);

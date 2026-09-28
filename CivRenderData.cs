@@ -676,6 +676,14 @@ public sealed partial class CivRenderData
     {
         int silos = Math.Min(civ.Arsenal.MissileSilos, 12);
         if (silos <= 0 || civ.Territory.Count == 0) return;
+
+        // Territory rarely changes between snapshots: reuse the previous choice when it still fits
+        var key = (civ.Id, civ.Territory.Count, silos);
+        if (_siloCache.TryGetValue(civ.Id, out var cached) && cached.Key == key && cached.Sites.All(s => civ.Territory.Contains(s)))
+        {
+            foreach (var s in cached.Sites) data.SiloSites.Add((civ.Id, s.x, s.y));
+            return;
+        }
         // Deterministic spread: the territory cells with the lowest hash, kept a few cells apart
         var candidates = civ.Territory.OrderBy(c => CellHash(c.x, c.y)).Take(400);
         int placed = 0;
@@ -692,7 +700,10 @@ public sealed partial class CivRenderData
             data.SiloSites.Add((civ.Id, c.x, c.y));
             if (++placed >= silos) break;
         }
+        _siloCache[civ.Id] = (key, chosen);
     }
+
+    private static readonly Dictionary<int, ((int, int, int) Key, List<(int x, int y)> Sites)> _siloCache = new();
 
     private static void CaptureDiseases(CivRenderData data, DiseaseManager diseases)
     {

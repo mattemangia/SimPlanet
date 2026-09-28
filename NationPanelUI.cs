@@ -618,6 +618,11 @@ public class NationPanelUI
         int treeX = x0 + listW + 24;
         int treeW = _contentRect.Right - pad - treeX;
         y = top;
+
+        // Power not inherited: a reign timeline says more than a family tree
+        if (!d.IsHereditary)
+            return Math.Max(leftBottom, DrawReignTimeline(sb, reigned, currentId, currentYear, treeX, y, treeW, mouse));
+
         byId.TryGetValue(currentId, out var head);
         int dynastyId = head.Name != null ? head.DynastyId : (d.Dynasties.Count > 0 ? d.Dynasties[^1].Id : 0);
         string dynName = d.Dynasties.FirstOrDefault(x => x.Id == dynastyId).Name ?? "";
@@ -635,6 +640,9 @@ public class NationPanelUI
             while (members.TryAdd(cur.Id, cur) && cur.ParentId.HasValue && family.TryGetValue(cur.ParentId.Value, out var parent))
                 cur = parent;
         }
+        bool linked = members.Values.Any(m => m.ParentId.HasValue && members.ContainsKey(m.ParentId.Value));
+        if (!linked && members.Count > 1)
+            return Math.Max(leftBottom, DrawReignTimeline(sb, reigned, currentId, currentYear, treeX, y, treeW, mouse, false));
         if (members.Count == 0)
         {
             UITheme.DrawText(sb, d.IsHereditary ? "No family recorded yet" : "Power is not inherited under this government", new Vector2(treeX, y), UITheme.TextMuted, 12f);
@@ -782,6 +790,50 @@ public class NationPanelUI
             UITheme.DrawText(sb, $"Showing the last {maxGenerations} generations", new Vector2(treeX, ky + 18), UITheme.TextMuted, 11f);
 
         return Math.Max(leftBottom, ky + 40);
+    }
+
+    private int DrawReignTimeline(SpriteBatch sb, List<CivRenderData.RulerInfo> reigned, int currentId, int currentYear,
+        int x, int y, int width, MouseState mouse, bool header = true)
+    {
+        if (header) Section(sb, "REIGN TIMELINE", x, ref y, width);
+        var rows = reigned.Where(r => r.YearTookPower > 0 || r.Id == currentId).TakeLast(14).ToList();
+        if (rows.Count == 0)
+        {
+            UITheme.DrawText(sb, "No recorded leaders yet", new Vector2(x, y), UITheme.TextMuted, 12f);
+            return y + 24;
+        }
+        int start = rows.Min(r => r.YearTookPower);
+        int end = Math.Max(start + 1, Math.Max(currentYear, rows.Max(r => ReignEnd(r, reigned, currentId, currentYear))));
+        int labelW = Math.Min(150, width / 3);
+        int barX = x + labelW + 8, barW = width - labelW - 8;
+        float Px(int year) => barX + (year - start) / (float)(end - start) * barW;
+
+        // Axis
+        for (int i = 0; i <= 4; i++)
+        {
+            int year = start + (end - start) * i / 4;
+            float px = Px(year);
+            sb.Draw(UITheme.Pixel, new Rectangle((int)px, y, 1, rows.Count * 22 + 4), new Color(255, 255, 255, 14));
+            string label = year.ToString();
+            var ls = UITheme.Measure(label, 10.5f);
+            UITheme.DrawText(sb, label, new Vector2(Math.Clamp(px - ls.X / 2, barX, barX + barW - ls.X), y + rows.Count * 22 + 6), UITheme.TextMuted, 10.5f);
+        }
+
+        foreach (var r in rows)
+        {
+            bool current = r.Id == currentId;
+            int rEnd = ReignEnd(r, reigned, currentId, currentYear);
+            UITheme.DrawText(sb, UITheme.Ellipsize(r.Name, labelW, 12f), new Vector2(x, y + 2), current ? UITheme.Gold : r.IsAlive ? UITheme.Text : UITheme.TextDim, 12f);
+            float bx0 = Px(r.YearTookPower), bx1 = Math.Max(bx0 + 3, Px(rEnd));
+            var bar = new Rectangle((int)bx0, y + 4, (int)(bx1 - bx0), 12);
+            UITheme.FillRounded(sb, bar, current ? UITheme.Gold : new Color(90, 120, 170));
+            var row = new Rectangle(x, y, width, 22);
+            if (row.Contains(mouse.Position) && _contentRect.Contains(mouse.Position))
+                _hoverTip = $"{r.Title} {r.Name}".Trim() + $"\nIn power {r.YearTookPower}-{(current ? "present" : rEnd.ToString())} ({Math.Max(0, rEnd - r.YearTookPower)} years)" +
+                            (r.IsAlive ? $"\nAlive, age {r.Age}" : "\nDeceased");
+            y += 22;
+        }
+        return y + 30;
     }
 
     // ------------------------------------------------------------------

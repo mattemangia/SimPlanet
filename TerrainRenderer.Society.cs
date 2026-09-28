@@ -29,6 +29,22 @@ public partial class TerrainRenderer
         _diseaseManager = manager;
     }
 
+    private (string Text, Point Anchor)? _deferredTooltip;
+
+    private void QueueTooltip(string text, Point anchor) => _deferredTooltip = (text, anchor);
+
+    /// <summary>
+    /// Draws the settlement / nation tooltip of this frame. Called after the map overlays
+    /// (volcanoes, rivers...) so they don't cover it.
+    /// </summary>
+    public void DrawDeferredTooltip(SpriteBatch spriteBatch)
+    {
+        if (_deferredTooltip == null) return;
+        var vp = _graphicsDevice.Viewport;
+        UITheme.DrawTooltip(spriteBatch, _deferredTooltip.Value.Text, _deferredTooltip.Value.Anchor, vp.Width, vp.Height);
+        _deferredTooltip = null;
+    }
+
     public static bool IsSocietyMode(RenderMode mode) => mode is RenderMode.Electricity or RenderMode.Infrastructure
         or RenderMode.Energy or RenderMode.Armaments or RenderMode.Governments or RenderMode.Internet or RenderMode.Epidemics;
 
@@ -764,7 +780,7 @@ public partial class TerrainRenderer
             }
         }
         lines.Add("Click a nation card in the info panel for details");
-        UITheme.DrawTooltip(sb, string.Join("\n", lines), new Point(mouse.X, mouse.Y + 14), viewport.Width, viewport.Height);
+        QueueTooltip(string.Join("\n", lines), new Point(mouse.X, mouse.Y + 14));
     }
 
     private static string EnergyBalanceText(CivRenderData.CivInfo civ)
@@ -887,7 +903,7 @@ public partial class TerrainRenderer
         int noteH = note != null ? 20 : 0;
         int legendHeight = 40 + gradientH + perColumn * rowH + noteH + 6;
         int legendX = screenWidth - legendWidth - 12;
-        int legendY = screenHeight - legendHeight - 12;
+        int legendY = AvoidBottomBar(legendX, screenHeight - legendHeight - 12, legendWidth, legendHeight);
         var rect = new Rectangle(legendX, legendY, legendWidth, legendHeight);
 
         sb.End();
@@ -929,6 +945,15 @@ public partial class TerrainRenderer
 
         sb.End();
         sb.Begin(samplerState: SamplerState.PointClamp);
+    }
+
+    /// <summary>Lifts a bottom-anchored legend above the time control bar when they would overlap (small windows).</summary>
+    private static int AvoidBottomBar(int x, int y, int width, int height)
+    {
+        var bar = BottomControlUI.LastBounds;
+        if (!bar.IsEmpty && new Rectangle(x, y, width, height).Intersects(bar))
+            y = bar.Y - height - 8;
+        return y;
     }
 
     private void DrawLegendSample(SpriteBatch sb, LegendRow row, Rectangle r)

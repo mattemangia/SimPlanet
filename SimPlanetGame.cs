@@ -1601,6 +1601,7 @@ public class SimPlanetGame : Game
         int overlayOffsetX = offsetX - (int)_terrainRenderer.CameraX;
         int overlayOffsetY = offsetY - (int)_terrainRenderer.CameraY;
         _eventsUI.DrawOverlay(_map, overlayOffsetX, overlayOffsetY, _terrainRenderer.CellSize, _terrainRenderer.ZoomLevel);
+        _terrainRenderer.DrawDeferredTooltip(_spriteBatch);
 
         // Draw view mode legend
         _terrainRenderer.DrawLegend(_spriteBatch, _font, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);

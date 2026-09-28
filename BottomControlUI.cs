@@ -36,6 +36,9 @@ public class BottomControlUI
 
     // Dimensions
     private const int PanelHeight = 46;
+
+    /// <summary>Screen rectangle of the bar as last laid out (so map legends can avoid it).</summary>
+    public static Rectangle LastBounds { get; private set; }
     private const int ButtonSize = 34;
     private const int Spacing = 5;
     private const int GroupGap = 14;
@@ -99,6 +102,7 @@ public class BottomControlUI
         panelX = Math.Max(mapAreaX + 10, panelX);
         int panelY = screenHeight - PanelHeight - 10;
         _panelRect = new Rectangle(panelX, panelY, totalWidth, PanelHeight);
+        LastBounds = _panelRect;
 
         int x = panelX + Spacing + SpeedReadoutWidth + Spacing;
         int y = panelY + (PanelHeight - ButtonSize) / 2;
