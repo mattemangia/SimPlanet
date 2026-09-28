@@ -44,7 +44,7 @@ public class FontRenderer
         if (string.IsNullOrEmpty(text))
             return;
 
-        float size = fontSize > 0 ? fontSize : _defaultFontSize;
+        float size = ResolveSize(fontSize);
         var font = _fontSystem.GetFont(size);
         font.DrawText(spriteBatch, text, position, color);
     }
@@ -59,7 +59,7 @@ public class FontRenderer
         if (string.IsNullOrEmpty(text))
             return Vector2.Zero;
 
-        float size = fontSize > 0 ? fontSize : _defaultFontSize;
+        float size = ResolveSize(fontSize);
         var font = _fontSystem.GetFont(size);
         var bounds = font.MeasureString(text);
         return bounds;
@@ -68,6 +68,18 @@ public class FontRenderer
     public Vector2 MeasureString(string text)
     {
         return MeasureString(text, _defaultFontSize);
+    }
+
+    /// <summary>
+    /// Converts the requested size to a pixel size. Several callers pass a scale factor
+    /// (e.g. 0.8f, 1.5f) instead of a pixel size; values below 4 are treated as a
+    /// multiplier of the default size so that text is not rendered 1-2 pixels tall.
+    /// </summary>
+    private float ResolveSize(float fontSize)
+    {
+        if (fontSize <= 0) return _defaultFontSize;
+        if (fontSize < 4f) return MathF.Round(_defaultFontSize * fontSize);
+        return fontSize;
     }
 
     public void Dispose()

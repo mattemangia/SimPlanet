@@ -48,47 +48,28 @@ public class ManualPlantingTool
         bool clicked = mouseState.LeftButton == ButtonState.Released &&
                       _previousMouseState.LeftButton == ButtonState.Pressed;
 
-        // Check UI button clicks first (panel on left side)
-        int screenWidth = _graphicsDevice.Viewport.Width;
-        int screenHeight = _graphicsDevice.Viewport.Height;
-        int panelX = 10;
-        int panelY = screenHeight / 2 - 200;
+        // Check UI button clicks first (same layout as Draw)
+        var layout = GetLayout();
 
         if (clicked)
         {
-            // Type selection buttons (8 buttons)
-            int buttonY = panelY + 65;
-            int buttonHeight = 22;
-            int buttonWidth = 180;
-            int buttonSpacing = 2;
-
-            PlantingType[] types = new[] { PlantingType.Forest, PlantingType.Grass, PlantingType.Desert,
-                                          PlantingType.Tundra, PlantingType.Ocean, PlantingType.Mountain,
-                                          PlantingType.Fault, PlantingType.Civilization };
-
-            for (int i = 0; i < types.Length; i++)
+            for (int i = 0; i < PlantingTypes.Length; i++)
             {
-                Rectangle buttonRect = new Rectangle(panelX + 10, buttonY + i * (buttonHeight + buttonSpacing), buttonWidth, buttonHeight);
-                if (buttonRect.Contains(mouseState.Position))
+                if (layout.TypeButtons[i].Contains(mouseState.Position))
                 {
-                    CurrentType = types[i];
+                    CurrentType = PlantingTypes[i];
                     _previousMouseState = mouseState;
                     return; // Don't plant when clicking UI
                 }
             }
 
-            // Brush size buttons
-            int brushButtonY = panelY + 45;
-            Rectangle minusButton = new Rectangle(panelX + 95, brushButtonY, 25, 20);
-            Rectangle plusButton = new Rectangle(panelX + 165, brushButtonY, 25, 20);
-
-            if (minusButton.Contains(mouseState.Position))
+            if (layout.Minus.Contains(mouseState.Position))
             {
                 BrushSize = Math.Max(BrushSize - 1, 1);
                 _previousMouseState = mouseState;
                 return;
             }
-            else if (plusButton.Contains(mouseState.Position))
+            else if (layout.Plus.Contains(mouseState.Position))
             {
                 BrushSize = Math.Min(BrushSize + 1, 15);
                 _previousMouseState = mouseState;
@@ -96,8 +77,7 @@ public class ManualPlantingTool
             }
 
             // Only plant if not clicking UI panel area
-            Rectangle panelRect = new Rectangle(panelX, panelY, 200, 265);
-            if (!panelRect.Contains(mouseState.Position))
+            if (!layout.Panel.Contains(mouseState.Position))
             {
                 // Convert screen coordinates to map coordinates
                 float mapRelativeX = (mouseState.X - mapRenderOffsetX) + cameraX;
@@ -377,88 +357,85 @@ public class ManualPlantingTool
         // For now, we just mark the cell
     }
 
+    private static readonly PlantingType[] PlantingTypes =
+    {
+        PlantingType.Forest, PlantingType.Grass, PlantingType.Desert, PlantingType.Tundra,
+        PlantingType.Ocean, PlantingType.Mountain, PlantingType.Fault, PlantingType.Civilization
+    };
+
+    private static readonly Color[] PlantingSwatches =
+    {
+        new Color(40, 120, 50), new Color(110, 180, 80), new Color(220, 190, 120), new Color(150, 160, 150),
+        new Color(40, 100, 180), new Color(130, 120, 110), new Color(200, 60, 50), new Color(255, 205, 90)
+    };
+
+    private readonly struct PanelLayout
+    {
+        public Rectangle Panel { get; init; }
+        public Rectangle Minus { get; init; }
+        public Rectangle Plus { get; init; }
+        public Rectangle[] TypeButtons { get; init; }
+        public int BrushRowY { get; init; }
+        public int TypesLabelY { get; init; }
+        public int FooterY { get; init; }
+    }
+
+    /// <summary>Single source of truth for the panel geometry (used by Update and Draw).</summary>
+    private PanelLayout GetLayout()
+    {
+        const int width = 214;
+        const int rowH = 26, gap = 3;
+        int x = 290; // right of the info panel
+        int y = 56;  // below the toolbar
+        int brushY = y + 44;
+        int typesLabelY = brushY + 34;
+        int typesY = typesLabelY + 22;
+        var buttons = new Rectangle[PlantingTypes.Length];
+        for (int i = 0; i < buttons.Length; i++)
+            buttons[i] = new Rectangle(x + 12, typesY + i * (rowH + gap), width - 24, rowH);
+        int footerY = typesY + buttons.Length * (rowH + gap) + 6;
+        return new PanelLayout
+        {
+            Panel = new Rectangle(x, y, width, footerY - y + 28),
+            Minus = new Rectangle(x + width - 94, brushY - 3, 26, 24),
+            Plus = new Rectangle(x + width - 38, brushY - 3, 26, 24),
+            TypeButtons = buttons,
+            BrushRowY = brushY,
+            TypesLabelY = typesLabelY,
+            FooterY = footerY
+        };
+    }
+
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (!IsActive) return;
 
-        int panelX = 10;  // Left side
-        int panelY = screenHeight / 2 - 200;  // Vertically centered
-        int panelWidth = 200;
-        int panelHeight = 265; // 8 buttons * 24px + margins
+        var layout = GetLayout();
+        var mouse = Mouse.GetState();
 
-        // Background
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX, panelY, panelWidth, panelHeight),
-            new Color(20, 40, 20, 230));
-
-        // Border
-        DrawBorder(spriteBatch, panelX, panelY, panelWidth, panelHeight, Color.Green, 2);
-
-        // Title
-        _font.DrawString(spriteBatch, "PLANTING TOOL",
-            new Vector2(panelX + 40, panelY + 5), Color.LightGreen);
-
-        int textY = panelY + 30;
-        int lineHeight = 20;
+        UITheme.DrawTitledPanel(spriteBatch, layout.Panel, "PLANTING TOOL", UITheme.Good);
 
         // Brush size with +/- buttons
-        _font.DrawString(spriteBatch, $"Brush: ",
-            new Vector2(panelX + 10, textY), Color.White);
+        UITheme.DrawText(spriteBatch, "Brush size", new Vector2(layout.Panel.X + 12, layout.BrushRowY), UITheme.TextDim);
+        UITheme.DrawButton(spriteBatch, layout.Minus, "-", layout.Minus.Contains(mouse.Position));
+        UITheme.DrawButton(spriteBatch, layout.Plus, "+", layout.Plus.Contains(mouse.Position));
+        var valueRect = new Rectangle(layout.Minus.Right, layout.Minus.Y, layout.Plus.X - layout.Minus.Right, layout.Minus.Height);
+        UITheme.DrawTextCentered(spriteBatch, BrushSize.ToString(), valueRect, UITheme.Gold, UITheme.FontMedium);
 
-        // - button
-        Rectangle minusBtn = new Rectangle(panelX + 95, textY, 25, 20);
-        spriteBatch.Draw(_pixelTexture, minusBtn, new Color(80, 80, 80));
-        DrawBorder(spriteBatch, minusBtn.X, minusBtn.Y, minusBtn.Width, minusBtn.Height, Color.White, 1);
-        _font.DrawString(spriteBatch, "-", new Vector2(minusBtn.X + 8, minusBtn.Y + 2), Color.White);
+        UITheme.DrawText(spriteBatch, "What to plant", new Vector2(layout.Panel.X + 12, layout.TypesLabelY), UITheme.TextDim);
 
-        // Size display
-        _font.DrawString(spriteBatch, $"{BrushSize}",
-            new Vector2(panelX + 125, textY), Color.Yellow);
-
-        // + button
-        Rectangle plusBtn = new Rectangle(panelX + 165, textY, 25, 20);
-        spriteBatch.Draw(_pixelTexture, plusBtn, new Color(80, 80, 80));
-        DrawBorder(spriteBatch, plusBtn.X, plusBtn.Y, plusBtn.Width, plusBtn.Height, Color.White, 1);
-        _font.DrawString(spriteBatch, "+", new Vector2(plusBtn.X + 7, plusBtn.Y + 2), Color.White);
-
-        textY += lineHeight + 10;
-
-        // Instructions
-        _font.DrawString(spriteBatch, "SELECT TYPE:",
-            new Vector2(panelX + 10, textY), Color.Yellow);
-        textY += lineHeight;
-
-        // Type selection buttons
-        PlantingType[] types = new[] { PlantingType.Forest, PlantingType.Grass, PlantingType.Desert,
-                                      PlantingType.Tundra, PlantingType.Ocean, PlantingType.Mountain,
-                                      PlantingType.Fault, PlantingType.Civilization };
-        int buttonHeight = 22;
-        int buttonWidth = 180;
-        int buttonSpacing = 2;
-
-        for (int i = 0; i < types.Length; i++)
+        for (int i = 0; i < PlantingTypes.Length; i++)
         {
-            Rectangle buttonRect = new Rectangle(panelX + 10, textY, buttonWidth, buttonHeight);
-
-            // Button background (highlight if selected)
-            Color bgColor = types[i] == CurrentType ? new Color(100, 200, 100) : new Color(60, 60, 60);
-            spriteBatch.Draw(_pixelTexture, buttonRect, bgColor);
-
-            // Button border
-            Color borderColor = types[i] == CurrentType ? Color.LightGreen : Color.Gray;
-            DrawBorder(spriteBatch, buttonRect.X, buttonRect.Y, buttonRect.Width, buttonRect.Height, borderColor, 1);
-
-            // Button text
-            Color textColor = types[i] == CurrentType ? Color.White : Color.LightGray;
-            _font.DrawString(spriteBatch, types[i].ToString(),
-                new Vector2(buttonRect.X + 5, buttonRect.Y + 4), textColor);
-
-            textY += buttonHeight + buttonSpacing;
+            var rect = layout.TypeButtons[i];
+            bool selected = PlantingTypes[i] == CurrentType;
+            bool hovered = rect.Contains(mouse.Position);
+            UITheme.DrawButton(spriteBatch, rect, "", hovered, selected, UITheme.Good);
+            spriteBatch.Draw(_pixelTexture, new Rectangle(rect.X + 8, rect.Y + 7, 12, 12), PlantingSwatches[i]);
+            string label = PlantingTypes[i] == PlantingType.Civilization ? "Civilization (seed)" : PlantingTypes[i].ToString();
+            UITheme.DrawTextShadowed(spriteBatch, label, new Vector2(rect.X + 28, rect.Y + 5), selected ? Color.White : UITheme.Text);
         }
 
-        textY += 5;
-        _font.DrawString(spriteBatch, "T: Toggle Tool",
-            new Vector2(panelX + 10, textY), Color.Yellow);
+        UITheme.DrawText(spriteBatch, "Click on the map to plant", new Vector2(layout.Panel.X + 12, layout.FooterY), UITheme.TextMuted, UITheme.FontSmall);
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)

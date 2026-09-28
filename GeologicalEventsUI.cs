@@ -350,42 +350,7 @@ public class GeologicalEventsUI
         for (int i = 0; i < _overlayColors.Length; i++)
             _overlayColors[i] = Color.Transparent;
 
-        // Render volcanoes to texture at 1:1 scale with triangle shapes for better visual
-        if (ShowVolcanoes)
-        {
-            for (int x = 0; x < _map.Width; x++)
-            {
-                for (int y = 0; y < _map.Height; y++)
-                {
-                    var geo = _map.Cells[x, y].GetGeology();
-                    if (geo.IsVolcano)
-                    {
-                        Color volcanoColor = geo.VolcanicActivity > 0.5f
-                            ? Color.Red : new Color(180, 60, 0);
-
-                        // Draw triangle shape (classic volcano icon)
-                        DrawTextureTriangle(x, y, volcanoColor, 2);
-                    }
-                }
-            }
-        }
-
-        // Render rivers to texture at 1:1 scale with thickness for visibility
-        if (ShowRivers && _hydrologySim != null && _riversAllowedInCurrentView)
-        {
-            // BUGFIX: Create a copy of the collection to prevent modification during enumeration.
-            foreach (var river in _hydrologySim.Rivers.ToList())
-            {
-                foreach (var (x, y) in river.Path)
-                {
-                    if (x >= 0 && x < _map.Width && y >= 0 && y < _map.Height)
-                    {
-                        // Draw 2-pixel thick rivers for better visibility
-                        SetTexturePixelThick(x, y, new Color(100, 150, 255), 1);
-                    }
-                }
-            }
-        }
+        // Volcanoes and rivers are drawn as smooth sprites/lines in DrawOverlay
 
         // Render plate boundaries to texture at 1:1 scale
         if (ShowPlates)
@@ -413,6 +378,82 @@ public class GeologicalEventsUI
 
         _overlayTexture.SetData(_overlayColors);
         _overlayDirty = false;
+    }
+
+    private void DrawRiverLines(PlanetMap map, int offsetX, int offsetY, float pixelScale)
+    {
+        List<River> rivers;
+        try
+        {
+            rivers = _hydrologySim!.Rivers.ToList();
+        }
+        catch (InvalidOperationException)
+        {
+            return; // Collection changed by the simulation thread; draw next frame
+        }
+
+        float baseWidth = Math.Clamp(pixelScale * 0.28f, 1.1f, 4f);
+        var edge = new Color(20, 50, 90, 150);
+        var water = new Color(86, 158, 236);
+        foreach (var river in rivers)
+        {
+            var path = river.Path;
+            if (path == null || path.Count < 2) continue;
+            int n = path.Count;
+            for (int i = 0; i < n - 1; i++)
+            {
+                var (x0, y0) = path[i];
+                var (x1, y1) = path[i + 1];
+                if (Math.Abs(x1 - x0) > 2 || Math.Abs(y1 - y0) > 2) continue; // wrap-around jump
+                var a = new Vector2(offsetX + (x0 + 0.5f) * pixelScale, offsetY + (y0 + 0.5f) * pixelScale);
+                var b = new Vector2(offsetX + (x1 + 0.5f) * pixelScale, offsetY + (y1 + 0.5f) * pixelScale);
+                // Rivers widen towards the mouth
+                float w = baseWidth * (0.6f + 0.8f * (i / (float)n));
+                UITheme.DrawLine(_spriteBatch, a, b, edge, w + 1.2f);
+                UITheme.DrawLine(_spriteBatch, a, b, water, w);
+            }
+        }
+    }
+
+    private void DrawVolcanoSprites(PlanetMap map, int offsetX, int offsetY, float pixelScale)
+    {
+        var icons = MapIcons.GetShared(_graphicsDevice);
+        float time = (float)DateTime.Now.TimeOfDay.TotalSeconds;
+        int size = (int)Math.Clamp(pixelScale * 2.4f, 9f, 28f);
+        var viewport = _graphicsDevice.Viewport;
+
+        for (int x = 0; x < map.Width; x++)
+        {
+            for (int y = 0; y < map.Height; y++)
+            {
+                var geo = map.Cells[x, y].GetGeology();
+                if (!geo.IsVolcano) continue;
+
+                float cx = offsetX + (x + 0.5f) * pixelScale;
+                float cy = offsetY + (y + 0.5f) * pixelScale;
+                if (cx < -size || cy < -size || cx > viewport.Width + size || cy > viewport.Height + size) continue;
+
+                float activity = Math.Clamp(geo.VolcanicActivity, 0f, 1f);
+                if (activity > 0.3f || geo.MagmaPressure > 0.8f)
+                {
+                    float pulse = 0.75f + 0.25f * MathF.Sin(time * 3f + x * 0.7f + y);
+                    UITheme.DrawGlow(_spriteBatch, new Vector2(cx, cy - size * 0.3f), size * (0.7f + activity * 0.5f),
+                        new Color(255, 90, 20, 0) * (0.55f * activity * pulse + (geo.MagmaPressure > 0.8f ? 0.3f : 0f)));
+                }
+
+                var rect = new Rectangle((int)(cx - size / 2f), (int)(cy - size * 0.75f), size, size);
+                _spriteBatch.Draw(icons.Volcano, rect, activity > 0.15f ? Color.White : new Color(190, 190, 190));
+
+                // Eruption: rising smoke puffs
+                if (geo.MagmaPressure > 0.8f || activity > 0.7f)
+                {
+                    float t = (time * 0.6f + (x * 13 + y * 7) % 10 * 0.1f) % 1f;
+                    int ps = (int)(size * (0.6f + t * 0.6f));
+                    var smokePos = new Vector2(cx + t * size * 0.3f, rect.Y - t * size * 0.8f);
+                    _spriteBatch.Draw(icons.Smoke, new Rectangle((int)(smokePos.X - ps / 2f), (int)(smokePos.Y - ps / 2f), ps, ps), Color.White * (1f - t));
+                }
+            }
+        }
     }
 
     // Helper to set pixel with thickness for better visibility when scaled
@@ -501,64 +542,19 @@ public class GeologicalEventsUI
         // Only draw zoom-dependent visual enhancements, not base shapes (those are in texture)
         float pixelScale = cellSize * zoomLevel;
 
-        // Volcano LOD effects (glows, particles, craters)
-        if (ShowVolcanoes && zoomLevel > 1.5f)
+        // Smooth rivers and volcano sprites (drawn with linear filtering)
+        _spriteBatch.End();
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
+        if (ShowRivers && _hydrologySim != null && _riversAllowedInCurrentView)
         {
-            for (int x = 0; x < map.Width; x++)
-            {
-                for (int y = 0; y < map.Height; y++)
-                {
-                    var geo = map.Cells[x, y].GetGeology();
-                    if (geo.IsVolcano)
-                    {
-                        float screenX = offsetX + x * pixelScale;
-                        float screenY = offsetY + y * pixelScale;
-                        int centerX = (int)(screenX + pixelScale * 0.5f);
-                        int centerY = (int)(screenY + pixelScale * 0.5f);
-                        int size = (int)(pixelScale * 0.5f);
-
-                        // Glow effects at zoom > 2x
-                        if (zoomLevel > 2.0f && geo.VolcanicActivity > 0.3f)
-                        {
-                            int glowRadius = (int)(size * 2.0f);
-                            DrawCircleFilled(_spriteBatch, centerX, centerY, glowRadius,
-                                Color.OrangeRed * (0.25f * geo.VolcanicActivity));
-
-                            if (zoomLevel > 3.0f && geo.VolcanicActivity > 0.4f)
-                            {
-                                int shimmerRadius = (int)(size * 1.6f);
-                                DrawCircleOutline(_spriteBatch, centerX, centerY, shimmerRadius,
-                                    Color.Yellow * (0.4f * geo.VolcanicActivity), 2);
-                            }
-                        }
-
-                        // Eruption effects
-                        if (geo.MagmaPressure > 0.8f)
-                        {
-                            DrawStar(_spriteBatch, centerX, centerY - size, size / 2, Color.Yellow);
-
-                            if (zoomLevel > 3.5f)
-                            {
-                                for (int i = 0; i < 6; i++)
-                                {
-                                    float angle = (i / 6.0f) * MathF.PI * 2;
-                                    int px = centerX + (int)(MathF.Cos(angle) * size * 1.2f);
-                                    int py = centerY - size + (int)(MathF.Sin(angle) * size * 0.8f);
-                                    DrawCircleFilled(_spriteBatch, px, py, Math.Max(1, size / 6), Color.Orange);
-                                }
-                            }
-
-                            if (zoomLevel > 2.0f)
-                            {
-                                float pulse = (MathF.Sin((float)DateTime.Now.TimeOfDay.TotalSeconds * 3) + 1) * 0.5f;
-                                DrawCircleOutline(_spriteBatch, centerX, centerY, (int)(size * 1.3f),
-                                    Color.Red * (0.6f * pulse), 2);
-                            }
-                        }
-                    }
-                }
-            }
+            DrawRiverLines(map, offsetX, offsetY, pixelScale);
         }
+        if (ShowVolcanoes)
+        {
+            DrawVolcanoSprites(map, offsetX, offsetY, pixelScale);
+        }
+        _spriteBatch.End();
+        _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
         // River LOD effects (shimmer, flow indicators, source markers)
         if (ShowRivers && _hydrologySim != null && _riversAllowedInCurrentView && zoomLevel > 2.0f)

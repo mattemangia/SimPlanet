@@ -402,6 +402,7 @@ public class SimPlanetGame : Game
 
         // Create font
         _font = new FontRenderer(GraphicsDevice, 16);
+        UITheme.Initialize(GraphicsDevice, _font);
 
         // Create renderer
         _terrainRenderer = new TerrainRenderer(_map, GraphicsDevice);
@@ -656,7 +657,8 @@ public class SimPlanetGame : Game
             // Check if any tools are active that need map clicks
             bool toolsActive = _plantingTool.IsActive || _disasterControlUI.IsVisible ||
                               _divinePowersUI.IsOpen || _diseaseControlUI.IsVisible ||
-                              _planetaryControlsUI.IsVisible || _profileTool.IsActive;
+                              _planetaryControlsUI.IsVisible || _profileTool.IsActive ||
+                              _toolbar.IsCapturingMouse || _bottomControlUI.IsMouseOver;
 
             _sedimentViewer!.Update(Mouse.GetState(), _terrainRenderer!.CellSize,
                 _terrainRenderer.CameraX, _terrainRenderer.CameraY, _terrainRenderer.ZoomLevel,
@@ -762,7 +764,9 @@ public class SimPlanetGame : Game
         var mouseState = Mouse.GetState();
         bool blockMapPanning = _mapOptionsUI.IsVisible || _planetaryControlsUI.IsVisible ||
                               (_manualFaultTool != null && _manualFaultTool.IsActive) ||
-                              (_profileTool != null && _profileTool.IsActive);
+                              (_profileTool != null && _profileTool.IsActive) ||
+                              (_toolbar != null && _toolbar.IsCapturingMouse) ||
+                              (_bottomControlUI != null && _bottomControlUI.IsMouseOver);
 
         // Check if mouse is over the minimap (don't pan if it is)
         bool isOverMinimap = _minimap3D != null && _minimap3D.IsMouseOver(mouseState);
@@ -794,7 +798,17 @@ public class SimPlanetGame : Game
         if (scrollDelta != 0 && !blockMapZoom)
         {
             float zoomChange = scrollDelta > 0 ? 1.1f : 0.9f;
-            _terrainRenderer.ZoomLevel = Math.Clamp(_terrainRenderer.ZoomLevel * zoomChange, 0.5f, 4.0f);
+            float oldZoom = _terrainRenderer.ZoomLevel;
+            float newZoom = Math.Clamp(oldZoom * zoomChange, 0.5f, 4.0f);
+
+            // Zoom around the mouse cursor so the point under it stays in place
+            float mouseMapX = mouseState.X - _mapRenderOffsetX;
+            float mouseMapY = mouseState.Y - _mapRenderOffsetY;
+            float worldX = (mouseMapX + _terrainRenderer.CameraX) / oldZoom;
+            float worldY = (mouseMapY + _terrainRenderer.CameraY) / oldZoom;
+            _terrainRenderer.ZoomLevel = newZoom;
+            _terrainRenderer.CameraX = worldX * newZoom - mouseMapX;
+            _terrainRenderer.CameraY = worldY * newZoom - mouseMapY;
         }
 
         // --- Apply Camera Clamping and Centering Logic ---
@@ -1884,6 +1898,9 @@ public class SimPlanetGame : Game
     }
 
     // Public methods for toolbar
+    public RenderMode CurrentRenderMode => _currentRenderMode;
+    public GameState? CurrentGameState => _gameState;
+
     public void SetRenderMode(RenderMode mode)
     {
         _currentRenderMode = mode;
