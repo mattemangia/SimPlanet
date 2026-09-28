@@ -438,6 +438,39 @@ famines. Smog in polluted cities lowers happiness.
   asks for peace and pays reparations. Desperate nuclear powers may use their weapons on cities.
 - Unhappy, distant provinces of an unstable realm can **rebel** and become a new nation.
 
+**Strategy:** each nation chooses a posture every year (develop, expand, research, fortify,
+militarize, conquer, space race, recover) from the threats around it, the opportunities it sees,
+its needs and the character of its ruler and ruling party. Ambitious, brutal rulers and nationalist
+governments look for weak neighbours; democracies, greens and liberals prefer to trade and research.
+
+**Weapons of mass destruction:** nations build nuclear arsenals mostly to deter rivals who already
+have them. They launch them only when facing annihilation, and rarely against an enemy who can
+strike back. If they do: cities are destroyed, reactors melt down, fallout poisons the land, soot
+darkens the sky for years (nuclear winter: cold, failed harvests, famine) and the whole world turns
+against the aggressor. Chemical and biological weapons are rarer still.
+
+**Space and survival:** advanced nations launch satellites, open space stations, lunar bases and
+finally off-world colonies. If a nation is wiped out, the people in orbit survive and come home
+when the skies clear, founding a new nation that keeps its technology.
+
+**National programmes:** nations invest their treasury in long projects: research (from the Great
+Library to Fusion Power), economy (irrigation, banking, industrialization, the Green Revolution),
+environment (national parks, renewable energy, carbon capture), space and defence.
+
+**Energy and networks:** the energy mix moves from wood to coal and oil, then hydro, nuclear, wind,
+solar and fusion — the cleaner the mix, the less the nation warms the planet. Cities join the power
+grid and later the internet.
+
+**Peoples and geography:** each nation has an ethnicity and a homeland climate. Temperate river
+valleys develop fastest; deserts, jungles, highlands and cold lands more slowly.
+
+**Epidemics:** crowded, trading, tropical nations breed plagues that spread along trade routes until
+a cure is found.
+
+**Politics:** republics and democracies hold elections between parties with different ideologies;
+monarchies pass the crown down a line of succession, sometimes to a child under a regent. When a
+royal line dies out, foreign relatives by marriage may go to war to claim the throne.
+
 **The Chronicle:** everything important is recorded year by year: new peoples and villages,
 cities growing, wars, battles, conquests, famines, revolutions, treaties.
 
