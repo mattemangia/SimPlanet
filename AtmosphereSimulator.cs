@@ -56,6 +56,11 @@ public class AtmosphereSimulator
                 {
                     oxygenChange += cell.Biomass * 1.0f * deltaTime;
                 }
+                else if (cell.LifeType == LifeForm.Civilization)
+                {
+                    // Fields, pastures and woodlands around settlements still photosynthesize
+                    oxygenChange += cell.Biomass * 0.8f * (1f - cell.HumanFootprint) * deltaTime;
+                }
 
                 // Animals consume oxygen
                 if (cell.LifeType == LifeForm.SimpleAnimals ||
@@ -108,6 +113,11 @@ public class AtmosphereSimulator
                 {
                     co2Change -= cell.Biomass * 0.6f * deltaTime;
                 }
+                else if (cell.LifeType == LifeForm.Civilization)
+                {
+                    // Farmland and managed forests keep absorbing CO2 unless built over
+                    co2Change -= cell.Biomass * 0.5f * (1f - cell.HumanFootprint) * deltaTime;
+                }
 
                 // Respiration produces CO2
                 if (cell.Biomass > 0)
@@ -122,10 +132,10 @@ public class AtmosphereSimulator
                     co2Change += cell.Biomass * 0.2f * deltaTime;
                 }
 
-                // Civilization produces lots of CO2
+                // Civilization produces CO2 according to its industrial footprint
                 if (cell.LifeType == LifeForm.Civilization)
                 {
-                    co2Change += cell.Biomass * 2.0f * deltaTime;
+                    co2Change += cell.Biomass * 2.0f * cell.HumanFootprint * deltaTime;
                 }
 
                 // Volcanic activity (simplified - hot spots)
@@ -182,7 +192,7 @@ public class AtmosphereSimulator
                 // Civilization activities (agriculture, livestock, fossil fuels)
                 if (cell.LifeType == LifeForm.Civilization)
                 {
-                    ch4Change += cell.Biomass * 0.8f * deltaTime;
+                    ch4Change += cell.Biomass * 0.8f * cell.HumanFootprint * deltaTime;
                 }
 
                 // Volcanic emissions
@@ -230,7 +240,7 @@ public class AtmosphereSimulator
                 // Agricultural fertilizer use
                 if (cell.LifeType == LifeForm.Civilization && cell.Biomass > 0.5f)
                 {
-                    n2oChange += 0.25f * cell.Biomass * deltaTime;
+                    n2oChange += 0.25f * cell.Biomass * cell.HumanFootprint * deltaTime;
                 }
 
                 // Ocean production (particularly oxygen-minimum zones)

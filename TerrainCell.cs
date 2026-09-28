@@ -25,6 +25,7 @@ public class TerrainCell
 
     // Life
     public LifeForm LifeType { get; set; }
+    public float HumanFootprint { get; set; }   // 0-1 industrial intensity of human activity (set by civilizations)
     public float Biomass { get; set; }          // Amount of life
     public float Evolution { get; set; }        // Evolution level (0-1)
 

@@ -866,6 +866,58 @@ public partial class CivilizationManager
 
     #endregion
 
+    #region Human footprint
+
+    private readonly List<(int x, int y)> _footprintCells = new();
+
+    /// <summary>
+    /// How intensely each civilized cell emits greenhouse gases: stone-age tribes barely
+    /// register, industrial cities pollute heavily, advanced and green societies clean up.
+    /// </summary>
+    private void UpdateHumanFootprint()
+    {
+        foreach (var (x, y) in _footprintCells)
+        {
+            _map.Cells[x, y].HumanFootprint = 0f;
+        }
+        _footprintCells.Clear();
+
+        foreach (var civ in _civilizations)
+        {
+            float era = civ.CivType switch
+            {
+                CivType.Tribal => 0.01f,
+                CivType.Agricultural => 0.05f,
+                CivType.Industrial => 0.6f,
+                CivType.Scientific => 0.4f,
+                CivType.Spacefaring => 0.15f,
+                _ => 0f
+            };
+            float policy = (1f - civ.EmissionReduction) * (1f - civ.EcoFriendliness * 0.5f);
+            float rural = era * policy * 0.25f;
+
+            foreach (var (x, y) in civ.Territory)
+            {
+                _map.Cells[x, y].HumanFootprint = rural;
+                _footprintCells.Add((x, y));
+            }
+
+            foreach (var city in civ.Cities)
+            {
+                float urban = era * policy * (city.Type switch
+                {
+                    CityType.Village => 0.3f,
+                    CityType.Town => 0.6f,
+                    CityType.City => 0.85f,
+                    _ => 1f
+                });
+                _map.Cells[city.X, city.Y].HumanFootprint = Math.Clamp(urban, 0f, 1f);
+            }
+        }
+    }
+
+    #endregion
+
     #region Earthquakes
 
     private readonly HashSet<(int x, int y, int year, float magnitude)> _processedEarthquakes = new();

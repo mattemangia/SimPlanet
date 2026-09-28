@@ -101,6 +101,7 @@ public partial class CivilizationManager
         CheckRebellions(currentYear);
         UpdateDisasterResponse(currentYear);
         ApplyEarthquakeDamage(currentYear);
+        UpdateHumanFootprint();
 
         foreach (var civ in _civilizations.ToList())
         {
