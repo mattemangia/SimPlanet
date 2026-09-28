@@ -290,17 +290,8 @@ public class DisasterControlUI
         int panelWidth = 200;
         int panelHeight = 600;
 
-        // Background
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX - 5, panelY - 5, panelWidth, panelHeight),
-            new Color(20, 20, 40, 230));
-
-        // Border
-        DrawBorder(spriteBatch, panelX - 5, panelY - 5, panelWidth, panelHeight, Color.DarkRed, 2);
-
-        // Title
-        _font.DrawString(spriteBatch, "DISASTER CONTROL",
-            new Vector2(panelX + 20, panelY + 5), Color.Red);
+        // Background and title
+        UITheme.DrawTitledPanel(spriteBatch, new Rectangle(panelX - 5, panelY - 5, panelWidth, panelHeight), "DISASTER CONTROL", UITheme.Bad, 32);
 
         // Draw toggle buttons
         foreach (var button in _toggleButtons)
@@ -376,37 +367,24 @@ public class DisasterControlUI
     private void DrawToggleButton(SpriteBatch spriteBatch, ToggleButton button)
     {
         bool isOn = button.GetValue();
-        Color bgColor = isOn ? new Color(0, 100, 0) : new Color(100, 0, 0);
+        bool hovered = button.Bounds.Contains(Mouse.GetState().Position);
+        UITheme.DrawButton(spriteBatch, button.Bounds, "", hovered, false);
 
-        // Background
-        spriteBatch.Draw(_pixelTexture, button.Bounds, new Color(bgColor, 0.7f));
-
-        // Border
-        DrawBorder(spriteBatch, button.Bounds.X, button.Bounds.Y,
-            button.Bounds.Width, button.Bounds.Height, Color.White, 2);
-
-        // Text
-        string text = button.Text + (isOn ? ": ON" : ": OFF");
-        _font.DrawString(spriteBatch, text,
-            new Vector2(button.Bounds.X + 10, button.Bounds.Y + 8), Color.White);
+        // Label on the left, ON/OFF pill on the right
+        var ts = UITheme.Measure(button.Text, UITheme.FontNormal);
+        UITheme.DrawTextShadowed(spriteBatch, button.Text,
+            new Vector2(button.Bounds.X + 10, button.Bounds.Y + (button.Bounds.Height - ts.Y) / 2f), UITheme.Text);
+        var pill = new Rectangle(button.Bounds.Right - 46, button.Bounds.Y + (button.Bounds.Height - 18) / 2, 38, 18);
+        UITheme.FillRounded(spriteBatch, pill, isOn ? new Color(40, 130, 70) : new Color(90, 40, 40));
+        UITheme.DrawTextCentered(spriteBatch, isOn ? "ON" : "OFF", pill, Color.White, 11f);
     }
 
     private void DrawActionButton(SpriteBatch spriteBatch, ActionButton button)
     {
-        // Background
-        spriteBatch.Draw(_pixelTexture, button.Bounds, new Color(button.Color, 0.7f));
-
-        // Border
-        DrawBorder(spriteBatch, button.Bounds.X, button.Bounds.Y,
-            button.Bounds.Width, button.Bounds.Height, Color.White, 2);
-
-        // Text
-        var textSize = _font.MeasureString(button.Text);
-        var textPos = new Vector2(
-            button.Bounds.X + (button.Bounds.Width - textSize.X) / 2,
-            button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2
-        );
-        _font.DrawString(spriteBatch, button.Text, textPos, Color.White);
+        bool hovered = button.Bounds.Contains(Mouse.GetState().Position);
+        UITheme.DrawButton(spriteBatch, button.Bounds, UITheme.Ellipsize(button.Text, button.Bounds.Width - 14), hovered, false, button.Color);
+        spriteBatch.Draw(_pixelTexture, new Rectangle(button.Bounds.X + 6, button.Bounds.Bottom - 3, button.Bounds.Width - 12, 2),
+            button.Color * (hovered ? 1f : 0.65f));
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)

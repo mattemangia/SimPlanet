@@ -117,11 +117,11 @@ public class PlanetMap
             {
                 // Map x to circular coordinates for seamless horizontal wrapping
                 // Use ReferenceWidth so preview samples the same noise as full map
-                float angle = (x / (float)Options.ReferenceWidth) * 2.0f * MathF.PI;
+                float angle = (x / (float)Width) * 2.0f * MathF.PI; // normalised so previews cover the whole planet
                 float nx = MathF.Cos(angle) * radius;
                 float nz = MathF.Sin(angle) * radius;
                 // Use ReferenceHeight for consistent vertical scale
-                float ny = (y / (float)Options.ReferenceHeight) * Options.ReferenceHeight * scale;
+                float ny = (y / (float)Height) * Options.ReferenceHeight * scale;
 
                 // Generate height using 3D noise for seamless wrapping
                 // Use nx, ny, nz where nx/nz form a circle
@@ -152,10 +152,10 @@ public class PlanetMap
             for (int y = 0; y < Height; y++)
             {
                 // Use same cylindrical coordinates for mountains (using ReferenceWidth for consistency)
-                float angle = (x / (float)Options.ReferenceWidth) * 2.0f * MathF.PI;
+                float angle = (x / (float)Width) * 2.0f * MathF.PI; // normalised so previews cover the whole planet
                 float nx = MathF.Cos(angle) * radius;
                 float nz = MathF.Sin(angle) * radius;
-                float ny = (y / (float)Options.ReferenceHeight) * Options.ReferenceHeight * scale;
+                float ny = (y / (float)Height) * Options.ReferenceHeight * scale;
 
                 float elevation = baseElevation[x, y];
 

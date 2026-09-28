@@ -230,11 +230,16 @@ public class PlayerCivilizationControl
         // Background overlay
         spriteBatch.Draw(_pixelTexture,
             new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(0, 0, 0, 180));
+            new Color(4, 6, 12) * 0.7f);
 
-        // Title
-        _font.DrawString(spriteBatch, "SELECT CIVILIZATION TO CONTROL",
-            new Vector2(screenWidth / 2 - 150, 50), Color.Yellow);
+        // Card behind the buttons
+        if (_selectorButtons.Count > 0)
+        {
+            var first = _selectorButtons[0].Bounds;
+            var last = _selectorButtons[^1].Bounds;
+            var card = new Rectangle(first.X - 20, first.Y - 56, first.Width + 40, last.Bottom - first.Y + 76);
+            UITheme.DrawTitledPanel(spriteBatch, card, "SELECT A CIVILIZATION TO CONTROL", UITheme.Gold, 40);
+        }
 
         // Draw selector buttons
         foreach (var button in _selectorButtons)
@@ -338,20 +343,12 @@ public class PlayerCivilizationControl
 
     private void DrawButton(SpriteBatch spriteBatch, Button button)
     {
-        // Button background
-        spriteBatch.Draw(_pixelTexture, button.Bounds, new Color(button.Color, 0.7f));
-
-        // Button border
-        DrawBorder(spriteBatch, button.Bounds.X, button.Bounds.Y,
-            button.Bounds.Width, button.Bounds.Height, Color.White, 2);
-
-        // Button text
-        var textSize = _font.MeasureString(button.Text);
-        var textPos = new Vector2(
-            button.Bounds.X + (button.Bounds.Width - textSize.X) / 2,
-            button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2
-        );
-        _font.DrawString(spriteBatch, button.Text, textPos, Color.White);
+        bool hovered = button.Bounds.Contains(Mouse.GetState().Position);
+        string text = UITheme.Ellipsize(button.Text, button.Bounds.Width - 16, UITheme.FontNormal);
+        UITheme.DrawButton(spriteBatch, button.Bounds, text, hovered, false, button.Color);
+        // Colour key along the bottom edge
+        spriteBatch.Draw(_pixelTexture, new Rectangle(button.Bounds.X + 6, button.Bounds.Bottom - 3, button.Bounds.Width - 12, 2),
+            button.Color * (hovered ? 1f : 0.6f));
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)

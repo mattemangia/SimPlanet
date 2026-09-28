@@ -65,8 +65,7 @@ public class Graphs
 
     public void Update(float deltaTime)
     {
-        if (!IsVisible) return;
-
+        // Keep sampling while hidden so the history is there when the panel opens
         _updateTimer += deltaTime;
         if (_updateTimer >= UPDATE_INTERVAL)
         {
@@ -81,11 +80,8 @@ public class Graphs
         _graphData["Oxygen"].AddValue(_map.GlobalOxygen);
         _graphData["CO2"].AddValue(_map.GlobalCO2);
 
-        long totalPopulation = 0;
-        if (_civManager.Civilizations != null)
-        {
-            totalPopulation = _civManager.Civilizations.Sum(c => (long)c.Population);
-        }
+        // Use the renderer's thread-safe snapshot instead of the live civilization list
+        long totalPopulation = CivRenderData.Latest.Civs.Sum(c => (long)c.Population);
         _graphData["Population"].AddValue(totalPopulation);
 
         float totalBiomass = 0;
@@ -103,80 +99,117 @@ public class Graphs
     {
         if (!IsVisible) return;
 
-        int graphWidth = 800;
-        int graphHeight = 500;
-        int xPos = (screenWidth - graphWidth) / 2;
-        int yPos = (screenHeight - graphHeight) / 2;
+        // Small multiples: one chart per measure, each with its own y-scale
+        // (different units must never share an axis).
+        int panelWidth = Math.Min(860, screenWidth - 40);
+        int panelHeight = Math.Min(600, screenHeight - 140);
+        var panel = new Rectangle((screenWidth - panelWidth) / 2, (screenHeight - panelHeight) / 2, panelWidth, panelHeight);
 
-        // Background
-        spriteBatch.Draw(_backgroundTexture, new Rectangle(xPos, yPos, graphWidth, graphHeight), Color.White);
+        spriteBatch.End();
+        spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
 
-        // Title
-        _font.DrawString(spriteBatch, "Planetary Statistics Over Time", new Vector2(xPos + 10, yPos + 10), Color.White);
+        int contentY = UITheme.DrawTitledPanel(spriteBatch, panel, "PLANETARY STATISTICS", UITheme.Gold, 40);
+        UITheme.DrawText(spriteBatch, "Sampled every 2 s  -  Y to close", new Vector2(panel.Right - 220, panel.Y + 12), UITheme.TextMuted, UITheme.FontSmall);
 
-        // Draw each graph
-        int graphAreaX = xPos + 60;
-        int graphAreaY = yPos + 50;
-        int graphAreaWidth = graphWidth - 80;
-        int graphAreaHeight = graphHeight - 70;
+        var series = _graphData.Values.ToList();
+        int cols = 2;
+        int rows = (series.Count + cols - 1) / cols;
+        int gap = 12;
+        int cellW = (panelWidth - 24 - gap * (cols - 1)) / cols;
+        int cellH = (panel.Bottom - 12 - contentY - gap * (rows - 1)) / rows;
+        var mouse = Microsoft.Xna.Framework.Input.Mouse.GetState();
 
-        DrawGrid(spriteBatch, graphAreaX, graphAreaY, graphAreaWidth, graphAreaHeight);
-
-        foreach (var data in _graphData.Values)
+        for (int i = 0; i < series.Count; i++)
         {
-            DrawGraphLine(spriteBatch, data, graphAreaX, graphAreaY, graphAreaWidth, graphAreaHeight);
+            var rect = new Rectangle(panel.X + 12 + (i % cols) * (cellW + gap), contentY + (i / cols) * (cellH + gap), cellW, cellH);
+            DrawSmallChart(spriteBatch, series[i], rect, mouse.Position);
         }
 
-        DrawLegend(spriteBatch, xPos + graphWidth - 150, yPos + 50);
+        spriteBatch.End();
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
     }
 
-    private void DrawGrid(SpriteBatch spriteBatch, int x, int y, int width, int height)
+    private static string FormatValue(float v)
     {
-        // Horizontal lines
-        for (int i = 0; i <= 10; i++)
-        {
-            int lineY = y + (int)(i / 10f * height);
-            spriteBatch.Draw(_pixelTexture, new Rectangle(x, lineY, width, 1), new Color(Color.White, 0.2f));
-        }
-
-        // Vertical lines
-        for (int i = 0; i <= 10; i++)
-        {
-            int lineX = x + (int)(i / 10f * width);
-            spriteBatch.Draw(_pixelTexture, new Rectangle(lineX, y, 1, height), new Color(Color.White, 0.2f));
-        }
+        float a = Math.Abs(v);
+        if (a >= 1_000_000) return $"{v / 1_000_000f:0.##}M";
+        if (a >= 1_000) return $"{v / 1_000f:0.#}K";
+        if (a >= 10) return $"{v:0.#}";
+        return $"{v:0.###}";
     }
 
-    private void DrawGraphLine(SpriteBatch spriteBatch, GraphData data, int x, int y, int width, int height)
+    private void DrawSmallChart(SpriteBatch spriteBatch, GraphData data, Rectangle rect, Point mouse)
     {
-        if (data.Values.Count == 0) return;
+        UITheme.FillRounded(spriteBatch, rect, new Color(8, 12, 20, 220));
+        UITheme.OutlineRounded(spriteBatch, rect, UITheme.Border);
+
+        // Title names the series; the current value is the headline
+        UITheme.DrawText(spriteBatch, data.Name, new Vector2(rect.X + 10, rect.Y + 8), UITheme.TextDim, UITheme.FontSmall);
+        string current = data.Values.Count > 0 ? FormatValue(data.Values[^1]) : "-";
+        var cs = UITheme.Measure(current, UITheme.FontMedium);
+        UITheme.DrawText(spriteBatch, current, new Vector2(rect.Right - cs.X - 10, rect.Y + 6), UITheme.Text, UITheme.FontMedium);
+
+        var plot = new Rectangle(rect.X + 44, rect.Y + 32, rect.Width - 56, rect.Height - 44);
+        Color line = UITheme.Accent;
+
+        if (data.Values.Count < 2)
+        {
+            UITheme.DrawTextCentered(spriteBatch, "Collecting data...", plot, UITheme.TextMuted, UITheme.FontSmall);
+            return;
+        }
 
         float min = data.Values.Min();
         float max = data.Values.Max();
-        if (max - min < 0.001f)
+        if (max - min < 1e-4f) { max += 0.5f; min -= 0.5f; }
+        float pad = (max - min) * 0.08f;
+        min -= pad; max += pad;
+
+        // Recessive grid with three y labels
+        for (int g = 0; g <= 2; g++)
         {
-            max += 1;
+            int gy = plot.Y + (int)(g / 2f * plot.Height);
+            spriteBatch.Draw(_pixelTexture, new Rectangle(plot.X, gy, plot.Width, 1), Color.White * 0.07f);
+            float v = max - g / 2f * (max - min);
+            string label = FormatValue(v);
+            var ls = UITheme.Measure(label, 10f);
+            UITheme.DrawText(spriteBatch, label, new Vector2(plot.X - ls.X - 6, gy - ls.Y / 2f), UITheme.TextMuted, 10f);
         }
 
-        for (int i = 0; i < data.Values.Count - 1; i++)
-        {
-            float x1 = x + (float)i / (data.Values.Count - 1) * width;
-            float y1 = y + height - (data.Values[i] - min) / (max - min) * height;
-            float x2 = x + (float)(i + 1) / (data.Values.Count - 1) * width;
-            float y2 = y + height - (data.Values[i + 1] - min) / (max - min) * height;
+        int n = data.Values.Count;
+        Vector2 P(int i) => new Vector2(plot.X + (float)i / (n - 1) * plot.Width,
+                                        plot.Bottom - (data.Values[i] - min) / (max - min) * plot.Height);
 
-            DrawLine(spriteBatch, _pixelTexture, new Vector2(x1, y1), new Vector2(x2, y2), data.GraphColor, 2);
+        // Soft area under the line, then the 2px line
+        for (int i = 0; i < n - 1; i++)
+        {
+            var p1 = P(i);
+            var p2 = P(i + 1);
+            int x1 = (int)p1.X, x2 = Math.Max(x1 + 1, (int)p2.X);
+            int top = (int)Math.Min(p1.Y, p2.Y);
+            spriteBatch.Draw(_pixelTexture, new Rectangle(x1, top, x2 - x1, plot.Bottom - top), line * 0.10f);
         }
-    }
-
-    private void DrawLegend(SpriteBatch spriteBatch, int x, int y)
-    {
-        int yOffset = 0;
-        foreach (var data in _graphData.Values)
+        for (int i = 0; i < n - 1; i++)
         {
-            spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + yOffset, 10, 10), data.GraphColor);
-            _font.DrawString(spriteBatch, data.Name, new Vector2(x + 15, y + yOffset - 2), Color.White);
-            yOffset += 20;
+            DrawLine(spriteBatch, _pixelTexture, P(i), P(i + 1), line, 2);
+        }
+
+        // Hover crosshair with the value under the cursor
+        if (plot.Contains(mouse))
+        {
+            int idx = Math.Clamp((int)MathF.Round((mouse.X - plot.X) / (float)plot.Width * (n - 1)), 0, n - 1);
+            var p = P(idx);
+            spriteBatch.Draw(_pixelTexture, new Rectangle((int)p.X, plot.Y, 1, plot.Height), Color.White * 0.35f);
+            UITheme.FillRounded(spriteBatch, new Rectangle((int)p.X - 4, (int)p.Y - 4, 8, 8), UITheme.Text);
+            UITheme.FillRounded(spriteBatch, new Rectangle((int)p.X - 2, (int)p.Y - 2, 4, 4), line);
+            int ago = (n - 1 - idx) * (int)UPDATE_INTERVAL;
+            UITheme.DrawTooltip(spriteBatch, FormatValue(data.Values[idx]) + "\n" + (ago == 0 ? "now" : ago + " s ago"),
+                new Point((int)p.X, (int)p.Y), _graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height, preferAbove: true);
+        }
+        else
+        {
+            // Mark the latest sample
+            var last = P(n - 1);
+            UITheme.FillRounded(spriteBatch, new Rectangle((int)last.X - 4, (int)last.Y - 4, 8, 8), line);
         }
     }
 

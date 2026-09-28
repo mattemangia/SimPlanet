@@ -435,41 +435,15 @@ public class DivinePowersUI
 
     private void DrawPanel(SpriteBatch spriteBatch, int x, int y, int width, int height, string title)
     {
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, height), _panelBgColor);
-
-        // Border
-        DrawBorder(spriteBatch, x, y, width, height, _borderColor, 2);
-
-        // Title
-        _font.DrawString(spriteBatch, title, new Vector2(x + 15, y + 10), _borderColor);
-
-        // Separator
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + 5, y + 35, width - 10, 1), _borderColor);
+        UITheme.DrawTitledPanel(spriteBatch, new Rectangle(x, y, width, height), title, _borderColor, 36);
     }
 
     private void DrawButton(SpriteBatch spriteBatch, Rectangle bounds, string text, Color color)
     {
-        // Button background
-        spriteBatch.Draw(_pixelTexture, bounds, new Color(color, 0.7f));
-
-        // Button border
-        DrawBorder(spriteBatch, bounds.X, bounds.Y, bounds.Width, bounds.Height, Color.White, 1);
-
-        // Button text
-        var textSize = _font.MeasureString(text);
-        // Scale down text if too wide
-        if (textSize.X > bounds.Width - 10)
-        {
-            // Simple workaround since font renderer doesn't support scaling yet: truncate
-            // Or just let it overflow slightly/clip
-        }
-
-        var textPos = new Vector2(
-            bounds.X + (bounds.Width - textSize.X) / 2,
-            bounds.Y + (bounds.Height - textSize.Y) / 2
-        );
-        _font.DrawString(spriteBatch, text, textPos, Color.White);
+        bool hovered = bounds.Contains(Microsoft.Xna.Framework.Input.Mouse.GetState().Position);
+        string fitted = UITheme.Ellipsize(text, bounds.Width - 14, UITheme.FontNormal);
+        UITheme.DrawButton(spriteBatch, bounds, fitted, hovered, false, color);
+        spriteBatch.Draw(_pixelTexture, new Rectangle(bounds.X + 6, bounds.Bottom - 3, bounds.Width - 12, 2), color * (hovered ? 1f : 0.65f));
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
