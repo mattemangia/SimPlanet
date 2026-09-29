@@ -118,7 +118,8 @@ public class SimPlanetGame : Game
     private readonly List<RenderMode> _societyModes = new()
     {
         RenderMode.Electricity, RenderMode.Energy, RenderMode.Armaments, RenderMode.Governments,
-        RenderMode.Internet, RenderMode.Infrastructure, RenderMode.Epidemics
+        RenderMode.Internet, RenderMode.Infrastructure, RenderMode.Epidemics, RenderMode.Migrations,
+        RenderMode.SpyNetworks
     };
 
     private void CycleRenderMode(List<RenderMode> modes)
@@ -2060,6 +2061,11 @@ public class SimPlanetGame : Game
     public void ToggleMinimap()
     {
         _minimap3D.IsVisible = !_minimap3D.IsVisible;
+    }
+
+    public void ToggleWildlife()
+    {
+        _terrainRenderer.ShowWildlife = !_terrainRenderer.ShowWildlife;
     }
 
     public void ToggleDayNight()

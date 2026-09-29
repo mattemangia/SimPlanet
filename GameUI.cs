@@ -507,7 +507,7 @@ public class GameUI
 
         // Footer View Info
         DrawSectionHeader("VIEW");
-        DrawLabelValue("Mode", $"{renderMode}", _accentColor);
+        DrawLabelValue("Mode", renderMode == RenderMode.SpyNetworks ? "Spy networks" : $"{renderMode}", _accentColor);
         DrawLabelValue("Zoom", $"{zoomLevel:F1}x", _textValueColor);
 
         // Mini icons for overlays

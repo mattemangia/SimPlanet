@@ -34,7 +34,7 @@ public class ChronicleUI
     private const int MaxToasts = 4;
     private const int InfoPanelWidth = 280;
 
-    private static readonly string[] Filters = { "All", "War", "Diplomacy", "Growth", "Progress", "Hardship" };
+    private static readonly string[] Filters = { "All", "War", "Diplomacy", "Growth", "Progress", "Hardship", "Espionage", "Migration" };
 
     public bool IsVisible { get; set; }
     public bool ShowToasts { get; set; } = true;
@@ -63,6 +63,8 @@ public class ChronicleUI
         "Science" => new Color(110, 190, 255),
         "Space" => new Color(186, 150, 255),
         "Politics" => new Color(240, 180, 110),
+        "Espionage" => new Color(150, 160, 200),
+        "Migration" => new Color(90, 215, 200),
         _ => new Color(190, 200, 215)
     };
 
@@ -73,6 +75,8 @@ public class ChronicleUI
         "Growth" => category is "Founding" or "Growth",
         "Progress" => category is "Science" or "Space",
         "Hardship" => category is "Famine" or "Disaster" or "Rebellion" or "Epidemic",
+        "Espionage" => category is "Espionage",
+        "Migration" => category is "Migration",
         _ => true
     };
 
@@ -109,7 +113,7 @@ public class ChronicleUI
                 int wheel = mouse.ScrollWheelValue - _previousMouse.ScrollWheelValue;
                 if (wheel != 0) _scrollOffset -= wheel / 3;
             }
-            _scrollOffset = Math.Clamp(_scrollOffset, 0, Math.Max(0, _contentHeight - (_panelRect.Height - 90)));
+            _scrollOffset = Math.Clamp(_scrollOffset, 0, Math.Max(0, _contentHeight - (_panelRect.Height - 116)));
 
             bool clicked = mouse.LeftButton == ButtonState.Released && _previousMouse.LeftButton == ButtonState.Pressed;
             if (clicked)
@@ -214,17 +218,25 @@ public class ChronicleUI
         _filterChips.Clear();
         int fx = x + 12;
         var mouse = Mouse.GetState();
+        int fy = contentTop - 2;
         foreach (var f in Filters)
         {
             int w = (int)UITheme.Measure(f, UITheme.FontSmall).X + 18;
-            var chip = new Rectangle(fx, contentTop - 2, w, 22);
+            if (fx + w > x + width - 12 && fx > x + 12)
+            {
+                // Wrap the chips onto a second row on narrow panels
+                fx = x + 12;
+                fy += 26;
+            }
+            var chip = new Rectangle(fx, fy, w, 22);
             _filterChips.Add((chip, f));
-            UITheme.DrawButton(spriteBatch, chip, f, chip.Contains(mouse.Position), _filter == f, UITheme.Gold, UITheme.FontSmall);
+            Color accent = f is "Espionage" or "Migration" ? GetCategoryColor(f) : UITheme.Gold;
+            UITheme.DrawButton(spriteBatch, chip, f, chip.Contains(mouse.Position), _filter == f, accent, UITheme.FontSmall);
             fx += w + 6;
         }
 
         var data = CivRenderData.Latest;
-        int listTop = contentTop + 30;
+        int listTop = fy + 32;
         int listBottom = _panelRect.Bottom - 10;
         var events = new List<CivRenderData.HistoryInfo>();
         for (int i = data.Chronicle.Count - 1; i >= 0; i--)
@@ -234,7 +246,9 @@ public class ChronicleUI
         {
             string msg = data.Civs.Count == 0
                 ? "No civilizations yet.\nHistory begins when intelligent life\nfounds its first settlement."
-                : "No recorded events yet.\nWars, foundings and famines will\nappear here as history unfolds.";
+                : _filter != "All" && data.Chronicle.Count > 0
+                    ? $"No {_filter.ToLowerInvariant()} events recorded yet."
+                    : "No recorded events yet.\nWars, foundings and famines will\nappear here as history unfolds.";
             float my = listTop + 20;
             foreach (var line in msg.Split('\n'))
             {

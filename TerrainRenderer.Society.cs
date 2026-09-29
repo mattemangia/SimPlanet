@@ -46,7 +46,8 @@ public partial class TerrainRenderer
     }
 
     public static bool IsSocietyMode(RenderMode mode) => mode is RenderMode.Electricity or RenderMode.Infrastructure
-        or RenderMode.Energy or RenderMode.Armaments or RenderMode.Governments or RenderMode.Internet or RenderMode.Epidemics;
+        or RenderMode.Energy or RenderMode.Armaments or RenderMode.Governments or RenderMode.Internet or RenderMode.Epidemics
+        or RenderMode.Migrations or RenderMode.SpyNetworks;
 
     private static readonly Color SocietyUnclaimed = new Color(96, 100, 92);
     private static readonly Color HealthyTint = new Color(96, 132, 112);
@@ -88,7 +89,14 @@ public partial class TerrainRenderer
         int maxStrength = 1;
         foreach (var c in data.Civs) maxStrength = Math.Max(maxStrength, c.MilitaryStrength);
 
-        _nationTintStrength = Mode == RenderMode.Infrastructure ? 0.22f : 0.74f;
+        _nationTintStrength = Mode switch
+        {
+            RenderMode.Infrastructure => 0.22f,
+            RenderMode.Migrations or RenderMode.SpyNetworks => 0.6f,
+            _ => 0.74f
+        };
+        var net = Mode == RenderMode.Migrations ? NetMigration(data) : null;
+        int maxNet = net == null || net.Count == 0 ? 0 : net.Values.Max(v => Math.Abs(v.In - v.Out));
 
         foreach (var civ in data.Civs)
         {
@@ -100,6 +108,8 @@ public partial class TerrainRenderer
                 RenderMode.Governments => civ.GovType.HasValue ? SocietyStyle.GovernmentColor(civ.GovType.Value) : NoDataTint,
                 RenderMode.Internet => SocietyStyle.InternetColor(civ.InternetPenetration),
                 RenderMode.Epidemics => GetEpidemicTint(data, civ.Id),
+                RenderMode.Migrations => GetMigrationTint(data, net!, maxNet, civ.Id),
+                RenderMode.SpyNetworks => SocietyStyle.CounterIntelColor(civ.CounterIntelligence),
                 _ => GetCivColor(civ.Id)
             };
             _nationTint[civ.Id] = tint;
@@ -280,7 +290,9 @@ public partial class TerrainRenderer
                 break;
             case RenderMode.Infrastructure:
                 DrawTradeRoutes(sb, data, offsetX, offsetY, clip, time);
-                DrawRailroads(sb, data, offsetX, offsetY, clip);
+                // Railway routes follow the terrain and are drawn with the other transport routes
+                if (!data.Routes.Any(r => r.Kind == TransportKind.Railway))
+                    DrawRailroads(sb, data, offsetX, offsetY, clip);
                 break;
             case RenderMode.Epidemics:
                 DrawCityGlows(sb, data, offsetX, offsetY, clip, iconScale, time);
@@ -604,6 +616,20 @@ public partial class TerrainRenderer
             case RenderMode.Internet:
                 if (civ.InternetPenetration <= 0.001f) { color = UITheme.TextMuted; return "Offline"; }
                 return $"{civ.InternetPenetration:P0} online";
+            case RenderMode.Migrations:
+            {
+                var (i, o) = NetMigration(data).GetValueOrDefault(civ.Id);
+                if (i == 0 && o == 0) return null;
+                int n = i - o;
+                color = SocietyStyle.NetMigrationColor(n >= 0 ? 1f : -1f);
+                return n >= 0 ? $"Net +{FormatPeople(n)}" : $"Net -{FormatPeople(-n)}";
+            }
+            case RenderMode.SpyNetworks:
+            {
+                int abroad = data.SpyNetworks.Count(nw => nw.OwnerCivId == civ.Id);
+                color = SocietyStyle.CounterIntelColor(Math.Max(0.5f, civ.CounterIntelligence));
+                return $"CI {civ.CounterIntelligence:P0} - {abroad} abroad";
+            }
             case RenderMode.Epidemics:
             {
                 var (worst, total) = GetWorstInfection(data, civ.Id);
@@ -682,6 +708,12 @@ public partial class TerrainRenderer
                 if (city.HasAirport) hubs.Add("airport");
                 if (city.HasSpaceport) hubs.Add("spaceport");
                 lines.Add(hubs.Count > 0 ? "Hubs: " + string.Join(", ", hubs) : "No transport hubs");
+                if (city.Id != 0)
+                {
+                    var links = CivData.Routes.Where(r => r.FromCityId == city.Id || r.ToCityId == city.Id)
+                        .GroupBy(r => r.Kind).Select(g => $"{g.Count()} {RouteKindName(g.Key, g.Count())}").ToList();
+                    if (links.Count > 0) lines.Add("Links: " + string.Join(", ", links));
+                }
                 break;
         }
     }
@@ -757,10 +789,47 @@ public partial class TerrainRenderer
                 break;
 
             case RenderMode.Infrastructure:
-                lines.Add($"Road cells {civ.Detail?.RoadCells ?? 0:N0} - railroads {data.Railroads.Count(l => l.CivId == civId)}");
-                lines.Add($"Trade routes {data.TradeRoutes.Count(l => l.CivId == civId)}");
+            {
+                var routes = data.Routes.Where(r => r.CivId == civId).ToList();
+                lines.Add($"Roads {routes.Count(r => r.Kind == TransportKind.Road)} - railways {routes.Count(r => r.Kind == TransportKind.Railway)}");
+                lines.Add($"Sea lanes {routes.Count(r => r.Kind == TransportKind.SeaLane)} - air routes {routes.Count(r => r.Kind == TransportKind.AirRoute)}");
+                int foreign = routes.Count(r => r.International);
+                if (foreign > 0) lines.Add($"International links {foreign}");
+                int vehicles = data.Vehicles.Count(v => v.CivId == civId);
+                if (vehicles > 0) lines.Add($"Vehicles on the move {vehicles}");
+                lines.Add($"Road cells {civ.Detail?.RoadCells ?? 0:N0} - trade partners {data.TradeRoutes.Count(l => l.CivId == civId)}");
                 lines.Add($"Harbours {cities.Count(c => c.HasHarbor)} - airports {cities.Count(c => c.HasAirport)} - spaceports {cities.Count(c => c.HasSpaceport)}");
                 break;
+            }
+
+            case RenderMode.Migrations:
+            {
+                var recent = RecentFlows(data).ToList();
+                var arrivals = recent.Where(f => f.ToCivId == civId && f.FromCivId != civId).ToList();
+                var departures = recent.Where(f => f.FromCivId == civId && f.ToCivId != civId).ToList();
+                var internalFlows = recent.Where(f => f.FromCivId == civId && f.ToCivId == civId).ToList();
+                lines.Add($"Last 10 years: {FormatPeople(arrivals.Sum(f => f.People))} arrived, {FormatPeople(departures.Sum(f => f.People))} left");
+                foreach (var g in departures.GroupBy(f => f.Kind).OrderByDescending(g => g.Sum(f => f.People)).Take(3))
+                    lines.Add($"  out: {SocietyStyle.MigrationName(g.Key)} {FormatPeople(g.Sum(f => f.People))}");
+                foreach (var g in arrivals.GroupBy(f => f.Kind).OrderByDescending(g => g.Sum(f => f.People)).Take(3))
+                    lines.Add($"  in: {SocietyStyle.MigrationName(g.Key)} {FormatPeople(g.Sum(f => f.People))}");
+                if (internalFlows.Count > 0)
+                    lines.Add($"Moving within: {FormatPeople(internalFlows.Sum(f => f.People))}");
+                break;
+            }
+
+            case RenderMode.SpyNetworks:
+            {
+                lines.Add($"Counter-intelligence {civ.CounterIntelligence:P0} - budget {civ.IntelligenceBudget:N0} gold/yr");
+                var abroad = data.SpyNetworks.Where(n => n.OwnerCivId == civId).ToList();
+                var athome = data.SpyNetworks.Where(n => n.TargetCivId == civId).ToList();
+                if (abroad.Count == 0) lines.Add("No networks abroad");
+                foreach (var n in abroad.OrderByDescending(n => n.Strength).Take(4))
+                    lines.Add($"  in {data.FindCiv(n.TargetCivId)?.Name ?? "?"}: {SocietyStyle.MissionName(n.Mission)}{(n.Compromised ? " (compromised)" : "")}");
+                if (athome.Count > 0)
+                    lines.Add($"Foreign networks here: {athome.Count} ({athome.Count(n => n.Compromised)} uncovered)");
+                break;
+            }
 
             case RenderMode.Epidemics:
             {
@@ -783,6 +852,16 @@ public partial class TerrainRenderer
         QueueTooltip(string.Join("\n", lines), new Point(mouse.X, mouse.Y + 14));
     }
 
+    private static string FormatPeople(int n) => n >= 1_000_000 ? $"{n / 1_000_000f:0.#}M" : n >= 10_000 ? $"{n / 1000f:0.#}K" : n.ToString("N0");
+
+    private static string RouteKindName(TransportKind kind, int count) => kind switch
+    {
+        TransportKind.Road => count == 1 ? "road" : "roads",
+        TransportKind.Railway => count == 1 ? "railway" : "railways",
+        TransportKind.SeaLane => count == 1 ? "sea lane" : "sea lanes",
+        _ => count == 1 ? "air route" : "air routes"
+    };
+
     private static string EnergyBalanceText(CivRenderData.CivInfo civ)
     {
         if (civ.EnergyProduction <= 0 && civ.EnergyDemand <= 0) return "No energy statistics yet";
@@ -795,7 +874,7 @@ public partial class TerrainRenderer
     // Legend
     // ------------------------------------------------------------------
 
-    private enum LegendKind { Swatch, Icon, Line, Dashed, Rail, Glow, Arc }
+    private enum LegendKind { Swatch, Icon, Line, Dashed, Rail, Glow, Arc, Dotted, Arrow, Cross, Herd }
 
     private readonly record struct LegendRow(LegendKind Kind, Color Color, Texture2D? Icon, string Label);
 
@@ -874,14 +953,52 @@ public partial class TerrainRenderer
                 rows.Add(new(LegendKind.Line, new Color(255, 196, 70), null, "Highway"));
                 rows.Add(new(LegendKind.Line, new Color(226, 226, 232), null, "Paved road"));
                 rows.Add(new(LegendKind.Line, new Color(176, 146, 100), null, "Dirt path"));
-                rows.Add(new(LegendKind.Rail, Color.White, null, "Railroad"));
-                rows.Add(new(LegendKind.Dashed, SocietyStyle.TradeRoute, null, "Trade route"));
+                rows.Add(new(LegendKind.Rail, Color.White, null, "Railway"));
+                rows.Add(new(LegendKind.Dotted, SeaLaneColor, null, "Sea lane"));
+                rows.Add(new(LegendKind.Arc, AirRouteColor * 0.6f, null, "Air route"));
+                rows.Add(new(LegendKind.Dashed, SocietyStyle.TradeRoute, null, "Trade partners"));
                 if (icons != null)
                 {
                     rows.Add(new(LegendKind.Icon, Color.White, icons.Anchor, "Harbour"));
                     rows.Add(new(LegendKind.Icon, Color.White, icons.Plane, "Airport"));
                     rows.Add(new(LegendKind.Icon, Color.White, icons.Rocket, "Spaceport"));
+                    foreach (var (kind, label) in new[] { (VehicleKind.Caravan, "Caravan / truck"), (VehicleKind.Train, "Train"),
+                                 (VehicleKind.CargoShip, "Ship (wake)"), (VehicleKind.Airliner, "Airliner") })
+                    {
+                        var sprite = icons.VehicleSprite(kind);
+                        if (sprite != null) rows.Add(new(LegendKind.Icon, Color.White, sprite.Value.Base, label));
+                    }
                 }
+                note = "Road colour shows the era: dirt, paved, highway";
+                break;
+
+            case RenderMode.Migrations:
+            {
+                var recent = RecentFlows(CivData).ToList();
+                int y0 = recent.Count > 0 ? recent.Min(f => f.Year) : CivData.LatestYear;
+                title = recent.Count > 0 ? $"MIGRATIONS {y0}-{CivData.LatestYear}" : "MIGRATIONS";
+                gradient = t => SocietyStyle.NetMigrationColor(t * 2f - 1f);
+                gradientLabels = new[] { "Emigration", "Net migration", "Immigration" };
+                var totals = recent.GroupBy(f => f.Kind).ToDictionary(g => g.Key, g => g.Sum(f => f.People));
+                foreach (var kind in SocietyStyle.AllMigrationKinds)
+                {
+                    int people = totals.GetValueOrDefault(kind);
+                    rows.Add(new(LegendKind.Arrow, SocietyStyle.MigrationColor(kind), null,
+                        people > 0 ? $"{SocietyStyle.MigrationName(kind)}  {FormatPeople(people)}" : SocietyStyle.MigrationName(kind)));
+                }
+                if (ShowWildlife) rows.Add(new(LegendKind.Herd, new Color(112, 78, 52), null, "Wild herds and flocks"));
+                note = recent.Count == 0 ? "No migrations recorded yet" : "Thicker arrows carry more people";
+                break;
+            }
+
+            case RenderMode.SpyNetworks:
+                title = "SPY NETWORKS";
+                gradient = SocietyStyle.CounterIntelColor;
+                gradientLabels = new[] { "Open", "Counter-intelligence", "Watchful" };
+                foreach (var mission in SocietyStyle.AllMissions)
+                    rows.Add(new(LegendKind.Dotted, SocietyStyle.MissionColor(mission), null, SocietyStyle.MissionName(mission)));
+                rows.Add(new(LegendKind.Cross, new Color(255, 80, 80), null, "Compromised"));
+                note = CivData.SpyNetworks.Count == 0 ? "No spy networks yet" : $"{CivData.SpyNetworks.Count} networks - line width: strength";
                 break;
 
             case RenderMode.Epidemics:
@@ -896,8 +1013,10 @@ public partial class TerrainRenderer
         }
 
         const int rowH = 20;
-        bool twoColumns = rows.Count > 8;
-        int legendWidth = twoColumns ? 340 : 250;
+        // The migration summary reads better as one tall column with the totals
+        bool singleColumn = Mode == RenderMode.Migrations;
+        bool twoColumns = rows.Count > 8 && !singleColumn;
+        int legendWidth = twoColumns ? 340 : singleColumn ? 270 : 250;
         int perColumn = twoColumns ? (rows.Count + 1) / 2 : rows.Count;
         int gradientH = gradient != null ? 42 : 0;
         int noteH = note != null ? 20 : 0;
@@ -985,6 +1104,24 @@ public partial class TerrainRenderer
                 break;
             case LegendKind.Glow:
                 UITheme.DrawGlow(sb, r.Center.ToVector2(), 9f, row.Color);
+                break;
+            case LegendKind.Dotted:
+                for (int x = 1; x < r.Width; x += 5)
+                    sb.Draw(_pixelTexture, new Rectangle(r.X + x, r.Center.Y - 1, 2, 2), row.Color);
+                break;
+            case LegendKind.Arrow:
+                UITheme.DrawLine(sb, mid, end, row.Color * 0.8f, 3f);
+                UITheme.DrawLine(sb, end, end + new Vector2(-6, -4), row.Color, 2f);
+                UITheme.DrawLine(sb, end, end + new Vector2(-6, 4), row.Color, 2f);
+                break;
+            case LegendKind.Cross:
+                UITheme.DrawLine(sb, r.Center.ToVector2() + new Vector2(-5, -5), r.Center.ToVector2() + new Vector2(5, 5), row.Color, 2f);
+                UITheme.DrawLine(sb, r.Center.ToVector2() + new Vector2(-5, 5), r.Center.ToVector2() + new Vector2(5, -5), row.Color, 2f);
+                break;
+            case LegendKind.Herd:
+                _discTexture ??= BuildDisc(_graphicsDevice, 64);
+                for (int k = 0; k < 4; k++)
+                    sb.Draw(_discTexture, new Rectangle(r.X + 1 + k * 4, r.Y + 4 + (k % 2) * 5, 6, 4), row.Color);
                 break;
             case LegendKind.Arc:
                 var a = new Vector2(r.X, r.Center.Y + 3);

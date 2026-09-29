@@ -129,6 +129,8 @@ namespace SimPlanet
             AddModeButton(societyGroup, "Society: Internet", "Internet", RenderMode.Internet);
             AddModeButton(societyGroup, "Society: Infrastructure", "Infrastructure", RenderMode.Infrastructure);
             AddModeButton(societyGroup, "Society: Epidemics", "Epidemics", RenderMode.Epidemics);
+            AddModeButton(societyGroup, "Society: Migrations", "Migrations", RenderMode.Migrations);
+            AddModeButton(societyGroup, "Society: Spy networks", "Spy networks", RenderMode.SpyNetworks);
             AddSubButton(societyGroup, "Society: Nation details", "Feature", "Nation details...", "", () => game.OpenNationPanel());
             buttons.Add(societyGroup);
 
@@ -155,6 +157,7 @@ namespace SimPlanet
             AddSubButton(uiGroup, "Day/Night (C)", "UI", "Day / Night", "C", () => game.ToggleDayNight());
             AddSubButton(uiGroup, "Volcano Overlay (V)", "UI", "Volcanoes", "V", () => game.ToggleVolcanoes());
             AddSubButton(uiGroup, "Rivers (B)", "UI", "Rivers", "B", () => game.ToggleRivers());
+            AddSubButton(uiGroup, "Wildlife herds", "UI", "Wildlife herds", "", () => game.ToggleWildlife());
             AddSubButton(uiGroup, "Plates (N)", "UI", "Plate Boundaries", "N", () => game.TogglePlates());
             AddSubButton(uiGroup, "Earthquakes Overlay (.)", "UI", "Earthquakes", ".", () => game.ToggleEarthquakes());
             AddSubButton(uiGroup, "Stabilizer (\\)", "UI", "Auto-Stabilizer", "\\", () => game.ToggleStabilizer());
@@ -278,6 +281,7 @@ namespace SimPlanet
             try { icons = MapIcons.GetShared(graphicsDevice); }
             catch (Exception) { return null; }
             if (tooltip.StartsWith("Society Group")) return icons.Capitol;
+            if (tooltip.StartsWith("Wildlife")) return icons.Herd;
             if (!tooltip.StartsWith("Society:")) return null;
             if (tooltip.Contains("Power grid")) return icons.Bolt;
             if (tooltip.Contains("Energy")) return icons.SolarPanel;
@@ -286,6 +290,8 @@ namespace SimPlanet
             if (tooltip.Contains("Internet")) return icons.Network;
             if (tooltip.Contains("Infrastructure")) return icons.Plane;
             if (tooltip.Contains("Epidemics")) return icons.Biohazard;
+            if (tooltip.Contains("Migrations")) return icons.Migration;
+            if (tooltip.Contains("Spy networks")) return icons.Eye;
             if (tooltip.Contains("Nation details")) return icons.Crown;
             return null;
         }

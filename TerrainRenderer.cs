@@ -261,7 +261,8 @@ public partial class TerrainRenderer
                     RenderMode.Faults => GetFaultsColor(cell),
                     RenderMode.Tsunamis => GetTsunamisColor(cell),
                     RenderMode.Infrastructure or RenderMode.Electricity or RenderMode.Energy or RenderMode.Armaments
-                        or RenderMode.Governments or RenderMode.Internet or RenderMode.Epidemics => GetSocietyColor(cell, x, y),
+                        or RenderMode.Governments or RenderMode.Internet or RenderMode.Epidemics
+                        or RenderMode.Migrations or RenderMode.SpyNetworks => GetSocietyColor(cell, x, y),
                     RenderMode.SpectralBands => GetSpectralBandsColor(cell),
                     RenderMode.Civilizations => GetCivilizationColor(cell, x, y),
                     RenderMode.Auroras => GetAuroraColor(cell),
@@ -807,7 +808,8 @@ public partial class TerrainRenderer
     {
         var data = CivData;
         bool society = IsSocietyMode(Mode);
-        if (data.Cities.Count == 0 && data.Armies.Count == 0 && data.Battles.Count == 0 && !(society && data.Civs.Count > 0)) return;
+        if (data.Cities.Count == 0 && data.Armies.Count == 0 && data.Battles.Count == 0 && !(society && data.Civs.Count > 0)
+            && !HasMobilityContent(data)) return;
 
         var viewport = _graphicsDevice.Viewport;
         var clip = new Rectangle(offsetX, offsetY, viewport.Width - offsetX, viewport.Height - offsetY);
@@ -824,6 +826,9 @@ public partial class TerrainRenderer
 
         // --- Networks and glows of the society views (under the settlements) ---
         if (society) DrawSocietyUnderlay(spriteBatch, data, offsetX, offsetY, clip, iconScale, time);
+
+        // --- Transport, vehicles, wildlife, migrations and spy networks ---
+        DrawMobilityUnderlay(spriteBatch, data, offsetX, offsetY, clip, time);
 
         // --- Army movement lines (under everything else) ---
         foreach (var army in data.Armies)
@@ -917,8 +922,9 @@ public partial class TerrainRenderer
             var iconRect = new Rectangle((int)(pos.X - size / 2f), (int)(pos.Y - size * 0.62f), size, size);
             if (_icons != null)
             {
-                spriteBatch.Draw(_icons.SettlementBase[type], iconRect, Color.White);
-                spriteBatch.Draw(_icons.SettlementMask[type], iconRect, civColor);
+                var (styleBase, styleMask) = _icons.Settlement(city.Style, type);
+                spriteBatch.Draw(styleBase, iconRect, Color.White);
+                spriteBatch.Draw(styleMask, iconRect, civColor);
             }
             else
             {
@@ -953,6 +959,7 @@ public partial class TerrainRenderer
                     int hs = Math.Max(10, (int)(size * 0.45f));
                     spriteBatch.Draw(_icons.Hunger, new Rectangle(iconRect.X - hs / 2, iconRect.Y, hs, hs), Color.White);
                 }
+                DrawSpecializationBadge(spriteBatch, city, iconRect, size, cellPx, time);
             }
         }
 
@@ -1004,6 +1011,9 @@ public partial class TerrainRenderer
             }
         }
 
+        // --- Aircraft over the settlements ---
+        DrawMobilityOverlay(spriteBatch, data, offsetX, offsetY, clip, time);
+
         // --- Society view markers on top of the settlements (plants, badges, silos...) ---
         if (society) DrawSocietyMarkers(spriteBatch, data, ordered, fullIcon, offsetX, offsetY, clip, iconScale, time);
 
@@ -1026,6 +1036,10 @@ public partial class TerrainRenderer
             {
                 DrawCityTooltip(spriteBatch, hovered.Value, data, mouse.Position, viewport);
             }
+            else if (TryMobilityTooltip(mouse.Position))
+            {
+                // Migration flow, spy network, herd or vehicle under the cursor
+            }
             else if (society)
             {
                 int owner = GetOwnerAtScreen(mouse.Position, offsetX, offsetY);
@@ -1046,6 +1060,7 @@ public partial class TerrainRenderer
             $"{GetSettlementTypeName(city.Type)} of {civName}",
             $"Population {city.Population:N0}"
         };
+        lines.Add($"{SocietyStyle.SpecializationName(city.Specialization)} - {SocietyStyle.StyleName(city.Style)}");
         if (!string.IsNullOrEmpty(city.Buildings)) lines.Add(city.Buildings);
         if (city.UnderSiege) lines.Add($"Under siege ({city.SiegeProgress:P0})");
         if (city.Starving) lines.Add("Starving");
@@ -2768,5 +2783,7 @@ public enum RenderMode
     Armaments,                 // Military strength, weapons of mass destruction, fallout
     Governments,               // Nations by form of government
     Internet,                  // Internet penetration and data cables
-    Epidemics                  // Infection share per nation and disease
+    Epidemics,                 // Infection share per nation and disease
+    Migrations,                // Flows of migrants and refugees; wildlife herds
+    SpyNetworks                // Intelligence networks between nations
 }

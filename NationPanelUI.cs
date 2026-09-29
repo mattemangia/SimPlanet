@@ -15,7 +15,7 @@ public class NationPanelUI
 {
     private readonly GraphicsDevice _graphicsDevice;
     private static readonly RasterizerState ScissorRasterizer = new RasterizerState { ScissorTestEnable = true };
-    private static readonly string[] Tabs = { "Overview", "Succession", "Politics", "Military" };
+    private static readonly string[] Tabs = { "Overview", "Succession", "Politics", "Military", "Intelligence" };
 
     private int _civId = -1;
     private string _tab = "Overview";
@@ -181,6 +181,7 @@ public class NationPanelUI
             "Succession" => DrawSuccession(sb, data, civ, top, currentYear, mouse),
             "Politics" => DrawPolitics(sb, data, civ, top, currentYear),
             "Military" => DrawMilitary(sb, data, civ, top),
+            "Intelligence" => DrawIntelligence(sb, data, civ, top, mouse),
             _ => DrawOverview(sb, data, civ, top, currentYear)
         };
         _contentHeight = bottom - top + 10;
@@ -1165,6 +1166,119 @@ public class NationPanelUI
         }
 
         return Math.Max(leftBottom, y);
+    }
+
+    // ------------------------------------------------------------------
+    // Intelligence
+    // ------------------------------------------------------------------
+
+    private int DrawIntelligence(SpriteBatch sb, CivRenderData data, CivRenderData.CivInfo civ, int top, MouseState mouse)
+    {
+        int pad = 18;
+        int x0 = _contentRect.X + pad;
+        int width = _contentRect.Width - pad * 2;
+        int y = top;
+
+        var abroad = data.SpyNetworks.Where(n => n.OwnerCivId == civ.Id).OrderByDescending(n => n.Strength).ToList();
+        var athome = data.SpyNetworks.Where(n => n.TargetCivId == civ.Id).OrderByDescending(n => n.Compromised).ThenByDescending(n => n.Strength).ToList();
+
+        // Readable on the dark panel: the map tint lightened
+        var ciColor = Color.Lerp(SocietyStyle.CounterIntelColor(Math.Max(0.55f, civ.CounterIntelligence)), Color.White, 0.4f);
+        var stats = new (string Label, string Value, Color Color)[]
+        {
+            ("Counter-intelligence", $"{civ.CounterIntelligence:P0}", ciColor),
+            ("Budget (gold/yr)", FormatNumber(civ.IntelligenceBudget), UITheme.Gold),
+            ("Networks abroad", abroad.Count.ToString(), UITheme.Text),
+            ("Agents abroad", FormatNumber(abroad.Sum(n => n.Agents)), UITheme.Text),
+            ("Foreign networks", $"{athome.Count(n => n.Compromised)} found / {athome.Count}", athome.Any(n => !n.Compromised) ? UITheme.Warn : UITheme.Text),
+        };
+        int cardW = (width - (stats.Length - 1) * 8) / stats.Length;
+        for (int i = 0; i < stats.Length; i++)
+        {
+            var r = new Rectangle(x0 + i * (cardW + 8), y, cardW, 46);
+            UITheme.FillRounded(sb, r, new Color(24, 32, 48));
+            UITheme.OutlineRounded(sb, r, UITheme.Border);
+            UITheme.DrawText(sb, UITheme.Ellipsize(stats[i].Label, cardW - 12, 11f), new Vector2(r.X + 8, r.Y + 5), UITheme.TextMuted, 11f);
+            UITheme.DrawText(sb, UITheme.Ellipsize(stats[i].Value, cardW - 12, UITheme.FontMedium), new Vector2(r.X + 8, r.Y + 21), stats[i].Color, UITheme.FontMedium);
+        }
+        y += 58;
+
+        MeterRow(sb, "Counter-intelligence: chance to uncover foreign agents", civ.CounterIntelligence, x0, ref y, width, ciColor);
+        y += 4;
+
+        Section(sb, "NETWORKS ABROAD", x0, ref y, width);
+        if (abroad.Count == 0)
+        {
+            UITheme.DrawText(sb, civ.TechLevel < 10 ? "No intelligence service yet" : "No spy networks abroad", new Vector2(x0, y), UITheme.TextMuted, 12f);
+            y += 22;
+        }
+        foreach (var n in abroad) y = DrawNetworkCard(sb, data, n, n.TargetCivId, "in", x0, y, width, mouse, foreign: false);
+
+        y += 8;
+        Section(sb, "FOREIGN NETWORKS AT HOME", x0, ref y, width);
+        if (athome.Count == 0)
+        {
+            UITheme.DrawText(sb, "No foreign spies operate here", new Vector2(x0, y), UITheme.TextMuted, 12f);
+            y += 22;
+        }
+        foreach (var n in athome) y = DrawNetworkCard(sb, data, n, n.OwnerCivId, "from", x0, y, width, mouse, foreign: true);
+
+        return y;
+    }
+
+    private int DrawNetworkCard(SpriteBatch sb, CivRenderData data, CivRenderData.SpyInfo n, int otherId, string preposition,
+        int x, int y, int width, MouseState mouse, bool foreign)
+    {
+        var card = new Rectangle(x, y, width, 52);
+        Color missionColor = SocietyStyle.MissionColor(n.Mission);
+        UITheme.FillRounded(sb, card, n.Compromised ? new Color(44, 26, 30) : new Color(22, 28, 42));
+        UITheme.OutlineRounded(sb, card, n.Compromised ? new Color(170, 70, 70) : UITheme.Border);
+        sb.Draw(UITheme.Pixel, new Rectangle(card.X + 1, card.Y + 6, 3, card.Height - 12), missionColor);
+
+        var other = data.FindCiv(otherId);
+        sb.Draw(UITheme.Pixel, new Rectangle(card.X + 12, card.Y + 9, 9, 9), other != null ? TerrainRenderer.GetCivPaletteColor(otherId) : UITheme.TextMuted);
+        string name = $"{preposition} {other?.Name ?? "a fallen nation"}";
+
+        // Right side chips: mission, status
+        int chipX = card.Right - 10;
+        string status = foreign ? (n.Compromised ? "UNCOVERED" : "UNDETECTED") : (n.Compromised ? "COMPROMISED" : "COVERT");
+        Color statusColor = n.Compromised ? UITheme.Bad : foreign ? UITheme.Warn : UITheme.Good;
+        float sw = UITheme.Measure(status, 10f).X + 12;
+        Chip(sb, status, statusColor, (int)(chipX - sw), card.Y + 6, out _, 10f);
+        chipX -= (int)sw + 6;
+        string mission = SocietyStyle.MissionName(n.Mission).ToUpperInvariant();
+        float mw = UITheme.Measure(mission, 10f).X + 12;
+        Chip(sb, mission, missionColor, (int)(chipX - mw), card.Y + 6, out _, 10f);
+        chipX -= (int)mw + 8;
+
+        UITheme.DrawText(sb, UITheme.Ellipsize(name, chipX - card.X - 28, 13f), new Vector2(card.X + 26, card.Y + 5), UITheme.Text, 13f);
+
+        // Second line: agents, record, and the two bars
+        string record = $"{n.Agents} agents - {n.Successes} successes - {n.AgentsLost} lost" + (n.EstablishedYear != 0 ? $" - since {n.EstablishedYear}" : "");
+        int barsW = Math.Min(360, width / 2);
+        UITheme.DrawText(sb, UITheme.Ellipsize(record, width - barsW - 40, 11f), new Vector2(card.X + 26, card.Y + 30), UITheme.TextDim, 11f);
+
+        int bx = card.Right - barsW - 10;
+        int bw = (barsW - 10) / 2;
+        DrawMiniBar(sb, "Strength", n.Strength, new Rectangle(bx, card.Y + 28, bw, 16), new Color(90, 170, 255));
+        DrawMiniBar(sb, "Exposure", n.Exposure, new Rectangle(bx + bw + 10, card.Y + 28, bw, 16), Color.Lerp(UITheme.Warn, UITheme.Bad, Math.Clamp(n.Exposure, 0f, 1f)));
+
+        if (card.Contains(mouse.Position) && _contentRect.Contains(mouse.Position))
+        {
+            _hoverTip = foreign
+                ? (n.Compromised ? "This network has been uncovered by the counter-intelligence service." : "This nation does not know these spies are here.")
+                : (n.Compromised ? "The target has uncovered this network: agents are being hunted." : "The network operates undetected.");
+        }
+        return y + card.Height + 6;
+    }
+
+    private static void DrawMiniBar(SpriteBatch sb, string label, float value, Rectangle r, Color color)
+    {
+        string text = $"{label} {value:P0}";
+        UITheme.DrawText(sb, text, new Vector2(r.X, r.Y - 1), UITheme.TextMuted, 10f);
+        var bar = new Rectangle(r.X, r.Bottom - 4, r.Width, 4);
+        sb.Draw(UITheme.Pixel, bar, new Color(0, 0, 0, 150));
+        sb.Draw(UITheme.Pixel, new Rectangle(bar.X, bar.Y, (int)(bar.Width * Math.Clamp(value, 0f, 1f)), bar.Height), color);
     }
 
     private static Texture2D BuildDisc(GraphicsDevice device, int size)
