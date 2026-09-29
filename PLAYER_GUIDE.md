@@ -477,8 +477,8 @@ mines produce stone and metal, university towns research, fortresses resist sieg
 buildings follow its people's tradition and climate; only the great cities of industrial and
 space-age nations are rebuilt in concrete, glass and domes.
 
-**Transport:** roads grow between neighbouring settlements following valleys and passes, busy ones
-become railways, harbours are linked by sea lanes and airports by air routes. You can watch
+**Transport:** roads grow between neighbouring settlements following valleys and passes, the busiest
+get a railway alongside them (the road stays), harbours are linked by sea lanes and airports by air routes. You can watch
 caravans, trains, ships and airliners travel them. More traffic means more trade income.
 
 **Migration:** people leave places at war, starving, stricken by plague, disasters or a hostile

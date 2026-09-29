@@ -40,9 +40,12 @@ public partial class CivilizationManager
             if (a == null || b == null) continue;
 
             float volume = MathF.Sqrt(Math.Max(1, a.Population) * (float)Math.Max(1, b.Population)) / 1000f;
+            bool parallelRail = route.Kind == TransportKind.Road &&
+                                HasRoute(civ, route.FromCityId, route.ToCityId, TransportKind.Railway);
             float modeFactor = route.Kind switch
             {
-                TransportKind.Road => 0.6f,
+                TransportKind.Road => parallelRail ? 0.35f : 0.6f, // Freight moves to the railway
+
                 TransportKind.Railway => 1.5f,
                 TransportKind.SeaLane => 1.3f,
                 _ => 1.8f
@@ -82,7 +85,7 @@ public partial class CivilizationManager
 
     private void BuildRoadLinks(Civilization civ, int currentYear)
     {
-        int roads = civ.TransportRoutes.Count(r => r.Kind is TransportKind.Road or TransportKind.Railway);
+        int roads = civ.TransportRoutes.Count(r => r.Kind == TransportKind.Road);
         if (roads >= MaxRoadRoutes) return;
 
         // Each year link the largest unconnected settlement to its nearest neighbour
@@ -94,7 +97,7 @@ public partial class CivilizationManager
             var nearest = civ.Cities
                 .Where(o => o.Id != city.Id && Math.Abs(o.X - city.X) <= _map.Width / 2)
                 .Select(o => (city: o, d: WrappedDistance(o.X, o.Y, city.X, city.Y)))
-                .Where(o => o.d <= 25 && !HasRoute(civ, city.Id, o.city.Id, TransportKind.Road, TransportKind.Railway))
+                .Where(o => o.d <= 25 && !HasRoute(civ, city.Id, o.city.Id, TransportKind.Road))
                 .OrderBy(o => o.d)
                 .FirstOrDefault();
             if (nearest.city == null) continue;
@@ -121,7 +124,7 @@ public partial class CivilizationManager
                 .Where(c => c != null && WrappedDistance(c.X, c.Y, capital.X, capital.Y) < 40 && Math.Abs(c.X - capital.X) <= _map.Width / 2)
                 .OrderBy(c => WrappedDistance(c!.X, c.Y, capital.X, capital.Y))
                 .FirstOrDefault();
-            if (partner != null && !HasRoute(civ, capital.Id, partner.Id, TransportKind.Road, TransportKind.Railway))
+            if (partner != null && !HasRoute(civ, capital.Id, partner.Id, TransportKind.Road))
             {
                 var path = FindTerrainPath(capital.X, capital.Y, partner.X, partner.Y, (x, y) => LandTravelCost(civ, x, y), 16000);
                 if (path != null)
@@ -140,7 +143,7 @@ public partial class CivilizationManager
         if (currentYear % 10 == 0)
         {
             var roadType = CurrentRoadType(civ);
-            foreach (var route in civ.TransportRoutes.Where(r => r.Kind is TransportKind.Road or TransportKind.Railway))
+            foreach (var route in civ.TransportRoutes.Where(r => r.Kind == TransportKind.Road))
             {
                 foreach (var (x, y) in route.Path)
                 {
@@ -152,9 +155,11 @@ public partial class CivilizationManager
 
     private void UpgradeToRailway(Civilization civ, int currentYear)
     {
-        // One road per year becomes a railway, busiest first, between towns or larger
+        // Each year the busiest road between towns or larger gets a railway alongside it;
+        // the road stays in use for carts, trucks and local traffic
         var candidate = civ.TransportRoutes
-            .Where(r => r.Kind == TransportKind.Road)
+            .Where(r => r.Kind == TransportKind.Road && !r.International)
+            .Where(r => !HasRoute(civ, r.FromCityId, r.ToCityId, TransportKind.Railway))
             .Where(r =>
             {
                 var a = FindCity(r.FromCityId, out _);
@@ -165,8 +170,9 @@ public partial class CivilizationManager
             .FirstOrDefault();
         if (candidate == null) return;
 
-        candidate.Kind = TransportKind.Railway;
-        candidate.BuiltYear = currentYear;
+        var from = FindCity(candidate.FromCityId, out _)!;
+        var to = FindCity(candidate.ToCityId, out _)!;
+        AddRoute(civ, TransportKind.Railway, from, to, new List<(int x, int y)>(candidate.Path), international: false, currentYear);
     }
 
     private void BuildSeaLane(Civilization civ, int currentYear)
@@ -371,7 +377,12 @@ public partial class CivilizationManager
         _vehicles.RemoveAll(v => v.CivilizationId == civ.Id && !routeIds.Contains(v.RouteId));
 
         // Only the busiest routes get visible vehicles, so the map stays readable
-        var busiest = civ.TransportRoutes.OrderByDescending(r => r.Traffic).Take(MaxVehiclesPerNation / 2).Select(r => r.Id).ToHashSet();
+        // (each kind of network gets its share, so roads stay busy next to railways)
+        var busiest = civ.TransportRoutes
+            .GroupBy(r => r.Kind)
+            .SelectMany(g => g.OrderByDescending(r => r.Traffic).Take(MaxVehiclesPerNation / 8))
+            .Select(r => r.Id)
+            .ToHashSet();
         foreach (var route in civ.TransportRoutes)
         {
             if (route.Path.Count < 2) continue;

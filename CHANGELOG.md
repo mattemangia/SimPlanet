@@ -80,8 +80,8 @@ All notable changes to this project will be documented in this file.
   by its land, resources and buildings and shaping what it produces, and an architectural style
   from its people's culture, homeland and era (timber halls, stone and tiles, adobe, stilt
   houses, pagodas, hill terraces; only the great cities are rebuilt modern or futuristic).
-- **Transport networks**: roads follow the terrain (with tunnels through mountains), busy roads
-  become railways, sea lanes link harbours at home and abroad, air routes link airports.
+- **Transport networks**: roads follow the terrain (with tunnels through mountains), railways are laid
+  alongside the busiest roads (the roads stay in use), sea lanes link harbours at home and abroad, air routes link airports.
   Caravans, trucks, trains, sailing ships, steamships, cargo ships, warships and airliners travel
   them, and traffic brings trade income. Wars close international routes.
 - **Migrations**: people flee war, famine, epidemics, harsh climate, disasters and persecution —
