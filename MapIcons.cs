@@ -11,7 +11,7 @@ namespace SimPlanet;
 /// come in two layers: a neutral base and a white "tint mask" that is drawn on top
 /// multiplied by the civilization colour (roofs, flags, banners).
 /// </summary>
-public class MapIcons : IDisposable
+public partial class MapIcons : IDisposable
 {
     public const int SettlementSize = 40;
     public const int SmallIconSize = 24;
@@ -97,6 +97,9 @@ public class MapIcons : IDisposable
         Shield = BuildShield(device);
         Capitol = BuildCapitol(device);
         Network = BuildNetwork(device);
+
+        BuildStyledSettlements(device);
+        BuildVehicles(device);
     }
 
     /// <summary>Power plant sprite for an energy source.</summary>
@@ -126,6 +129,8 @@ public class MapIcons : IDisposable
         foreach (var t in new[] { CoolingTower, SolarPanel, WindTurbine, Factory, Dam, FusionCore, Trefoil, Flask,
                      Biohazard, Silo, Anchor, Plane, Rocket, Satellite, Station, MoonBase, Bolt, Shield, Capitol, Network })
             t.Dispose();
+        DisposeStyled();
+        DisposeVehicles();
     }
 
     // ------------------------------------------------------------------

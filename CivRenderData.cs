@@ -30,6 +30,9 @@ public sealed partial class CivRenderData
         public bool HasSpaceport { get; init; }
         public bool HasPowerPlant { get; init; }
         public EnergySource? PowerPlantType { get; init; }
+        public int Id { get; init; }
+        public CitySpecialization Specialization { get; init; }
+        public CityStyle Style { get; init; }
     }
 
     public readonly struct ArmyInfo
@@ -142,6 +145,10 @@ public sealed partial class CivRenderData
         public float EconomyShare { get; init; }
         public float SpaceShare { get; init; }
         public int PostureSinceYear { get; init; }
+
+        // Intelligence services
+        public float CounterIntelligence { get; init; }
+        public float IntelligenceBudget { get; init; }
 
         /// <summary>Heavier per-nation data used by the nation detail panel.</summary>
         public NationDetail Detail { get; init; }
@@ -422,6 +429,9 @@ public sealed partial class CivRenderData
                     SpaceShare = civ.Strategy.SpaceShare,
                     PostureSinceYear = civ.Strategy.PostureSinceYear,
 
+                    CounterIntelligence = civ.CounterIntelligence,
+                    IntelligenceBudget = civ.IntelligenceBudget,
+
                     Detail = CaptureDetail(civ)
                 });
 
@@ -459,7 +469,10 @@ public sealed partial class CivRenderData
                         HasAirport = city.HasAirport,
                         HasSpaceport = city.HasSpaceport,
                         HasPowerPlant = city.HasPowerPlant,
-                        PowerPlantType = city.PowerPlantType
+                        PowerPlantType = city.PowerPlantType,
+                        Id = city.Id,
+                        Specialization = city.Specialization,
+                        Style = city.Style
                     });
                 }
             }
@@ -545,6 +558,7 @@ public sealed partial class CivRenderData
             data.NuclearWinter = Math.Clamp(manager.NuclearWinter, 0f, 1f);
 
             if (diseases != null) CaptureDiseases(data, diseases);
+            CaptureMobility(data, manager);
         }
         catch (Exception)
         {

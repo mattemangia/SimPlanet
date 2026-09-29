@@ -183,4 +183,114 @@ public static class SocietyStyle
     public static readonly Color TradeRoute = new Color(255, 206, 92);
     public static readonly Color Radiation = new Color(170, 255, 60);
     public static readonly Color Blackout = new Color(200, 40, 40);
+
+    // ------------------------------------------------------------------
+    // Cities, migrations and intelligence
+    // ------------------------------------------------------------------
+
+    public static readonly MigrationKind[] AllMigrationKinds = Enum.GetValues<MigrationKind>();
+    public static readonly IntelligenceMission[] AllMissions = Enum.GetValues<IntelligenceMission>();
+
+    public static string SpecializationName(CitySpecialization spec) => spec switch
+    {
+        CitySpecialization.Farming => "Farming",
+        CitySpecialization.Fishing => "Fishing",
+        CitySpecialization.Port => "Port",
+        CitySpecialization.Mining => "Mining",
+        CitySpecialization.Timber => "Timber",
+        CitySpecialization.Trade => "Trade",
+        CitySpecialization.Industrial => "Industry",
+        CitySpecialization.Academic => "University",
+        CitySpecialization.Holy => "Holy city",
+        CitySpecialization.Fortress => "Fortress",
+        CitySpecialization.Capital => "Seat of government",
+        _ => spec.ToString()
+    };
+
+    public static string StyleName(CityStyle style) => style switch
+    {
+        CityStyle.Timber => "Timber halls",
+        CityStyle.Stone => "Stone and red tiles",
+        CityStyle.Adobe => "Adobe and domes",
+        CityStyle.Stilt => "Stilt houses",
+        CityStyle.Pagoda => "Pagoda roofs",
+        CityStyle.Terraced => "Hill terraces",
+        CityStyle.Modern => "Modern towers",
+        CityStyle.Futuristic => "Arcologies",
+        _ => style.ToString()
+    };
+
+    public static Color MigrationColor(MigrationKind kind) => kind switch
+    {
+        MigrationKind.Urbanization => new Color(250, 205, 120),
+        MigrationKind.Economic => new Color(70, 205, 145),
+        MigrationKind.WarRefugees => new Color(245, 70, 60),
+        MigrationKind.FamineRefugees => new Color(205, 150, 70),
+        MigrationKind.EpidemicRefugees => new Color(200, 235, 60),
+        MigrationKind.ClimateRefugees => new Color(80, 190, 245),
+        MigrationKind.DisasterRefugees => new Color(255, 135, 40),
+        MigrationKind.Persecution => new Color(200, 110, 235),
+        MigrationKind.Settlers => new Color(235, 240, 250),
+        _ => Color.White
+    };
+
+    public static string MigrationName(MigrationKind kind) => kind switch
+    {
+        MigrationKind.Urbanization => "To the cities",
+        MigrationKind.Economic => "Economic migrants",
+        MigrationKind.WarRefugees => "War refugees",
+        MigrationKind.FamineRefugees => "Famine refugees",
+        MigrationKind.EpidemicRefugees => "Fleeing epidemics",
+        MigrationKind.ClimateRefugees => "Climate refugees",
+        MigrationKind.DisasterRefugees => "Disaster refugees",
+        MigrationKind.Persecution => "Fleeing persecution",
+        MigrationKind.Settlers => "Settlers",
+        _ => kind.ToString()
+    };
+
+    /// <summary>Diverging colour for net migration: -1 heavy emigration, +1 heavy immigration.</summary>
+    public static Color NetMigrationColor(float t)
+    {
+        var neutral = new Color(128, 134, 128);
+        if (t < 0) return Color.Lerp(neutral, new Color(226, 96, 58), Math.Min(1f, -t));
+        return Color.Lerp(neutral, new Color(52, 180, 196), Math.Min(1f, t));
+    }
+
+    public static Color MissionColor(IntelligenceMission mission) => mission switch
+    {
+        IntelligenceMission.GatherIntelligence => new Color(90, 180, 255),
+        IntelligenceMission.StealTechnology => new Color(180, 125, 255),
+        IntelligenceMission.Sabotage => new Color(255, 140, 50),
+        IntelligenceMission.IncitingUnrest => new Color(240, 215, 70),
+        IntelligenceMission.Assassination => new Color(240, 60, 72),
+        IntelligenceMission.CounterIntelligence => new Color(90, 220, 150),
+        _ => Color.White
+    };
+
+    public static string MissionName(IntelligenceMission mission) => mission switch
+    {
+        IntelligenceMission.GatherIntelligence => "Gathering intelligence",
+        IntelligenceMission.StealTechnology => "Stealing technology",
+        IntelligenceMission.Sabotage => "Sabotage",
+        IntelligenceMission.IncitingUnrest => "Inciting unrest",
+        IntelligenceMission.Assassination => "Assassination",
+        IntelligenceMission.CounterIntelligence => "Counter-intelligence",
+        _ => mission.ToString()
+    };
+
+    /// <summary>Counter-intelligence strength (0-1) as a territory tint.</summary>
+    public static Color CounterIntelColor(float t)
+    {
+        t = Math.Clamp(t, 0f, 1f);
+        return t < 0.5f
+            ? Color.Lerp(new Color(150, 150, 140), new Color(120, 110, 170), t * 2f)
+            : Color.Lerp(new Color(120, 110, 170), new Color(70, 40, 150), (t - 0.5f) * 2f);
+    }
+
+    public static string VehicleName(VehicleKind kind) => kind switch
+    {
+        VehicleKind.SailingShip => "Sailing ship",
+        VehicleKind.CargoShip => "Cargo ship",
+        _ => kind.ToString()
+    };
 }
