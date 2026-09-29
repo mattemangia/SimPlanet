@@ -947,8 +947,15 @@ Press **5** to cycle through:
 
 *   **Life**: Life form distribution (Bacteria to Civilization)
 *   **Civilizations**: Political map of territories
-*   **Infrastructure**: Roads, cities, and energy grids
 *   **Resources**: Mineral deposits and resource concentrations
+
+### 6 - Society Group
+Press **6** to cycle through Electricity, Energy, Armaments, Governments, Internet and:
+
+*   **Infrastructure**: roads (coloured by era), railways beside the roads, sea lanes and air routes, with caravans, trucks, trains, ships and airliners moving along them
+*   **Epidemics**: where diseases are spreading
+*   **Migrations**: animated arrows of migrants and refugees coloured by cause (war, famine, epidemic, climate, disaster, persecution, economic, urbanisation), nations tinted by net migration, and wild herds, flocks and schools on the move
+*   **Spy networks**: which nation spies on which, the mission (colour), network strength (line width), and uncovered networks (red cross); nations tinted by counter-intelligence
 
 ### Geological Overlays (Toggle Independently)
 
@@ -1330,7 +1337,8 @@ Start with uninhabitable planet:
 | 2 | Weather | Temperature, Rainfall, Pressure, Wind, Clouds, Storms |
 | 3 | Atmosphere | Oxygen, CO2, Radiation, Albedo, Spectral Bands, Auroras |
 | 4 | Geology | Rock Types, Plates, Volcanoes, Faults, Earthquakes, Tsunamis |
-| 5 | Life & Civ | Life, Civilizations, Infrastructure, Resources |
+| 5 | Life & Civ | Life, Civilizations, Resources |
+| 6 | Society | Electricity, Energy, Armaments, Governments, Internet, Infrastructure, Epidemics, Migrations, Spy networks |
 
 ### Overlays (Toggle On/Off)
 | Key | Overlay | Description |

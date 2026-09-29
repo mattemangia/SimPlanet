@@ -92,6 +92,15 @@ All notable changes to this project will be documented in this file.
   assassinate rulers. Counter-intelligence uncovers them; scandals can lead to war.
 - **Animal migrations**: herds, bird flocks and fish schools travel with the seasons between
   summer and winter ranges, graze, and feed the settlements along their path.
+- **On the map**: settlement icons change with their style, and a badge shows each city's
+  specialization (industrial towns smoke, ports have a bobbing boat). The Infrastructure view (and the terrain view when
+  zoomed in) draws roads by era, railways running beside the roads, sea lanes and air routes, with animated
+  vehicles: caravans, trucks, steaming trains, ships with wakes, airliners with contrails. The new
+  **Migrations** view shows flows of migrants and refugees as animated arrows coloured by cause, with
+  nations tinted by net migration. The **Spy networks** view links each spying nation to its target, with
+  lines coloured by mission and a red cross marking uncovered networks. Herds, flocks and schools roam the
+  Life and Migrations views. The nation panel has an Intelligence tab, and the chronicle colours
+  espionage and migration events.
 
 ### The planet strikes back
 
