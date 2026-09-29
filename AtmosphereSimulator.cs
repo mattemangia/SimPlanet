@@ -231,32 +231,35 @@ public class AtmosphereSimulator
                 var cell = _map.Cells[x, y];
                 float n2oChange = 0;
 
+                // Rates are per second of game time (10 per game year). Natural sources balance
+                // a ~120-year atmospheric lifetime around the pre-industrial level (~0.25).
+
                 // Soil microbial processes (nitrification and denitrification)
                 if (cell.IsLand && cell.Biomass > 0.3f && cell.Humidity > 0.4f)
                 {
-                    n2oChange += 0.03f * cell.Biomass * deltaTime;
+                    n2oChange += 0.0003f * cell.Biomass * deltaTime;
                 }
 
-                // Agricultural fertilizer use
+                // Agricultural fertilizer use scales with how industrial the farming is
                 if (cell.LifeType == LifeForm.Civilization && cell.Biomass > 0.5f)
                 {
-                    n2oChange += 0.25f * cell.Biomass * cell.HumanFootprint * deltaTime;
+                    n2oChange += 0.003f * cell.Biomass * cell.HumanFootprint * deltaTime;
                 }
 
-                // Ocean production (particularly oxygen-minimum zones)
-                if (cell.IsWater && cell.Oxygen < 30)
+                // Ocean production (oxygen-minimum zones)
+                if (cell.IsWater)
                 {
-                    n2oChange += 0.05f * deltaTime;
+                    n2oChange += 0.0002f * deltaTime;
                 }
 
-                // Combustion processes
+                // Combustion processes (fires, eruptions, burning cities)
                 if (cell.Temperature > 150)
                 {
-                    n2oChange += 0.05f * deltaTime;
+                    n2oChange += 0.005f * deltaTime;
                 }
 
-                // Very slow atmospheric breakdown (120-year lifetime)
-                n2oChange -= cell.NitrousOxide * 0.0001f * deltaTime;
+                // Stratospheric photolysis: ~120-year lifetime
+                n2oChange -= cell.NitrousOxide * deltaTime / (120f * GameState.SecondsPerGameYear);
 
                 cell.NitrousOxide = Math.Clamp(cell.NitrousOxide + n2oChange, 0, 100);
             }
