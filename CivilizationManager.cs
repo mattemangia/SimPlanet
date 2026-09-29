@@ -697,13 +697,8 @@ public partial class CivilizationManager
         // Global emissions are spread across the planet once per step for all civilizations
         _pendingGlobalEmissions += globalEmissionsPerCell * deltaTime * 0.1f;
 
-        // Industrial civilizations affect solar energy (global warming)
-        if (civ.CivType == CivType.Industrial || civ.CivType == CivType.Scientific)
-        {
-            // Increase greenhouse effect globally
-            _map.SolarEnergy += 0.0001f * actualEmissions * deltaTime;
-            _map.SolarEnergy = Math.Clamp(_map.SolarEnergy, 0.8f, 1.5f);
-        }
+        // Global warming comes from the greenhouse gases emitted above (the atmosphere and
+        // climate simulators turn CO2 and methane into heat); sunlight itself is not changed.
     }
 
     private void CheckCivilizationCollapse(Civilization civ, int currentYear)

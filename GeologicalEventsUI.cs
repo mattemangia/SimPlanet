@@ -422,6 +422,8 @@ public class GeologicalEventsUI
         int size = (int)Math.Clamp(pixelScale * 2.4f, 9f, 28f);
         var viewport = _graphicsDevice.Viewport;
 
+        // Collect visible volcanoes, most active first; dormant ones only when zoomed in
+        var visible = new List<(int x, int y, float cx, float cy, float priority)>();
         for (int x = 0; x < map.Width; x++)
         {
             for (int y = 0; y < map.Height; y++)
@@ -433,6 +435,29 @@ public class GeologicalEventsUI
                 float cy = offsetY + (y + 0.5f) * pixelScale;
                 if (cx < -size || cy < -size || cx > viewport.Width + size || cy > viewport.Height + size) continue;
 
+                float priority = geo.VolcanicActivity + geo.MagmaPressure * 0.5f + (geo.IsHotSpot ? 0.3f : 0f);
+                if (priority < 0.15f && pixelScale < 5f) continue;
+                visible.Add((x, y, cx, cy, priority));
+            }
+        }
+        visible.Sort((a, b) => b.priority.CompareTo(a.priority));
+
+        // Declutter: skip volcanoes that would overlap a more active one on screen
+        var placed = new List<Vector2>();
+        float minDistance = size * 0.9f;
+        foreach (var (x, y, cx, cy, _) in visible)
+        {
+            var pos = new Vector2(cx, cy);
+            bool overlaps = false;
+            foreach (var p in placed)
+            {
+                if (Vector2.DistanceSquared(p, pos) < minDistance * minDistance) { overlaps = true; break; }
+            }
+            if (overlaps) continue;
+            placed.Add(pos);
+
+            {
+                var geo = map.Cells[x, y].GetGeology();
                 float activity = Math.Clamp(geo.VolcanicActivity, 0f, 1f);
                 if (activity > 0.3f || geo.MagmaPressure > 0.8f)
                 {

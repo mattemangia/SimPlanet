@@ -103,6 +103,7 @@ public class HeadlessSimulation
     private bool _civOnly = false; // --civ-only: skip planetary physics to quickly test societies
     private int _doomsdayYear = -1; // --doomsday N: global nuclear war in year N
     private int _peaceYear = -1;    // --peace N: divine world peace in year N
+    private int _startTech = 0;     // --start-tech N: seeded civilizations start at this tech level
 
     private void ParseArguments(string[] args)
     {
@@ -116,6 +117,7 @@ public class HeadlessSimulation
                 case "--seed": int.TryParse(args[i + 1], out _seed); break;
                 case "--doomsday": int.TryParse(args[i + 1], out _doomsdayYear); break;
                 case "--peace": int.TryParse(args[i + 1], out _peaceYear); break;
+                case "--start-tech": int.TryParse(args[i + 1], out _startTech); break;
                 case "--size":
                     var parts = args[i + 1].Split('x');
                     if (parts.Length == 2 && int.TryParse(parts[0], out int w) && int.TryParse(parts[1], out int h))
@@ -212,6 +214,20 @@ public class HeadlessSimulation
                     Console.WriteLine($"Civilization created at {x}, {y}");
                     created++;
                 }
+            }
+        }
+
+        if (_startTech > 0)
+        {
+            foreach (var civ in _civilizationManager.Civilizations)
+            {
+                civ.TechLevel = _startTech;
+                civ.CivType = _startTech > 100 ? CivType.Spacefaring : _startTech > 60 ? CivType.Scientific
+                    : _startTech > 30 ? CivType.Industrial : _startTech > 10 ? CivType.Agricultural : CivType.Tribal;
+                civ.HasLandTransport = _startTech >= 5;
+                civ.HasSeaTransport = _startTech >= 15;
+                civ.HasRailTransport = _startTech >= 25;
+                civ.HasAirTransport = _startTech >= 50;
             }
         }
 

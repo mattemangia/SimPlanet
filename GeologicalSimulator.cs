@@ -516,7 +516,7 @@ public class GeologicalSimulator
                                 }
 
                                 // Volcanic arc on continental side - use noise for patchiness
-                                if (!geo.IsVolcano && activeSegment && _simulationRandom.NextDouble() < arcChance)
+                                if (!geo.IsVolcano && activeSegment && _simulationRandom.NextDouble() < arcChance && CanPlaceVolcano(x, y))
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.6f;
@@ -536,7 +536,7 @@ public class GeologicalSimulator
                                 geo.TectonicStress += 0.03f * tectonicScale;
 
                                 // Occasional volcanism (tibetan plateau style)
-                                if (!geo.IsVolcano && cell.Elevation > 0.6f && activeSegment && _simulationRandom.NextDouble() < 0.002 * volcanicScale)
+                                if (!geo.IsVolcano && cell.Elevation > 0.6f && activeSegment && _simulationRandom.NextDouble() < 0.002 * volcanicScale && CanPlaceVolcano(x, y))
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.3f;
@@ -558,7 +558,7 @@ public class GeologicalSimulator
                                         cell.Elevation += upliftRate * 0.8f;
 
                                     // Island arc volcanism - patchy
-                                    if (!geo.IsVolcano && activeSegment && _simulationRandom.NextDouble() < 0.00005 * volcanicScale)
+                                    if (!geo.IsVolcano && activeSegment && _simulationRandom.NextDouble() < 0.00005 * volcanicScale && CanPlaceVolcano(x, y))
                                     {
                                         cell.Elevation += 0.05f; // Build island base
                                         geo.IsVolcano = true;
@@ -586,7 +586,7 @@ public class GeologicalSimulator
                                 }
 
                                 // Ridge volcanism is common
-                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.0001 * volcanicScale)
+                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.0001 * volcanicScale && CanPlaceVolcano(x, y))
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.4f;
@@ -602,7 +602,7 @@ public class GeologicalSimulator
                                 cell.Elevation -= 0.002f * tectonicScale;
 
                                 // Rift volcanism
-                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.00005 * volcanicScale)
+                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.00005 * volcanicScale && CanPlaceVolcano(x, y))
                                 {
                                     geo.IsVolcano = true;
                                     geo.VolcanicActivity = 0.5f;
@@ -665,9 +665,42 @@ public class GeologicalSimulator
         }
     }
 
+    private int _volcanoCount;
+
+    /// <summary>Upper bound on volcanoes so plate boundaries do not fill up with them.</summary>
+    private int MaxVolcanoes => Math.Max(12, _map.Width * _map.Height / 500);
+
+    private const int VolcanoSpacing = 3;
+
+    /// <summary>
+    /// New volcanoes need room: none within a few cells, and the planet-wide total stays bounded.
+    /// </summary>
+    private bool CanPlaceVolcano(int x, int y)
+    {
+        if (_volcanoCount >= MaxVolcanoes) return false;
+        return !HasVolcanoWithin(x, y, VolcanoSpacing);
+    }
+
+    private bool HasVolcanoWithin(int x, int y, int radius)
+    {
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+                int nx = (x + dx + _map.Width) % _map.Width;
+                if (_map.Cells[nx, ny].GetGeology().IsVolcano) return true;
+            }
+        }
+        return false;
+    }
+
     private void UpdateVolcanicActivity(int currentYear, float deltaTime)
     {
         float volcanicScale = VolcanicScale * deltaTime;
+        int volcanoes = 0;
 
         for (int x = 0; x < _map.Width; x++)
         {
@@ -697,12 +730,17 @@ public class GeologicalSimulator
                     geo.VolcanicActivity *= MathF.Max(0.9f, 1.0f - 0.01f * volcanicScale);
                 }
 
-                if (ShouldExtinguishVolcano(geo, currentYear))
+                if (ShouldExtinguishVolcano(geo, currentYear) || IsCrowdedDormantVolcano(x, y, geo, currentYear))
                 {
                     ExtinguishVolcano(geo);
+                    continue;
                 }
+
+                volcanoes++;
             }
         }
+
+        _volcanoCount = volcanoes;
 
         // Spawn brand new volcanoes as plates evolve
         if (_simulationRandom.NextDouble() < 0.001 * volcanicScale)
@@ -725,6 +763,30 @@ public class GeologicalSimulator
         return geo.VolcanicActivity < 0.05f && geo.MagmaPressure < 0.1f;
     }
 
+    /// <summary>
+    /// A dormant volcano crowded by a more active neighbour slowly goes extinct, thinning out
+    /// dense volcanic chains left from older simulations and saves.
+    /// </summary>
+    private bool IsCrowdedDormantVolcano(int x, int y, GeologicalData geo, int currentYear)
+    {
+        if (geo.IsHotSpot || currentYear - geo.LastEruptionYear < 150) return false;
+        if (_simulationRandom.NextDouble() > 0.02) return false; // Gradual
+
+        for (int dx = -2; dx <= 2; dx++)
+        {
+            for (int dy = -2; dy <= 2; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                int ny = y + dy;
+                if (ny < 0 || ny >= _map.Height) continue;
+                int nx = (x + dx + _map.Width) % _map.Width;
+                var other = _map.Cells[nx, ny].GetGeology();
+                if (other.IsVolcano && other.VolcanicActivity >= geo.VolcanicActivity) return true;
+            }
+        }
+        return false;
+    }
+
     private void ExtinguishVolcano(GeologicalData geo)
     {
         geo.IsVolcano = false;
@@ -744,7 +806,7 @@ public class GeologicalSimulator
             var cell = _map.Cells[x, y];
             var geo = cell.GetGeology();
 
-            if (geo.IsVolcano)
+            if (geo.IsVolcano || !CanPlaceVolcano(x, y))
                 continue;
 
             bool tectonicTrigger = geo.BoundaryType == PlateBoundaryType.Convergent ||
