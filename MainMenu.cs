@@ -61,6 +61,7 @@ public class MainMenu
                 if (stream != null)
                 {
                     _splashBackground = Texture2D.FromStream(_graphicsDevice, stream);
+                    RemoveCornerMarks(_splashBackground);
                 }
             }
         }
@@ -68,6 +69,26 @@ public class MainMenu
         {
             Console.WriteLine($"Failed to load splash background: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// The splash art carries small tool logos in its top corners; cover them with a
+    /// patch of nearby starry sky so the art works as a clean menu backdrop.
+    /// </summary>
+    internal static void RemoveCornerMarks(Texture2D tex)
+    {
+        if (tex.Width != 1536 || tex.Height != 1024) return; // only for the known artwork
+        var data = new Color[tex.Width * tex.Height];
+        tex.GetData(data);
+        void CopyPatch(int dstX, int dstY, int w, int h, int srcX, int srcY)
+        {
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    data[(dstY + y) * tex.Width + dstX + x] = data[(srcY + y) * tex.Width + srcX + x];
+        }
+        CopyPatch(80, 60, 110, 145, 1380, 560);   // mark in the top-left corner
+        CopyPatch(1180, 70, 170, 185, 20, 760);   // mark in the top-right corner
+        tex.SetData(data);
     }
 
     public MenuAction HandleInput(KeyboardState keyState, KeyboardState previousKeyState, MouseState mouseState)
@@ -216,6 +237,9 @@ public class MainMenu
 
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
+        spriteBatch.End();
+        spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
+
         switch (CurrentScreen)
         {
             case GameScreen.MainMenu:
@@ -227,6 +251,63 @@ public class MainMenu
             case GameScreen.PauseMenu:
                 DrawPauseMenu(spriteBatch, screenWidth, screenHeight);
                 break;
+            case GameScreen.NewGame:
+                // The world generator dialog is drawn on top of this backdrop
+                DrawBackdrop(spriteBatch, screenWidth, screenHeight, false);
+                break;
+        }
+
+        spriteBatch.End();
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+    }
+
+    /// <summary>Starry backdrop with the planet artwork. Returns the rectangle used by the art.</summary>
+    private Rectangle DrawBackdrop(SpriteBatch spriteBatch, int screenWidth, int screenHeight, bool heroLayout)
+    {
+        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), new Color(4, 6, 14));
+
+        Rectangle artRect = Rectangle.Empty;
+        if (_splashBackground != null)
+        {
+            // Hero layout: artwork fills the left part of the screen, menu card on the right
+            Rectangle area = heroLayout
+                ? new Rectangle(0, 0, (int)(screenWidth * 0.64f), screenHeight)
+                : new Rectangle(0, 0, screenWidth, screenHeight);
+            float scale = heroLayout
+                ? Math.Min((float)area.Width / _splashBackground.Width, (float)area.Height / _splashBackground.Height) * 1.02f
+                : Math.Max((float)area.Width / _splashBackground.Width, (float)area.Height / _splashBackground.Height);
+            int w = (int)(_splashBackground.Width * scale);
+            int h = (int)(_splashBackground.Height * scale);
+            artRect = new Rectangle(area.X + (area.Width - w) / 2, area.Y + (area.Height - h) / 2, w, h);
+            spriteBatch.Draw(_splashBackground, artRect, Color.White * (heroLayout ? 1f : 0.28f));
+            if (heroLayout)
+            {
+                // Blend the artwork's right edge into the backdrop
+                UITheme.FillGradientHorizontal(spriteBatch, new Rectangle(artRect.Right - 160, 0, 161, screenHeight), new Color(4, 6, 14), fadeToRight: false);
+                spriteBatch.Draw(_pixelTexture, new Rectangle(artRect.Right, 0, screenWidth - artRect.Right, screenHeight), new Color(4, 6, 14));
+            }
+        }
+
+        // Vignette: darken the top edge
+        UITheme.FillGradient(spriteBatch, new Rectangle(0, 0, screenWidth, screenHeight / 5), Color.Black * 0.6f);
+        return artRect;
+    }
+
+    private void DrawMenuButtons(SpriteBatch spriteBatch, string[] items, int x, int y, int width, int height, int spacing)
+    {
+        var mouse = Mouse.GetState();
+        for (int i = 0; i < items.Length; i++)
+        {
+            var rect = new Rectangle(x, y + i * (height + spacing), width, height);
+            _menuItemBounds.Add(rect);
+            bool selected = i == _selectedMenuItem;
+            bool hovered = rect.Contains(mouse.Position);
+            UITheme.DrawButton(spriteBatch, rect, items[i], hovered || selected, selected, UITheme.Accent, UITheme.FontMedium + 2);
+            if (selected)
+            {
+                // Small accent marker on the left of the selected entry
+                UITheme.FillRounded(spriteBatch, new Rectangle(rect.X + 10, rect.Y + height / 2 - 3, 6, 6), UITheme.Gold);
+            }
         }
     }
 
@@ -234,65 +315,92 @@ public class MainMenu
     {
         _menuItemBounds.Clear();
 
-        // Draw black background first
-        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), Color.Black);
+        bool hero = screenWidth >= 1100 && screenWidth > screenHeight;
+        DrawBackdrop(spriteBatch, screenWidth, screenHeight, hero);
 
-        // Draw splash background with low alpha for subtle effect
-        if (_splashBackground != null)
-        {
-            // Scale splash to fit screen while maintaining aspect ratio
-            float scaleX = (float)screenWidth / _splashBackground.Width;
-            float scaleY = (float)screenHeight / _splashBackground.Height;
-            float scale = Math.Max(scaleX, scaleY);
-
-            int displayWidth = (int)(_splashBackground.Width * scale);
-            int displayHeight = (int)(_splashBackground.Height * scale);
-            int x = (screenWidth - displayWidth) / 2;
-            int y = (screenHeight - displayHeight) / 2;
-
-            spriteBatch.Draw(_splashBackground,
-                new Rectangle(x, y, displayWidth, displayHeight),
-                Color.White * 0.15f); // Very subtle transparency
-        }
-
-        // Title with glow effect
-        DrawCenteredText(spriteBatch, "SIMPLANET", screenHeight / 3 - 10, new Color(255, 200, 50), 1.8f);
-        DrawCenteredText(spriteBatch, "Planetary Evolution Simulator", screenHeight / 3 + 35,
-            new Color(100, 200, 255), 0.8f);
-
-        // Menu items with fancy boxes
-        int startY = screenHeight / 2;
         int buttonWidth = 300;
-        int buttonHeight = 50;
+        int buttonHeight = 48;
+        int spacing = 12;
+        int cardWidth = buttonWidth + 60;
+        int cardHeight = 126 + _mainMenuItems.Length * (buttonHeight + spacing) + 40;
+        int cardX = hero ? (int)(screenWidth * 0.64f) + ((int)(screenWidth * 0.36f) - cardWidth) / 2 : (screenWidth - cardWidth) / 2;
+        int cardY = (screenHeight - cardHeight) / 2;
+        var card = new Rectangle(cardX, cardY, cardWidth, cardHeight);
 
-        for (int i = 0; i < _mainMenuItems.Length; i++)
+        UITheme.DrawPanel(spriteBatch, card, new Color(12, 18, 30, 225), UITheme.Border);
+
+        // Title
+        UITheme.DrawTextCentered(spriteBatch, hero ? "Planetary Evolution" : "SIMPLANET", new Rectangle(card.X, card.Y + 22, card.Width, 44), UITheme.Gold, UITheme.FontTitle);
+        UITheme.DrawTextCentered(spriteBatch, "From molten rock to civilization", new Rectangle(card.X, card.Y + 70, card.Width, 20), UITheme.Accent, UITheme.FontNormal);
+        spriteBatch.Draw(UITheme.Pixel, new Rectangle(card.X + 40, card.Y + 104, card.Width - 80, 1), UITheme.Border);
+
+        DrawMenuButtons(spriteBatch, _mainMenuItems, card.X + 30, card.Y + 124, buttonWidth, buttonHeight, spacing);
+
+        UITheme.DrawTextCentered(spriteBatch, "Mouse or Arrow keys + ENTER", new Rectangle(card.X, card.Bottom - 34, card.Width, 20), UITheme.TextMuted, UITheme.FontSmall);
+    }
+
+    private void DrawLoadGameMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
+    {
+        _menuItemBounds.Clear();
+
+        DrawBackdrop(spriteBatch, screenWidth, screenHeight, false);
+
+        int cardWidth = Math.Min(560, screenWidth - 40);
+        int rowHeight = 40;
+        int maxRows = Math.Max(1, (screenHeight - 260) / (rowHeight + 6));
+        int rows = Math.Max(1, Math.Min(_saveGames.Count, maxRows));
+        int cardHeight = 110 + rows * (rowHeight + 6) + 50;
+        var card = new Rectangle((screenWidth - cardWidth) / 2, (screenHeight - cardHeight) / 2, cardWidth, cardHeight);
+        int contentY = UITheme.DrawTitledPanel(spriteBatch, card, "LOAD GAME", UITheme.Gold, 44);
+
+        if (_saveGames.Count == 0)
         {
-            bool isSelected = i == _selectedMenuItem;
-            string text = _mainMenuItems[i];
-
-            int x = (screenWidth - buttonWidth) / 2;
-            int y = startY + i * 60;
-
-            // Store button bounds
-            _menuItemBounds.Add(new Rectangle(x, y, buttonWidth, buttonHeight));
-
-            // Draw button
-            Color bgColor = isSelected ? new Color(70, 140, 255, 200) : new Color(30, 60, 100, 180);
-            Color borderColor = isSelected ? new Color(120, 200, 255) : new Color(80, 120, 160);
-
-            spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], bgColor);
-            DrawBorder(spriteBatch, _menuItemBounds[i].X, _menuItemBounds[i].Y, _menuItemBounds[i].Width, _menuItemBounds[i].Height, borderColor, 2);
-
-            // Draw text
-            var textSize = _font.MeasureString(text, 18);
-            float textX = x + (buttonWidth - textSize.X) / 2;
-            float textY = y + (buttonHeight - textSize.Y) / 2;
-            _font.DrawString(spriteBatch, text, new Vector2(textX, textY), Color.White, 18);
+            UITheme.DrawTextCentered(spriteBatch, "No saved games found", new Rectangle(card.X, contentY + 10, card.Width, 30), UITheme.TextDim, UITheme.FontMedium);
+            UITheme.DrawTextCentered(spriteBatch, "Press F5 in game to quick-save", new Rectangle(card.X, contentY + 40, card.Width, 20), UITheme.TextMuted, UITheme.FontSmall);
+        }
+        else
+        {
+            // Keep the selected entry visible when the list is longer than the card
+            int first = Math.Clamp(_selectedMenuItem - rows + 1, 0, Math.Max(0, _saveGames.Count - rows));
+            var mouse = Mouse.GetState();
+            float textH = UITheme.Measure("Ag", UITheme.FontMedium).Y;
+            for (int i = 0; i < _saveGames.Count; i++)
+            {
+                if (i < first || i >= first + rows)
+                {
+                    _menuItemBounds.Add(Rectangle.Empty);
+                    continue;
+                }
+                var rect = new Rectangle(card.X + 20, contentY + 6 + (i - first) * (rowHeight + 6), card.Width - 40, rowHeight);
+                _menuItemBounds.Add(rect);
+                bool selected = i == _selectedMenuItem;
+                UITheme.DrawButton(spriteBatch, rect, "", selected || rect.Contains(mouse.Position), selected, UITheme.Accent);
+                UITheme.DrawTextShadowed(spriteBatch, UITheme.Ellipsize(_saveGames[i], rect.Width - 30, UITheme.FontMedium),
+                    new Vector2(rect.X + 16, rect.Y + (rowHeight - textH) / 2f), selected ? UITheme.Gold : UITheme.Text, UITheme.FontMedium);
+            }
         }
 
-        // Instructions
-        DrawCenteredText(spriteBatch, "Click or use Arrow Keys + ENTER",
-            screenHeight - 50, new Color(150, 150, 150), 0.7f);
+        UITheme.DrawTextCentered(spriteBatch, "ENTER to load  -  ESC to go back", new Rectangle(card.X, card.Bottom - 34, card.Width, 20), UITheme.TextMuted, UITheme.FontSmall);
+    }
+
+    private void DrawPauseMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
+    {
+        _menuItemBounds.Clear();
+
+        // Dim the running world behind the menu instead of hiding it
+        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), new Color(4, 6, 12) * 0.72f);
+
+        int buttonWidth = 280;
+        int buttonHeight = 46;
+        int spacing = 10;
+        int cardWidth = buttonWidth + 60;
+        int cardHeight = 90 + _pauseMenuItems.Length * (buttonHeight + spacing) + 20;
+        var card = new Rectangle((screenWidth - cardWidth) / 2, (screenHeight - cardHeight) / 2, cardWidth, cardHeight);
+        UITheme.DrawPanel(spriteBatch, card, new Color(12, 18, 30, 240), UITheme.BorderBright);
+        UITheme.DrawTextCentered(spriteBatch, "PAUSED", new Rectangle(card.X, card.Y + 18, card.Width, 40), UITheme.Gold, UITheme.FontTitle);
+        spriteBatch.Draw(UITheme.Pixel, new Rectangle(card.X + 30, card.Y + 70, card.Width - 60, 1), UITheme.Border);
+
+        DrawMenuButtons(spriteBatch, _pauseMenuItems, card.X + 30, card.Y + 86, buttonWidth, buttonHeight, spacing);
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
@@ -301,121 +409,6 @@ public class MainMenu
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
         spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
         spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
-    }
-
-    private void DrawLoadGameMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
-    {
-        _menuItemBounds.Clear();
-
-        // Draw black background first
-        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), Color.Black);
-
-        // Draw splash background with low alpha for subtle effect
-        if (_splashBackground != null)
-        {
-            // Scale splash to fit screen while maintaining aspect ratio
-            float scaleX = (float)screenWidth / _splashBackground.Width;
-            float scaleY = (float)screenHeight / _splashBackground.Height;
-            float scale = Math.Max(scaleX, scaleY);
-
-            int displayWidth = (int)(_splashBackground.Width * scale);
-            int displayHeight = (int)(_splashBackground.Height * scale);
-            int x = (screenWidth - displayWidth) / 2;
-            int y = (screenHeight - displayHeight) / 2;
-
-            spriteBatch.Draw(_splashBackground,
-                new Rectangle(x, y, displayWidth, displayHeight),
-                Color.White * 0.15f); // Very subtle transparency
-        }
-
-        // Title
-        DrawCenteredText(spriteBatch, "LOAD GAME", 80, new Color(255, 200, 50), 1.5f);
-
-        if (_saveGames.Count == 0)
-        {
-            DrawCenteredText(spriteBatch, "No saved games found", screenHeight / 2,
-                Color.Gray, 1.0f);
-        }
-        else
-        {
-            int startY = 200;
-            for (int i = 0; i < _saveGames.Count; i++)
-            {
-                bool isSelected = i == _selectedMenuItem;
-                Color color = isSelected ? Color.Yellow : Color.White;
-                string text = isSelected ? "> " + _saveGames[i] + " <" : _saveGames[i];
-
-                var size = _font.MeasureString(text, 16);
-                int x = (screenWidth - (int)size.X) / 2;
-                int y = startY + i * 35;
-
-                _menuItemBounds.Add(new Rectangle(x - 10, y - 5, (int)size.X + 20, (int)size.Y + 10));
-
-                if (isSelected)
-                {
-                    spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], new Color(50, 50, 80, 150));
-                }
-
-                _font.DrawString(spriteBatch, text, new Vector2(x, y), color, 16);
-            }
-        }
-
-        DrawCenteredText(spriteBatch, "ESC to go back", screenHeight - 60, Color.Gray, 1.0f);
-    }
-
-    private void DrawPauseMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
-    {
-        _menuItemBounds.Clear();
-
-        // Draw black background first
-        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), Color.Black);
-
-        // Draw splash background with low alpha for subtle effect
-        if (_splashBackground != null)
-        {
-            // Scale splash to fit screen while maintaining aspect ratio
-            float scaleX = (float)screenWidth / _splashBackground.Width;
-            float scaleY = (float)screenHeight / _splashBackground.Height;
-            float scale = Math.Max(scaleX, scaleY);
-
-            int displayWidth = (int)(_splashBackground.Width * scale);
-            int displayHeight = (int)(_splashBackground.Height * scale);
-            int x = (screenWidth - displayWidth) / 2;
-            int y = (screenHeight - displayHeight) / 2;
-
-            spriteBatch.Draw(_splashBackground,
-                new Rectangle(x, y, displayWidth, displayHeight),
-                Color.White * 0.15f); // Very subtle transparency
-        }
-
-        // Semi-transparent overlay for contrast
-        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(0, 0, 0, 150));
-
-        // Title
-        DrawCenteredText(spriteBatch, "PAUSED", screenHeight / 3, new Color(255, 200, 50), 1.8f);
-
-        // Menu items
-        int startY = screenHeight / 2;
-        for (int i = 0; i < _pauseMenuItems.Length; i++)
-        {
-            bool isSelected = i == _selectedMenuItem;
-            Color color = isSelected ? Color.Yellow : Color.White;
-            string text = isSelected ? "> " + _pauseMenuItems[i] + " <" : _pauseMenuItems[i];
-
-            var size = _font.MeasureString(text, 16);
-            int x = (screenWidth - (int)size.X) / 2;
-            int y = startY + i * 40;
-
-            _menuItemBounds.Add(new Rectangle(x - 10, y - 5, (int)size.X + 20, (int)size.Y + 10));
-
-            if (isSelected)
-            {
-                spriteBatch.Draw(_pixelTexture, _menuItemBounds[i], new Color(50, 50, 80, 150));
-            }
-
-            _font.DrawString(spriteBatch, text, new Vector2(x, y), color, 16);
-        }
     }
 
     private void DrawCenteredText(SpriteBatch spriteBatch, string text, int y, Color color, float scale)

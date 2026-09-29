@@ -391,6 +391,110 @@ Greenhouse gases trap heat:
 
 ### Civilization & Government
 
+**Settlements and growth:**
+
+Every people begins as a single tribal village (its capital). Each settlement works the land
+within its reach, and the best fields are worked first as the population grows:
+
+| Settlement | Population | Land radius |
+|------------|------------|-------------|
+| Village | < 1,000 | 2 cells |
+| Town | 1,000 - 5,000 | 3 cells |
+| City | 5,000 - 50,000 | 4 cells |
+| Metropolis | 50,000+ | 5 cells |
+
+- **Food** comes from hunting and gathering (depends on vegetation and wild animals nearby),
+  farming (from tech level 3; needs rain or a river and a mild temperature) and fishing (depends
+  on sea life along the coast). Each 100 people eat 1 food per year; soldiers eat more.
+- **Wood** comes from forests, **stone** from hills and mountains, **metal** from rocky ground and
+  iron or copper deposits (from tech level 8), **gold** from taxes, markets and trade routes.
+- Settlements grow toward the number of people their land can feed. Trading cities (markets,
+  harbours, the capital) import the realm's surplus harvest. When the granaries run out, famine
+  kills people and makes everyone unhappy.
+- Crowded settlements send **settlers** to found new villages on fertile river valleys and coasts.
+  Tribes can only hold a few villages together; more advanced governments manage larger realms.
+- Settlements construct buildings when the realm can afford them: **Granary** (more food, faster
+  growth), **Walls** (siege defense), **Temple** (happiness), **Market** (gold, imports),
+  **Barracks** (larger, more experienced armies), **Harbor** (fishing, trade), **Workshop**
+  (stone and metal), **University** (research).
+
+**Impact on the biosphere:** hunting thins wildlife and can wipe it out from a region, fishing
+depletes coastal waters, farming clears forests, tires the soil (fields recover when left fallow)
+and releases methane. Harvests follow the local climate, so droughts, cooling or warming cause
+famines. Smog in polluted cities lowers happiness.
+
+**War:**
+- Neighbours (or peoples within reach across the sea once ships are known) may go to war over
+  border friction, hunger for land, a ruler's ambition or brutality, or an opponent's weakness.
+  Treaties, royal marriages, trade and democratic governments make war less likely; nuclear
+  weapons deter attacks. Allies with defensive pacts join a war on the victim's side.
+- Armies are levied from settlements (barracks raise more), gather at the city closest to the
+  enemy and march along the easiest route. Hills, forests, mountains and home ground help the
+  defender; technology, morale, experience and metal weapons decide battles.
+- Armies besiege enemy cities. Walls, high ground and happy defenders make sieges long. A captured
+  city changes hands with the land around it, is plundered, and receives a garrison. A people
+  that loses all its cities is absorbed by the conqueror.
+- Casualties, lost cities, famine and empty treasuries raise **war weariness** until one side
+  asks for peace and pays reparations. Desperate nuclear powers may use their weapons on cities.
+- Unhappy, distant provinces of an unstable realm can **rebel** and become a new nation.
+
+**Strategy:** each nation chooses a posture every year (develop, expand, research, fortify,
+militarize, conquer, space race, recover) from the threats around it, the opportunities it sees,
+its needs and the character of its ruler and ruling party. Ambitious, brutal rulers and nationalist
+governments look for weak neighbours; democracies, greens and liberals prefer to trade and research.
+
+**Weapons of mass destruction:** nations build nuclear arsenals mostly to deter rivals who already
+have them. They launch them only when facing annihilation, and rarely against an enemy who can
+strike back. If they do: cities are destroyed, reactors melt down, fallout poisons the land, soot
+darkens the sky for years (nuclear winter: cold, failed harvests, famine) and the whole world turns
+against the aggressor. Chemical and biological weapons are rarer still.
+
+**Space and survival:** advanced nations launch satellites, open space stations, lunar bases and
+finally off-world colonies. If a nation is wiped out, the people in orbit survive and come home
+when the skies clear, founding a new nation that keeps its technology.
+
+**National programmes:** nations invest their treasury in long projects: research (from the Great
+Library to Fusion Power), economy (irrigation, banking, industrialization, the Green Revolution),
+environment (national parks, renewable energy, carbon capture), space and defence.
+
+**Energy and networks:** the energy mix moves from wood to coal and oil, then hydro, nuclear, wind,
+solar and fusion — the cleaner the mix, the less the nation warms the planet. Cities join the power
+grid and later the internet.
+
+**Peoples and geography:** each nation has an ethnicity and a homeland climate. Temperate river
+valleys develop fastest; deserts, jungles, highlands and cold lands more slowly.
+
+**Epidemics:** crowded, trading, tropical nations breed plagues that spread along trade routes until
+a cure is found.
+
+**Politics:** republics and democracies hold elections between parties with different ideologies;
+monarchies pass the crown down a line of succession, sometimes to a child under a regent. When a
+royal line dies out, foreign relatives by marriage may go to war to claim the throne.
+
+**City character:** each settlement specializes — farming, fishing, port, mining, timber, trade,
+industry, learning, faith, defence or government — and produces accordingly (ports trade more,
+mines produce stone and metal, university towns research, fortresses resist sieges). Its
+buildings follow its people's tradition and climate; only the great cities of industrial and
+space-age nations are rebuilt in concrete, glass and domes.
+
+**Transport:** roads grow between neighbouring settlements following valleys and passes, the busiest
+get a railway alongside them (the road stays), harbours are linked by sea lanes and airports by air routes. You can watch
+caravans, trains, ships and airliners travel them. More traffic means more trade income.
+
+**Migration:** people leave places at war, starving, stricken by plague, disasters or a hostile
+climate, or oppressed by brutal regimes, and move to safe, prosperous places — often abroad.
+Poor nations lose people to rich neighbours; industry draws villagers to the cities.
+
+**Espionage:** nations spy on rivals and enemies: they learn their plans (an advantage in battle),
+steal technology, sabotage buildings, fund unrest and occasionally assassinate rulers. Networks can
+be uncovered, causing scandals and sometimes wars.
+
+**Wildlife:** herds, flocks and schools migrate with the seasons; settlements near their routes
+hunt them for food, and too much hunting wipes them out.
+
+**The Chronicle:** everything important is recorded year by year: new peoples and villages,
+cities growing, wars, battles, conquests, famines, revolutions, treaties.
+
 **Government Types:**
 
 Civilizations evolve different government systems:
@@ -406,6 +510,9 @@ Civilizations evolve different government systems:
 | Oligarchy | Moderate | Moderate | Elite rule |
 | Dictatorship | Variable | Fast | Authoritarian |
 | Federation | Very High | Very Fast | Advanced unified state |
+
+A people's formal name follows its government: the "Kalans" become the "Kingdom of Kal", then
+the "Kal Republic" or the "Kal Commonwealth".
 
 **Rulers & Traits:**
 - Each civilization has a named ruler
@@ -840,8 +947,15 @@ Press **5** to cycle through:
 
 *   **Life**: Life form distribution (Bacteria to Civilization)
 *   **Civilizations**: Political map of territories
-*   **Infrastructure**: Roads, cities, and energy grids
 *   **Resources**: Mineral deposits and resource concentrations
+
+### 6 - Society Group
+Press **6** to cycle through Electricity, Energy, Armaments, Governments, Internet and:
+
+*   **Infrastructure**: roads (coloured by era), railways beside the roads, sea lanes and air routes, with caravans, trucks, trains, ships and airliners moving along them
+*   **Epidemics**: where diseases are spreading
+*   **Migrations**: animated arrows of migrants and refugees coloured by cause (war, famine, epidemic, climate, disaster, persecution, economic, urbanisation), nations tinted by net migration, and wild herds, flocks and schools on the move
+*   **Spy networks**: which nation spies on which, the mission (colour), network strength (line width), and uncovered networks (red cross); nations tinted by counter-intelligence
 
 ### Geological Overlays (Toggle Independently)
 
@@ -1223,7 +1337,8 @@ Start with uninhabitable planet:
 | 2 | Weather | Temperature, Rainfall, Pressure, Wind, Clouds, Storms |
 | 3 | Atmosphere | Oxygen, CO2, Radiation, Albedo, Spectral Bands, Auroras |
 | 4 | Geology | Rock Types, Plates, Volcanoes, Faults, Earthquakes, Tsunamis |
-| 5 | Life & Civ | Life, Civilizations, Infrastructure, Resources |
+| 5 | Life & Civ | Life, Civilizations, Resources |
+| 6 | Society | Electricity, Energy, Armaments, Governments, Internet, Infrastructure, Epidemics, Migrations, Spy networks |
 
 ### Overlays (Toggle On/Off)
 | Key | Overlay | Description |

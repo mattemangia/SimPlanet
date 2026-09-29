@@ -4,6 +4,136 @@ All notable changes to this project will be documented in this file.
 
 ## Latest Changes
 
+### Living Civilizations: villages, economy, armies and history
+
+- **Settlements that grow**: every people starts as a single tribal village. Settlements work
+  the land around them (hunting, gathering, farming, fishing, forestry, quarrying, mining),
+  grow into towns, cities and metropolises, and send settlers to found new villages on fertile
+  river valleys and coasts. Overcrowded settlements lose people to emigration; failed harvests
+  bring famine.
+- **Economy**: food, wood, stone, metal and gold stockpiles. Trade routes and markets bring gold,
+  armies cost upkeep, and trading cities import the realm's surplus harvest.
+- **City buildings**: granaries, walls, temples, markets, barracks, harbours, workshops and
+  universities, chosen according to each city's needs (famine, threats, unrest).
+- **Real wars**: wars start from border friction, hunger for land, ambition and relative strength
+  (nuclear powers deter attacks). Allies honour defensive pacts. Armies are levied from cities,
+  march across the map with pathfinding (ships once seafaring is known), fight battles
+  influenced by technology, morale, experience, weapons and terrain, besiege and capture cities,
+  leave garrisons and annex peoples that lose all their cities. War weariness leads to peace
+  treaties with reparations.
+- **Rebellions**: unhappy, distant provinces of unstable realms can break away and form new
+  nations; unstable governments can fall to revolutions.
+- **Diplomacy**: opinions drift with shared borders, trade, royal marriages and forms of
+  government; trade pacts and defensive alliances are signed and renewed.
+- **Biosphere feedback**: hunting thins wildlife (and can wipe it out locally), fishing depletes
+  coastal waters, farming clears forests, tires the soil and releases methane, and harvests
+  depend on each region's rainfall and temperature, so climate change causes famines.
+- **Names and history**: each people has its own naming culture; its formal name follows its
+  government (Kingdom, Republic, Empire...). A chronicle records foundings, wars, battles,
+  conquests, famines, revolutions and treaties.
+- **Save games** now keep settlements, resources and diplomatic relations.
+- **Headless testing**: `--no-gui --years N --civs N --size WxH --seed N [--civ-only]` runs long
+  simulations and prints the chronicle.
+
+### Strategic AI, weapons of mass destruction, space and politics
+
+- **Strategic AI**: every year each nation assesses threats (neighbours' strength and hostility),
+  opportunities (weak, isolated neighbours with fertile land), needs (famine, instability) and the
+  personality of its ruler and ruling party, then picks a posture — develop, expand, research,
+  fortify, militarize, conquer, space race or recover — with a matching budget. Wars are deliberate
+  decisions against a chosen target, armed nations keep standing armies, and armies avoid fighting
+  near nuclear power plants.
+- **Weapons of mass destruction, used as a last resort**: nuclear weapons require a national
+  programme, pursued mostly when a rival already has them. First use needs an existential threat
+  and ruthless, unaccountable leaders, and is strongly deterred by the enemy's ability to retaliate;
+  a nuclear attack is almost always answered. Missile defence can intercept warheads. Each strike
+  devastates a city (blast, fallout, EMP, tsunamis), melts down nearby reactors, lofts soot that
+  causes a nuclear winter (less sunlight, failed harvests, famine) and outrages the whole world.
+  Brutal regimes may gas besieged cities; engineered plagues are a reckless last gamble.
+  Battles around nuclear power plants can cause meltdowns and fallout.
+- **Space**: rocketry, satellites (better disaster preparedness), crewed flight, space stations,
+  lunar bases and off-world colonies. When a nation is destroyed its crews survive in space and,
+  once the skies clear, return to the surface to found a new nation with their knowledge.
+- **National programmes**: research (Great Library, Printing Press, Scientific Academy,
+  Electrification, Computer Revolution, Genome Project, Artificial Intelligence, Fusion Power),
+  economic (Irrigation, Roads, Central Bank, Industrialization, Green Revolution, Global Trade),
+  environmental (National Parks, Renewable Transition, Carbon Capture), space and military ones.
+- **Energy, grid and internet**: energy mix evolving from biomass to coal, oil, hydro, nuclear,
+  wind, solar and fusion (emissions follow the mix), power grids with blackouts, internet with
+  backbone and undersea cables, airports and spaceports.
+- **Peoples and geography**: every nation has an ethnicity and a homeland climate; temperate river
+  valleys develop fastest, deserts, jungles, highlands and cold lands more slowly.
+- **Epidemics**: crowded cities, livestock, trade and tropical climates breed plagues that spread
+  between nations; medicine and the Genome Project make them rarer; cures are researched.
+  Diseases now run on game years and can wipe out whole peoples.
+- **Politics**: republics and democracies have parties (conservative, liberal, socialist, green,
+  nationalist, technocratic, religious) and elections; voters punish famine, war and hardship, and
+  the ruling ideology steers the nation. Monarchies have royal families, primogeniture lines of
+  succession, regnal numbers, regencies for child monarchs, succession crises and wars of
+  succession. Rulers are named in their people's language.
+- **Headless**: `--doomsday N` starts a global nuclear war in year N.
+
+### Cities with character, transport, migrations, espionage and wildlife
+
+- **Every city is different**: each settlement has a specialization — farming, fishing, port,
+  mining, timber, trade, industrial, university town, holy city, fortress or capital — decided
+  by its land, resources and buildings and shaping what it produces, and an architectural style
+  from its people's culture, homeland and era (timber halls, stone and tiles, adobe, stilt
+  houses, pagodas, hill terraces; only the great cities are rebuilt modern or futuristic).
+- **Transport networks**: roads follow the terrain (with tunnels through mountains), railways are laid
+  alongside the busiest roads (the roads stay in use), sea lanes link harbours at home and abroad, air routes link airports.
+  Caravans, trucks, trains, sailing ships, steamships, cargo ships, warships and airliners travel
+  them, and traffic brings trade income. Wars close international routes.
+- **Migrations**: people flee war, famine, epidemics, harsh climate, disasters and persecution —
+  abroad to nations at peace with theirs, or to safer places at home; poor nations lose people to
+  rich neighbours; industrialisation draws villagers to the cities.
+- **Espionage**: nations run spy networks in rivals, enemies and more advanced nations to gather
+  intelligence (an edge in battle), steal technology, sabotage, stir unrest or — rarely —
+  assassinate rulers. Counter-intelligence uncovers them; scandals can lead to war.
+- **Animal migrations**: herds, bird flocks and fish schools travel with the seasons between
+  summer and winter ranges, graze, and feed the settlements along their path.
+- **On the map**: settlement icons change with their style, and a badge shows each city's
+  specialization (industrial towns smoke, ports have a bobbing boat). The Infrastructure view (and the terrain view when
+  zoomed in) draws roads by era, railways running beside the roads, sea lanes and air routes, with animated
+  vehicles: caravans, trucks, steaming trains, ships with wakes, airliners with contrails. The new
+  **Migrations** view shows flows of migrants and refugees as animated arrows coloured by cause, with
+  nations tinted by net migration. The **Spy networks** view links each spying nation to its target, with
+  lines coloured by mission and a red cross marking uncovered networks. Herds, flocks and schools roam the
+  Life and Migrations views. The nation panel has an Intelligence tab, and the chronicle colours
+  espionage and migration events.
+
+### The planet strikes back
+
+- Volcanic eruptions, asteroid impacts, tornadoes, floods, torrential rain, acid rain,
+  landslides and civil nuclear accidents now kill and demoralise the people of the settlements
+  they hit; EMPs black out cities. Strong ones are recorded in the chronicle.
+- Settlements swallowed by the sea or buried by advancing ice are evacuated to the nearest safe
+  settlement of the same nation.
+- Refugees: famine and sieges drive people to neighbouring nations with food to spare; friendly
+  hosts grow closer, others resentful.
+- **Instant Peace** divine power: every war ends, armies go home, and no nation may start a war
+  on its own for 30 years.
+
+### Climate and geology fixes
+
+- **Runaway nitrous oxide**: an always-on ocean source and a negligible sink made N2O climb toward
+  its cap on every planet, heating it even without life. N2O now has a ~120-year lifetime and
+  sources calibrated to the pre-industrial level; an empty planet keeps a stable temperature.
+- Industrial civilizations no longer raise the solar energy directly (a hidden extra greenhouse
+  effect that also stopped nuclear winter and the stabilizer from dimming the sun); warming now
+  comes only from the greenhouse gases they emit.
+- Volcanoes need space between them and their number is capped, so plate boundaries no longer
+  fill up with volcano chains; volcano sprites are decluttered on screen.
+- After loading a game or starting a new one, civilizations are again connected to the weather,
+  disaster and geology systems (hurricanes, meltdowns and eruptions affected them only in the
+  first game of a session).
+
+### Performance
+
+- Faster atmosphere mixing, ocean currents, thermohaline circulation, cyclone eddies and
+  neighbour lookups (about 25-30% less time per simulation step, same physics).
+- Societies update once per game year instead of every frame.
+
 ### New Features
 
 - **City Icons and Markers**: Cities are now visually represented on the map with distinct icons:

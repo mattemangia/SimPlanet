@@ -35,6 +35,11 @@ public class GameUI
 
     public bool IsMouseOver { get; private set; }
     public bool ShowHelp { get; set; } = false;
+
+    /// <summary>Called with the nation id when a nation card in the info panel is clicked.</summary>
+    public Action<int>? NationCardClicked { get; set; }
+    private readonly List<(Rectangle Rect, int CivId)> _nationCards = new();
+    private Rectangle _nationContentClip;
     public bool IsFastForwarding { get; set; } = false;
     public float FastForwardProgress { get; set; } = 0f;
     public int FastForwardCurrentYear { get; set; } = 0;
@@ -101,6 +106,20 @@ public class GameUI
         // Check if mouse is over the panel
         IsMouseOver = IsMouseOverPanel(mouseState, toolbarHeight);
 
+        // Nation cards open the nation detail panel
+        if (IsMouseOver && mouseState.LeftButton == ButtonState.Released && previousMouseState.LeftButton == ButtonState.Pressed &&
+            _nationContentClip.Contains(mouseState.Position))
+        {
+            foreach (var (rect, civId) in _nationCards)
+            {
+                if (rect.Contains(mouseState.Position))
+                {
+                    NationCardClicked?.Invoke(civId);
+                    break;
+                }
+            }
+        }
+
         // Handle Mouse Wheel Scrolling
         if (IsMouseOver)
         {
@@ -131,7 +150,7 @@ public class GameUI
             // Content travel range: contentHeight - visibleHeight
             // Ratio = ContentRange / ScrollbarRange
 
-            int visibleHeight = panelHeight - 40; // Subtract header height roughly
+            int visibleHeight = panelHeight - 58; // Subtract header height
             if (_contentHeight > visibleHeight)
             {
                 int scrollbarHeight = visibleHeight;
@@ -156,7 +175,7 @@ public class GameUI
 
     private void ClampScroll(int panelHeight)
     {
-        int visibleHeight = panelHeight - 40; // Approximate visible area below header
+        int visibleHeight = panelHeight - 58; // Visible area below header
         int maxScroll = Math.Max(0, _contentHeight - visibleHeight + 60); // Extra padding at bottom
         _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
     }
@@ -213,97 +232,122 @@ public class GameUI
         int panelY = toolbarHeight; // Start strictly below toolbar
         int panelWidth = 280;
         int panelHeight = _graphicsDevice.Viewport.Height - toolbarHeight;
+        const int headerHeight = 58;
 
-        // Draw background with border
+        // Background: vertical gradient and a crisp right edge
         DrawRectangle(panelX, panelY, panelWidth, panelHeight, _panelBgColor);
-
-        // Right border only
+        UITheme.FillGradient(_spriteBatch, new Rectangle(panelX, panelY, panelWidth, panelHeight), Color.White * (8 / 255f));
         DrawRectangle(panelX + panelWidth - 1, panelY, 1, panelHeight, _panelBorderColor);
 
-        // Top Header (Static, not scrolled)
-        DrawRectangle(panelX, panelY, panelWidth, 40, _headerBgColor);
-        DrawRectangle(panelX, panelY + 39, panelWidth, 1, _panelBorderColor);
-
-        // Draw title in static header
-        _font.DrawString(_spriteBatch, "SIMPLANET", new Vector2(panelX + 15, panelY + 12), _goldColor, 16);
-
-        // --- Content Rendering with Clipping ---
-
-        // Define the content area (below header)
-        int contentAreaY = panelY + 40;
-        int contentAreaHeight = panelHeight - 40;
-
-        // Save current scissor rectangle
-        Rectangle currentScissor = _spriteBatch.GraphicsDevice.ScissorRectangle;
-
-        // Enable scissor test for clipping
-        RasterizerState rasterizerState = new RasterizerState { ScissorTestEnable = true };
-        _spriteBatch.End();
-        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, rasterizerState);
-
-        // Set scissor rectangle to content area
-        _spriteBatch.GraphicsDevice.ScissorRectangle = new Rectangle(panelX, contentAreaY, panelWidth, contentAreaHeight);
-
-        int textX = panelX + 15;
-        int textStartY = contentAreaY + 10;
-        int textY = textStartY - _scrollOffset; // Apply scroll offset
-        int lineHeight = 22;
-
-        void DrawText(string text, Color color, int fontSize = 14, int offsetX = 0)
-        {
-            // Culling optimization: don't draw if outside view
-            if (textY + lineHeight > contentAreaY && textY < contentAreaY + contentAreaHeight)
-            {
-                _font.DrawString(_spriteBatch, text, new Vector2(textX + offsetX, textY), color, fontSize);
-            }
-            textY += lineHeight;
-        }
-
-        void DrawLabelValue(string label, string value, Color valueColor)
-        {
-            if (textY + lineHeight > contentAreaY && textY < contentAreaY + contentAreaHeight)
-            {
-                _font.DrawString(_spriteBatch, label, new Vector2(textX, textY), _textLabelColor, 14);
-                float labelWidth = _font.MeasureString(label).X;
-                _font.DrawString(_spriteBatch, value, new Vector2(textX + labelWidth + 5, textY), valueColor, 14);
-            }
-            textY += lineHeight;
-        }
-
-        void DrawSectionHeader(string text)
-        {
-            textY += 8;
-            if (textY + 26 > contentAreaY && textY < contentAreaY + contentAreaHeight)
-            {
-                // Subtle background for section header
-                DrawRectangle(panelX + 5, textY - 2, panelWidth - 10, 24, _subHeaderBgColor);
-                // Accent line on left
-                DrawRectangle(panelX + 5, textY - 2, 3, 24, _accentColor);
-                _font.DrawString(_spriteBatch, text, new Vector2(textX, textY), _accentColor, 14);
-            }
-            textY += 26;
-        }
-
-        // Improved Time Display: Geological Time vs Civilization Time
+        // --- Static header: planet clock ---
         bool hasCivilization = _civilizationManager != null && _civilizationManager.Civilizations.Count > 0;
+        DrawRectangle(panelX, panelY, panelWidth - 1, headerHeight, _headerBgColor);
+        DrawRectangle(panelX, panelY + headerHeight - 1, panelWidth - 1, 1, _panelBorderColor);
 
+        string clock;
+        string clockLabel;
         if (!hasCivilization)
         {
             // Geological Time Scale (MYA - Million Years Ago)
             // Assuming 1 Game Year approx 5 Million Years in early simulation
             int startMya = 4600; // Earth formed 4.6 BYA
             int mya = Math.Max(0, startMya - (state.Year * 5));
-
-            if (mya > 0)
-                DrawLabelValue("Geological Time:", $"{mya} MYA", _goldColor);
-            else
-                DrawLabelValue("Geological Time:", "Present Day", _goldColor);
+            clock = mya > 0 ? $"{mya:N0} MYA" : "Present Day";
+            clockLabel = "GEOLOGICAL TIME";
         }
         else
         {
             // Civilization Time Scale (Standard Years)
             float fractionalYear = state.Year + state.TimeAccumulator / GameState.SecondsPerGameYear;
-            DrawLabelValue("Year:", $"{fractionalYear:N1}", _textValueColor);
+            clock = $"Year {fractionalYear:N1}";
+            clockLabel = "CALENDAR";
+        }
+        UITheme.DrawText(_spriteBatch, clockLabel, new Vector2(panelX + 14, panelY + 8), UITheme.TextMuted, 11f);
+        UITheme.DrawTextShadowed(_spriteBatch, clock, new Vector2(panelX + 14, panelY + 22), _goldColor, UITheme.FontLarge);
+
+        // Speed chip on the right of the header
+        string speedText = state.IsPaused ? "PAUSED" : $"{state.TimeSpeed:0.##}x";
+        var speedSize = UITheme.Measure(speedText, UITheme.FontSmall);
+        var chip = new Rectangle(panelX + panelWidth - (int)speedSize.X - 30, panelY + 24, (int)speedSize.X + 16, 20);
+        UITheme.FillRounded(_spriteBatch, chip, state.IsPaused ? new Color(90, 70, 20) : new Color(24, 64, 40));
+        UITheme.DrawTextCentered(_spriteBatch, speedText, chip, state.IsPaused ? _goldColor : _goodColor, UITheme.FontSmall);
+
+        // --- Content Rendering with Clipping ---
+
+        // Define the content area (below header)
+        int contentAreaY = panelY + headerHeight;
+        int contentAreaHeight = panelHeight - headerHeight;
+
+        // Save current scissor rectangle
+        Rectangle currentScissor = _spriteBatch.GraphicsDevice.ScissorRectangle;
+
+        // Enable scissor test for clipping
+        _spriteBatch.End();
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, null, ScissorRasterizer);
+
+        // Set scissor rectangle to content area
+        _spriteBatch.GraphicsDevice.ScissorRectangle = new Rectangle(panelX, contentAreaY, panelWidth, contentAreaHeight);
+
+        int textX = panelX + 14;
+        int valueRight = panelX + panelWidth - 16;
+        int textStartY = contentAreaY + 8;
+        int textY = textStartY - _scrollOffset; // Apply scroll offset
+        int lineHeight = 21;
+
+        bool Visible(int h) => textY + h > contentAreaY && textY < contentAreaY + contentAreaHeight;
+
+        void DrawText(string text, Color color, int fontSize = 14, int offsetX = 0)
+        {
+            // Culling optimization: don't draw if outside view
+            if (Visible(lineHeight))
+            {
+                string fitted = UITheme.Ellipsize(text, valueRight - textX - offsetX, fontSize);
+                UITheme.DrawText(_spriteBatch, fitted, new Vector2(textX + offsetX, textY), color, fontSize);
+            }
+            textY += fontSize <= 12 ? lineHeight - 3 : lineHeight;
+        }
+
+        void DrawLabelValue(string label, string value, Color valueColor, Color? dot = null)
+        {
+            if (Visible(lineHeight))
+            {
+                int lx = textX;
+                if (dot.HasValue)
+                {
+                    UITheme.FillRounded(_spriteBatch, new Rectangle(lx, textY + 4, 9, 9), dot.Value);
+                    lx += 15;
+                }
+                UITheme.DrawText(_spriteBatch, label, new Vector2(lx, textY), _textLabelColor, 14);
+                var vs = UITheme.Measure(value, 14);
+                UITheme.DrawText(_spriteBatch, value, new Vector2(valueRight - vs.X, textY), valueColor, 14);
+            }
+            textY += lineHeight;
+        }
+
+        void DrawMeterRow(string label, string value, float fill, Color color)
+        {
+            if (Visible(lineHeight + 10))
+            {
+                UITheme.DrawText(_spriteBatch, label, new Vector2(textX, textY), _textLabelColor, 14);
+                var vs = UITheme.Measure(value, 14);
+                UITheme.DrawText(_spriteBatch, value, new Vector2(valueRight - vs.X, textY), color, 14);
+                var bar = new Rectangle(textX, textY + 19, valueRight - textX, 4);
+                _spriteBatch.Draw(_pixelTexture, bar, new Color(0, 0, 0, 140));
+                _spriteBatch.Draw(_pixelTexture, new Rectangle(bar.X, bar.Y, (int)(bar.Width * Math.Clamp(fill, 0f, 1f)), bar.Height), color * 0.9f);
+            }
+            textY += lineHeight + 8;
+        }
+
+        void DrawSectionHeader(string text)
+        {
+            textY += 10;
+            if (Visible(24))
+            {
+                UITheme.DrawText(_spriteBatch, text, new Vector2(textX, textY), _accentColor, 12f);
+                var ts = UITheme.Measure(text, 12f);
+                DrawRectangle((int)(textX + ts.X + 8), textY + 8, (int)(valueRight - textX - ts.X - 8), 1, _panelBorderColor);
+            }
+            textY += 22;
         }
 
         if (_animalEvolutionSimulator != null)
@@ -312,29 +356,28 @@ public class GameUI
             Color eraColor = _animalEvolutionSimulator.DinosaursDominant ? new Color(255, 160, 60) :
                            _animalEvolutionSimulator.MammalsDominant ? new Color(160, 210, 255) :
                            new Color(200, 200, 200);
-            DrawText($"{eraName}", eraColor, 14);
+            DrawText(eraName, eraColor, 14);
         }
-
-        DrawLabelValue("Speed:", $"{state.TimeSpeed}x", state.IsPaused ? _alertColor : _goodColor);
-        if (state.IsPaused) DrawText("[||] PAUSED", _goldColor);
 
         // Atmosphere Section
         DrawSectionHeader("ATMOSPHERE");
-        DrawLabelValue("Oxygen:", $"{_map.GlobalOxygen:F1}%", GetOxygenColor(_map.GlobalOxygen));
-        DrawLabelValue("CO2:", $"{_map.GlobalCO2:F2}%", GetCO2Color(_map.GlobalCO2));
-        DrawLabelValue("Temp:", $"{_map.GlobalTemperature:F1}C", GetTempColor(_map.GlobalTemperature));
-        DrawLabelValue("Solar:", $"{_map.SolarEnergy:F2}", Color.Yellow);
+        DrawMeterRow("Oxygen", $"{_map.GlobalOxygen:F1}%", _map.GlobalOxygen / 35f, GetOxygenColor(_map.GlobalOxygen));
+        DrawMeterRow("CO2", $"{_map.GlobalCO2:F2}%", MathF.Log10(1 + _map.GlobalCO2 * 10f) / 2f, GetCO2Color(_map.GlobalCO2));
+        DrawMeterRow("Temperature", $"{_map.GlobalTemperature:F1} C", (_map.GlobalTemperature + 30f) / 80f, GetTempColor(_map.GlobalTemperature));
+        DrawMeterRow("Solar energy", $"{_map.SolarEnergy:F2}", _map.SolarEnergy / 2f, new Color(255, 220, 90));
 
         // Life Section
         DrawSectionHeader("BIOSPHERE");
 
+        int lifeRows = 0;
         // Helper to draw life stats compactly
         void DrawLifeStat(string name, LifeForm type, Color color)
         {
             int count = _cachedLifeStats.GetValueOrDefault(type, 0);
             if (count > 0)
             {
-                DrawLabelValue(name + ":", count.ToString(), color);
+                DrawLabelValue(name, count.ToString("N0"), _textValueColor, color);
+                lifeRows++;
             }
         }
 
@@ -345,7 +388,7 @@ public class GameUI
         DrawLifeStat("Fish", LifeForm.Fish, new Color(100, 120, 200));
         DrawLifeStat("Amphibians", LifeForm.Amphibians, new Color(120, 160, 80));
         DrawLifeStat("Reptiles", LifeForm.Reptiles, new Color(140, 140, 60));
-        DrawLifeStat("DINOSAURS", LifeForm.Dinosaurs, Color.Orange);
+        DrawLifeStat("Dinosaurs", LifeForm.Dinosaurs, Color.Orange);
         DrawLifeStat("Marine Dinos", LifeForm.MarineDinosaurs, new Color(100, 100, 180));
         DrawLifeStat("Pterosaurs", LifeForm.Pterosaurs, new Color(160, 140, 100));
         DrawLifeStat("Mammals", LifeForm.Mammals, new Color(160, 120, 90));
@@ -353,43 +396,80 @@ public class GameUI
         DrawLifeStat("Complex", LifeForm.ComplexAnimals, Color.Orange);
         DrawLifeStat("Intelligent", LifeForm.Intelligence, Color.Gold);
         DrawLifeStat("Civilization", LifeForm.Civilization, Color.Yellow);
+        if (lifeRows == 0) DrawText("No life yet - press L to seed", UITheme.TextMuted, 12);
 
-        // Civilization Section
-        if (_civilizationManager != null && _civilizationManager.Civilizations.Count > 0)
+        // Civilization Section (from the thread-safe render snapshot)
+        var civData = CivRenderData.Latest;
+        _nationCards.Clear();
+        _nationContentClip = new Rectangle(panelX, contentAreaY, panelWidth, contentAreaHeight);
+        if (civData.Civs.Count > 0)
         {
-            DrawSectionHeader("CIVILIZATIONS");
-            int civCount = Math.Min(3, _civilizationManager.Civilizations.Count);
+            DrawSectionHeader($"NATIONS ({civData.Civs.Count})");
+            var civs = new List<CivRenderData.CivInfo>(civData.Civs);
+            civs.Sort((a, b) => b.Population.CompareTo(a.Population));
+            int civCount = Math.Min(5, civs.Count);
+            var mouse = Mouse.GetState();
             for (int i = 0; i < civCount; i++)
             {
-                var civ = _civilizationManager.Civilizations[i];
-                Color nameColor = civ.AtWar ? _alertColor : _goldColor;
-                string warStatus = civ.AtWar ? " [WAR]" : "";
-
-                DrawText($"{civ.Name}{warStatus}", nameColor);
-
-                int popK = civ.Population / 1000;
-                DrawText($"Type: {civ.CivType} | Pop: {popK}K", _textLabelColor, 12, 10);
-
-                // Icons
-                string icons = "";
-                if (civ.HasAirTransport) icons += "[Air] ";
-                if (civ.HasSeaTransport) icons += "[Sea] ";
-                if (civ.HasNuclearWeapons) icons += "[Nuke] ";
-
-                if(!string.IsNullOrEmpty(icons))
-                     DrawText(icons, Color.Cyan, 12, 10);
-
-                if (civ.InClimateAgreement)
+                var civ = civs[i];
+                var card = new Rectangle(textX - 6, textY - 2, valueRight - textX + 12, 42);
+                _nationCards.Add((card, civ.Id));
+                if (Visible(44))
                 {
-                    DrawText($"Climate Pact (-{(int)(civ.EmissionReduction * 100)}%)", _goodColor, 12, 10);
+                    bool hover = card.Contains(mouse.Position) && _nationContentClip.Contains(mouse.Position);
+                    if (hover)
+                    {
+                        UITheme.FillRounded(_spriteBatch, card, new Color(40, 56, 86, 200));
+                        UITheme.OutlineRounded(_spriteBatch, card, UITheme.BorderBright * 0.7f);
+                    }
+                    Color civColor = TerrainRenderer.GetCivPaletteColor(civ.Id);
+                    UITheme.FillRounded(_spriteBatch, new Rectangle(textX, textY + 3, 4, 34), civColor);
+
+                    // Right side chips: war and the nation's current posture
+                    int chipRight = valueRight;
+                    if (civ.AtWar)
+                    {
+                        var war = new Rectangle(chipRight - 38, textY + 1, 38, 17);
+                        UITheme.FillRounded(_spriteBatch, war, new Color(120, 30, 30));
+                        UITheme.DrawTextCentered(_spriteBatch, "WAR", war, new Color(255, 200, 190), 11f);
+                        chipRight -= 42;
+                    }
+                    if (civ.Posture != NationalPosture.Conquer || !civ.AtWar)
+                    {
+                        Color pc = SocietyStyle.PostureColor(civ.Posture);
+                        string tag = SocietyStyle.PostureTag(civ.Posture);
+                        var postureChip = new Rectangle(chipRight - 36, textY + 1, 36, 17);
+                        UITheme.FillRounded(_spriteBatch, postureChip, Color.Lerp(new Color(20, 26, 40), pc, 0.3f));
+                        UITheme.OutlineRounded(_spriteBatch, postureChip, pc * 0.8f);
+                        UITheme.DrawTextCentered(_spriteBatch, tag, postureChip, Color.Lerp(pc, Color.White, 0.4f), 10.5f);
+                        chipRight -= 40;
+                    }
+
+                    string name = UITheme.Ellipsize(civ.Name, chipRight - textX - 16, 14);
+                    UITheme.DrawText(_spriteBatch, name, new Vector2(textX + 10, textY), _textValueColor, 14);
+                    string gov = civ.GovType?.ToString() ?? civ.CivType;
+                    string details = $"{gov} - {FormatPopulation(civ.Population)} - {civ.CityCount} {(civ.CityCount == 1 ? "settlement" : "settlements")}";
+                    if (civ.Gold > 0) details += $" - {civ.Gold:N0} gold";
+                    UITheme.DrawText(_spriteBatch, UITheme.Ellipsize(details, valueRight - textX - 10, 12f),
+                        new Vector2(textX + 10, textY + 20), _textLabelColor, 12f);
                 }
-                textY += 2; // Extra spacing between civs
+                textY += 44;
             }
 
-            if (_civilizationManager.Civilizations.Count > 3)
+            if (civs.Count > civCount)
             {
-                DrawText($"...and {_civilizationManager.Civilizations.Count - 3} more", Color.Gray, 12);
+                DrawText($"+ {civs.Count - civCount} more (Society menu: Nation details)", UITheme.TextMuted, 12);
             }
+            else
+            {
+                DrawText("Click a nation for details", UITheme.TextMuted, 12);
+            }
+
+            // Space and nuclear winter
+            if (civData.PeopleInSpace > 0 || civData.Orbitals.Count > 0)
+                DrawLabelValue("In space", $"{civData.Orbitals.Count} objects, {civData.PeopleInSpace} people", new Color(200, 180, 255), new Color(180, 150, 255));
+            if (civData.NuclearWinter > 0.005f)
+                DrawMeterRow("Nuclear winter", $"{civData.NuclearWinter:P0}", civData.NuclearWinter, new Color(190, 130, 90));
         }
 
         // Weather Alerts
@@ -399,12 +479,12 @@ public class GameUI
             if (activeStorms.Count > 0)
             {
                 DrawSectionHeader("ALERTS");
-                DrawText($"Active Storms: {activeStorms.Count}", _alertColor);
+                DrawLabelValue("Active storms", activeStorms.Count.ToString(), _alertColor, _alertColor);
                 int stormCount = Math.Min(2, activeStorms.Count);
                 for (int i = 0; i < stormCount; i++)
                 {
                     var storm = activeStorms[i];
-                    DrawText($"{storm.Type} ({storm.Intensity:F1})", Color.Orange, 12);
+                    DrawText($"{storm.Type} (intensity {storm.Intensity:F1})", Color.Orange, 12, 15);
                 }
             }
         }
@@ -412,33 +492,34 @@ public class GameUI
         // Stabilizer
         if (_planetStabilizer != null)
         {
-            textY += 10;
+            DrawSectionHeader("STABILIZER");
             if (_planetStabilizer.IsActive)
             {
-                DrawText("AUTO-STABILIZER ACTIVE", _accentColor);
-                DrawText($"Adj: {_planetStabilizer.AdjustmentsMade} | Last: {_planetStabilizer.LastAction}", _textLabelColor, 12);
+                DrawLabelValue("Auto-stabilizer", "ON", _goodColor, _goodColor);
+                DrawText($"{_planetStabilizer.AdjustmentsMade} adjustments", _textLabelColor, 12, 15);
+                DrawText(_planetStabilizer.LastAction, UITheme.TextMuted, 12, 15);
             }
             else
             {
-                DrawText("Stabilizer: OFF", Color.Gray);
+                DrawLabelValue("Auto-stabilizer", "OFF", Color.Gray, Color.Gray);
             }
         }
 
         // Footer View Info
-        textY += 10; // Space before footer
-        DrawLabelValue("View:", $"{renderMode}", Color.Magenta);
-        DrawLabelValue("Zoom:", $"{zoomLevel:F1}x", Color.Cyan);
+        DrawSectionHeader("VIEW");
+        DrawLabelValue("Mode", renderMode == RenderMode.SpyNetworks ? "Spy networks" : $"{renderMode}", _accentColor);
+        DrawLabelValue("Zoom", $"{zoomLevel:F1}x", _textValueColor);
 
         // Mini icons for overlays
-        string overlays = "";
-        if (showVolcanoes) overlays += "V ";
-        if (showRivers) overlays += "R ";
-        if (showPlates) overlays += "P ";
-        if (showEarthquakes) overlays += "E ";
-        if (showDisasterZones) overlays += "Z ";
-        if (!string.IsNullOrEmpty(overlays))
+        var overlays = new List<string>();
+        if (showVolcanoes) overlays.Add("Volcanoes");
+        if (showRivers) overlays.Add("Rivers");
+        if (showPlates) overlays.Add("Plates");
+        if (showEarthquakes) overlays.Add("Quakes");
+        if (showDisasterZones) overlays.Add("Disasters");
+        if (overlays.Count > 0)
         {
-             DrawLabelValue("Overlays:", overlays, Color.Yellow);
+            DrawText("Overlays: " + string.Join(", ", overlays), _textLabelColor, 12);
         }
 
         // Store total content height for scrolling
@@ -452,10 +533,10 @@ public class GameUI
         // --- Draw Scrollbar ---
         if (_contentHeight > contentAreaHeight)
         {
-            int scrollbarWidth = 8;
-            int scrollbarX = panelX + panelWidth - scrollbarWidth - 2;
-            int scrollbarY = contentAreaY + 2;
-            int scrollbarHeight = contentAreaHeight - 4;
+            int scrollbarWidth = 5;
+            int scrollbarX = panelX + panelWidth - scrollbarWidth - 3;
+            int scrollbarY = contentAreaY + 4;
+            int scrollbarHeight = contentAreaHeight - 8;
 
             // Draw Track
             DrawRectangle(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight, new Color(0, 0, 0, 100));
@@ -474,8 +555,8 @@ public class GameUI
             Color thumbColor = _isDraggingScrollbar ? _accentColor : _panelBorderColor;
             DrawRectangle(scrollbarX, thumbY, scrollbarWidth, thumbHeight, thumbColor);
 
-            // Update scrollbar rect for hit testing
-            _lastScrollbarRect = new Rectangle(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight);
+            // Update scrollbar rect for hit testing (a bit wider than drawn for easier grabbing)
+            _lastScrollbarRect = new Rectangle(scrollbarX - 4, scrollbarY, scrollbarWidth + 6, scrollbarHeight);
         }
         else
         {
@@ -484,123 +565,150 @@ public class GameUI
         }
     }
 
+    private static readonly RasterizerState ScissorRasterizer = new RasterizerState { ScissorTestEnable = true };
+
+    private static string FormatPopulation(int population)
+    {
+        if (population >= 1_000_000) return $"{population / 1_000_000f:0.#}M";
+        if (population >= 1_000) return $"{population / 1_000f:0.#}K";
+        return population.ToString();
+    }
+
+    private static readonly (string Title, (string Key, string Text)[] Items)[] HelpSections =
+    {
+        ("TIME", new[]
+        {
+            ("Space", "Pause / resume"),
+            ("+  -", "Faster / slower"),
+            ("F", "Fast forward 10,000 years"),
+            ("Esc", "Pause menu / cancel fast forward"),
+        }),
+        ("VIEW MODES", new[]
+        {
+            ("1", "Terrain, elevation, biomes"),
+            ("2", "Weather: temperature, rain, wind..."),
+            ("3", "Atmosphere: O2, CO2, radiation..."),
+            ("4", "Geology: plates, volcanoes, faults..."),
+            ("5", "Life, nations, resources"),
+            ("6", "Society: power, energy, arms, internet..."),
+        }),
+        ("MAP", new[]
+        {
+            ("Wheel", "Zoom (towards the cursor)"),
+            ("Drag", "Pan the map (left or middle button)"),
+            ("Click", "Tile information"),
+            ("C", "Day / night cycle"),
+            ("P", "3D globe"),
+        }),
+        ("OVERLAYS", new[]
+        {
+            ("V", "Volcanoes"),
+            ("B", "Rivers"),
+            ("N", "Plate boundaries"),
+            (".", "Earthquake rings"),
+            (",", "Disaster zones"),
+            ("E", "Geological event log"),
+        }),
+        ("CIVILIZATION", new[]
+        {
+            ("O", "World chronicle (history)"),
+            ("G", "Control a civilization"),
+            ("I", "Divine powers"),
+            ("K", "Pandemics"),
+            ("Y", "Graphs"),
+        }),
+        ("TOOLS", new[]
+        {
+            ("L", "Life painter (right click: cycle life)"),
+            ("T", "Terraforming (right click: raise/lower)"),
+            ("U", "Draw faults (Tab: fault type)"),
+            ("J", "Geological cross-section"),
+            ("D", "Trigger disasters"),
+            ("X", "Planet controls"),
+            ("\\", "Auto-stabilizer"),
+        }),
+        ("WORLD", new[]
+        {
+            ("M", "World generator"),
+            ("R", "Regenerate planet"),
+            ("F5 / F9", "Quick save / quick load"),
+            ("H", "This help"),
+        }),
+    };
+
     private void DrawHelpPanel(int toolbarHeight)
     {
-        // Position help panel in the map area (centered with 2 columns)
+        // Centered in the map area (right of the info panel), above the time bar
         int infoPanelWidth = 280;
-        int panelX = infoPanelWidth + 20; // Tighter margin
-        int panelY = toolbarHeight + 20;
-        int panelWidth = Math.Min(1000, _graphicsDevice.Viewport.Width - panelX - 20); // Adapt width
-        // Ensure panel height doesn't overlap with bottom control bar (height ~55px)
-        int bottomMargin = 70;
-        int panelHeight = Math.Min(700, _graphicsDevice.Viewport.Height - toolbarHeight - bottomMargin); // Fit height
+        int areaX = infoPanelWidth + 20;
+        int areaW = _graphicsDevice.Viewport.Width - areaX - 20;
+        int panelWidth = Math.Min(980, areaW);
+        int panelX = areaX + (areaW - panelWidth) / 2;
+        int panelY = toolbarHeight + 16;
+        int panelHeight = Math.Min(640, _graphicsDevice.Viewport.Height - toolbarHeight - 90);
+        var panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
 
-        // Shadow
-        DrawRectangle(panelX + 6, panelY + 6, panelWidth, panelHeight, new Color(0, 0, 0, 150));
+        _spriteBatch.End();
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
 
-        // Main BG
-        DrawRectangle(panelX, panelY, panelWidth, panelHeight, new Color(15, 20, 30, 250));
-        DrawBorder(panelX, panelY, panelWidth, panelHeight, _goldColor, 2);
+        int contentY = UITheme.DrawTitledPanel(_spriteBatch, panel, "COMMAND REFERENCE", _goldColor, 40);
 
-        // Header
-        DrawRectangle(panelX, panelY, panelWidth, 40, new Color(40, 40, 60, 255));
-        string title = "SIMPLANET COMMAND REFERENCE";
-        var titleSize = _font.MeasureString(title);
-        _font.DrawString(_spriteBatch, title, new Vector2(panelX + (panelWidth - titleSize.X) / 2, panelY + 10), _goldColor);
-
-        int lineHeight = 18; // Slightly more compact line height
-        int columnWidth = (panelWidth - 60) / 2;
-        int leftColX = panelX + 20;
-        int rightColX = panelX + columnWidth + 40;
-        int startY = panelY + 50;
-
-        // Helper to draw text in columns
-        void DrawTextAt(string text, Color color, int x, int y)
+        // Lay the sections out in columns, filling each column top to bottom
+        int rowH = 22;
+        int bottomLimit = panel.Bottom - 34;
+        // Use the fewest columns (2..4) that fit everything vertically
+        int columns = 2;
+        for (; columns < 4; columns++)
         {
-            if (y < panelY + panelHeight - 30) // Simple culling
+            int cx = 0, cy = contentY + 4;
+            foreach (var (_, sectionItems) in HelpSections)
             {
-                _font.DrawString(_spriteBatch, text, new Vector2(x, y), color);
+                int h = 26 + sectionItems.Length * rowH + 10;
+                if (cy + h > bottomLimit && cx < columns - 1) { cx++; cy = contentY + 4; }
+                cy += h;
             }
+            if (cy <= bottomLimit) break;
+        }
+        if (columns < 3 && panelWidth >= 900) columns = 3;
+        int colWidth = (panelWidth - 30) / columns;
+        int keyW = 58;
+        int x = panelX + 16, y = contentY + 4;
+        int col = 0;
+        int bottom = bottomLimit;
+
+        foreach (var (title, items) in HelpSections)
+        {
+            int sectionH = 26 + items.Length * rowH + 10;
+            if (y + sectionH > bottom && col < columns - 1)
+            {
+                col++;
+                x = panelX + 16 + col * colWidth;
+                y = contentY + 4;
+            }
+
+            UITheme.DrawText(_spriteBatch, title, new Vector2(x, y), _accentColor, 12f);
+            var ts = UITheme.Measure(title, 12f);
+            DrawRectangle((int)(x + ts.X + 8), y + 8, (int)(colWidth - ts.X - 30), 1, _panelBorderColor);
+            y += 24;
+
+            foreach (var (key, text) in items)
+            {
+                var ks = UITheme.Measure(key, UITheme.FontSmall);
+                var chip = new Rectangle(x, y + 1, Math.Max(26, (int)ks.X + 12), rowH - 4);
+                UITheme.FillRounded(_spriteBatch, chip, new Color(40, 54, 80));
+                UITheme.OutlineRounded(_spriteBatch, chip, UITheme.Border);
+                UITheme.DrawTextCentered(_spriteBatch, key, chip, _textValueColor, UITheme.FontSmall);
+                string fitted = UITheme.Ellipsize(text, colWidth - keyW - 20, 13f);
+                UITheme.DrawText(_spriteBatch, fitted, new Vector2(x + keyW + 6, y + 1), _textLabelColor, 13f);
+                y += rowH;
+            }
+            y += 10;
         }
 
-        int leftY = startY;
-        int rightY = startY;
+        UITheme.DrawText(_spriteBatch, "Press H to close", new Vector2(panelX + 16, panel.Bottom - 26), UITheme.TextMuted, UITheme.FontSmall);
 
-        // Left Column - Main Controls
-        DrawTextAt("=== KEYBOARD CONTROLS ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 5;
-        DrawTextAt("SPACE: Pause/Resume", _textValueColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("+/-: Time speed", _textValueColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("ESC: Pause/Menu", _textValueColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("H: Toggle Help", _textValueColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("R: Regenerate planet", _textValueColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("L: Seed life (or Life Painter)", _textValueColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("F: Fast Forward 10,000 years", Color.Cyan, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("ESC: Cancel Fast Forward", Color.Cyan, leftColX, leftY); leftY += lineHeight;
-        leftY += 8;
-
-        DrawTextAt("=== VIEW MODES (CYCLES) ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 5;
-        DrawTextAt("1: Terrain / Elevation / Biomes", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("2: Weather (Temp/Rain/Wind...)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("3: Atmosphere (O2/CO2/Rad...)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("4: Geology (Plates/Volcanoes...)", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("5: Life / Civilizations", _textLabelColor, leftColX, leftY); leftY += lineHeight;
-        leftY += 8;
-
-        DrawTextAt("=== SAVE/LOAD ===", _accentColor, leftColX, leftY);
-        leftY += lineHeight + 5;
-        DrawTextAt("F5: Quick Save", Color.Cyan, leftColX, leftY); leftY += lineHeight;
-        DrawTextAt("F9: Quick Load", Color.Cyan, leftColX, leftY); leftY += lineHeight;
-
-        // Right Column - Mouse & Advanced Controls
-        DrawTextAt("=== MOUSE CONTROLS ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 5;
-        DrawTextAt("Mouse Wheel: Zoom in/out", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("Left Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("Middle Click+Drag: Pan camera", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("Click Tile: View detailed info", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        rightY += 8;
-
-        DrawTextAt("=== OVERLAYS & FEATURES ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 5;
-        DrawTextAt("V: Toggle volcanoes", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("B: Toggle rivers", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("N: Toggle plate boundaries", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt(".: Toggle earthquakes circles", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("E: Toggle geological log", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt(",: Toggle disaster zones", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("P: Toggle 3D minimap", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("C: Day/Night cycle", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        rightY += 8;
-
-        DrawTextAt("=== TOOLS & EDITORS ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 5;
-        DrawTextAt("L: Life Painter - Paint life on map", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  - Left Click: Paint, Right Click: Cycle Life", Color.Gray, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  - Scroll: Brush Size", Color.Gray, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("T: Terraforming - Raise/Lower land", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  - Left Click: Apply, Right Click: Toggle Mode", Color.Gray, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("U: Manual Fault Tool - Draw Faults", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  - Left Click+Drag: Draw, Tab: Cycle Type", Color.Gray, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("J: Geological Profile - View Cross-section", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("  - Click start & end points", Color.Gray, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("D: Disaster Control - Trigger events", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("I: Divine Powers - Influence Civs", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("M: Map Options / Generator", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        rightY += 8;
-
-        DrawTextAt("=== CIVILIZATION TOOLS ===", _accentColor, rightColX, rightY);
-        rightY += lineHeight + 5;
-        DrawTextAt("G: Control civilization", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("I: Divine powers menu", _goldColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("K: Pandemic controls", _textValueColor, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("Y: Graphs", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-        DrawTextAt("\\: Auto-stabilizer", Color.Cyan, rightColX, rightY); rightY += lineHeight;
-
-        // Footer
-        int footerY = panelY + panelHeight - 20;
-        DrawTextAt("Use 'H' to toggle this help menu.", Color.LightGray, leftColX, footerY);
+        _spriteBatch.End();
+        _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
     }
 
     private void DrawRectangle(int x, int y, int width, int height, Color color)

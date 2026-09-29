@@ -11,35 +11,39 @@ namespace SimPlanet;
 /// </summary>
 public class BottomControlUI
 {
+    private enum Glyph { Slower, Pause, Play, Faster, FastForward, Save, Load, Map, Help, Regenerate }
+
     private class ControlButton
     {
         public Rectangle Bounds { get; set; }
         public required string Tooltip { get; set; }
-        public required string Text { get; set; }
+        public required Glyph Glyph { get; set; }
         public required Action OnClick { get; set; }
         public bool IsHovered { get; set; }
-        public Color BaseColor { get; set; }
+        public Color Accent { get; set; }
+        public bool GapBefore { get; set; }
     }
 
     private readonly SimPlanetGame _game;
     private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
     private Texture2D _pixelTexture;
+    private readonly Dictionary<Glyph, Texture2D> _glyphs = new();
 
     private List<ControlButton> _buttons = new();
     private MouseState _previousMouseState;
+    private Rectangle _panelRect;
 
     // Dimensions
-    private const int PanelHeight = 45;
-    private const int ButtonWidth = 40;
-    private const int ButtonHeight = 35;
-    private const int Spacing = 8;
+    private const int PanelHeight = 46;
 
-    // Theme
-    private readonly Color _panelBgColor = new Color(20, 25, 35, 240);
-    private readonly Color _borderColor = new Color(60, 80, 120);
-    private readonly Color _buttonNormal = new Color(50, 60, 80);
-    private readonly Color _buttonHover = new Color(80, 100, 140);
+    /// <summary>Screen rectangle of the bar as last laid out (so map legends can avoid it).</summary>
+    public static Rectangle LastBounds { get; private set; }
+    private const int ButtonSize = 34;
+    private const int Spacing = 5;
+    private const int GroupGap = 14;
+    private const int SpeedReadoutWidth = 92;
+    private const int InfoPanelWidth = 280;
 
     public BottomControlUI(SimPlanetGame game, GraphicsDevice graphicsDevice, FontRenderer font)
     {
@@ -50,63 +54,74 @@ public class BottomControlUI
         _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
 
+        BuildGlyphs();
         InitializeButtons();
     }
 
+    /// <summary>True when the mouse is over the bar (so the map should not react).</summary>
+    public bool IsMouseOver { get; private set; }
+
     private void InitializeButtons()
     {
-        // We'll calculate positions dynamically in Draw/Update based on screen width
-        // Just add them to the list here
+        AddButton(Glyph.Slower, "Slower  (-)", () => _game.DecreaseTimeSpeed(), UITheme.Accent);
+        AddButton(Glyph.Pause, "Pause / Resume  (Space)", () => _game.TogglePause(), UITheme.Gold);
+        AddButton(Glyph.Faster, "Faster  (+)", () => _game.IncreaseTimeSpeed(), UITheme.Accent);
+        AddButton(Glyph.FastForward, "Fast forward 10,000 years  (F)", () => _game.ToggleFastForward(), UITheme.Warn);
 
-        AddButton("<<", "Slower (-)", () => _game.DecreaseTimeSpeed(), Color.CornflowerBlue);
-        AddButton("||", "Pause/Resume (Space)", () => _game.TogglePause(), Color.Gold);
-        AddButton(">>", "Faster (+)", () => _game.IncreaseTimeSpeed(), Color.CornflowerBlue);
-        AddButton(">>>", "Fast Forward 10k Years (F)", () => _game.ToggleFastForward(), Color.Orange);
-
-        // Separator logic will be visual
-
-        AddButton("Save", "Quick Save (F5)", () => _game.QuickSave(), Color.Green);
-        AddButton("Load", "Quick Load (F9)", () => _game.QuickLoad(), Color.Teal);
-        AddButton("Map", "Map Options (M)", () => _game.ToggleMapOptions(), Color.Purple);
-        AddButton("Help", "Toggle Help (H)", () => _game.ToggleHelp(), Color.Cyan);
-        AddButton("R", "Regenerate Planet", () => _game.RegeneratePlanet(), Color.Red);
+        AddButton(Glyph.Save, "Quick save  (F5)", () => _game.QuickSave(), UITheme.Good, gapBefore: true);
+        AddButton(Glyph.Load, "Quick load  (F9)", () => _game.QuickLoad(), new Color(80, 200, 200));
+        AddButton(Glyph.Map, "Map options / world generator  (M)", () => _game.ToggleMapOptions(), new Color(180, 130, 255));
+        AddButton(Glyph.Help, "Help and controls  (H)", () => _game.ToggleHelp(), new Color(120, 200, 255));
+        AddButton(Glyph.Regenerate, "Regenerate planet  (R)\nCreates a brand new world!", () => _game.RegeneratePlanet(), UITheme.Bad, gapBefore: true);
     }
 
-    private void AddButton(string text, string tooltip, Action onClick, Color color)
+    private void AddButton(Glyph glyph, string tooltip, Action onClick, Color accent, bool gapBefore = false)
     {
         _buttons.Add(new ControlButton
         {
-            Text = text,
+            Glyph = glyph,
             Tooltip = tooltip,
             OnClick = onClick,
-            BaseColor = color
+            Accent = accent,
+            GapBefore = gapBefore
         });
+    }
+
+    private void Layout()
+    {
+        int screenWidth = _graphicsDevice.Viewport.Width;
+        int screenHeight = _graphicsDevice.Viewport.Height;
+
+        int contentWidth = SpeedReadoutWidth + Spacing;
+        foreach (var b in _buttons) contentWidth += ButtonSize + Spacing + (b.GapBefore ? GroupGap : 0);
+        int totalWidth = contentWidth + Spacing;
+
+        // Centre in the map area (right of the info panel)
+        int mapAreaX = InfoPanelWidth;
+        int panelX = mapAreaX + (screenWidth - mapAreaX - totalWidth) / 2;
+        panelX = Math.Max(mapAreaX + 10, panelX);
+        int panelY = screenHeight - PanelHeight - 10;
+        _panelRect = new Rectangle(panelX, panelY, totalWidth, PanelHeight);
+        LastBounds = _panelRect;
+
+        int x = panelX + Spacing + SpeedReadoutWidth + Spacing;
+        int y = panelY + (PanelHeight - ButtonSize) / 2;
+        foreach (var button in _buttons)
+        {
+            if (button.GapBefore) x += GroupGap;
+            button.Bounds = new Rectangle(x, y, ButtonSize, ButtonSize);
+            x += ButtonSize + Spacing;
+        }
     }
 
     public void Update(MouseState mouseState)
     {
-        // Calculate panel position for hit testing
-        int screenWidth = _graphicsDevice.Viewport.Width;
-        int screenHeight = _graphicsDevice.Viewport.Height;
-
-        int totalWidth = _buttons.Count * (ButtonWidth + Spacing) + Spacing;
-        // Center horizontally but respect the left info panel (width 280)
-        int panelX = (screenWidth - totalWidth) / 2;
-        // Ensure we don't overlap with the left info panel (280px width + 10px margin)
-        if (panelX < 290) panelX = 290;
-
-        int panelY = screenHeight - PanelHeight - 10;
-
-        int currentX = panelX + Spacing;
-        int currentY = panelY + (PanelHeight - ButtonHeight) / 2;
+        Layout();
+        IsMouseOver = _panelRect.Contains(mouseState.Position);
 
         foreach (var button in _buttons)
         {
-            // Update dynamic bounds
-            button.Bounds = new Rectangle(currentX, currentY, ButtonWidth, ButtonHeight);
             button.IsHovered = button.Bounds.Contains(mouseState.Position);
-
-            currentX += ButtonWidth + Spacing;
         }
 
         if (mouseState.LeftButton == ButtonState.Pressed &&
@@ -127,92 +142,140 @@ public class BottomControlUI
 
     public void Draw(SpriteBatch spriteBatch)
     {
-        int screenWidth = _graphicsDevice.Viewport.Width;
-        int screenHeight = _graphicsDevice.Viewport.Height;
+        Layout();
+        var state = _game.CurrentGameState;
+        bool paused = state?.IsPaused ?? false;
 
-        int totalWidth = _buttons.Count * (ButtonWidth + Spacing) + Spacing;
-        // Center horizontally but respect the left info panel (width 280)
-        int panelX = (screenWidth - totalWidth) / 2;
-        // Ensure we don't overlap with the left info panel (280px width + 10px margin)
-        if (panelX < 290) panelX = 290;
+        spriteBatch.End();
+        spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
 
-        int panelY = screenHeight - PanelHeight - 10;
+        UITheme.DrawPanel(spriteBatch, _panelRect, new Color(14, 20, 32, 236), UITheme.Border);
 
-        // Draw Panel Background
-        // Shadow
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX + 4, panelY + 4, totalWidth, PanelHeight),
-            new Color(0, 0, 0, 100));
+        // Speed / pause readout
+        var readout = new Rectangle(_panelRect.X + Spacing, _panelRect.Y + (PanelHeight - ButtonSize) / 2, SpeedReadoutWidth, ButtonSize);
+        UITheme.FillRounded(spriteBatch, readout, new Color(8, 12, 20, 230));
+        UITheme.OutlineRounded(spriteBatch, readout, paused ? UITheme.Gold * 0.8f : UITheme.AccentDim);
+        string speedText = paused ? "PAUSED" : FormatSpeed(state?.TimeSpeed ?? 1f);
+        Color speedColor = paused ? UITheme.Gold : UITheme.Good;
+        var st = UITheme.Measure(speedText, UITheme.FontMedium);
+        UITheme.DrawTextShadowed(spriteBatch, speedText,
+            new Vector2(readout.X + (readout.Width - st.X) / 2f, readout.Y + 2), speedColor, UITheme.FontMedium);
+        string sub = paused ? "space to resume" : "sim speed";
+        var ss = UITheme.Measure(sub, 10f);
+        UITheme.DrawText(spriteBatch, sub, new Vector2(readout.X + (readout.Width - ss.X) / 2f, readout.Bottom - ss.Y - 2), UITheme.TextMuted, 10f);
 
-        // Main BG
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX, panelY, totalWidth, PanelHeight),
-            _panelBgColor);
-
-        // Border
-        DrawBorder(spriteBatch, new Rectangle(panelX, panelY, totalWidth, PanelHeight), _borderColor, 2);
-
-        // Draw Buttons
         foreach (var button in _buttons)
         {
-            Color color = button.IsHovered ? _buttonHover : _buttonNormal;
+            bool active = button.Glyph == Glyph.Pause && paused;
+            UITheme.DrawButton(spriteBatch, button.Bounds, "", button.IsHovered, active, button.Accent);
 
-            // Highlight color accent
-            Color accentColor = button.BaseColor;
-            if (!button.IsHovered) accentColor *= 0.8f;
+            // Coloured accent line at the bottom
+            spriteBatch.Draw(_pixelTexture, new Rectangle(button.Bounds.X + 6, button.Bounds.Bottom - 3, button.Bounds.Width - 12, 2),
+                button.Accent * (button.IsHovered ? 1f : 0.7f));
 
-            spriteBatch.Draw(_pixelTexture, button.Bounds, color);
-
-            // Accent bottom bar
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(button.Bounds.X, button.Bounds.Bottom - 4, button.Bounds.Width, 4),
-                accentColor);
-
-            // Border
-            DrawBorder(spriteBatch, button.Bounds, Color.Gray, 1);
-
-            // Text
-            var textSize = _font.MeasureString(button.Text);
-            // Simple scaling if text is too wide (manual logic since FontRenderer is simple)
-            // For now assume short text fits
-            Vector2 textPos = new Vector2(
-                button.Bounds.X + (button.Bounds.Width - textSize.X) / 2,
-                button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2 - 2
-            );
-            _font.DrawString(spriteBatch, button.Text, textPos, Color.White);
+            Glyph glyph = button.Glyph == Glyph.Pause && paused ? Glyph.Play : button.Glyph;
+            if (_glyphs.TryGetValue(glyph, out var tex))
+            {
+                int gs = 22;
+                var r = new Rectangle(button.Bounds.X + (ButtonSize - gs) / 2, button.Bounds.Y + (ButtonSize - gs) / 2 - 1, gs, gs);
+                spriteBatch.Draw(tex, r, button.IsHovered ? Color.White : new Color(225, 232, 245));
+            }
         }
 
-        // Draw Tooltip
+        // Separators between groups
+        foreach (var button in _buttons)
+        {
+            if (!button.GapBefore) continue;
+            int sx = button.Bounds.X - GroupGap / 2 - Spacing / 2;
+            spriteBatch.Draw(_pixelTexture, new Rectangle(sx, _panelRect.Y + 10, 1, PanelHeight - 20), UITheme.Border);
+        }
+
         var hoveredButton = _buttons.Find(b => b.IsHovered);
         if (hoveredButton != null)
         {
-            DrawTooltip(spriteBatch, hoveredButton);
+            UITheme.DrawTooltip(spriteBatch, hoveredButton.Tooltip, new Point(hoveredButton.Bounds.Center.X, hoveredButton.Bounds.Top - 4),
+                _graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height, preferAbove: true);
         }
+
+        spriteBatch.End();
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
     }
 
-    private void DrawTooltip(SpriteBatch spriteBatch, ControlButton button)
+    private static string FormatSpeed(float speed)
     {
-        string text = button.Tooltip;
-        var size = _font.MeasureString(text);
-        int padding = 8;
-        int w = (int)size.X + padding * 2;
-        int h = (int)size.Y + padding * 2;
-
-        int x = button.Bounds.Center.X - w / 2;
-        int y = button.Bounds.Top - h - 10;
-
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, w, h), new Color(20, 25, 35, 240));
-        DrawBorder(spriteBatch, new Rectangle(x, y, w, h), Color.Yellow, 1);
-
-        _font.DrawString(spriteBatch, text, new Vector2(x + padding, y + padding), Color.White);
+        if (speed < 1f) return $"{speed:0.##}x";
+        return $"{speed:0}x";
     }
 
-    private void DrawBorder(SpriteBatch spriteBatch, Rectangle rect, Color color, int thickness)
+    // ------------------------------------------------------------------
+    // Vector glyphs rendered once into small anti-aliased textures
+    // ------------------------------------------------------------------
+    private void BuildGlyphs()
     {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color); // Top
-        spriteBatch.Draw(_pixelTexture, new Rectangle(rect.X, rect.Y + rect.Height - thickness, rect.Width, thickness), color); // Bottom
-        spriteBatch.Draw(_pixelTexture, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color); // Left
-        spriteBatch.Draw(_pixelTexture, new Rectangle(rect.X + rect.Width - thickness, rect.Y, thickness, rect.Height), color); // Right
+        const int s = 22;
+        var white = new Color(255, 255, 255);
+        Vector2 V(float x, float y) => new Vector2(x, y);
+
+        MapIcons.Canvas C() => new MapIcons.Canvas(s);
+
+        var c = C();
+        c.Poly(white, V(11, 5), V(3, 11), V(11, 17));
+        c.Poly(white, V(19, 5), V(11, 11), V(19, 17));
+        _glyphs[Glyph.Slower] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Rect(6, 5, 3.6f, 12, white);
+        c.Rect(12.4f, 5, 3.6f, 12, white);
+        _glyphs[Glyph.Pause] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Poly(white, V(7, 4), V(18, 11), V(7, 18));
+        _glyphs[Glyph.Play] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Poly(white, V(3, 5), V(11, 11), V(3, 17));
+        c.Poly(white, V(11, 5), V(19, 11), V(11, 17));
+        _glyphs[Glyph.Faster] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Poly(white, V(1, 6), V(7.5f, 11), V(1, 16));
+        c.Poly(white, V(7.5f, 6), V(14, 11), V(7.5f, 16));
+        c.Poly(white, V(14, 6), V(20.5f, 11), V(14, 16));
+        c.Rect(19.5f, 6, 1.8f, 10, white);
+        _glyphs[Glyph.FastForward] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Poly(white, V(3, 3), V(16, 3), V(19, 6), V(19, 19), V(3, 19));
+        c.Rect(6, 3, 9, 5, new Color(40, 50, 70));
+        c.Rect(12, 4, 2, 3, white);
+        c.Rect(6, 11, 10, 6, new Color(40, 50, 70));
+        _glyphs[Glyph.Save] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Poly(white, V(2, 5), V(8, 5), V(10, 7), V(19, 7), V(19, 18), V(2, 18));
+        c.Poly(new Color(170, 185, 210), V(4, 10), V(21, 10), V(19, 18), V(2, 18));
+        _glyphs[Glyph.Load] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Circle(11, 11, 8.5f, white);
+        c.Circle(11, 11, 7f, new Color(60, 110, 170));
+        c.Poly(new Color(120, 200, 120), V(6, 7), V(10, 5), V(12, 9), V(9, 13), V(6, 11));
+        c.Poly(new Color(120, 200, 120), V(13, 12), V(17, 11), V(16, 16), V(13, 16));
+        _glyphs[Glyph.Map] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Circle(11, 11, 9f, white);
+        c.Circle(11, 11, 7.4f, new Color(40, 50, 70));
+        c.Ring(11, 9, 3.6f, 2f, white);
+        c.Rect(7, 8.6f, 2, 1.6f, new Color(40, 50, 70));
+        c.Rect(10.1f, 11.5f, 1.8f, 2.4f, white);
+        c.Circle(11, 15.8f, 1.1f, white);
+        _glyphs[Glyph.Help] = c.ToTexture(_graphicsDevice);
+
+        c = C();
+        c.Ring(11, 11, 8.2f, 5.8f, white);
+        c.ErasePoly(V(11, 11), V(22, 0), V(22, 11));
+        c.Poly(white, V(14, 1.5f), V(20.5f, 6), V(13.5f, 9));
+        _glyphs[Glyph.Regenerate] = c.ToTexture(_graphicsDevice);
     }
 }

@@ -43,6 +43,7 @@ public class LoadingScreen
                 if (stream != null)
                 {
                     _splashBackground = Texture2D.FromStream(_graphics, stream);
+                    MainMenu.RemoveCornerMarks(_splashBackground);
                 }
             }
         }
@@ -59,93 +60,61 @@ public class LoadingScreen
         int screenWidth = _graphics.Viewport.Width;
         int screenHeight = _graphics.Viewport.Height;
 
-        // Draw black background first
-        _spriteBatch.Draw(_pixel,
-            new Rectangle(0, 0, screenWidth, screenHeight),
-            Color.Black);
+        _spriteBatch.End();
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
 
-        // Draw splash background with low alpha for subtle effect
+        // Backdrop
+        _spriteBatch.Draw(_pixel, new Rectangle(0, 0, screenWidth, screenHeight), new Color(4, 6, 14));
         if (_splashBackground != null)
         {
-            // Scale splash to fit screen while maintaining aspect ratio
-            float scaleX = (float)screenWidth / _splashBackground.Width;
-            float scaleY = (float)screenHeight / _splashBackground.Height;
-            float scale = Math.Max(scaleX, scaleY);
-
+            float scale = Math.Max((float)screenWidth / _splashBackground.Width, (float)screenHeight / _splashBackground.Height);
             int displayWidth = (int)(_splashBackground.Width * scale);
             int displayHeight = (int)(_splashBackground.Height * scale);
-            int x = (screenWidth - displayWidth) / 2;
-            int y = (screenHeight - displayHeight) / 2;
-
             _spriteBatch.Draw(_splashBackground,
-                new Rectangle(x, y, displayWidth, displayHeight),
-                Color.White * 0.15f); // Very subtle transparency
+                new Rectangle((screenWidth - displayWidth) / 2, (screenHeight - displayHeight) / 2, displayWidth, displayHeight),
+                Color.White * 0.22f);
         }
 
-        // Calculate dimensions
-        int barWidth = 600;
-        int barHeight = 40;
-        int barX = (screenWidth - barWidth) / 2;
-        int barY = screenHeight / 2;
+        // Card
+        int cardWidth = Math.Min(640, screenWidth - 40);
+        int cardHeight = 190;
+        var card = new Rectangle((screenWidth - cardWidth) / 2, (screenHeight - cardHeight) / 2, cardWidth, cardHeight);
+        UITheme.DrawPanel(_spriteBatch, card, new Color(12, 18, 30, 235), UITheme.Border);
 
-        // Draw title
-        string title = "GENERATING PLANET";
-        Vector2 titleSize = _font.MeasureString(title, 1.5f);
-        Vector2 titlePos = new Vector2(
-            (screenWidth - titleSize.X) / 2,
-            barY - 80
-        );
-        _font.DrawString(_spriteBatch, title, titlePos, Color.Cyan, 1.5f);
+        UITheme.DrawTextCentered(_spriteBatch, "GENERATING PLANET", new Rectangle(card.X, card.Y + 22, card.Width, 36), UITheme.Gold, UITheme.FontLarge + 4);
 
-        // Draw progress bar background (dark)
-        _spriteBatch.Draw(_pixel,
-            new Rectangle(barX, barY, barWidth, barHeight),
-            Color.DarkGray);
-
-        // Draw progress bar fill (cyan)
-        int fillWidth = (int)(barWidth * Progress);
-        if (fillWidth > 0)
+        // Progress bar with animated sheen
+        var bar = new Rectangle(card.X + 40, card.Y + 82, card.Width - 80, 22);
+        UITheme.FillRounded(_spriteBatch, bar, new Color(4, 8, 16));
+        float progress = Math.Clamp(Progress, 0f, 1f);
+        int fillWidth = (int)(bar.Width * progress);
+        if (fillWidth > 4)
         {
-            _spriteBatch.Draw(_pixel,
-                new Rectangle(barX, barY, fillWidth, barHeight),
-                Color.Cyan);
+            var fill = new Rectangle(bar.X, bar.Y, fillWidth, bar.Height);
+            UITheme.FillRounded(_spriteBatch, fill, new Color(40, 140, 220));
+            UITheme.FillGradient(_spriteBatch, new Rectangle(fill.X + 1, fill.Y + 1, fill.Width - 2, fill.Height / 2), Color.White * 0.25f);
+            float t = (float)(DateTime.Now.TimeOfDay.TotalSeconds % 1.6) / 1.6f;
+            int sheenX = fill.X + (int)(t * (fill.Width + 60)) - 60;
+            for (int i = 0; i < 60; i++)
+            {
+                int sx = sheenX + i;
+                if (sx < fill.X || sx >= fill.Right) continue;
+                float a = 1f - Math.Abs(i - 30) / 30f;
+                _spriteBatch.Draw(_pixel, new Rectangle(sx, fill.Y + 2, 1, fill.Height - 4), Color.White * (0.18f * a));
+            }
         }
+        UITheme.OutlineRounded(_spriteBatch, bar, UITheme.BorderBright);
 
-        // Draw progress bar border
-        int borderThickness = 2;
-        // Top
-        _spriteBatch.Draw(_pixel,
-            new Rectangle(barX, barY, barWidth, borderThickness),
-            Color.White);
-        // Bottom
-        _spriteBatch.Draw(_pixel,
-            new Rectangle(barX, barY + barHeight - borderThickness, barWidth, borderThickness),
-            Color.White);
-        // Left
-        _spriteBatch.Draw(_pixel,
-            new Rectangle(barX, barY, borderThickness, barHeight),
-            Color.White);
-        // Right
-        _spriteBatch.Draw(_pixel,
-            new Rectangle(barX + barWidth - borderThickness, barY, borderThickness, barHeight),
-            Color.White);
+        // Percentage and current task
+        string percentage = $"{(int)(progress * 100)}%";
+        UITheme.DrawTextCentered(_spriteBatch, percentage, bar, Color.White, UITheme.FontNormal);
 
-        // Draw current task text
-        Vector2 taskSize = _font.MeasureString(CurrentTask, 1.0f);
-        Vector2 taskPos = new Vector2(
-            (screenWidth - taskSize.X) / 2,
-            barY + barHeight + 20
-        );
-        _font.DrawString(_spriteBatch, CurrentTask, taskPos, Color.White, 1.0f);
+        string task = string.IsNullOrEmpty(CurrentTask) ? "Loading..." : CurrentTask;
+        UITheme.DrawTextCentered(_spriteBatch, UITheme.Ellipsize(task, card.Width - 60, UITheme.FontNormal),
+            new Rectangle(card.X, bar.Bottom + 16, card.Width, 22), UITheme.TextDim, UITheme.FontNormal);
 
-        // Draw percentage
-        string percentage = $"{(int)(Progress * 100)}%";
-        Vector2 percentSize = _font.MeasureString(percentage, 1.2f);
-        Vector2 percentPos = new Vector2(
-            (screenWidth - percentSize.X) / 2,
-            barY + (barHeight - percentSize.Y) / 2
-        );
-        _font.DrawString(_spriteBatch, percentage, percentPos, Color.Black, 1.2f);
+        _spriteBatch.End();
+        _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
     }
 
     public void Dispose()

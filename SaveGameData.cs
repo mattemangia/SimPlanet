@@ -28,6 +28,8 @@ public class SaveGameData
 
     // Civilization data
     public List<CivilizationData> Civilizations { get; set; } = new();
+    public List<OrbitalObjectData> OrbitalObjects { get; set; } = new();
+    public float NuclearWinter { get; set; }
 
     // Weather patterns
     public List<StormData> ActiveStorms { get; set; } = new();
@@ -81,6 +83,78 @@ public class CivilizationData
     public float Prosperity { get; set; } = 0.5f;
     public float Stability { get; set; } = 0.55f;
     public float CollapseRisk { get; set; } = 0.0f;
+
+    // Society (older saves leave these empty; settlements are then re-founded on load)
+    public int Culture { get; set; }
+    public string NameRoot { get; set; } = "";
+    public string TribalName { get; set; } = "";
+    public GovernmentType GovernmentType { get; set; } = GovernmentType.Tribal;
+    public float Food { get; set; }
+    public float Wood { get; set; }
+    public float Stone { get; set; }
+    public float Metal { get; set; }
+    public float Gold { get; set; }
+    public float WarWeariness { get; set; }
+    public bool HasLandTransport { get; set; }
+    public bool HasSeaTransport { get; set; }
+    public bool HasRailTransport { get; set; }
+    public bool HasAirTransport { get; set; }
+    public bool HasNuclearWeapons { get; set; }
+    public int NuclearStockpile { get; set; }
+    public List<CityData> Cities { get; set; } = new();
+    public List<RelationData> Relations { get; set; } = new();
+
+    // Development
+    public string Ethnicity { get; set; } = "";
+    public HomelandClimate Homeland { get; set; }
+    public float DevelopmentModifier { get; set; } = 1f;
+    public SpaceStage SpaceStage { get; set; }
+    public int Satellites { get; set; }
+    public List<string> CompletedProjects { get; set; } = new();
+    public int ChemicalStockpile { get; set; }
+    public bool BioweaponProgram { get; set; }
+    public bool MissileDefense { get; set; }
+}
+
+public class OrbitalObjectData
+{
+    public int CivilizationId { get; set; }
+    public string Name { get; set; } = "";
+    public OrbitalObjectType Type { get; set; }
+    public int Crew { get; set; }
+    public float OrbitAngle { get; set; }
+    public float OrbitRadius { get; set; }
+    public int LaunchedYear { get; set; }
+    public bool Orphaned { get; set; }
+    public int TechLevel { get; set; }
+    public int Culture { get; set; }
+}
+
+public class CityData
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Population { get; set; }
+    public int Founded { get; set; }
+    public bool IsCapital { get; set; }
+    public CityBuilding Buildings { get; set; }
+    public bool Coastal { get; set; }
+    public bool NearRiver { get; set; }
+    public bool OnHighGround { get; set; }
+    public float Happiness { get; set; }
+    public int OriginalCivilizationId { get; set; }
+}
+
+public class RelationData
+{
+    public int OtherCivilizationId { get; set; }
+    public DiplomaticStatus Status { get; set; }
+    public float Opinion { get; set; }
+    public float TrustLevel { get; set; }
+    public int YearsAtWar { get; set; }
+    public int YearsAtPeace { get; set; }
 }
 
 public class StormData

@@ -3,7 +3,7 @@ namespace SimPlanet;
 /// <summary>
 /// Manages intelligent civilizations and their development
 /// </summary>
-public class CivilizationManager
+public partial class CivilizationManager
 {
     private readonly PlanetMap _map;
     private readonly Random _random;
@@ -14,6 +14,7 @@ public class CivilizationManager
     private int _nextRulerId = 1;
     private WeatherSystem? _weatherSystem;
     private DisasterManager? _disasterManager;
+    private float _pendingGlobalEmissions;
 
     public List<Civilization> Civilizations => _civilizations;
     public DivinePowers DivinePowers => _divinePowers;
@@ -28,12 +29,6 @@ public class CivilizationManager
         _disasterManager = disasterManager;
     }
 
-    private static readonly string[] CivNames = new[]
-    {
-        "Terrans", "Aquans", "Volcanids", "Glacians", "Foresters",
-        "Deserters", "Mountaineers", "Islanders", "Nomads", "Builders"
-    };
-
     public CivilizationManager(PlanetMap map, int seed)
     {
         _map = map;
@@ -47,26 +42,81 @@ public class CivilizationManager
     {
         lock (_civLock)
         {
-            // Check for new civilization emergence
-            CheckForNewCivilizations(currentYear);
-
-            // Update existing civilizations
+            // Continuous systems (every simulation step)
             foreach (var civ in _civilizations.ToList())
             {
                 UpdateCivilization(civ, deltaTime, currentYear);
             }
 
-            // Update governments and rulers
-            UpdateGovernments(currentYear);
+            // Spread global emissions across entire planet (atmospheric mixing happens faster)
+            if (_pendingGlobalEmissions > 0)
+            {
+                for (int x = 0; x < _map.Width; x++)
+                {
+                    for (int y = 0; y < _map.Height; y++)
+                    {
+                        _map.Cells[x, y].CO2 += _pendingGlobalEmissions;
+                    }
+                }
+                _pendingGlobalEmissions = 0;
+            }
 
-            // Handle interactions between civilizations
-            HandleCivilizationInteractions(currentYear);
+            // Caravans, trains, ships and airliners travel the transport networks
+            UpdateVehicles(deltaTime);
 
-            // Update diplomatic relations
-            UpdateDiplomacy(currentYear);
+            // Herds, flocks and schools follow the seasons
+            UpdateAnimalMovement(deltaTime / GameState.SecondsPerGameYear);
 
-            // Check disaster impacts
-            UpdateDisasterResponse(currentYear);
+            // Armies march and fight continuously so wars are visible on the map
+            UpdateArmies(deltaTime / GameState.SecondsPerGameYear, currentYear);
+            AgeBattleEffects(deltaTime);
+
+            // Societal systems run once per simulated year
+            if (_lastYearProcessed == int.MinValue || currentYear < _lastYearProcessed)
+            {
+                _lastYearProcessed = currentYear - 1;
+            }
+
+            int yearsToProcess = Math.Min(currentYear - _lastYearProcessed, 3);
+            for (int i = 0; i < yearsToProcess; i++)
+            {
+                RunYearlyTick(currentYear);
+            }
+            _lastYearProcessed = currentYear;
+        }
+    }
+
+    /// <summary>
+    /// Everything that should happen once per game year: economy, settlements,
+    /// technology, government, diplomacy and war decisions.
+    /// </summary>
+    private void RunYearlyTick(int currentYear)
+    {
+        CheckForNewCivilizations(currentYear);
+        RebuildOwnerMap();
+
+        foreach (var civ in _civilizations.ToList())
+        {
+            UpdateCivilizationYearly(civ, currentYear);
+        }
+
+        UpdateGovernments(currentYear);
+        UpdateDiplomacy(currentYear);
+        HandleCivilizationInteractions(currentYear);
+        UpdateWarfare(currentYear);
+        CheckRebellions(currentYear);
+        UpdateDisasterResponse(currentYear);
+        ApplyEarthquakeDamage(currentYear);
+        ApplyNaturalHazards(currentYear);
+        UpdateWildlife(currentYear);
+        UpdateSpace(currentYear);
+        CheckForEpidemics(currentYear);
+        UpdatePolitics(currentYear);
+        UpdateHumanFootprint();
+
+        foreach (var civ in _civilizations.ToList())
+        {
+            CheckCivilizationCollapse(civ, currentYear);
         }
     }
 
@@ -101,13 +151,14 @@ public class CivilizationManager
             cell.Temperature = Math.Clamp(cell.Temperature, 0, 35);
 
             CreateCivilization(x, y, currentYear);
+            RebuildOwnerMap();
             return true;
         }
     }
 
     private void CheckForNewCivilizations(int currentYear)
     {
-        // Scan for intelligence-level life that could form civilizations
+        // Scan for intelligence-level life that could form civilizations (evaluated once per year)
         for (int x = 0; x < _map.Width; x++)
         {
             for (int y = 0; y < _map.Height; y++)
@@ -117,26 +168,31 @@ public class CivilizationManager
                 // Intelligence level life can form civilizations
                 if (cell.LifeType == LifeForm.Intelligence &&
                     cell.Biomass > 0.6f &&
-                    !IsCellInCivilization(x, y) &&
-                    _random.NextDouble() < 0.001)
+                    _random.NextDouble() < 0.01 &&
+                    OwnerAt(x, y) == 0 &&
+                    !_civilizations.Any(c => WrappedDistance(c.CenterX, c.CenterY, x, y) < 20))
                 {
-                    CreateCivilization(x, y);
+                    CreateCivilization(x, y, currentYear);
+                    RebuildOwnerMap();
                 }
             }
         }
     }
 
-    private void CreateCivilization(int x, int y, int currentYear = 0)
+    private Civilization CreateCivilization(int x, int y, int currentYear = 0)
     {
         var cell = _map.Cells[x, y];
+        int culture = _random.Next(CultureSyllables.Length);
 
         var civ = new Civilization
         {
             Id = _nextCivId++,
-            Name = CivNames[_random.Next(CivNames.Length)] + " " + _nextCivId,
+            Culture = culture,
+            Name = GenerateCivilizationName(culture, out string nameRoot),
+            NameRoot = nameRoot,
             CenterX = x,
             CenterY = y,
-            Population = 1000 + _random.Next(5000),
+            Population = 0,
             TechLevel = 0,
             CivType = CivType.Tribal,
             Aggression = (float)_random.NextDouble(),
@@ -175,245 +231,147 @@ public class CivilizationManager
             civ.DiplomaticRelations[otherCiv.Id] = relation;
             otherCiv.DiplomaticRelations[civ.Id] = relation;
         }
+
+        AssignHomeland(civ);
+
+        // Every people starts from a single tribal village that becomes its capital
+        var capital = FoundSettlement(civ, x, y, 400 + _random.Next(600), currentYear);
+        capital.IsCapital = true;
+        civ.Population = civ.Cities.Sum(c => c.Population);
+        civ.Food = 60f;
+
+        AddChronicle(currentYear, HistoryCategory.Founding,
+            $"The {civ.Name} emerge and settle {capital.Name}", x, y, civ.Id);
+
+        return civ;
     }
 
+    /// <summary>
+    /// Continuous per-step effects (pollution, plant risk). Heavy societal logic lives in the yearly tick.
+    /// </summary>
     private void UpdateCivilization(Civilization civ, float deltaTime, int currentYear)
     {
-        // Resource production and consumption
-        UpdateResources(civ, deltaTime);
-
-        // Population growth (affected by food availability)
-        float foodModifier = civ.Food > 0 ? 1.0f : 0.5f; // Starving civilizations grow slower
-        float growthRate = 1.0f + civ.EcoFriendliness * 0.5f;
-        civ.Population += (int)(civ.Population * 0.01f * growthRate * deltaTime * foodModifier);
-
-        // Create cities as population grows
-        int expectedCities = Math.Max(1, civ.Population / 10000); // 1 city per 10,000 people
-        if (civ.Cities.Count < expectedCities && civ.TechLevel >= 3)
-        {
-            // Find strategically optimal location for a new city
-            if (civ.Territory.Count > 0)
-            {
-                var (x, y, score) = FindBestCityLocation(civ);
-                CreateCity(civ, x, y);
-            }
-        }
-
-        // Technology advancement
-        if (_random.NextDouble() < 0.01 * deltaTime)
-        {
-            civ.TechLevel++;
-
-            // Advance civilization type
-            if (civ.TechLevel > 10 && civ.CivType == CivType.Tribal)
-            {
-                civ.CivType = CivType.Agricultural;
-            }
-            else if (civ.TechLevel > 30 && civ.CivType == CivType.Agricultural)
-            {
-                civ.CivType = CivType.Industrial;
-            }
-            else if (civ.TechLevel > 60 && civ.CivType == CivType.Industrial)
-            {
-                civ.CivType = CivType.Scientific;
-            }
-            else if (civ.TechLevel > 100 && civ.CivType == CivType.Scientific)
-            {
-                civ.CivType = CivType.Spacefaring;
-            }
-
-            // Unlock transportation based on tech level
-            if (civ.TechLevel >= 5 && !civ.HasLandTransport)
-            {
-                civ.HasLandTransport = true; // Horses/domestication
-                BuildRoads(civ, currentYear); // Build basic dirt paths
-            }
-            if (civ.TechLevel == 10 && civ.Cities.Count > 0)
-            {
-                BuildRoads(civ, currentYear); // Upgrade to paved roads
-            }
-            if (civ.TechLevel >= 15 && !civ.HasSeaTransport)
-            {
-                civ.HasSeaTransport = true; // Ships
-            }
-            if (civ.TechLevel == 20 && civ.Cities.Count > 0)
-            {
-                BuildRoads(civ, currentYear); // Upgrade to highways
-            }
-            if (civ.TechLevel >= 25 && !civ.HasRailTransport)
-            {
-                civ.HasRailTransport = true; // Trains/railroads
-                BuildRailroads(civ); // Build railroads connecting cities
-            }
-            if (civ.TechLevel >= 50 && !civ.HasAirTransport)
-            {
-                civ.HasAirTransport = true; // Airplanes
-            }
-            if (civ.TechLevel >= 70 && !civ.HasNuclearWeapons)
-            {
-                civ.HasNuclearWeapons = true; // Nuclear weapons
-                civ.NuclearStockpile = 5; // Initial stockpile
-            }
-
-            // Energy infrastructure at various tech levels
-            if (civ.TechLevel == 45)
-            {
-                BuildWindTurbines(civ, currentYear); // Wind energy
-            }
-            if (civ.TechLevel == 60)
-            {
-                BuildNuclearPlants(civ, currentYear); // Nuclear power (before weapons)
-            }
-            if (civ.TechLevel == 80)
-            {
-                BuildSolarFarms(civ, currentYear); // Solar energy
-            }
-        }
-
-        // Build nuclear stockpile for advanced civilizations
-        if (civ.HasNuclearWeapons && civ.NuclearStockpile < 50)
-        {
-            if (_random.NextDouble() < 0.01 * deltaTime)
-            {
-                civ.NuclearStockpile++;
-            }
-        }
-
         // Update nuclear plant meltdown risk
         UpdateNuclearPlantRisk(civ, deltaTime, currentYear);
 
-        // Update military strength based on population and tech
-        civ.MilitaryStrength = (civ.Population / 1000) + (civ.TechLevel * 10);
-
-        // Territorial expansion (faster with transportation)
-        int expansionRate = civ.HasLandTransport ? 2 : 1;
-        if (civ.HasAirTransport) expansionRate = 5;
-
-        if (civ.Population > civ.Territory.Count * 1000 && _random.NextDouble() < 0.05)
-        {
-            ExpandTerritory(civ, expansionRate);
-        }
-
         // Environmental impact
         ApplyEnvironmentalImpact(civ, deltaTime);
-
-        // Update internal stability metrics so civilizations can recover from setbacks
-        UpdateCivilizationStability(civ, deltaTime);
-
-        // Check for collapse conditions
-        CheckCivilizationCollapse(civ);
     }
 
-    private void UpdateResources(Civilization civ, float deltaTime)
+    private void UpdateCivilizationYearly(Civilization civ, int currentYear)
     {
-        // Calculate resource production based on territory
-        civ.FoodProduction = 0;
-        civ.WoodProduction = 0;
-        civ.StoneProduction = 0;
-        civ.MetalProduction = 0;
+        // Absorb population changes applied by other systems (disease, divine powers, disasters)
+        SyncPopulationFromExternalChanges(civ);
 
-        foreach (var (x, y) in civ.Territory)
+        // Settlements: harvests, growth, famine, buildings, trade
+        UpdateSettlements(civ, currentYear);
+
+        // Found new villages when the land is fertile and the granaries are full
+        TryFoundNewSettlement(civ, currentYear);
+
+        // Resource extraction from deposits (mines, wells)
+        ExtractNaturalResources(civ, GameState.SecondsPerGameYear);
+
+        // Energy, power grid, internet, airports and spaceports
+        UpdateInfrastructure(civ, currentYear);
+
+        // Roads, railways, sea lanes and air routes
+        UpdateTransport(civ, currentYear);
+
+        // National research, economic, space and military programmes
+        UpdateNationalProjects(civ, currentYear);
+
+        // Technology advancement driven by population, universities and rulers
+        AdvanceTechnology(civ, currentYear);
+
+        // Nuclear powers maintain an arsenal sized by their doctrine
+        UpdateArsenal(civ);
+
+        // Military strength = standing armies + militia potential
+        civ.MilitaryStrength = (int)(GetSoldierCount(civ) * GetTechFactor(civ)) + (civ.Population / 1000) + civ.TechLevel * 10;
+
+        // Update internal stability metrics so civilizations can recover from setbacks
+        UpdateCivilizationStability(civ, 1.0f);
+    }
+
+    private void AdvanceTechnology(Civilization civ, int currentYear)
+    {
+        float science = civ.Cities.Sum(c => c.ScienceProduction);
+        float wisdom = civ.Government?.CurrentRuler?.Wisdom ?? 0.5f;
+        float chance = (0.04f + science * 0.006f) * (0.75f + wisdom * 0.5f) * (0.6f + civ.Stability * 0.6f) * GetResearchBonus(civ);
+        chance /= 1f + civ.TechLevel / 30f + Math.Max(0, civ.TechLevel - 100) / 15f; // Each discovery is harder than the last
+        chance = Math.Min(chance, 0.35f);
+
+        if (_random.NextDouble() >= chance)
+            return;
+
+        civ.TechLevel++;
+
+        // Advance civilization type
+        var previousType = civ.CivType;
+        if (civ.TechLevel > 10 && civ.CivType == CivType.Tribal)
         {
-            var cell = _map.Cells[x, y];
-            var biome = cell.GetBiomeData().CurrentBiome;
-
-            // Food production
-            // Hunting in forests and grasslands
-            if (biome == Biome.TemperateForest || biome == Biome.TropicalRainforest ||
-                biome == Biome.BorealForest)
-            {
-                civ.FoodProduction += 2.0f * cell.Biomass; // Hunting in forests
-            }
-            if (biome == Biome.Grassland || biome == Biome.Savanna)
-            {
-                civ.FoodProduction += 3.0f * cell.Biomass; // Hunting/grazing in grasslands
-            }
-
-            // Farming (requires Agricultural+)
-            if (civ.CivType >= CivType.Agricultural)
-            {
-                if (cell.Rainfall > 0.4f && cell.Temperature > 5 && cell.Temperature < 35)
-                {
-                    civ.FoodProduction += 5.0f; // Agriculture
-                }
-            }
-
-            // Fishing (coastal cells)
-            if (cell.IsLand)
-            {
-                bool hasWaterNeighbor = _map.GetNeighbors(x, y).Any(n => n.cell.IsWater);
-                if (hasWaterNeighbor)
-                {
-                    civ.FoodProduction += 1.5f; // Fishing
-                }
-            }
-
-            // Wood production from forests
-            if (biome == Biome.TemperateForest || biome == Biome.TropicalRainforest ||
-                biome == Biome.BorealForest)
-            {
-                civ.WoodProduction += 1.0f;
-                // Deforestation reduces biomass slightly
-                cell.Biomass = Math.Max(cell.Biomass - 0.001f, 0.1f);
-            }
-
-            // Stone production from mountains
-            if (biome == Biome.Mountain || cell.Elevation > 0.6f)
-            {
-                civ.StoneProduction += 0.5f;
-            }
-
-            // Metal production (requires Industrial+)
-            if (civ.CivType >= CivType.Industrial)
-            {
-                var geo = cell.GetGeology();
-                // Mining based on rock composition
-                float miningPotential = geo.CrystallineRock + geo.VolcanicRock;
-                civ.MetalProduction += miningPotential * 0.3f;
-            }
+            civ.CivType = CivType.Agricultural;
+        }
+        else if (civ.TechLevel > 30 && civ.CivType == CivType.Agricultural)
+        {
+            civ.CivType = CivType.Industrial;
+        }
+        else if (civ.TechLevel > 60 && civ.CivType == CivType.Industrial)
+        {
+            civ.CivType = CivType.Scientific;
+        }
+        else if (civ.TechLevel > 100 && civ.CivType == CivType.Scientific)
+        {
+            civ.CivType = CivType.Spacefaring;
         }
 
-        // Food consumption based on population
-        civ.FoodConsumption = civ.Population / 100.0f; // Each 100 people need 1 food per year
-
-        // Apply production and consumption
-        civ.Food += (civ.FoodProduction - civ.FoodConsumption) * deltaTime;
-        civ.Wood += civ.WoodProduction * deltaTime;
-        civ.Stone += civ.StoneProduction * deltaTime;
-        civ.Metal += civ.MetalProduction * deltaTime;
-
-        // Resource caps
-        civ.Food = Math.Max(civ.Food, 0); // Can't go negative (starvation)
-        civ.Wood = Math.Max(civ.Wood, 0);
-        civ.Stone = Math.Max(civ.Stone, 0);
-        civ.Metal = Math.Max(civ.Metal, 0);
-
-        // Cap storage based on civ type
-        float storageMultiplier = civ.CivType switch
+        if (previousType != civ.CivType)
         {
-            CivType.Tribal => 1.0f,
-            CivType.Agricultural => 3.0f,
-            CivType.Industrial => 10.0f,
-            CivType.Scientific => 20.0f,
-            CivType.Spacefaring => 50.0f,
-            _ => 1.0f
-        };
-
-        civ.Food = Math.Min(civ.Food, 1000 * storageMultiplier);
-        civ.Wood = Math.Min(civ.Wood, 500 * storageMultiplier);
-        civ.Stone = Math.Min(civ.Stone, 500 * storageMultiplier);
-        civ.Metal = Math.Min(civ.Metal, 300 * storageMultiplier);
-
-        // Starvation effects
-        if (civ.Food <= 0)
-        {
-            // Population loss from starvation
-            int popLoss = (int)(civ.Population * 0.05f * deltaTime);
-            civ.Population = Math.Max(civ.Population - popLoss, 100);
+            string era = civ.CivType switch
+            {
+                CivType.Agricultural => "the Agricultural age",
+                CivType.Industrial => "the Industrial revolution",
+                CivType.Scientific => "the Scientific age",
+                CivType.Spacefaring => "the Space age",
+                _ => civ.CivType.ToString()
+            };
+            AddChronicle(currentYear, HistoryCategory.Growth, $"The {civ.Name} enter {era}", civ.CenterX, civ.CenterY, civ.Id);
         }
 
-        // Natural resource extraction
-        ExtractNaturalResources(civ, deltaTime);
+        // Unlock transportation based on tech level
+        if (civ.TechLevel >= 5 && !civ.HasLandTransport)
+        {
+            civ.HasLandTransport = true; // Horses/domestication (roads are built by the transport network)
+        }
+        if (civ.TechLevel >= 15 && !civ.HasSeaTransport)
+        {
+            civ.HasSeaTransport = true; // Ships
+        }
+
+        if (civ.TechLevel >= 25 && !civ.HasRailTransport)
+        {
+            civ.HasRailTransport = true; // Trains/railroads (railways replace busy roads over time)
+        }
+        if (civ.TechLevel >= 50 && !civ.HasAirTransport)
+        {
+            civ.HasAirTransport = true; // Airplanes
+        }
+        // Nuclear weapons are no longer automatic: they require a national weapons programme
+
+        // Energy infrastructure at various tech levels
+        if (civ.TechLevel == 45)
+        {
+            BuildWindTurbines(civ, currentYear); // Wind energy
+        }
+        if (civ.TechLevel == 60)
+        {
+            BuildNuclearPlants(civ, currentYear); // Nuclear power (before weapons)
+        }
+        if (civ.TechLevel == 80)
+        {
+            BuildSolarFarms(civ, currentYear); // Solar energy
+        }
     }
 
     private void UpdateCivilizationStability(Civilization civ, float deltaTime)
@@ -708,8 +666,8 @@ public class CivilizationManager
         {
             var cell = _map.Cells[x, y];
 
-            // Local pollution in civilization territory
-            cell.CO2 += actualEmissions * deltaTime;
+            // Local pollution: heavy in built-up areas, light in the countryside
+            cell.CO2 += actualEmissions * deltaTime * (0.1f + cell.HumanFootprint);
 
             // Deforestation (except eco-friendly civs)
             if (cell.IsForest && civ.EcoFriendliness < 0.5f && _random.NextDouble() < 0.001)
@@ -738,28 +696,18 @@ public class CivilizationManager
             }
         }
 
-        // Spread global emissions across entire planet (atmospheric mixing happens faster)
-        for (int x = 0; x < _map.Width; x++)
-        {
-            for (int y = 0; y < _map.Height; y++)
-            {
-                _map.Cells[x, y].CO2 += globalEmissionsPerCell * deltaTime * 0.1f;
-            }
-        }
+        // Global emissions are spread across the planet once per step for all civilizations
+        _pendingGlobalEmissions += globalEmissionsPerCell * deltaTime * 0.1f;
 
-        // Industrial civilizations affect solar energy (global warming)
-        if (civ.CivType == CivType.Industrial || civ.CivType == CivType.Scientific)
-        {
-            // Increase greenhouse effect globally
-            _map.SolarEnergy += 0.0001f * actualEmissions * deltaTime;
-            _map.SolarEnergy = Math.Clamp(_map.SolarEnergy, 0.8f, 1.5f);
-        }
+        // Global warming comes from the greenhouse gases emitted above (the atmosphere and
+        // climate simulators turn CO2 and methane into heat); sunlight itself is not changed.
     }
 
-    private void CheckCivilizationCollapse(Civilization civ)
+    private void CheckCivilizationCollapse(Civilization civ, int currentYear)
     {
+        if (!_civilizations.Contains(civ)) return;
+
         // Environmental collapse pressure over time instead of instant elimination
-        // Only calculate climate stats if we have territory
         if (civ.Territory.Count > 0)
         {
             float avgCO2 = civ.Territory.Average(pos => _map.Cells[pos.x, pos.y].CO2);
@@ -769,49 +717,50 @@ public class CivilizationManager
             if (harshClimate)
             {
                 // Advanced civilizations can mitigate harsh climate
-                if (civ.TechLevel >= 40)
+                float loss = civ.TechLevel >= 40 ? 0.01f : 0.03f;
+                foreach (var city in civ.Cities)
                 {
-                     civ.Population = (int)(civ.Population * 0.99f); // Very slow loss
+                    city.Population = (int)(city.Population * (1f - loss));
                 }
-                else
-                {
-                     civ.Population = (int)(civ.Population * 0.98f); // Less severe population loss
-                }
+                RecalculatePopulation(civ);
 
                 civ.Stability = Math.Max(civ.Stability - 0.05f, 0f);
-                civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + 0.05f, 0f, 1f); // Slower risk increase
+                civ.CollapseRisk = Math.Clamp(civ.CollapseRisk + 0.05f, 0f, 1f);
             }
             else
             {
-                civ.CollapseRisk = Math.Max(civ.CollapseRisk - 0.02f, 0f); // Faster risk decrease
+                civ.CollapseRisk = Math.Max(civ.CollapseRisk - 0.02f, 0f);
             }
         }
 
-        // FORCE SURVIVAL: Ensure civilization never completely dies if it has even 1 person
-        if (civ.Population <= 0)
+        // Remove settlements that have been abandoned
+        foreach (var city in civ.Cities.Where(c => c.Population < 40).ToList())
         {
-             civ.Population = 10; // Last survivors
+            AbandonSettlement(civ, city, currentYear);
         }
 
-        // Check if all territory lost
-        if (civ.Territory.Count == 0 && civ.Population < 100)
+        if (civ.Cities.Count == 0)
         {
-            // Give them a chance to rebuild if they have pop
-            if (civ.Population > 50)
+            // Survivors try to rebuild a village somewhere in their remaining land
+            if (civ.Population >= 100 && civ.Territory.Count > 0)
             {
-                 // Find a safe spot to re-establish
-                 // For now, just don't kill them yet
+                var site = civ.Territory
+                    .Where(p => _map.Cells[p.x, p.y].IsLand)
+                    .OrderByDescending(p => EvaluateSettlementSite(civ, p.x, p.y))
+                    .FirstOrDefault(p => true);
+                if (_map.Cells[site.x, site.y].IsLand)
+                {
+                    var capital = FoundSettlement(civ, site.x, site.y, Math.Min(civ.Population, 800), currentYear);
+                    capital.IsCapital = true;
+                    RecalculatePopulation(civ);
+                    AddChronicle(currentYear, HistoryCategory.Founding,
+                        $"Survivors of the {civ.Name} rebuild at {capital.Name}", site.x, site.y, civ.Id);
+                    return;
+                }
             }
-            else
-            {
-                 CollapseCivilization(civ);
-                 return;
-            }
-        }
 
-        // Make collapse harder
-        if (civ.CollapseRisk >= 1.0f && civ.Population < 50)
-        {
+            AddChronicle(currentYear, HistoryCategory.Rebellion,
+                $"The {civ.Name} civilization has vanished", civ.CenterX, civ.CenterY, civ.Id);
             CollapseCivilization(civ);
         }
     }
@@ -829,231 +778,84 @@ public class CivilizationManager
             }
         }
 
+        _armies.RemoveAll(a => a.CivilizationId == civ.Id);
+        foreach (var other in _civilizations)
+        {
+            other.DiplomaticRelations.Remove(civ.Id);
+            if (other.WarTargetId == civ.Id)
+            {
+                other.WarTargetId = null;
+            }
+            other.AtWar = other.DiplomaticRelations.Values.Any(r => r.Status == DiplomaticStatus.War);
+        }
+
         _civilizations.Remove(civ);
+        RebuildOwnerMap();
     }
 
+    /// <summary>
+    /// Peaceful interactions between neighbouring civilizations: technology diffusion,
+    /// trade and climate cooperation. Wars are handled by the warfare system.
+    /// </summary>
     private void HandleCivilizationInteractions(int currentYear)
     {
-        // Check for border conflicts or cooperation
-        for (int i = 0; i < _civilizations.Count; i++)
+        foreach (var ((id1, id2), borderLength) in _borders)
         {
-            for (int j = i + 1; j < _civilizations.Count; j++)
+            var civ1 = GetCivilizationById(id1);
+            var civ2 = GetCivilizationById(id2);
+            if (civ1 == null || civ2 == null) continue;
+            if (!civ1.DiplomaticRelations.TryGetValue(civ2.Id, out var relation)) continue;
+            if (relation.Status == DiplomaticStatus.War || relation.Status == DiplomaticStatus.Hostile) continue;
+
+            // Ideas travel across friendly borders: the less advanced neighbour catches up
+            if (relation.Opinion > 10 && Math.Abs(civ1.TechLevel - civ2.TechLevel) > 2 && _random.NextDouble() < 0.06)
             {
-                var civ1 = _civilizations[i];
-                var civ2 = _civilizations[j];
+                var laggard = civ1.TechLevel < civ2.TechLevel ? civ1 : civ2;
+                laggard.TechLevel++;
+            }
 
-                // Check if civilizations are neighbors
-                bool areNeighbors = civ1.Territory.Any(pos1 =>
-                    civ2.Territory.Any(pos2 =>
-                        Math.Abs(pos1.x - pos2.x) <= 1 &&
-                        Math.Abs(pos1.y - pos2.y) <= 1));
-
-                if (areNeighbors)
+            // Establish trade routes
+            if (relation.Status >= DiplomaticStatus.Friendly || relation.HasTreaty(TreatyType.TradePact))
+            {
+                if (!civ1.TradeRoutes.Contains((civ2.CenterX, civ2.CenterY)))
                 {
-                    // War or cooperation based on aggression
-                    if (civ1.Aggression > 0.7f || civ2.Aggression > 0.7f)
-                    {
-                        // Declare war if not already at war
-                        if (!civ1.AtWar && _random.NextDouble() < 0.1)
-                        {
-                            civ1.AtWar = true;
-                            civ1.WarTargetId = civ2.Id;
-                        }
-                        if (!civ2.AtWar && _random.NextDouble() < 0.1)
-                        {
-                            civ2.AtWar = true;
-                            civ2.WarTargetId = civ1.Id;
-                        }
+                    civ1.TradeRoutes.Add((civ2.CenterX, civ2.CenterY));
+                }
+                if (!civ2.TradeRoutes.Contains((civ1.CenterX, civ1.CenterY)))
+                {
+                    civ2.TradeRoutes.Add((civ1.CenterX, civ1.CenterY));
+                }
+            }
 
-                        // Nuclear warfare - escalates if both have nukes and war is desperate
-                        bool nuclearWarfare = false;
-                        if (civ1.HasNuclearWeapons && civ2.HasNuclearWeapons &&
-                            (civ1.Population < 50000 || civ2.Population < 50000))
-                        {
-                            // Desperate situation - risk of nuclear exchange
-                            if (_random.NextDouble() < 0.05)
-                            {
-                                nuclearWarfare = true;
-                                LaunchNuclearStrike(civ1, civ2, 0);
-                                // Retaliation
-                                if (civ2.NuclearStockpile > 0 && _random.NextDouble() < 0.8)
-                                {
-                                    LaunchNuclearStrike(civ2, civ1, 0);
-                                }
-                            }
-                        }
+            // Climate agreements for advanced civilizations
+            if ((civ1.CivType == CivType.Scientific || civ1.CivType == CivType.Spacefaring) &&
+                (civ2.CivType == CivType.Scientific || civ2.CivType == CivType.Spacefaring) &&
+                civ1.EcoFriendliness + civ2.EcoFriendliness > 0.9f)
+            {
+                // Check if global CO2 is high enough to motivate action
+                if (_map.GlobalCO2 > 3.0f && !civ1.InClimateAgreement && !civ2.InClimateAgreement)
+                {
+                    civ1.InClimateAgreement = true;
+                    civ2.InClimateAgreement = true;
+                    civ1.ClimatePartners.Add(civ2.Id);
+                    civ2.ClimatePartners.Add(civ1.Id);
 
-                        if (!nuclearWarfare)
-                        {
-                            // Conventional warfare - stronger civ takes territory
-                            if (civ1.MilitaryStrength > civ2.MilitaryStrength * 1.5f)
-                            {
-                                ConquerTerritory(civ1, civ2);
-                                // Population losses from war
-                                civ1.Population = (int)(civ1.Population * 0.95f);
-                                civ2.Population = (int)(civ2.Population * 0.85f);
+                    // Emission reduction targets (30-60% reduction)
+                    float reductionTarget = 0.3f + (float)_random.NextDouble() * 0.3f;
+                    civ1.EmissionReduction = Math.Max(civ1.EmissionReduction, reductionTarget);
+                    civ2.EmissionReduction = Math.Max(civ2.EmissionReduction, reductionTarget);
+                    relation.AddTreaty(new Treaty(TreatyType.ClimateAgreement, currentYear));
 
-                                // Nuclear strike as last resort
-                                if (civ2.HasNuclearWeapons && civ2.Population < 20000 &&
-                                    civ2.NuclearStockpile > 0 && _random.NextDouble() < 0.1)
-                                {
-                                    LaunchNuclearStrike(civ2, civ1, 0);
-                                }
-                            }
-                            else if (civ2.MilitaryStrength > civ1.MilitaryStrength * 1.5f)
-                            {
-                                ConquerTerritory(civ2, civ1);
-                                civ2.Population = (int)(civ2.Population * 0.95f);
-                                civ1.Population = (int)(civ1.Population * 0.85f);
-
-                                // Nuclear strike as last resort
-                                if (civ1.HasNuclearWeapons && civ1.Population < 20000 &&
-                                    civ1.NuclearStockpile > 0 && _random.NextDouble() < 0.1)
-                                {
-                                    LaunchNuclearStrike(civ1, civ2, 0);
-                                }
-                            }
-                            else
-                            {
-                                // Stalemate - both lose population
-                                civ1.Population = (int)(civ1.Population * 0.98f);
-                                civ2.Population = (int)(civ2.Population * 0.98f);
-                            }
-                        }
-                    }
-                    else if (civ1.EcoFriendliness > 0.6f && civ2.EcoFriendliness > 0.6f)
-                    {
-                        // Peaceful cooperation - tech sharing and trade
-                        int avgTech = (civ1.TechLevel + civ2.TechLevel) / 2;
-                        civ1.TechLevel = (civ1.TechLevel + avgTech) / 2;
-                        civ2.TechLevel = (civ2.TechLevel + avgTech) / 2;
-
-                        // Establish trade routes
-                        if (!civ1.TradeRoutes.Contains((civ2.CenterX, civ2.CenterY)))
-                        {
-                            civ1.TradeRoutes.Add((civ2.CenterX, civ2.CenterY));
-                        }
-                        if (!civ2.TradeRoutes.Contains((civ1.CenterX, civ1.CenterY)))
-                        {
-                            civ2.TradeRoutes.Add((civ1.CenterX, civ1.CenterY));
-                        }
-
-                        // Economic benefits
-                        civ1.Population += 100;
-                        civ2.Population += 100;
-
-                        // Climate agreements for advanced civilizations
-                        if ((civ1.CivType == CivType.Scientific || civ1.CivType == CivType.Spacefaring) &&
-                            (civ2.CivType == CivType.Scientific || civ2.CivType == CivType.Spacefaring))
-                        {
-                            // Check if global CO2 is high enough to motivate action
-                            if (_map.GlobalCO2 > 3.0f && !civ1.InClimateAgreement && !civ2.InClimateAgreement)
-                            {
-                                // Form climate agreement
-                                civ1.InClimateAgreement = true;
-                                civ2.InClimateAgreement = true;
-                                civ1.ClimatePartners.Add(civ2.Id);
-                                civ2.ClimatePartners.Add(civ1.Id);
-
-                                // Emission reduction targets (30-60% reduction)
-                                float reductionTarget = 0.3f + (float)_random.NextDouble() * 0.3f;
-                                civ1.EmissionReduction = Math.Max(civ1.EmissionReduction, reductionTarget);
-                                civ2.EmissionReduction = Math.Max(civ2.EmissionReduction, reductionTarget);
-                            }
-                        }
-                    }
+                    AddChronicle(currentYear, HistoryCategory.Diplomacy,
+                        $"The {civ1.Name} and the {civ2.Name} sign a climate accord", civ1.CenterX, civ1.CenterY, civ1.Id);
                 }
             }
         }
-    }
-
-    private void ConquerTerritory(Civilization attacker, Civilization defender)
-    {
-        // Take some border cells
-        var borderCells = defender.Territory
-            .Where(pos => attacker.Territory.Any(aPos =>
-                Math.Abs(pos.x - aPos.x) <= 1 &&
-                Math.Abs(pos.y - aPos.y) <= 1))
-            .Take(3)
-            .ToList();
-
-        foreach (var cell in borderCells)
-        {
-            defender.Territory.Remove(cell);
-            attacker.Territory.Add(cell);
-        }
-
-        defender.Population -= 1000;
     }
 
     private bool IsCellInCivilization(int x, int y)
     {
         return _civilizations.Any(civ => civ.Territory.Contains((x, y)));
-    }
-
-    private void LaunchNuclearStrike(Civilization attacker, Civilization defender, int currentYear)
-    {
-        if (attacker.NuclearStockpile <= 0) return;
-        if (defender.Territory.Count == 0) return;
-
-        // Select target in defender's territory
-        var target = defender.Territory.ElementAt(_random.Next(defender.Territory.Count));
-        attacker.NuclearStockpile--;
-        attacker.NuclearStrikes.Add((target.x, target.y, currentYear));
-
-        int strikeX = target.x;
-        int strikeY = target.y;
-
-        // Nuclear blast radius (affects 5x5 area)
-        for (int dx = -5; dx <= 5; dx++)
-        {
-            for (int dy = -5; dy <= 5; dy++)
-            {
-                int nx = (strikeX + dx + _map.Width) % _map.Width;
-                int ny = Math.Clamp(strikeY + dy, 0, _map.Height - 1);
-
-                float distance = MathF.Sqrt(dx * dx + dy * dy);
-                if (distance > 5) continue;
-
-                var cell = _map.Cells[nx, ny];
-                float impactStrength = 1.0f - (distance / 5.0f);
-
-                // Massive destruction
-                cell.Biomass *= 0.1f * (1.0f - impactStrength); // 90% of life destroyed at center
-                cell.Temperature += 200 * impactStrength; // Extreme heat
-                cell.CO2 += 10.0f * impactStrength; // Massive CO2 release
-
-                // Crater formation at ground zero
-                if (distance < 2)
-                {
-                    cell.Elevation -= 0.1f * impactStrength;
-                }
-
-                // Radiation contamination
-                var geo = cell.GetGeology();
-                geo.TectonicStress += 0.5f * impactStrength; // Seismic activity
-
-                // Remove from territories
-                foreach (var civ in _civilizations)
-                {
-                    civ.Territory.Remove((nx, ny));
-                }
-
-                // Convert to wasteland
-                if (distance < 3)
-                {
-                    cell.LifeType = LifeForm.None;
-                }
-            }
-        }
-
-        // Global climate impact
-        _map.SolarEnergy += 0.02f; // Nuclear winter temporary effect
-        _map.GlobalCO2 += 0.5f;
-
-        // Massive population loss
-        defender.Population = (int)(defender.Population * 0.3f); // 70% casualties
-        attacker.Population = (int)(attacker.Population * 0.95f); // Some losses from retaliation
     }
 
     public List<Civilization> GetAllCivilizations()
@@ -1149,43 +951,9 @@ public class CivilizationManager
             // Build road at this cell if it's land and in territory
             if (x >= 0 && x < _map.Width && y >= 0 && y < _map.Height)
             {
-                var cell = _map.Cells[x, y];
-                if (cell.IsLand && civ.Territory.Contains((x, y)))
+                if (_map.Cells[x, y].IsLand && civ.Territory.Contains((x, y)))
                 {
-                    // Add to civilization's road network
-                    civ.Roads.Add((x, y));
-
-                    // Mark cell as having a road
-                    var geo = cell.GetGeology();
-                    if (!geo.HasRoad || geo.RoadType < roadType) // Upgrade if better road type
-                    {
-                        geo.HasRoad = true;
-                        geo.RoadType = roadType;
-                        geo.RoadBuiltYear = currentYear;
-
-                        // Check if tunnel is needed for high mountains (tech level 10+)
-                        if (cell.Elevation > 0.7f && civ.TechLevel >= 10)
-                        {
-                            geo.HasTunnel = true;
-                        }
-                        // Check for rockfall risk on mountain slopes (elevation 0.5-0.7)
-                        else if (cell.Elevation > 0.5f && cell.Elevation <= 0.7f)
-                        {
-                            // Calculate slope to neighbors
-                            float maxSlope = 0f;
-                            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
-                            {
-                                float slope = Math.Abs(cell.Elevation - neighbor.Elevation);
-                                maxSlope = Math.Max(maxSlope, slope);
-                            }
-
-                            // Steep slopes (>0.15 elevation difference) are at risk
-                            if (maxSlope > 0.15f)
-                            {
-                                geo.RockfallRisk = true;
-                            }
-                        }
-                    }
+                    PaveCell(civ, x, y, roadType, currentYear);
                 }
             }
 
@@ -1210,6 +978,36 @@ public class CivilizationManager
         }
     }
 
+    /// <summary>
+    /// Lay or upgrade a road on one cell (tunnels through high mountains, rockfall risk on steep slopes).
+    /// </summary>
+    private void PaveCell(Civilization civ, int x, int y, RoadType roadType, int currentYear)
+    {
+        var cell = _map.Cells[x, y];
+        civ.Roads.Add((x, y));
+
+        var geo = cell.GetGeology();
+        if (geo.HasRoad && geo.RoadType >= roadType) return; // Upgrade only if better
+
+        geo.HasRoad = true;
+        geo.RoadType = roadType;
+        geo.RoadBuiltYear = currentYear;
+
+        if (cell.Elevation > 0.7f && civ.TechLevel >= 10)
+        {
+            geo.HasTunnel = true;
+        }
+        else if (cell.Elevation > 0.5f && cell.Elevation <= 0.7f)
+        {
+            float maxSlope = 0f;
+            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+            {
+                maxSlope = Math.Max(maxSlope, Math.Abs(cell.Elevation - neighbor.Elevation));
+            }
+            if (maxSlope > 0.15f) geo.RockfallRisk = true;
+        }
+    }
+
     private void BuildRailroads(Civilization civ)
     {
         // Build railroads connecting major cities
@@ -1227,9 +1025,12 @@ public class CivilizationManager
             {
                 if (i == j) continue;
                 var city2 = civ.Cities[j];
+                // Railways run over land and do not cross the map seam
+                if (Math.Abs(city1.X - city2.X) > _map.Width / 2) continue;
+                if (CountWaterOnLine(city1.X, city1.Y, city2.X, city2.Y) > 1) continue;
                 float dist = MathF.Sqrt((city1.X - city2.X) * (city1.X - city2.X) +
                                        (city1.Y - city2.Y) * (city1.Y - city2.Y));
-                if (dist < minDist)
+                if (dist < minDist && dist < 30)
                 {
                     minDist = dist;
                     nearestCity = city2;
@@ -1243,54 +1044,6 @@ public class CivilizationManager
                 civ.Railroads.Add((city1.X, city1.Y, nearestCity.X, nearestCity.Y));
             }
         }
-    }
-
-    /// <summary>
-    /// Find the best location for a new city based on strategic factors
-    /// </summary>
-    private (int x, int y, float score) FindBestCityLocation(Civilization civ)
-    {
-        var candidates = new List<(int x, int y, float score)>();
-
-        // Evaluate each territory cell for city placement
-        foreach (var (x, y) in civ.Territory)
-        {
-            var cell = _map.Cells[x, y];
-
-            // Cities must be on land
-            if (!cell.IsLand) continue;
-
-            // Don't place cities too close to existing cities
-            bool tooClose = civ.Cities.Any(c =>
-            {
-                int dx = Math.Abs(c.X - x);
-                int dy = Math.Abs(c.Y - y);
-                return Math.Sqrt(dx * dx + dy * dy) < 10; // Minimum 10 cells apart
-            });
-            if (tooClose) continue;
-
-            // Calculate strategic scores
-            float resourceScore = CalculateResourceScore(x, y);
-            float defenseScore = CalculateDefenseScore(x, y);
-            float commerceScore = CalculateCommerceScore(x, y);
-
-            // Combined score with weights
-            float totalScore = (resourceScore * 0.4f) + (defenseScore * 0.3f) + (commerceScore * 0.3f);
-
-            candidates.Add((x, y, totalScore));
-        }
-
-        // Return best location
-        if (candidates.Count == 0)
-        {
-            // Fallback to random if no good candidates
-            var location = civ.Territory.ElementAt(_random.Next(civ.Territory.Count));
-            return (location.x, location.y, 0f);
-        }
-
-        // Pick from top 5 candidates to add variety
-        var topCandidates = candidates.OrderByDescending(c => c.score).Take(5).ToList();
-        return topCandidates[_random.Next(topCandidates.Count)];
     }
 
     /// <summary>
@@ -1437,7 +1190,7 @@ public class CivilizationManager
         return MathF.Min(1.0f, score);
     }
 
-    private void CreateCity(Civilization civ, int x, int y)
+    private City CreateCity(Civilization civ, int x, int y)
     {
         var cell = _map.Cells[x, y];
         var geo = cell.GetGeology();
@@ -1491,8 +1244,8 @@ public class CivilizationManager
 
         var city = new City
         {
-            Id = civ.Cities.Count + 1,
-            Name = GenerateCityName(civ),
+            Id = _nextCityId++,
+            Name = GenerateSettlementName(civ),
             X = x,
             Y = y,
             Population = 1000 + _random.Next(5000),
@@ -1505,49 +1258,43 @@ public class CivilizationManager
             NearRiver = nearRiver,
             Coastal = coastal,
             OnHighGround = onHighGround,
-            NearbyResources = nearbyResources
+            NearbyResources = nearbyResources,
+            OriginalCivilizationId = civ.Id
         };
 
         civ.Cities.Add(city);
+        return city;
     }
 
-    private static readonly string[] CityPrefixes = new[]
-    {
-        "New", "Old", "North", "South", "East", "West", "Upper", "Lower",
-        "Great", "Little", "Fort", "Port", "San", "Saint"
-    };
-
-    private static readonly string[] CitySuffixes = new[]
-    {
-        "ville", "town", "city", "burg", "port", "haven", "field", "ford",
-        "dale", "shire", "land", "stead", "ton", "ham", "chester"
-    };
-
-    private static readonly string[] CityNames = new[]
-    {
-        "Ashford", "Brightwater", "Clearspring", "Deepwood", "Eastmarch",
-        "Fairhaven", "Goldfield", "Highmont", "Ironforge", "Jadehaven",
-        "Kingsport", "Lakeview", "Meadowbrook", "Northwind", "Oakdale",
-        "Pinecrest", "Queenstown", "Riverdale", "Stonebridge", "Thornbury",
-        "Underhill", "Valleyview", "Westport", "Yewdale", "Zenith"
-    };
-
-    private string GenerateCityName(Civilization civ)
-    {
-        // Use a combination of civ name and random elements
-        if (_random.NextDouble() < 0.5 && civ.Cities.Count == 0)
-        {
-            return civ.Name + " Capital";
-        }
-
-        return CityNames[_random.Next(CityNames.Length)] + " " + (civ.Cities.Count + 1);
-    }
-
-    public void LoadCivilizations(List<CivilizationData> civData)
+    public void LoadCivilizations(List<CivilizationData> civData, List<OrbitalObjectData>? orbitalData = null, float nuclearWinter = 0f)
     {
         lock (_civLock)
         {
+            _orbitalObjects.Clear();
+            foreach (var o in orbitalData ?? new List<OrbitalObjectData>())
+            {
+                _orbitalObjects.Add(new OrbitalObject
+                {
+                    Id = _nextOrbitalId++,
+                    CivilizationId = o.CivilizationId,
+                    Name = o.Name,
+                    Type = o.Type,
+                    Crew = o.Crew,
+                    OrbitAngle = o.OrbitAngle,
+                    OrbitRadius = o.OrbitRadius,
+                    LaunchedYear = o.LaunchedYear,
+                    Orphaned = o.Orphaned,
+                    TechLevel = o.TechLevel,
+                    Culture = o.Culture
+                });
+            }
+            NuclearWinter = nuclearWinter;
+
             _civilizations.Clear();
+            _armies.Clear();
+            _recentBattles.Clear();
+            _chronicle.Clear();
+
             foreach (var data in civData)
             {
                 var civ = new Civilization
@@ -1563,13 +1310,106 @@ public class CivilizationManager
                     EcoFriendliness = data.EcoFriendliness,
                     Prosperity = data.Prosperity,
                     Stability = data.Stability,
-                    CollapseRisk = data.CollapseRisk
+                    CollapseRisk = data.CollapseRisk,
+                    Culture = data.Culture,
+                    NameRoot = data.NameRoot,
+                    TribalName = data.TribalName,
+                    Food = data.Food,
+                    Wood = data.Wood,
+                    Stone = data.Stone,
+                    Metal = data.Metal,
+                    Gold = data.Gold,
+                    WarWeariness = data.WarWeariness,
+                    HasLandTransport = data.HasLandTransport,
+                    HasSeaTransport = data.HasSeaTransport,
+                    HasRailTransport = data.HasRailTransport,
+                    HasAirTransport = data.HasAirTransport,
+                    HasNuclearWeapons = data.HasNuclearWeapons,
+                    NuclearStockpile = data.NuclearStockpile,
+                    Ethnicity = data.Ethnicity,
+                    Homeland = data.Homeland,
+                    DevelopmentModifier = data.DevelopmentModifier,
+                    SpaceStage = data.SpaceStage,
+                    Satellites = data.Satellites
                 };
+                civ.CompletedProjects.AddRange(data.CompletedProjects.Select(name => new NationalProject { Name = name, CompletedYear = 0 }));
+                civ.Arsenal.ChemicalStockpile = data.ChemicalStockpile;
+                civ.Arsenal.BioweaponProgram = data.BioweaponProgram;
+                civ.Arsenal.MissileDefense = data.MissileDefense;
+                civ.Arsenal.NuclearWarheads = data.NuclearStockpile;
                 civ.Territory.UnionWith(data.Territory);
+
+                civ.Government = new Government(data.GovernmentType, 0);
+                var ruler = _divinePowers.GenerateRandomRuler(civ, 0);
+                ruler.Id = _nextRulerId++;
+                civ.Government.CurrentRuler = ruler;
+                civ.AllRulers.Add(ruler);
+
+                foreach (var cityData in data.Cities)
+                {
+                    civ.Cities.Add(new City
+                    {
+                        Id = cityData.Id,
+                        Name = cityData.Name,
+                        X = cityData.X,
+                        Y = cityData.Y,
+                        Population = cityData.Population,
+                        Type = GetCityType(cityData.Population),
+                        CivilizationId = civ.Id,
+                        Founded = cityData.Founded,
+                        IsCapital = cityData.IsCapital,
+                        Buildings = cityData.Buildings,
+                        Coastal = cityData.Coastal,
+                        NearRiver = cityData.NearRiver,
+                        OnHighGround = cityData.OnHighGround,
+                        Happiness = cityData.Happiness,
+                        OriginalCivilizationId = cityData.OriginalCivilizationId
+                    });
+                }
+
                 _civilizations.Add(civ);
             }
 
             _nextCivId = _civilizations.Any() ? _civilizations.Max(c => c.Id) + 1 : 1;
+            var allCities = _civilizations.SelectMany(c => c.Cities).ToList();
+            _nextCityId = allCities.Any() ? allCities.Max(c => c.Id) + 1 : 1;
+            RebuildOwnerMap();
+
+            // Restore shared diplomatic relations (one object per pair)
+            for (int i = 0; i < _civilizations.Count; i++)
+            {
+                for (int j = i + 1; j < _civilizations.Count; j++)
+                {
+                    var a = _civilizations[i];
+                    var b = _civilizations[j];
+                    var relation = new DiplomaticRelation(a.Id, b.Id, 0);
+                    var saved = civData.First(d => d.Id == a.Id).Relations.FirstOrDefault(r => r.OtherCivilizationId == b.Id);
+                    if (saved != null)
+                    {
+                        relation.Status = saved.Status;
+                        relation.Opinion = saved.Opinion;
+                        relation.TrustLevel = saved.TrustLevel;
+                        relation.YearsAtWar = saved.YearsAtWar;
+                        relation.YearsAtPeace = saved.YearsAtPeace;
+                    }
+                    a.DiplomaticRelations[b.Id] = relation;
+                    b.DiplomaticRelations[a.Id] = relation;
+                }
+            }
+
+            // Saves from before settlements existed: give every people a capital
+            foreach (var civ in _civilizations)
+            {
+                if (civ.Cities.Count == 0 && _map.Cells[civ.CenterX, civ.CenterY].IsLand)
+                {
+                    var capital = FoundSettlement(civ, civ.CenterX, civ.CenterY, Math.Max(200, civ.Population), 0);
+                    capital.IsCapital = true;
+                }
+                if (string.IsNullOrEmpty(civ.Ethnicity)) AssignHomeland(civ); // Saves from older versions
+                civ.AtWar = civ.DiplomaticRelations.Values.Any(r => r.Status == DiplomaticStatus.War);
+                _lastKnownAtWar[civ.Id] = civ.AtWar;
+                RecalculatePopulation(civ);
+            }
         }
     }
 
@@ -1603,6 +1443,14 @@ public class CivilizationManager
             {
                 HandleRevolution(civ, currentYear);
             }
+
+            var previousName = civ.Name;
+            UpdatePolityName(civ);
+            if (previousName != civ.Name && civ.Government.Type != GovernmentType.Tribal)
+            {
+                AddChronicle(currentYear, HistoryCategory.Growth,
+                    $"The {previousName} proclaim themselves the {civ.Name}", civ.CenterX, civ.CenterY, civ.Id);
+            }
         }
     }
 
@@ -1615,8 +1463,8 @@ public class CivilizationManager
 
         if (civ.Government.IsHereditary)
         {
-            // Hereditary succession
-            var heir = FindHeir(civ, deadRuler);
+            // Hereditary succession along the line of succession
+            var heir = ResolveSuccession(civ, deadRuler, currentYear);
 
             if (heir != null)
             {
@@ -1627,6 +1475,7 @@ public class CivilizationManager
             else
             {
                 // No heir - succession crisis
+                HandleSuccessionCrisis(civ, deadRuler, currentYear);
                 civ.Government.Stability -= 0.3f;
                 var newRuler = _divinePowers.GenerateRandomRuler(civ, currentYear);
                 newRuler.Id = _nextRulerId++;
@@ -1674,31 +1523,6 @@ public class CivilizationManager
     }
 
     /// <summary>
-    /// Find the heir to a deceased ruler
-    /// </summary>
-    private Ruler? FindHeir(Civilization civ, Ruler deadRuler)
-    {
-        // Look for children
-        if (deadRuler.ChildrenIds.Count > 0)
-        {
-            var heirId = deadRuler.ChildrenIds.First();
-            var heir = civ.AllRulers.FirstOrDefault(r => r.Id == heirId && r.IsAlive);
-            if (heir != null) return heir;
-
-            // Create new heir if not yet generated
-            var newHeir = _divinePowers.GenerateRandomRuler(civ, 0);
-            newHeir.Id = _nextRulerId++;
-            newHeir.Age = 20 + _random.Next(20);
-            newHeir.ParentId = deadRuler.Id;
-            newHeir.DynastyId = deadRuler.DynastyId;
-            civ.AllRulers.Add(newHeir);
-            return newHeir;
-        }
-
-        return null;
-    }
-
-    /// <summary>
     /// Update government stability based on various factors
     /// </summary>
     private void UpdateGovernmentStability(Civilization civ)
@@ -1711,8 +1535,8 @@ public class CivilizationManager
             civ.Government.Stability += (civ.Government.CurrentRuler.Charisma - 0.5f) * 0.01f;
         }
 
-        // Food shortage reduces stability
-        if (civ.Food < 10)
+        // Famine reduces stability
+        if (civ.Cities.Any(c => c.Starving))
         {
             civ.Government.Stability -= 0.02f;
         }
@@ -1781,8 +1605,9 @@ public class CivilizationManager
     /// </summary>
     private void HandleRevolution(Civilization civ, int currentYear)
     {
-        // Population losses from civil war
-        civ.Population = (int)(civ.Population * 0.85f);
+        // Population losses from civil strife
+        civ.Population = (int)(civ.Population * 0.95f);
+        var previousGovernment = civ.Government?.Type;
 
         // Determine new government type
         GovernmentType newType;
@@ -1796,6 +1621,11 @@ public class CivilizationManager
             newType = GovernmentType.Democracy;
 
         civ.Government = new Government(newType, currentYear);
+        AddChronicle(currentYear, HistoryCategory.Rebellion,
+            previousGovernment == newType
+                ? $"Revolution in the {civ.Name}: a new {newType.ToString().ToLower()} regime seizes power"
+                : $"Revolution in the {civ.Name}: {previousGovernment?.ToString().ToLower()} overthrown, {newType.ToString().ToLower()} established",
+            civ.CenterX, civ.CenterY, civ.Id);
 
         // New ruler
         var ruler = _divinePowers.GenerateRandomRuler(civ, currentYear);
@@ -1822,10 +1652,19 @@ public class CivilizationManager
     /// </summary>
     private void UpdateDiplomacy(int currentYear)
     {
+        // Each relation object is shared by both civilizations, so visit it once
+        var visited = new HashSet<DiplomaticRelation>();
+
         foreach (var civ in _civilizations)
         {
             foreach (var relation in civ.DiplomaticRelations.Values)
             {
+                if (!visited.Add(relation)) continue;
+
+                var civ1 = GetCivilizationById(relation.CivilizationId1);
+                var civ2 = GetCivilizationById(relation.CivilizationId2);
+                if (civ1 == null || civ2 == null) continue;
+
                 // Update treaty expirations
                 foreach (var treaty in relation.Treaties.Where(t => t.IsActive).ToList())
                 {
@@ -1835,45 +1674,81 @@ public class CivilizationManager
                     }
                 }
 
-                // Peace increases opinion slowly
-                if (relation.Status != DiplomaticStatus.War)
-                {
-                    relation.YearsAtPeace++;
-                    relation.Opinion += 0.5f;
-                }
-                else
+                if (relation.Status == DiplomaticStatus.War)
                 {
                     relation.YearsAtWar++;
+                    continue;
                 }
 
+                relation.YearsAtPeace++;
+
+                // Opinion slowly drifts back toward neutral; grudges fade, friendships need upkeep
+                relation.Opinion *= 0.98f;
+
+                int border = GetBorderLength(civ1.Id, civ2.Id);
+                if (border > 0)
+                {
+                    // Shared borders create friction, especially between aggressive peoples
+                    relation.Opinion -= 0.2f + Math.Min(border, 40) * 0.02f * (civ1.Aggression + civ2.Aggression);
+                }
+
+                if (relation.HasTreaty(TreatyType.TradePact)) relation.Opinion += 1.5f;
+                if (relation.HasTreaty(TreatyType.RoyalMarriage)) relation.Opinion += 1.0f;
+                if (civ1.Government?.Type == civ2.Government?.Type) relation.Opinion += 0.5f;
+                if (civ1.EcoFriendliness > 0.6f && civ2.EcoFriendliness > 0.6f) relation.Opinion += 0.5f;
+
+                relation.Opinion = Math.Clamp(relation.Opinion, -100f, 100f);
+
                 // Trust increases during peace
-                if (relation.Status == DiplomaticStatus.Friendly || relation.Status == DiplomaticStatus.Allied)
+                if (relation.Opinion > 20)
                 {
                     relation.TrustLevel = Math.Min(relation.TrustLevel + 0.01f, 1.0f);
                 }
 
-                // Check for treaty proposals between friendly civilizations
-                if (relation.Status == DiplomaticStatus.Friendly && !relation.HasTreaty(TreatyType.TradePact) &&
+                // Diplomatic status follows opinion
+                relation.Status = relation.Opinion switch
+                {
+                    > 50 when relation.HasTreaty(TreatyType.MilitaryAlliance) || relation.HasTreaty(TreatyType.DefensivePact) || relation.HasTreaty(TreatyType.RoyalMarriage) => DiplomaticStatus.Allied,
+                    > 20 => DiplomaticStatus.Friendly,
+                    < -30 => DiplomaticStatus.Hostile,
+                    _ => DiplomaticStatus.Neutral
+                };
+
+                // Trade pacts between friendly neighbours
+                if (relation.Status >= DiplomaticStatus.Friendly && !relation.HasTreaty(TreatyType.TradePact) &&
                     _random.NextDouble() < 0.05)
                 {
-                    // Propose trade pact
-                    var treaty = new Treaty(TreatyType.TradePact, currentYear);
-                    relation.AddTreaty(treaty);
+                    bool renewal = relation.Treaties.Any(t => t.Type == TreatyType.TradePact);
+                    relation.AddTreaty(new Treaty(TreatyType.TradePact, currentYear, 50));
+                    if (!renewal)
+                    {
+                        AddChronicle(currentYear, HistoryCategory.Diplomacy,
+                            $"The {civ1.Name} and the {civ2.Name} open a trade pact", civ1.CenterX, civ1.CenterY, civ1.Id);
+                    }
+                }
+
+                // Defensive pacts between long-time friends who fear a common neighbour
+                if (relation.Opinion > 45 && !relation.HasTreaty(TreatyType.DefensivePact) && _random.NextDouble() < 0.03)
+                {
+                    bool renewal = relation.Treaties.Any(t => t.Type == TreatyType.DefensivePact);
+                    relation.AddTreaty(new Treaty(TreatyType.DefensivePact, currentYear, 80));
+                    if (!renewal)
+                    {
+                        AddChronicle(currentYear, HistoryCategory.Diplomacy,
+                            $"The {civ1.Name} and the {civ2.Name} form a defensive alliance", civ1.CenterX, civ1.CenterY, civ1.Id);
+                    }
                 }
 
                 // Check for royal marriages (hereditary governments only)
-                var civ1 = _civilizations.FirstOrDefault(c => c.Id == relation.CivilizationId1);
-                var civ2 = _civilizations.FirstOrDefault(c => c.Id == relation.CivilizationId2);
-
-                if (civ1 != null && civ2 != null &&
-                    relation.Status == DiplomaticStatus.Friendly &&
+                if (relation.Status >= DiplomaticStatus.Friendly &&
                     civ1.Government?.IsHereditary == true &&
                     civ2.Government?.IsHereditary == true &&
                     !relation.HasTreaty(TreatyType.RoyalMarriage) &&
                     _random.NextDouble() < 0.02)
                 {
-                    // Royal marriage
                     ProposeRoyalMarriage(civ1, civ2, relation, currentYear);
+                    AddChronicle(currentYear, HistoryCategory.Diplomacy,
+                        $"A royal marriage unites the houses of the {civ1.Name} and the {civ2.Name}", civ1.CenterX, civ1.CenterY, civ1.Id);
                 }
             }
         }
@@ -1940,30 +1815,13 @@ public class CivilizationManager
                     totalDamage += 100;
                 }
 
-                // Check for extreme CO2
-                if (cell.CO2 > 5.0f)
-                {
-                    disastersInTerritory++;
-                    totalDamage += 50;
-                }
+                // Chronic pollution is handled by the harsh-climate collapse pressure
 
-                // Check for drought (low rainfall in agricultural areas)
-                if (cell.Rainfall < 0.2f && civ.CivType >= CivType.Agricultural)
-                {
-                    disastersInTerritory++;
-                    totalDamage += 30;
-                }
+                // Droughts are felt through failed harvests in the settlement economy
 
                 var geo = cell.GetGeology();
 
-                // Check for Earthquakes
-                if (geo.EarthquakeIntensity > 0.5f)
-                {
-                    disastersInTerritory++;
-                    // Damage based on intensity (0.0 - 1.0)
-                    // Intensity 0.5 = 50 damage, 1.0 = 200 damage
-                    totalDamage += (int)(Math.Pow(geo.EarthquakeIntensity, 2) * 200);
-                }
+                // Earthquakes are handled per event (magnitude and distance) in ApplyEarthquakeDamage
 
                 // Check for Tsunamis
                 if (geo.TsunamiWaveHeight > 1.0f)
@@ -2044,18 +1902,43 @@ public class CivilizationManager
 
             if (disastersInTerritory > 0)
             {
-                // Calculate casualties based on preparedness
-                float baseCasualtyRate = 0.01f * disastersInTerritory * (1.0f - civ.DisasterPreparedness);
+                // Casualties scale with the share of the land that was hit, not the raw cell count
+                float affectedShare = Math.Min(1f, disastersInTerritory / (float)Math.Max(1, civ.Territory.Count + cycloneHits));
+                float baseCasualtyRate = 0.1f * affectedShare * (1.0f - civ.DisasterPreparedness);
 
                 // Cyclones are more deadly
                 if (cycloneHits > 0)
                 {
-                    baseCasualtyRate += 0.05f * cycloneHits * (1.0f - civ.DisasterPreparedness);
+                    baseCasualtyRate += 0.02f * cycloneHits * (1.0f - civ.DisasterPreparedness);
                 }
 
+                baseCasualtyRate = Math.Min(baseCasualtyRate, 0.25f);
                 int casualties = (int)(civ.Population * baseCasualtyRate);
+                if (casualties > 500 && casualties > civ.Population * 0.05f && currentYear - civ.LastDisasterReportYear >= 5)
+                {
+                    civ.LastDisasterReportYear = currentYear;
+                    AddChronicle(currentYear, HistoryCategory.Disaster,
+                        $"Disaster strikes the {civ.Name}: {casualties:N0} dead", civ.CenterX, civ.CenterY, civ.Id);
+                }
 
-                civ.Population -= casualties;
+                // Evacuation and relief save part of those at risk
+                if (civ.TechLevel >= 50) casualties -= casualties / 3;
+                else if (civ.TechLevel >= 30 && cycloneHits > 0) casualties -= casualties / 5;
+
+                // Deaths are taken from the settlements so later recounts keep them
+                if (civ.Population > 0 && civ.Cities.Count > 0)
+                {
+                    float survival = Math.Clamp(1f - casualties / (float)civ.Population, 0f, 1f);
+                    foreach (var city in civ.Cities)
+                    {
+                        city.Population = (int)(city.Population * survival);
+                    }
+                    RecalculatePopulation(civ);
+                }
+                else
+                {
+                    civ.Population -= casualties;
+                }
                 civ.PopulationLostToDisasters += casualties;
                 civ.DisastersSurvived++;
 
@@ -2065,7 +1948,7 @@ public class CivilizationManager
                 // Disasters reduce stability
                 if (civ.Government != null)
                 {
-                    float stabilityLoss = 0.05f * disastersInTerritory;
+                    float stabilityLoss = 0.2f * affectedShare;
                     // Cyclones cause more political instability
                     if (cycloneHits > 0)
                     {
@@ -2075,7 +1958,7 @@ public class CivilizationManager
                 }
 
                 // Resource losses
-                float resourceLoss = 0.1f * disastersInTerritory;
+                float resourceLoss = 0.3f * affectedShare;
                 // Cyclones destroy more infrastructure and resources
                 if (cycloneHits > 0)
                 {
@@ -2086,18 +1969,6 @@ public class CivilizationManager
                 civ.Wood *= (1.0f - Math.Min(resourceLoss * 0.5f, 0.8f));
                 civ.Stone *= (1.0f - Math.Min(resourceLoss * 0.3f, 0.5f));
 
-                // Advanced civilizations can evacuate/adapt better
-                if (civ.TechLevel >= 50)
-                {
-                    // Restore some population through disaster relief
-                    civ.Population += casualties / 3;
-                }
-                // Modern weather forecasting helps
-                else if (civ.TechLevel >= 30 && cycloneHits > 0)
-                {
-                    // Can predict and prepare for cyclones
-                    civ.Population += casualties / 5;
-                }
             }
         }
     }
@@ -2251,6 +2122,7 @@ public class CivilizationManager
                 {
                     // Trigger meltdown!
                     _disasterManager?.TriggerNuclearAccident(x, y, currentYear);
+                    // Casualties come from the disaster event (see ApplyNaturalHazards)
                     geo.HasNuclearPlant = false; // Plant destroyed
                     geo.MeltdownRisk = 0f;
                 }
@@ -2333,6 +2205,71 @@ public class Civilization
     public float FoodConsumption { get; set; } = 0.0f;   // Per year (based on population)
 
     // Disaster resilience
+    // Society
+    public int Culture { get; set; } = 0;                 // Naming/culture group
+    public string NameRoot { get; set; } = "";            // Stem used to build the polity name
+    public string TribalName { get; set; } = "";          // Name used while tribal
+    public float Gold { get; set; } = 0.0f;               // Treasury from trade and taxes
+    public float GoldIncome { get; set; } = 0.0f;         // Per year
+    public float WarWeariness { get; set; } = 0.0f;       // 0-1, desire for peace
+    public int WarCasualties { get; set; } = 0;           // Soldiers lost in the current wars
+    public int LastKnownPopulation { get; set; } = 0;     // Used to absorb external population changes
+    public int SettlementsFounded { get; set; } = 0;
+    public int WildlifeHuntedOut { get; set; } = 0;       // Wild regions emptied by hunting
+    public int CitiesConquered { get; set; } = 0;
+    public int CitiesLost { get; set; } = 0;
+    public int LastRebellionYear { get; set; } = int.MinValue / 2;
+    public int LastDisasterReportYear { get; set; } = int.MinValue / 2;
+    public int LastFamineReportYear { get; set; } = int.MinValue / 2;
+
+    public City? Capital => Cities.FirstOrDefault(c => c.IsCapital) ?? Cities.FirstOrDefault();
+
+    // Strategic AI
+    public StrategyState Strategy { get; set; } = new();
+
+    // Homeland and people
+    public string Ethnicity { get; set; } = "";
+    public HomelandClimate Homeland { get; set; } = HomelandClimate.Temperate;
+    public float DevelopmentModifier { get; set; } = 1.0f; // Research/growth multiplier from geography
+
+    // Energy and networks
+    public Dictionary<EnergySource, float> EnergyMix { get; set; } = new(); // Share of production, sums to 1
+    public float EnergyProduction { get; set; }            // Arbitrary energy units per year
+    public float EnergyDemand { get; set; }
+    public float Electrification { get; set; }             // Share of settlements on the grid, 0-1
+    public float InternetPenetration { get; set; }         // 0-1
+    public List<(int x1, int y1, int x2, int y2)> PowerLines { get; set; } = new();
+    public List<(int x1, int y1, int x2, int y2)> DataCables { get; set; } = new(); // Backbone and undersea cables
+
+    // Intelligence services
+    public List<SpyNetwork> SpyNetworks { get; set; } = new();   // Networks this nation runs abroad
+    public float CounterIntelligence { get; set; }                // 0-1: ability to catch foreign spies
+    public float IntelligenceBudget { get; set; }                 // Gold per year for spying
+
+    // Transport networks (roads, railways, sea lanes and air routes operated by this nation)
+    public List<TransportRoute> TransportRoutes { get; set; } = new();
+
+    // Weapons of mass destruction
+    public Arsenal Arsenal { get; set; } = new();
+
+    // Space
+    public SpaceStage SpaceStage { get; set; } = SpaceStage.None;
+    public int Satellites { get; set; }
+    public int Astronauts { get; set; }
+
+    // National programmes
+    public NationalProject? ActiveProject { get; set; }
+    public List<NationalProject> CompletedProjects { get; set; } = new();
+    public bool HasProject(string name) => CompletedProjects.Any(p => p.Name == name);
+
+    // Politics
+    public List<PoliticalParty> Parties { get; set; } = new();
+    public string RulingParty { get; set; } = "";
+    public int NextElectionYear { get; set; }
+    public List<ElectionResult> Elections { get; set; } = new();
+    public Ruler? HeirApparent { get; set; }
+    public List<Ruler> SuccessionLine { get; set; } = new();   // Ordered claimants (hereditary governments)
+
     public float DisasterPreparedness { get; set; } = 0.0f; // 0-1, how prepared for disasters
     public int DisastersSurvived { get; set; } = 0;
     public int PopulationLostToDisasters { get; set; } = 0;
@@ -2370,6 +2307,50 @@ public class City
     public bool Coastal { get; set; } = false;
     public bool OnHighGround { get; set; } = false;
     public List<ResourceType> NearbyResources { get; set; } = new(); // Resources within 5 cells
+
+    // Settlement life
+    public bool IsCapital { get; set; } = false;
+    public CityBuilding Buildings { get; set; } = CityBuilding.None;
+    public bool Starving { get; set; } = false;
+    public float Happiness { get; set; } = 0.6f;          // 0-1
+    public int WorkedCells { get; set; } = 0;             // Farmland/hunting grounds worked this year
+    public int Capacity { get; set; } = 0;                // Population the local land can feed
+    public float GoldProduction { get; set; }
+
+    // Warfare
+    public bool UnderSiege { get; set; } = false;
+    public float SiegeProgress { get; set; } = 0.0f;      // 0-1, captured at 1
+    public int OriginalCivilizationId { get; set; }
+
+    public CityType LargestTypeReached { get; set; } = CityType.Village;
+
+    // Character
+    public CitySpecialization Specialization { get; set; } = CitySpecialization.Farming;
+    public CityStyle Style { get; set; } = CityStyle.Stone;
+
+    // Infrastructure
+    public bool Electrified { get; set; }                 // Connected to the power grid
+    public bool Online { get; set; }                      // Connected to the internet
+    public bool HasAirport { get; set; }
+    public bool HasSpaceport { get; set; }
+    public bool HasPowerPlant { get; set; }
+    public EnergySource? PowerPlantType { get; set; }
+
+    public bool Has(CityBuilding building) => (Buildings & building) != 0;
+}
+
+[Flags]
+public enum CityBuilding
+{
+    None = 0,
+    Granary = 1 << 0,     // Food storage, faster growth, famine buffer
+    Walls = 1 << 1,       // Doubles siege defense
+    Market = 1 << 2,      // Gold and trade
+    Temple = 1 << 3,      // Happiness and stability
+    Barracks = 1 << 4,    // Better and larger armies
+    Harbor = 1 << 5,      // Fishing and sea trade
+    Workshop = 1 << 6,    // Stone and metal output
+    University = 1 << 7   // Science
 }
 
 public enum CityType

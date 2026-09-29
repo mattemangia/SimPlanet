@@ -98,8 +98,73 @@ public class SaveLoadManager
                 EcoFriendliness = civ.EcoFriendliness,
                 Prosperity = civ.Prosperity,
                 Stability = civ.Stability,
-                CollapseRisk = civ.CollapseRisk
+                CollapseRisk = civ.CollapseRisk,
+                Culture = civ.Culture,
+                NameRoot = civ.NameRoot,
+                TribalName = civ.TribalName,
+                GovernmentType = civ.Government?.Type ?? GovernmentType.Tribal,
+                Food = civ.Food,
+                Wood = civ.Wood,
+                Stone = civ.Stone,
+                Metal = civ.Metal,
+                Gold = civ.Gold,
+                WarWeariness = civ.WarWeariness,
+                HasLandTransport = civ.HasLandTransport,
+                HasSeaTransport = civ.HasSeaTransport,
+                HasRailTransport = civ.HasRailTransport,
+                HasAirTransport = civ.HasAirTransport,
+                HasNuclearWeapons = civ.HasNuclearWeapons,
+                NuclearStockpile = civ.NuclearStockpile,
+                Cities = civ.Cities.Select(city => new CityData
+                {
+                    Id = city.Id,
+                    Name = city.Name,
+                    X = city.X,
+                    Y = city.Y,
+                    Population = city.Population,
+                    Founded = city.Founded,
+                    IsCapital = city.IsCapital,
+                    Buildings = city.Buildings,
+                    Coastal = city.Coastal,
+                    NearRiver = city.NearRiver,
+                    OnHighGround = city.OnHighGround,
+                    Happiness = city.Happiness,
+                    OriginalCivilizationId = city.OriginalCivilizationId
+                }).ToList(),
+                Ethnicity = civ.Ethnicity,
+                Homeland = civ.Homeland,
+                DevelopmentModifier = civ.DevelopmentModifier,
+                SpaceStage = civ.SpaceStage,
+                Satellites = civ.Satellites,
+                CompletedProjects = civ.CompletedProjects.Select(p => p.Name).ToList(),
+                ChemicalStockpile = civ.Arsenal.ChemicalStockpile,
+                BioweaponProgram = civ.Arsenal.BioweaponProgram,
+                MissileDefense = civ.Arsenal.MissileDefense,
+                Relations = civ.DiplomaticRelations.Select(r => new RelationData
+                {
+                    OtherCivilizationId = r.Key,
+                    Status = r.Value.Status,
+                    Opinion = r.Value.Opinion,
+                    TrustLevel = r.Value.TrustLevel,
+                    YearsAtWar = r.Value.YearsAtWar,
+                    YearsAtPeace = r.Value.YearsAtPeace
+                }).ToList()
             }).ToList();
+
+        saveData.OrbitalObjects = civManager.GetOrbitalObjects().Select(o => new OrbitalObjectData
+        {
+            CivilizationId = o.CivilizationId,
+            Name = o.Name,
+            Type = o.Type,
+            Crew = o.Crew,
+            OrbitAngle = o.OrbitAngle,
+            OrbitRadius = o.OrbitRadius,
+            LaunchedYear = o.LaunchedYear,
+            Orphaned = o.Orphaned,
+            TechLevel = o.TechLevel,
+            Culture = o.Culture
+        }).ToList();
+        saveData.NuclearWinter = civManager.NuclearWinter;
 
         // Save weather
         saveData.ActiveStorms = weatherSystem.GetActiveStorms()
@@ -218,7 +283,7 @@ public class SaveLoadManager
         }
 
         // Restore civilizations
-        civManager.LoadCivilizations(saveData.Civilizations);
+        civManager.LoadCivilizations(saveData.Civilizations, saveData.OrbitalObjects, saveData.NuclearWinter);
 
         // Restore weather
         weatherSystem.LoadStorms(saveData.ActiveStorms);

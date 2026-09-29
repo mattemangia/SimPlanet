@@ -426,6 +426,49 @@ public class PlanetMinimap3D
         // Draw border
         DrawCircleOutline(spriteBatch, PosX + MinimapSize / 2, PosY + MinimapSize / 2,
                          SphereRadius, Color.White, 2);
+
+        DrawOrbitals(spriteBatch);
+    }
+
+    /// <summary>Satellites, stations and bases circling the globe (objects behind it are hidden).</summary>
+    private void DrawOrbitals(SpriteBatch spriteBatch)
+    {
+        var orbitals = CivRenderData.Latest.Orbitals;
+        if (orbitals.Count == 0 || !UITheme.IsInitialized) return;
+        MapIcons icons;
+        try { icons = MapIcons.GetShared(_graphicsDevice); }
+        catch (Exception) { return; }
+
+        spriteBatch.End();
+        spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
+        var center = new Vector2(PosX + MinimapSize / 2f, PosY + MinimapSize / 2f);
+        float time = (float)(DateTime.Now.TimeOfDay.TotalSeconds % 3600);
+        float tilt = 0.28f + _tilt * 0.3f;
+        foreach (var o in orbitals)
+        {
+            float r = o.Type switch
+            {
+                OrbitalObjectType.Satellite => SphereRadius + 8 + (o.OrbitRadius - 1f) * 4f,
+                OrbitalObjectType.SpaceStation => SphereRadius + 14,
+                _ => SphereRadius + 24
+            };
+            float speed = o.Type is OrbitalObjectType.LunarBase or OrbitalObjectType.Colony ? 0.05f : 0.6f;
+            float a = o.OrbitAngle + time * speed - _rotation;
+            var p = center + new Vector2(MathF.Cos(a) * r, MathF.Sin(a) * r * tilt);
+            bool behind = MathF.Sin(a) < 0 && Vector2.Distance(p, center) < SphereRadius;
+            if (behind) continue;
+            var (tex, size) = o.Type switch
+            {
+                OrbitalObjectType.Satellite => (icons.Satellite, 10),
+                OrbitalObjectType.SpaceStation => (icons.Station, 14),
+                OrbitalObjectType.LunarBase => (icons.MoonBase, 16),
+                _ => (icons.Rocket, 13)
+            };
+            UITheme.DrawGlow(spriteBatch, p, size * 0.7f, TerrainRenderer.GetCivPaletteColor(o.CivId) * 0.45f);
+            spriteBatch.Draw(tex, new Rectangle((int)(p.X - size / 2f), (int)(p.Y - size / 2f), size, size), Color.White * (o.Orphaned ? 0.5f : 1f));
+        }
+        spriteBatch.End();
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
     }
 
     private void DrawStormVortices(SpriteBatch spriteBatch)

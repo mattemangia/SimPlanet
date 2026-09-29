@@ -82,15 +82,58 @@ public class DivinePowersUI
                 "Advance Civilization", Color.CornflowerBlue, () => OpenMode(DivinePowerMode.AdvanceCivilization)),
 
             new Button(new Rectangle(startX, startY + 8 * (buttonHeight + spacing), buttonWidth, buttonHeight),
+                "Armageddon", new Color(200, 30, 20), () => OpenMode(DivinePowerMode.Armageddon)),
+
+            new Button(new Rectangle(startX, startY + 9 * (buttonHeight + spacing), buttonWidth, buttonHeight),
+                "Instant Peace", new Color(120, 200, 255), () =>
+                {
+                    _currentMode = DivinePowerMode.None;
+                    _civButtons.Clear();
+                    PeaceRequested?.Invoke();
+                    ShowMessage("All wars end. The nations swear 30 years of peace.");
+                }),
+
+            new Button(new Rectangle(startX, startY + 10 * (buttonHeight + spacing), buttonWidth, buttonHeight),
                 "Close Menu", Color.Gray, () => IsOpen = false)
         };
     }
+
+    /// <summary>
+    /// Invoked when the player confirms Armageddon (global nuclear war). The game runs it
+    /// under the simulation lock.
+    /// </summary>
+    public Action? ArmageddonRequested { get; set; }
+
+    /// <summary>
+    /// Invoked when the player grants instant world peace. The game runs it under the simulation lock.
+    /// </summary>
+    public Action? PeaceRequested { get; set; }
 
     private void OpenMode(DivinePowerMode mode)
     {
         _currentMode = mode;
         _selectedCiv = null;
         _targetCiv = null;
+
+        if (mode == DivinePowerMode.Armageddon)
+        {
+            // Confirmation step instead of a target list
+            int x = 25 + PanelWidth + 10;
+            _civButtons.Clear();
+            _civButtons.Add(new Button(new Rectangle(x, 320, 220, 34), "LAUNCH EVERYTHING", new Color(220, 30, 20), () =>
+            {
+                ArmageddonRequested?.Invoke();
+                ShowMessage("The missiles fly. May the survivors forgive you.");
+                _currentMode = DivinePowerMode.None;
+                _civButtons.Clear();
+            }));
+            _civButtons.Add(new Button(new Rectangle(x, 362, 220, 30), "Cancel", Color.Gray, () =>
+            {
+                _currentMode = DivinePowerMode.None;
+                _civButtons.Clear();
+            }));
+            return;
+        }
 
         // Build civilization selection buttons
         BuildCivButtons();
@@ -393,7 +436,9 @@ public class DivinePowersUI
         if (_currentMode != DivinePowerMode.None)
         {
             int secPanelX = panelX + PanelWidth + 10;
-            DrawPanel(spriteBatch, secPanelX, panelY, PanelWidth, PanelHeight, "SELECT TARGET");
+            bool armageddon = _currentMode == DivinePowerMode.Armageddon;
+            DrawPanel(spriteBatch, secPanelX, panelY, PanelWidth, PanelHeight, armageddon ? "ARMAGEDDON?" : "SELECT TARGET");
+            if (armageddon) DrawArmageddonWarning(spriteBatch, secPanelX, panelY);
 
             foreach (var button in _civButtons)
             {
@@ -433,43 +478,41 @@ public class DivinePowersUI
         }
     }
 
+    private void DrawArmageddonWarning(SpriteBatch spriteBatch, int x, int y)
+    {
+        var data = CivRenderData.Latest;
+        int powers = data.Civs.Count(c => c.HasNuclearWeapons && c.NuclearWarheads > 0);
+        int warheads = data.Civs.Sum(c => c.NuclearWarheads);
+        int ty = y + 50;
+        var icons = MapIcons.GetShared(_graphicsDevice);
+        spriteBatch.Draw(icons.Trefoil, new Rectangle(x + PanelWidth / 2 - 24, ty, 48, 48), Color.White);
+        ty += 60;
+        string text = "Every nuclear power declares war on its rivals and launches its whole arsenal. " +
+                      "Cities burn, fallout spreads and soot darkens the sky for years (nuclear winter). This cannot be undone.";
+        foreach (var line in UITheme.WrapText(text, PanelWidth - 30, 13f))
+        {
+            UITheme.DrawText(spriteBatch, line, new Vector2(x + 15, ty), UITheme.Text, 13f);
+            ty += 18;
+        }
+        ty += 8;
+        Color c = powers > 0 ? UITheme.Bad : UITheme.TextMuted;
+        UITheme.DrawText(spriteBatch, $"Nuclear powers: {powers}", new Vector2(x + 15, ty), c, 13f);
+        UITheme.DrawText(spriteBatch, $"Warheads: {warheads:N0}", new Vector2(x + 15, ty + 18), c, 13f);
+        if (powers == 0)
+            UITheme.DrawText(spriteBatch, "(no nation has the bomb yet)", new Vector2(x + 15, ty + 38), UITheme.TextMuted, 12f);
+    }
+
     private void DrawPanel(SpriteBatch spriteBatch, int x, int y, int width, int height, string title)
     {
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, height), _panelBgColor);
-
-        // Border
-        DrawBorder(spriteBatch, x, y, width, height, _borderColor, 2);
-
-        // Title
-        _font.DrawString(spriteBatch, title, new Vector2(x + 15, y + 10), _borderColor);
-
-        // Separator
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + 5, y + 35, width - 10, 1), _borderColor);
+        UITheme.DrawTitledPanel(spriteBatch, new Rectangle(x, y, width, height), title, _borderColor, 36);
     }
 
     private void DrawButton(SpriteBatch spriteBatch, Rectangle bounds, string text, Color color)
     {
-        // Button background
-        spriteBatch.Draw(_pixelTexture, bounds, new Color(color, 0.7f));
-
-        // Button border
-        DrawBorder(spriteBatch, bounds.X, bounds.Y, bounds.Width, bounds.Height, Color.White, 1);
-
-        // Button text
-        var textSize = _font.MeasureString(text);
-        // Scale down text if too wide
-        if (textSize.X > bounds.Width - 10)
-        {
-            // Simple workaround since font renderer doesn't support scaling yet: truncate
-            // Or just let it overflow slightly/clip
-        }
-
-        var textPos = new Vector2(
-            bounds.X + (bounds.Width - textSize.X) / 2,
-            bounds.Y + (bounds.Height - textSize.Y) / 2
-        );
-        _font.DrawString(spriteBatch, text, textPos, Color.White);
+        bool hovered = bounds.Contains(Microsoft.Xna.Framework.Input.Mouse.GetState().Position);
+        string fitted = UITheme.Ellipsize(text, bounds.Width - 14, UITheme.FontNormal);
+        UITheme.DrawButton(spriteBatch, bounds, fitted, hovered, false, color);
+        spriteBatch.Draw(_pixelTexture, new Rectangle(bounds.X + 6, bounds.Bottom - 3, bounds.Width - 12, 2), color * (hovered ? 1f : 0.65f));
     }
 
     private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
@@ -537,5 +580,6 @@ public enum DivinePowerMode
     Curse,
     ForceAlliance,
     ForceWar,
-    AdvanceCivilization
+    AdvanceCivilization,
+    Armageddon
 }

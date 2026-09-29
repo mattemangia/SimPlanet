@@ -56,6 +56,11 @@ public class AtmosphereSimulator
                 {
                     oxygenChange += cell.Biomass * 1.0f * deltaTime;
                 }
+                else if (cell.LifeType == LifeForm.Civilization)
+                {
+                    // Fields, pastures and woodlands around settlements still photosynthesize
+                    oxygenChange += cell.Biomass * 0.8f * (1f - cell.HumanFootprint) * deltaTime;
+                }
 
                 // Animals consume oxygen
                 if (cell.LifeType == LifeForm.SimpleAnimals ||
@@ -108,6 +113,11 @@ public class AtmosphereSimulator
                 {
                     co2Change -= cell.Biomass * 0.6f * deltaTime;
                 }
+                else if (cell.LifeType == LifeForm.Civilization)
+                {
+                    // Farmland and managed forests keep absorbing CO2 unless built over
+                    co2Change -= cell.Biomass * 0.5f * (1f - cell.HumanFootprint) * deltaTime;
+                }
 
                 // Respiration produces CO2
                 if (cell.Biomass > 0)
@@ -122,10 +132,10 @@ public class AtmosphereSimulator
                     co2Change += cell.Biomass * 0.2f * deltaTime;
                 }
 
-                // Civilization produces lots of CO2
+                // Civilization produces CO2 according to its industrial footprint
                 if (cell.LifeType == LifeForm.Civilization)
                 {
-                    co2Change += cell.Biomass * 2.0f * deltaTime;
+                    co2Change += cell.Biomass * 2.0f * cell.HumanFootprint * deltaTime;
                 }
 
                 // Volcanic activity (simplified - hot spots)
@@ -182,7 +192,7 @@ public class AtmosphereSimulator
                 // Civilization activities (agriculture, livestock, fossil fuels)
                 if (cell.LifeType == LifeForm.Civilization)
                 {
-                    ch4Change += cell.Biomass * 0.8f * deltaTime;
+                    ch4Change += cell.Biomass * 0.8f * cell.HumanFootprint * deltaTime;
                 }
 
                 // Volcanic emissions
@@ -221,32 +231,35 @@ public class AtmosphereSimulator
                 var cell = _map.Cells[x, y];
                 float n2oChange = 0;
 
+                // Rates are per second of game time (10 per game year). Natural sources balance
+                // a ~120-year atmospheric lifetime around the pre-industrial level (~0.25).
+
                 // Soil microbial processes (nitrification and denitrification)
                 if (cell.IsLand && cell.Biomass > 0.3f && cell.Humidity > 0.4f)
                 {
-                    n2oChange += 0.03f * cell.Biomass * deltaTime;
+                    n2oChange += 0.0003f * cell.Biomass * deltaTime;
                 }
 
-                // Agricultural fertilizer use
+                // Agricultural fertilizer use scales with how industrial the farming is
                 if (cell.LifeType == LifeForm.Civilization && cell.Biomass > 0.5f)
                 {
-                    n2oChange += 0.25f * cell.Biomass * deltaTime;
+                    n2oChange += 0.003f * cell.Biomass * cell.HumanFootprint * deltaTime;
                 }
 
-                // Ocean production (particularly oxygen-minimum zones)
-                if (cell.IsWater && cell.Oxygen < 30)
+                // Ocean production (oxygen-minimum zones)
+                if (cell.IsWater)
                 {
-                    n2oChange += 0.05f * deltaTime;
+                    n2oChange += 0.0002f * deltaTime;
                 }
 
-                // Combustion processes
+                // Combustion processes (fires, eruptions, burning cities)
                 if (cell.Temperature > 150)
                 {
-                    n2oChange += 0.05f * deltaTime;
+                    n2oChange += 0.005f * deltaTime;
                 }
 
-                // Very slow atmospheric breakdown (120-year lifetime)
-                n2oChange -= cell.NitrousOxide * 0.0001f * deltaTime;
+                // Stratospheric photolysis: ~120-year lifetime
+                n2oChange -= cell.NitrousOxide * deltaTime / (120f * GameState.SecondsPerGameYear);
 
                 cell.NitrousOxide = Math.Clamp(cell.NitrousOxide + n2oChange, 0, 100);
             }
@@ -541,38 +554,63 @@ public class AtmosphereSimulator
     // This eliminates a redundant 28,800-cell scan every frame (240x120 map)
     // Global stats are now calculated once per second in a single combined pass
 
+    private float[] _mixValues = Array.Empty<float>();
+    private float[] _mixResults = Array.Empty<float>();
+
     private void MixAtmosphere(Func<TerrainCell, float> getValue, Action<TerrainCell, float> setValue, float deltaTime)
     {
-        var newValues = new float[_map.Width, _map.Height];
-
-        for (int x = 0; x < _map.Width; x++)
+        int width = _map.Width;
+        int height = _map.Height;
+        if (_mixValues.Length != width * height)
         {
-            for (int y = 0; y < _map.Height; y++)
+            _mixValues = new float[width * height];
+            _mixResults = new float[width * height];
+        }
+
+        // Snapshot the gas concentration once per cell
+        var values = _mixValues;
+        var results = _mixResults;
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
             {
-                var cell = _map.Cells[x, y];
-                float currentValue = getValue(cell);
+                values[y * width + x] = getValue(_map.Cells[x, y]);
+            }
+        }
 
-                // Diffusion mixing with neighbors
-                float neighborAvg = 0;
+        // Base diffusion mixing (faster rate for better atmospheric circulation)
+        float diffusionRate = 0.15f * deltaTime;
+
+        Parallel.For(0, width, x =>
+        {
+            int left = (x - 1 + width) % width;
+            int right = (x + 1) % width;
+
+            for (int y = 0; y < height; y++)
+            {
+                float currentValue = values[y * width + x];
+
+                // Diffusion mixing with the 8 neighbours (wrapping horizontally)
+                float neighborSum = 0;
                 int count = 0;
-
-                foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+                for (int ny = y - 1; ny <= y + 1; ny++)
                 {
-                    neighborAvg += getValue(neighbor);
-                    count++;
+                    if (ny < 0 || ny >= height) continue;
+                    int row = ny * width;
+                    neighborSum += values[row + left] + values[row + right];
+                    count += 2;
+                    if (ny != y)
+                    {
+                        neighborSum += values[row + x];
+                        count++;
+                    }
                 }
 
-                if (count > 0)
-                {
-                    neighborAvg /= count;
-                }
-
-                // Base diffusion mixing (faster rate for better atmospheric circulation)
-                float diffusionRate = 0.15f * deltaTime;
+                float neighborAvg = count > 0 ? neighborSum / count : 0;
                 float diffusedValue = currentValue + (neighborAvg - currentValue) * diffusionRate;
 
                 // Wind-driven advection (gases carried by wind)
-                var met = cell.GetMeteorology();
+                var met = _map.Cells[x, y].GetMeteorology();
                 float windTransport = 0;
 
                 // Calculate wind direction and fetch upwind gas concentration
@@ -584,10 +622,10 @@ public class AtmosphereSimulator
 
                     if (windDx != 0 || windDy != 0)
                     {
-                        int upwindX = (x + windDx + _map.Width) % _map.Width;
-                        int upwindY = Math.Clamp(y + windDy, 0, _map.Height - 1);
+                        int upwindX = (x + windDx + width) % width;
+                        int upwindY = Math.Clamp(y + windDy, 0, height - 1);
 
-                        float upwindValue = getValue(_map.Cells[upwindX, upwindY]);
+                        float upwindValue = values[upwindY * width + upwindX];
                         float windSpeed = MathF.Sqrt(met.WindSpeedX * met.WindSpeedX + met.WindSpeedY * met.WindSpeedY);
 
                         // Transport rate proportional to wind speed
@@ -596,16 +634,16 @@ public class AtmosphereSimulator
                     }
                 }
 
-                newValues[x, y] = Math.Clamp(diffusedValue + windTransport, 0, 100);
+                results[y * width + x] = Math.Clamp(diffusedValue + windTransport, 0, 100);
             }
-        }
+        });
 
         // Apply new values
-        for (int x = 0; x < _map.Width; x++)
+        for (int x = 0; x < width; x++)
         {
-            for (int y = 0; y < _map.Height; y++)
+            for (int y = 0; y < height; y++)
             {
-                setValue(_map.Cells[x, y], newValues[x, y]);
+                setValue(_map.Cells[x, y], results[y * width + x]);
             }
         }
     }
