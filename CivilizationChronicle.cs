@@ -14,6 +14,37 @@ public partial class CivilizationManager
     /// </summary>
     public static bool LogChronicleToConsole { get; set; } = false;
 
+    private readonly List<Vehicle> _vehicles = new();
+    private readonly List<MigrationFlow> _migrations = new();
+    private readonly List<AnimalGroup> _animalGroups = new();
+
+    /// <summary>Vehicles currently travelling the transport networks.</summary>
+    public List<Vehicle> GetVehicles()
+    {
+        lock (_civLock)
+        {
+            return _vehicles.ToList();
+        }
+    }
+
+    /// <summary>Migration flows of people during the last few years.</summary>
+    public List<MigrationFlow> GetMigrations()
+    {
+        lock (_civLock)
+        {
+            return _migrations.ToList();
+        }
+    }
+
+    /// <summary>Migrating herds, flocks and schools of wild animals.</summary>
+    public List<AnimalGroup> GetAnimalGroups()
+    {
+        lock (_civLock)
+        {
+            return _animalGroups.ToList();
+        }
+    }
+
     public List<HistoryEvent> GetChronicle()
     {
         lock (_civLock)
@@ -72,7 +103,9 @@ public enum HistoryCategory
     Epidemic,
     Science,
     Space,
-    Politics
+    Politics,
+    Espionage,
+    Migration
 }
 
 public class HistoryEvent

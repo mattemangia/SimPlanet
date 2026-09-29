@@ -2244,6 +2244,14 @@ public class Civilization
     public List<(int x1, int y1, int x2, int y2)> PowerLines { get; set; } = new();
     public List<(int x1, int y1, int x2, int y2)> DataCables { get; set; } = new(); // Backbone and undersea cables
 
+    // Intelligence services
+    public List<SpyNetwork> SpyNetworks { get; set; } = new();   // Networks this nation runs abroad
+    public float CounterIntelligence { get; set; }                // 0-1: ability to catch foreign spies
+    public float IntelligenceBudget { get; set; }                 // Gold per year for spying
+
+    // Transport networks (roads, railways, sea lanes and air routes operated by this nation)
+    public List<TransportRoute> TransportRoutes { get; set; } = new();
+
     // Weapons of mass destruction
     public Arsenal Arsenal { get; set; } = new();
 
@@ -2318,6 +2326,10 @@ public class City
     public int OriginalCivilizationId { get; set; }
 
     public CityType LargestTypeReached { get; set; } = CityType.Village;
+
+    // Character
+    public CitySpecialization Specialization { get; set; } = CitySpecialization.Farming;
+    public CityStyle Style { get; set; } = CityStyle.Stone;
 
     // Infrastructure
     public bool Electrified { get; set; }                 // Connected to the power grid
