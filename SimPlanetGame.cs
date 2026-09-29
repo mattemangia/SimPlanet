@@ -357,6 +357,7 @@ public class SimPlanetGame : Game
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
         _civilizationManager.SetDisasterManager(_disasterManager); // Connect disaster manager for nuclear accidents
+        _civilizationManager.SetGeologicalSimulator(_geologicalSimulator); // Eruptions hit settlements
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);
@@ -1280,6 +1281,9 @@ public class SimPlanetGame : Game
             _civilizationManager.SetDiseaseManager(_diseaseManager);
             _biomeSimulator = new BiomeSimulator(_map, saveData.MapOptions.Seed);
             _disasterManager = new DisasterManager(_map, _geologicalSimulator, saveData.MapOptions.Seed);
+            _civilizationManager.SetWeatherSystem(_weatherSystem);
+            _civilizationManager.SetDisasterManager(_disasterManager);
+            _civilizationManager.SetGeologicalSimulator(_geologicalSimulator);
             _forestFireManager = new ForestFireManager(_map, saveData.MapOptions.Seed);
             _magnetosphereSimulator = new MagnetosphereSimulator(_map, saveData.MapOptions.Seed);
             _ecosystemSimulator = new EcosystemSimulator(_map, _animalEvolutionSimulator, _civilizationManager, saveData.MapOptions.Seed);
@@ -1422,6 +1426,9 @@ public class SimPlanetGame : Game
         _civilizationManager.SetDiseaseManager(_diseaseManager);
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
+        _civilizationManager.SetWeatherSystem(_weatherSystem);
+        _civilizationManager.SetDisasterManager(_disasterManager);
+        _civilizationManager.SetGeologicalSimulator(_geologicalSimulator);
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);

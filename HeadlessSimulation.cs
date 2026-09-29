@@ -165,6 +165,7 @@ public class HeadlessSimulation
         _biomeSimulator = new BiomeSimulator(_map, _mapOptions.Seed);
         _disasterManager = new DisasterManager(_map, _geologicalSimulator, _mapOptions.Seed);
         _civilizationManager.SetDisasterManager(_disasterManager);
+        _civilizationManager.SetGeologicalSimulator(_geologicalSimulator);
         _forestFireManager = new ForestFireManager(_map, _mapOptions.Seed);
         _magnetosphereSimulator = new MagnetosphereSimulator(_map, _mapOptions.Seed);
         _planetStabilizer = new PlanetStabilizer(_map, _magnetosphereSimulator);

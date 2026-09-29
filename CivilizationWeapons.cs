@@ -195,6 +195,7 @@ public partial class CivilizationManager
         if (_disasterManager != null)
         {
             _disasterManager.TriggerNuclearAccident(strikeX, strikeY, currentYear, isWeapon: true);
+            MarkDisasterHandled(DisasterType.NuclearAccident, strikeX, strikeY, currentYear); // Casualties applied below
             _map.SolarEnergy += 0.05f; // Sunlight loss is handled by the nuclear winter model below
         }
 
@@ -276,6 +277,7 @@ public partial class CivilizationManager
         geo.MeltdownRisk = 0f;
 
         _disasterManager?.TriggerNuclearAccident(x, y, currentYear, isWeapon: false);
+        MarkDisasterHandled(DisasterType.NuclearAccident, x, y, currentYear); // Casualties applied below
 
         int dead = 0;
         foreach (var civ in _civilizations)

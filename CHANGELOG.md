@@ -73,6 +73,32 @@ All notable changes to this project will be documented in this file.
   succession. Rulers are named in their people's language.
 - **Headless**: `--doomsday N` starts a global nuclear war in year N.
 
+### The planet strikes back
+
+- Volcanic eruptions, asteroid impacts, tornadoes, floods, torrential rain, acid rain,
+  landslides and civil nuclear accidents now kill and demoralise the people of the settlements
+  they hit; EMPs black out cities. Strong ones are recorded in the chronicle.
+- Settlements swallowed by the sea or buried by advancing ice are evacuated to the nearest safe
+  settlement of the same nation.
+- Refugees: famine and sieges drive people to neighbouring nations with food to spare; friendly
+  hosts grow closer, others resentful.
+- **Instant Peace** divine power: every war ends, armies go home, and no nation may start a war
+  on its own for 30 years.
+
+### Climate and geology fixes
+
+- **Runaway nitrous oxide**: an always-on ocean source and a negligible sink made N2O climb toward
+  its cap on every planet, heating it even without life. N2O now has a ~120-year lifetime and
+  sources calibrated to the pre-industrial level; an empty planet keeps a stable temperature.
+- Industrial civilizations no longer raise the solar energy directly (a hidden extra greenhouse
+  effect that also stopped nuclear winter and the stabilizer from dimming the sun); warming now
+  comes only from the greenhouse gases they emit.
+- Volcanoes need space between them and their number is capped, so plate boundaries no longer
+  fill up with volcano chains; volcano sprites are decluttered on screen.
+- After loading a game or starting a new one, civilizations are again connected to the weather,
+  disaster and geology systems (hurricanes, meltdowns and eruptions affected them only in the
+  first game of a session).
+
 ### Performance
 
 - Faster atmosphere mixing, ocean currents, thermohaline circulation, cyclone eddies and

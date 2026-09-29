@@ -101,6 +101,7 @@ public partial class CivilizationManager
         CheckRebellions(currentYear);
         UpdateDisasterResponse(currentYear);
         ApplyEarthquakeDamage(currentYear);
+        ApplyNaturalHazards(currentYear);
         UpdateSpace(currentYear);
         CheckForEpidemics(currentYear);
         UpdatePolitics(currentYear);
@@ -1923,7 +1924,24 @@ public partial class CivilizationManager
                         $"Disaster strikes the {civ.Name}: {casualties:N0} dead", civ.CenterX, civ.CenterY, civ.Id);
                 }
 
-                civ.Population -= casualties;
+                // Evacuation and relief save part of those at risk
+                if (civ.TechLevel >= 50) casualties -= casualties / 3;
+                else if (civ.TechLevel >= 30 && cycloneHits > 0) casualties -= casualties / 5;
+
+                // Deaths are taken from the settlements so later recounts keep them
+                if (civ.Population > 0 && civ.Cities.Count > 0)
+                {
+                    float survival = Math.Clamp(1f - casualties / (float)civ.Population, 0f, 1f);
+                    foreach (var city in civ.Cities)
+                    {
+                        city.Population = (int)(city.Population * survival);
+                    }
+                    RecalculatePopulation(civ);
+                }
+                else
+                {
+                    civ.Population -= casualties;
+                }
                 civ.PopulationLostToDisasters += casualties;
                 civ.DisastersSurvived++;
 
@@ -1954,18 +1972,6 @@ public partial class CivilizationManager
                 civ.Wood *= (1.0f - Math.Min(resourceLoss * 0.5f, 0.8f));
                 civ.Stone *= (1.0f - Math.Min(resourceLoss * 0.3f, 0.5f));
 
-                // Advanced civilizations can evacuate/adapt better
-                if (civ.TechLevel >= 50)
-                {
-                    // Restore some population through disaster relief
-                    civ.Population += casualties / 3;
-                }
-                // Modern weather forecasting helps
-                else if (civ.TechLevel >= 30 && cycloneHits > 0)
-                {
-                    // Can predict and prepare for cyclones
-                    civ.Population += casualties / 5;
-                }
             }
         }
     }
@@ -2119,6 +2125,7 @@ public partial class CivilizationManager
                 {
                     // Trigger meltdown!
                     _disasterManager?.TriggerNuclearAccident(x, y, currentYear);
+                    // Casualties come from the disaster event (see ApplyNaturalHazards)
                     geo.HasNuclearPlant = false; // Plant destroyed
                     geo.MeltdownRisk = 0f;
                 }
