@@ -471,6 +471,27 @@ a cure is found.
 monarchies pass the crown down a line of succession, sometimes to a child under a regent. When a
 royal line dies out, foreign relatives by marriage may go to war to claim the throne.
 
+**City character:** each settlement specializes — farming, fishing, port, mining, timber, trade,
+industry, learning, faith, defence or government — and produces accordingly (ports trade more,
+mines produce stone and metal, university towns research, fortresses resist sieges). Its
+buildings follow its people's tradition and climate; only the great cities of industrial and
+space-age nations are rebuilt in concrete, glass and domes.
+
+**Transport:** roads grow between neighbouring settlements following valleys and passes, busy ones
+become railways, harbours are linked by sea lanes and airports by air routes. You can watch
+caravans, trains, ships and airliners travel them. More traffic means more trade income.
+
+**Migration:** people leave places at war, starving, stricken by plague, disasters or a hostile
+climate, or oppressed by brutal regimes, and move to safe, prosperous places — often abroad.
+Poor nations lose people to rich neighbours; industry draws villagers to the cities.
+
+**Espionage:** nations spy on rivals and enemies: they learn their plans (an advantage in battle),
+steal technology, sabotage buildings, fund unrest and occasionally assassinate rulers. Networks can
+be uncovered, causing scandals and sometimes wars.
+
+**Wildlife:** herds, flocks and schools migrate with the seasons; settlements near their routes
+hunt them for food, and too much hunting wipes them out.
+
 **The Chronicle:** everything important is recorded year by year: new peoples and villages,
 cities growing, wars, battles, conquests, famines, revolutions, treaties.
 

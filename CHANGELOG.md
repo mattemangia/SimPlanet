@@ -73,6 +73,26 @@ All notable changes to this project will be documented in this file.
   succession. Rulers are named in their people's language.
 - **Headless**: `--doomsday N` starts a global nuclear war in year N.
 
+### Cities with character, transport, migrations, espionage and wildlife
+
+- **Every city is different**: each settlement has a specialization — farming, fishing, port,
+  mining, timber, trade, industrial, university town, holy city, fortress or capital — decided
+  by its land, resources and buildings and shaping what it produces, and an architectural style
+  from its people's culture, homeland and era (timber halls, stone and tiles, adobe, stilt
+  houses, pagodas, hill terraces; only the great cities are rebuilt modern or futuristic).
+- **Transport networks**: roads follow the terrain (with tunnels through mountains), busy roads
+  become railways, sea lanes link harbours at home and abroad, air routes link airports.
+  Caravans, trucks, trains, sailing ships, steamships, cargo ships, warships and airliners travel
+  them, and traffic brings trade income. Wars close international routes.
+- **Migrations**: people flee war, famine, epidemics, harsh climate, disasters and persecution —
+  abroad to nations at peace with theirs, or to safer places at home; poor nations lose people to
+  rich neighbours; industrialisation draws villagers to the cities.
+- **Espionage**: nations run spy networks in rivals, enemies and more advanced nations to gather
+  intelligence (an edge in battle), steal technology, sabotage, stir unrest or — rarely —
+  assassinate rulers. Counter-intelligence uncovers them; scandals can lead to war.
+- **Animal migrations**: herds, bird flocks and fish schools travel with the seasons between
+  summer and winter ranges, graze, and feed the settlements along their path.
+
 ### The planet strikes back
 
 - Volcanic eruptions, asteroid impacts, tornadoes, floods, torrential rain, acid rain,
