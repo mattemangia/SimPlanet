@@ -467,6 +467,7 @@ public partial class CivilizationManager
         int settlers = Math.Min((int)(source.Population * 0.3f), 150 + _random.Next(250));
         source.Population -= settlers;
         var village = FoundSettlement(civ, best.x, best.y, settlers, currentYear);
+        RecordMigration(source.X, source.Y, best.x, best.y, settlers, MigrationKind.Settlers, civ.Id, civ.Id, currentYear);
         RecalculatePopulation(civ);
 
         if (civ.Cities.Count <= 12 || _random.NextDouble() < 0.3)
@@ -618,6 +619,13 @@ public partial class CivilizationManager
             // The city centre itself always provides a little
             food += 1.0f;
 
+            // What the city specializes in shapes its output
+            var spec = GetSpecializationBonus(city.Specialization);
+            food *= spec.food;
+            wood *= spec.wood;
+            stone *= spec.industry;
+            metal *= spec.industry;
+
             city.FoodProduction = food;
             city.IndustrialProduction = (stone + metal) * workshopBonus;
 
@@ -629,7 +637,7 @@ public partial class CivilizationManager
             if (city.Has(CityBuilding.Market)) gold *= 2f;
             if (city.Has(CityBuilding.Harbor)) gold += 1f;
             if (city.Coastal || city.NearRiver) gold *= 1.2f;
-            gold *= GetGoldBonus(civ);
+            gold *= GetGoldBonus(civ) * spec.gold;
             city.GoldProduction = gold;
             city.TradeProduction = gold;
 
@@ -639,6 +647,7 @@ public partial class CivilizationManager
                 + (city.Has(CityBuilding.Temple) && civ.TechLevel < 25 ? 0.3f : 0f)
                 + (city.Has(CityBuilding.Market) ? 0.3f : 0f)
                 + (city.IsCapital ? 0.5f : 0f);
+            city.ScienceProduction *= spec.science;
 
             totalFood += food;
             totalWood += wood;
@@ -749,6 +758,7 @@ public partial class CivilizationManager
             // Happiness
             float target = 0.55f
                 + (city.Has(CityBuilding.Temple) ? 0.15f : 0f)
+                + (city.Specialization == CitySpecialization.Holy ? 0.05f : 0f)
                 + (city.Has(CityBuilding.Market) ? 0.05f : 0f)
                 + (city.IsCapital ? 0.1f : 0f)
                 + (civ.Government?.CurrentRuler?.Charisma ?? 0.5f) * 0.1f
@@ -794,6 +804,7 @@ public partial class CivilizationManager
         }
 
         ConstructBuildings(civ, currentYear);
+        AssignCityCharacters(civ);
         RecalculatePopulation(civ);
 
         var capital = civ.Capital;

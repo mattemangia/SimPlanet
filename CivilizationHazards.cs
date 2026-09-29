@@ -30,7 +30,7 @@ public partial class CivilizationManager
         ApplyEruptions(currentYear);
         ApplyDisasterEvents(currentYear);
         ApplySeaAndIce(currentYear);
-        MoveRefugees(currentYear);
+        UpdateMigration(currentYear);
 
         _handledDisasters.RemoveWhere(d => d.year < currentYear - 3);
         _handledEruptions.RemoveWhere(e => e.year < currentYear - 3);
@@ -148,6 +148,7 @@ public partial class CivilizationManager
                 city.Happiness = Math.Max(0f, city.Happiness - unhappiness * intensity);
                 total += dead;
                 hit = true;
+                if (lethality > 0.02f) _citiesHitThisYear.Add(city.Id);
 
                 if (dead > worstDead || worst == null)
                 {
@@ -191,7 +192,11 @@ public partial class CivilizationManager
                     .Where(c => !_map.Cells[c.X, c.Y].IsWater && !_map.Cells[c.X, c.Y].IsIce)
                     .OrderBy(c => WrappedDistance(c.X, c.Y, city.X, city.Y))
                     .FirstOrDefault();
-                if (refuge != null) refuge.Population += survivors;
+                if (refuge != null)
+                {
+                    refuge.Population += survivors;
+                    RecordMigration(city.X, city.Y, refuge.X, refuge.Y, survivors, MigrationKind.ClimateRefugees, civ.Id, civ.Id, currentYear);
+                }
 
                 if (city.IsCapital && civ.Cities.Count > 0)
                 {
@@ -209,79 +214,6 @@ public partial class CivilizationManager
                     AddChronicle(currentYear, HistoryCategory.Disaster,
                         refuge != null ? $"{fate}; its people flee to {refuge.Name}" : fate,
                         city.X, city.Y, civ.Id);
-                }
-            }
-        }
-    }
-
-    #endregion
-
-    #region Refugees
-
-    /// <summary>
-    /// Starving or war-torn peoples flee to neighbouring nations that have food to spare.
-    /// Hosts gain people but resent the influx if relations are poor.
-    /// </summary>
-    private void MoveRefugees(int currentYear)
-    {
-        foreach (var civ in _civilizations.ToList())
-        {
-            var fleeingFrom = civ.Cities
-                .Where(c => c.Starving || (c.UnderSiege && c.SiegeProgress > 0.3f))
-                .ToList();
-            if (fleeingFrom.Count == 0) continue;
-
-            int moved = 0;
-            Civilization? mainHost = null;
-            foreach (var city in fleeingFrom)
-            {
-                int refugees = (int)(city.Population * (city.Starving ? 0.04f : 0.03f));
-                if (refugees < 20) continue;
-
-                // Nearest foreign settlement with room, in a nation that is not the enemy
-                City? destination = null;
-                Civilization? host = null;
-                float best = 25f;
-                foreach (var other in _civilizations)
-                {
-                    if (other.Id == civ.Id || AreAtWar(other.Id, civ.Id)) continue;
-                    if (other.Food < other.FoodConsumption * 0.3f) continue;
-                    foreach (var candidate in other.Cities)
-                    {
-                        if (candidate.Starving || candidate.Population > candidate.Capacity) continue;
-                        float distance = WrappedDistance(candidate.X, candidate.Y, city.X, city.Y);
-                        if (distance < best)
-                        {
-                            best = distance;
-                            destination = candidate;
-                            host = other;
-                        }
-                    }
-                }
-                if (destination == null || host == null) continue;
-
-                city.Population -= refugees;
-                destination.Population += refugees;
-                moved += refugees;
-                mainHost ??= host;
-
-                // Hosts that dislike the refugees' nation grow resentful; friends grow closer
-                if (host.DiplomaticRelations.TryGetValue(civ.Id, out var relation))
-                {
-                    relation.Opinion += relation.Opinion > 20 ? 1f : -2f;
-                }
-            }
-
-            if (moved <= 0) continue;
-            RecalculatePopulation(civ);
-            if (mainHost != null)
-            {
-                RecalculatePopulation(mainHost);
-                if (moved >= 1000)
-                {
-                    AddChronicle(currentYear, HistoryCategory.Famine,
-                        $"{moved:N0} refugees flee the {civ.Name} for the lands of the {mainHost.Name}",
-                        civ.CenterX, civ.CenterY, civ.Id);
                 }
             }
         }

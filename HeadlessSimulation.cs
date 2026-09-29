@@ -430,6 +430,14 @@ public class HeadlessSimulation
             }
         }
         Console.WriteLine($"   Climate: CH4 {ch4 / cells:F3} N2O {n2o / cells:F3} greenhouse {gh / cells:F3} solar {_map.SolarEnergy:F3} land temp {landTemp / Math.Max(1, landCells):F1}C");
+        var allCities = _civilizationManager.Civilizations.SelectMany(c => c.Cities).ToList();
+        var routes = _civilizationManager.Civilizations.SelectMany(c => c.TransportRoutes).ToList();
+        Console.WriteLine($"   Cities by role: {string.Join(" ", allCities.GroupBy(c => c.Specialization).OrderByDescending(g => g.Count()).Select(g => $"{g.Key}:{g.Count()}"))}");
+        Console.WriteLine($"   Cities by style: {string.Join(" ", allCities.GroupBy(c => c.Style).OrderByDescending(g => g.Count()).Select(g => $"{g.Key}:{g.Count()}"))}");
+        Console.WriteLine($"   Routes: {string.Join(" ", routes.GroupBy(r => r.Kind).Select(g => $"{g.Key}:{g.Count()}"))} (international {routes.Count(r => r.International)}) | vehicles: {string.Join(" ", _civilizationManager.GetVehicles().GroupBy(v => v.Kind).Select(g => $"{g.Key}:{g.Count()}"))}");
+        Console.WriteLine($"   Migration (last years): {string.Join(" ", _civilizationManager.GetMigrations().GroupBy(m => m.Kind).Select(g => $"{g.Key}:{g.Sum(m => m.People):N0}"))}");
+        var spies = _civilizationManager.Civilizations.SelectMany(c => c.SpyNetworks).ToList();
+        Console.WriteLine($"   Spy networks: {spies.Count} (agents {spies.Sum(n => n.Agents)}, compromised {spies.Count(n => n.Compromised)}, missions {string.Join(",", spies.GroupBy(n => n.Mission).Select(g => $"{g.Key}:{g.Count()}"))}) | animal groups: {string.Join(" ", _civilizationManager.GetAnimalGroups().GroupBy(g => g.Name).Select(g => $"{g.Key}:{g.Count()}"))}");
         Console.WriteLine($"   People in space: {_civilizationManager.PeopleInSpace} | Nuclear winter: {_civilizationManager.NuclearWinter:F2} | Active diseases: {_diseaseManager.Diseases.Count(d => d.IsActive && !d.CureDeployed)}");
         Console.WriteLine($"Year: {_year} | Speed: {_timeSpeed}x | " +
                           $"Temp: {_map.GlobalTemperature:F1}C | O2: {_map.GlobalOxygen:F1}% | CO2: {_map.GlobalCO2:F2}% | " +

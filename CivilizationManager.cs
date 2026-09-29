@@ -61,6 +61,12 @@ public partial class CivilizationManager
                 _pendingGlobalEmissions = 0;
             }
 
+            // Caravans, trains, ships and airliners travel the transport networks
+            UpdateVehicles(deltaTime);
+
+            // Herds, flocks and schools follow the seasons
+            UpdateAnimalMovement(deltaTime / GameState.SecondsPerGameYear);
+
             // Armies march and fight continuously so wars are visible on the map
             UpdateArmies(deltaTime / GameState.SecondsPerGameYear, currentYear);
             AgeBattleEffects(deltaTime);
@@ -102,6 +108,7 @@ public partial class CivilizationManager
         UpdateDisasterResponse(currentYear);
         ApplyEarthquakeDamage(currentYear);
         ApplyNaturalHazards(currentYear);
+        UpdateWildlife(currentYear);
         UpdateSpace(currentYear);
         CheckForEpidemics(currentYear);
         UpdatePolitics(currentYear);
@@ -268,6 +275,9 @@ public partial class CivilizationManager
         // Energy, power grid, internet, airports and spaceports
         UpdateInfrastructure(civ, currentYear);
 
+        // Roads, railways, sea lanes and air routes
+        UpdateTransport(civ, currentYear);
+
         // National research, economic, space and military programmes
         UpdateNationalProjects(civ, currentYear);
 
@@ -332,25 +342,16 @@ public partial class CivilizationManager
         // Unlock transportation based on tech level
         if (civ.TechLevel >= 5 && !civ.HasLandTransport)
         {
-            civ.HasLandTransport = true; // Horses/domestication
-            BuildRoads(civ, currentYear); // Build basic dirt paths
-        }
-        if (civ.TechLevel == 10 && civ.Cities.Count > 0)
-        {
-            BuildRoads(civ, currentYear); // Upgrade to paved roads
+            civ.HasLandTransport = true; // Horses/domestication (roads are built by the transport network)
         }
         if (civ.TechLevel >= 15 && !civ.HasSeaTransport)
         {
             civ.HasSeaTransport = true; // Ships
         }
-        if (civ.TechLevel == 20 && civ.Cities.Count > 0)
-        {
-            BuildRoads(civ, currentYear); // Upgrade to highways
-        }
+
         if (civ.TechLevel >= 25 && !civ.HasRailTransport)
         {
-            civ.HasRailTransport = true; // Trains/railroads
-            BuildRailroads(civ); // Build railroads connecting cities
+            civ.HasRailTransport = true; // Trains/railroads (railways replace busy roads over time)
         }
         if (civ.TechLevel >= 50 && !civ.HasAirTransport)
         {
@@ -950,43 +951,9 @@ public partial class CivilizationManager
             // Build road at this cell if it's land and in territory
             if (x >= 0 && x < _map.Width && y >= 0 && y < _map.Height)
             {
-                var cell = _map.Cells[x, y];
-                if (cell.IsLand && civ.Territory.Contains((x, y)))
+                if (_map.Cells[x, y].IsLand && civ.Territory.Contains((x, y)))
                 {
-                    // Add to civilization's road network
-                    civ.Roads.Add((x, y));
-
-                    // Mark cell as having a road
-                    var geo = cell.GetGeology();
-                    if (!geo.HasRoad || geo.RoadType < roadType) // Upgrade if better road type
-                    {
-                        geo.HasRoad = true;
-                        geo.RoadType = roadType;
-                        geo.RoadBuiltYear = currentYear;
-
-                        // Check if tunnel is needed for high mountains (tech level 10+)
-                        if (cell.Elevation > 0.7f && civ.TechLevel >= 10)
-                        {
-                            geo.HasTunnel = true;
-                        }
-                        // Check for rockfall risk on mountain slopes (elevation 0.5-0.7)
-                        else if (cell.Elevation > 0.5f && cell.Elevation <= 0.7f)
-                        {
-                            // Calculate slope to neighbors
-                            float maxSlope = 0f;
-                            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
-                            {
-                                float slope = Math.Abs(cell.Elevation - neighbor.Elevation);
-                                maxSlope = Math.Max(maxSlope, slope);
-                            }
-
-                            // Steep slopes (>0.15 elevation difference) are at risk
-                            if (maxSlope > 0.15f)
-                            {
-                                geo.RockfallRisk = true;
-                            }
-                        }
-                    }
+                    PaveCell(civ, x, y, roadType, currentYear);
                 }
             }
 
@@ -1008,6 +975,36 @@ public partial class CivilizationManager
             }
 
             steps++;
+        }
+    }
+
+    /// <summary>
+    /// Lay or upgrade a road on one cell (tunnels through high mountains, rockfall risk on steep slopes).
+    /// </summary>
+    private void PaveCell(Civilization civ, int x, int y, RoadType roadType, int currentYear)
+    {
+        var cell = _map.Cells[x, y];
+        civ.Roads.Add((x, y));
+
+        var geo = cell.GetGeology();
+        if (geo.HasRoad && geo.RoadType >= roadType) return; // Upgrade only if better
+
+        geo.HasRoad = true;
+        geo.RoadType = roadType;
+        geo.RoadBuiltYear = currentYear;
+
+        if (cell.Elevation > 0.7f && civ.TechLevel >= 10)
+        {
+            geo.HasTunnel = true;
+        }
+        else if (cell.Elevation > 0.5f && cell.Elevation <= 0.7f)
+        {
+            float maxSlope = 0f;
+            foreach (var (nx, ny, neighbor) in _map.GetNeighbors(x, y))
+            {
+                maxSlope = Math.Max(maxSlope, Math.Abs(cell.Elevation - neighbor.Elevation));
+            }
+            if (maxSlope > 0.15f) geo.RockfallRisk = true;
         }
     }
 

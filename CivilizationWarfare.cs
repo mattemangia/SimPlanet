@@ -122,6 +122,7 @@ public partial class CivilizationManager
         UpdateWarWeariness();
         ConsiderPeace(currentYear);
         ConsiderWeaponsOfMassDestruction(currentYear);
+        UpdateIntelligence(currentYear);
         RaiseArmies(currentYear);
         PlanArmyMovements();
 
@@ -841,6 +842,7 @@ public partial class CivilizationManager
         float militia = city.Population * 0.06f + 50f;
         float defense = militia * GetTechFactor(owner);
         if (city.Has(CityBuilding.Walls)) defense *= 2.2f;
+        if (city.Specialization == CitySpecialization.Fortress) defense *= 1.3f;
         if (city.OnHighGround) defense *= 1.25f;
         if (city.IsCapital) defense *= 1.2f;
         defense *= 0.8f + city.Happiness * 0.4f;
@@ -1072,8 +1074,8 @@ public partial class CivilizationManager
         var civA = GetCivilizationById(a.CivilizationId)!;
         var civB = GetCivilizationById(b.CivilizationId)!;
 
-        float powerA = GetFieldPower(a, civA);
-        float powerB = GetFieldPower(b, civB);
+        float powerA = GetFieldPower(a, civA) * GetIntelligenceEdge(civA, civB);
+        float powerB = GetFieldPower(b, civB) * GetIntelligenceEdge(civB, civA);
         float shareA = powerA / Math.Max(1f, powerA + powerB);
 
         bool aWins = _random.NextDouble() < Math.Clamp(0.5f + (shareA - 0.5f) * 1.6f, 0.05f, 0.95f);
