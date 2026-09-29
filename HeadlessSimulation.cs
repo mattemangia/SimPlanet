@@ -102,6 +102,7 @@ public class HeadlessSimulation
     private int _seed = 12345;
     private bool _civOnly = false; // --civ-only: skip planetary physics to quickly test societies
     private int _doomsdayYear = -1; // --doomsday N: global nuclear war in year N
+    private int _peaceYear = -1;    // --peace N: divine world peace in year N
 
     private void ParseArguments(string[] args)
     {
@@ -114,6 +115,7 @@ public class HeadlessSimulation
                 case "--civs": int.TryParse(args[i + 1], out _civCount); break;
                 case "--seed": int.TryParse(args[i + 1], out _seed); break;
                 case "--doomsday": int.TryParse(args[i + 1], out _doomsdayYear); break;
+                case "--peace": int.TryParse(args[i + 1], out _peaceYear); break;
                 case "--size":
                     var parts = args[i + 1].Split('x');
                     if (parts.Length == 2 && int.TryParse(parts[0], out int w) && int.TryParse(parts[1], out int h))
@@ -245,6 +247,12 @@ public class HeadlessSimulation
             {
                 _year++;
                 _timeAccumulator -= SecondsPerGameYear;
+            }
+
+            if (_year == _peaceYear)
+            {
+                _peaceYear = -1;
+                _civilizationManager.TriggerWorldPeace(_year);
             }
 
             if (_year == _doomsdayYear)
@@ -394,6 +402,17 @@ public class HeadlessSimulation
             }
         }
 
+        float ch4 = 0, n2o = 0, gh = 0, landTemp = 0; int landCells = 0, cells = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var c = _map.Cells[x, y];
+                ch4 += c.Methane; n2o += c.NitrousOxide; gh += c.Greenhouse; cells++;
+                if (c.IsLand) { landTemp += c.Temperature; landCells++; }
+            }
+        }
+        Console.WriteLine($"   Climate: CH4 {ch4 / cells:F3} N2O {n2o / cells:F3} greenhouse {gh / cells:F3} solar {_map.SolarEnergy:F3} land temp {landTemp / Math.Max(1, landCells):F1}C");
         Console.WriteLine($"   People in space: {_civilizationManager.PeopleInSpace} | Nuclear winter: {_civilizationManager.NuclearWinter:F2} | Active diseases: {_diseaseManager.Diseases.Count(d => d.IsActive && !d.CureDeployed)}");
         Console.WriteLine($"Year: {_year} | Speed: {_timeSpeed}x | " +
                           $"Temp: {_map.GlobalTemperature:F1}C | O2: {_map.GlobalOxygen:F1}% | CO2: {_map.GlobalCO2:F2}% | " +

@@ -85,6 +85,15 @@ public class DivinePowersUI
                 "Armageddon", new Color(200, 30, 20), () => OpenMode(DivinePowerMode.Armageddon)),
 
             new Button(new Rectangle(startX, startY + 9 * (buttonHeight + spacing), buttonWidth, buttonHeight),
+                "Instant Peace", new Color(120, 200, 255), () =>
+                {
+                    _currentMode = DivinePowerMode.None;
+                    _civButtons.Clear();
+                    PeaceRequested?.Invoke();
+                    ShowMessage("All wars end. The nations swear 30 years of peace.");
+                }),
+
+            new Button(new Rectangle(startX, startY + 10 * (buttonHeight + spacing), buttonWidth, buttonHeight),
                 "Close Menu", Color.Gray, () => IsOpen = false)
         };
     }
@@ -94,6 +103,11 @@ public class DivinePowersUI
     /// under the simulation lock.
     /// </summary>
     public Action? ArmageddonRequested { get; set; }
+
+    /// <summary>
+    /// Invoked when the player grants instant world peace. The game runs it under the simulation lock.
+    /// </summary>
+    public Action? PeaceRequested { get; set; }
 
     private void OpenMode(DivinePowerMode mode)
     {

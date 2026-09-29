@@ -316,7 +316,7 @@ public partial class CivilizationManager
                 {
                     if (!AreAtWar(attacker.Id, other.Id))
                     {
-                        DeclareWarBetween(attacker, other, currentYear, "as the missiles fly", callAllies: false);
+                        DeclareWarBetween(attacker, other, currentYear, "as the missiles fly", callAllies: false, byPlayer: true);
                     }
                 }
             }
@@ -341,6 +341,78 @@ public partial class CivilizationManager
             {
                 CheckCivilizationCollapse(civ, currentYear);
             }
+        }
+    }
+
+    /// <summary>Until this year divine peace forbids new wars.</summary>
+    public int DivinePeaceUntilYear { get; private set; } = int.MinValue;
+
+    /// <summary>
+    /// Divine intervention: every war ends at once, without reparations. Nations sign
+    /// non-aggression pacts, armies go home, grudges soften, and no new war can start
+    /// for a generation.
+    /// </summary>
+    public void TriggerWorldPeace(int currentYear, int years = 30)
+    {
+        lock (_civLock)
+        {
+            int warsEnded = 0;
+            var visited = new HashSet<DiplomaticRelation>();
+            foreach (var civ in _civilizations)
+            {
+                foreach (var relation in civ.DiplomaticRelations.Values)
+                {
+                    if (!visited.Add(relation)) continue;
+
+                    if (relation.Status == DiplomaticStatus.War)
+                    {
+                        warsEnded++;
+                    }
+                    relation.Status = DiplomaticStatus.Neutral;
+                    relation.Opinion = Math.Max(relation.Opinion + 30f, 0f);
+                    relation.YearsAtPeace = 0;
+                    if (!relation.HasTreaty(TreatyType.NonAggressionPact))
+                    {
+                        relation.AddTreaty(new Treaty(TreatyType.NonAggressionPact, currentYear, years));
+                    }
+                }
+            }
+
+            foreach (var civ in _civilizations)
+            {
+                civ.AtWar = false;
+                civ.WarTargetId = null;
+                civ.WarWeariness = 0f;
+                civ.Strategy.ConquestTargetId = null;
+                civ.Strategy.ChemicalWeaponsAuthorized = false;
+                if (civ.Strategy.Posture is NationalPosture.Conquer or NationalPosture.Militarize)
+                {
+                    civ.Strategy.Posture = NationalPosture.Develop;
+                    civ.Strategy.PostureSinceYear = currentYear;
+                }
+                foreach (var city in civ.Cities)
+                {
+                    city.UnderSiege = false;
+                    city.SiegeProgress = 0f;
+                }
+                _lastKnownAtWar[civ.Id] = false;
+            }
+
+            foreach (var army in _armies)
+            {
+                var owner = GetCivilizationById(army.CivilizationId);
+                if (army.IsGarrison && owner != null) DisbandGarrison(army, owner);
+                else OrderRetreat(army);
+            }
+            _armies.RemoveAll(a => a.Soldiers < 20);
+            _nuclearAttacks.Clear();
+
+            DivinePeaceUntilYear = currentYear + years;
+            AddChronicle(currentYear, HistoryCategory.Peace,
+                warsEnded > 0
+                    ? $"DIVINE PEACE: {warsEnded} war(s) end at once; the nations swear {years} years of peace"
+                    : $"DIVINE PEACE: the nations swear {years} years of peace",
+                -1, -1, 0);
         }
     }
 

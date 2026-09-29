@@ -158,7 +158,7 @@ public partial class CivilizationManager
                 var target = GetCivilizationById(civ.WarTargetId.Value);
                 if (target != null)
                 {
-                    DeclareWarBetween(civ, target, currentYear, "by decree");
+                    DeclareWarBetween(civ, target, currentYear, "by decree", byPlayer: true);
                 }
             }
             else if (wasAtWar && !civ.AtWar)
@@ -197,6 +197,7 @@ public partial class CivilizationManager
 
     private void ConsiderNewWars(int currentYear)
     {
+        if (currentYear < DivinePeaceUntilYear) return; // The gods have forbidden war
         foreach (var (a, b, border) in GetContactPairs().ToList())
         {
             if (!a.DiplomaticRelations.TryGetValue(b.Id, out var relation)) continue;
@@ -271,8 +272,11 @@ public partial class CivilizationManager
         return tension;
     }
 
-    private void DeclareWarBetween(Civilization aggressor, Civilization victim, int currentYear, string reason, bool callAllies = true)
+    private void DeclareWarBetween(Civilization aggressor, Civilization victim, int currentYear, string reason, bool callAllies = true, bool byPlayer = false)
     {
+        // During a divine peace only the player (or the gods themselves) can start a war
+        if (!byPlayer && currentYear < DivinePeaceUntilYear) return;
+
         if (!aggressor.DiplomaticRelations.TryGetValue(victim.Id, out var relation))
         {
             relation = new DiplomaticRelation(aggressor.Id, victim.Id, currentYear);

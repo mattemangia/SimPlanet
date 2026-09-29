@@ -440,6 +440,7 @@ public class SimPlanetGame : Game
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI.ArmageddonRequested = TriggerArmageddon;
+        _divinePowersUI.PeaceRequested = TriggerWorldPeace;
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
         _plantingTool = new ManualPlantingTool(_map, GraphicsDevice, _font, _mapDataLock, MarkMapVisualsDirty);
         _diseaseControlUI = new DiseaseControlUI(GraphicsDevice, _font, _diseaseManager, _map, _civilizationManager);
@@ -1343,6 +1344,7 @@ public class SimPlanetGame : Game
             _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
             _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
             _divinePowersUI.ArmageddonRequested = TriggerArmageddon;
+            _divinePowersUI.PeaceRequested = TriggerWorldPeace;
             _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
             _graphs = new Graphs(GraphicsDevice, _font, _map, _civilizationManager);
             
@@ -1484,6 +1486,7 @@ public class SimPlanetGame : Game
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI.ArmageddonRequested = TriggerArmageddon;
+        _divinePowersUI.PeaceRequested = TriggerWorldPeace;
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _graphs = new Graphs(GraphicsDevice, _font, _map, _civilizationManager);
 
@@ -2003,6 +2006,15 @@ public class SimPlanetGame : Game
         lock (_mapDataLock)
         {
             _civilizationManager.TriggerGlobalNuclearWar(_gameState.Year);
+        }
+        _terrainRenderer.MarkDirty();
+    }
+
+    private void TriggerWorldPeace()
+    {
+        lock (_mapDataLock)
+        {
+            _civilizationManager.TriggerWorldPeace(_gameState.Year);
         }
         _terrainRenderer.MarkDirty();
     }
