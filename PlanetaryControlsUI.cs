@@ -173,14 +173,39 @@ public class PlanetaryControlsUI
         return new Slider(label, min, max, initial, unit, setter, getter);
     }
 
+    // ---- Layout (shared by Update and Draw) ---------------------------------------------
+
+    private const int ColumnWidth = 320;
+    private const int ColumnGap = 26;
+    private const int PanelPadding = 22;
+    private const int SliderRowHeight = 46;
+    private const int SectionHeaderHeight = 24;
+    private const int SectionGap = 12;
+
+    // Which sliders (by index in _sliders) belong to which titled group, and in which column.
+    private static readonly (string Title, int Column, int First, int Count)[] SliderSections =
+    {
+        ("CLIMATE", 0, 0, 4),
+        ("MAGNETOSPHERE", 0, 13, 2),
+        ("ATMOSPHERE", 1, 4, 3),
+        ("GEOLOGY", 1, 7, 3),
+        ("SURFACE", 2, 10, 3),
+    };
+
+    private readonly List<(string Title, Rectangle Area)> _sectionHeaders = new();
+    private Rectangle _stabilizerCard;
+    private Rectangle _footerDivider;
+
+    private static int ColumnHeight => SectionHeaderHeight * 2 + SliderRowHeight * 6 + SectionGap;
+
     private Rectangle GetPanelBounds()
     {
         int screenWidth = _graphicsDevice.Viewport.Width;
         int screenHeight = _graphicsDevice.Viewport.Height;
-        int panelWidth = 1100;
-        int panelHeight = Math.Max(300, screenHeight - 100);
+        int panelWidth = PanelPadding * 2 + ColumnWidth * 3 + ColumnGap * 2;
+        int panelHeight = UIWidgets.HeaderHeight + 16 + ColumnHeight + 16 + 15 + 32 + 16;
         int panelX = (screenWidth - panelWidth) / 2;
-        int panelY = 50;
+        int panelY = Math.Max(50, (screenHeight - panelHeight) / 2 - 10);
         return new Rectangle(panelX, panelY, panelWidth, panelHeight);
     }
 
@@ -190,8 +215,6 @@ public class PlanetaryControlsUI
 
         bool clicked = mouseState.LeftButton == ButtonState.Pressed &&
                       _previousMouseState.LeftButton == ButtonState.Released;
-        bool released = mouseState.LeftButton == ButtonState.Released &&
-                       _previousMouseState.LeftButton == ButtonState.Pressed;
 
         // Update slider positions and sync values with the current simulation state
         PositionSliders();
@@ -242,86 +265,70 @@ public class PlanetaryControlsUI
         }
     }
 
-    private float CalculateAverageOxygen()
-    {
-        float total = 0f;
-        int count = 0;
-        for (int x = 0; x < _map.Width; x++)
-        {
-            for (int y = 0; y < _map.Height; y++)
-            {
-                total += _map.Cells[x, y].Oxygen;
-                count++;
-            }
-        }
-        return count > 0 ? total / count : 0f;
-    }
-
-    private float CalculateAverageCO2()
-    {
-        float total = 0f;
-        int count = 0;
-        for (int x = 0; x < _map.Width; x++)
-        {
-            for (int y = 0; y < _map.Height; y++)
-            {
-                total += _map.Cells[x, y].CO2;
-                count++;
-            }
-        }
-        return count > 0 ? total / count : 0f;
-    }
-
     private void PositionSliders()
     {
         var panelBounds = GetPanelBounds();
-        int sliderWidth = 240;
-        int sliderHeight = 22;
-        int rowSpacing = 70;
-        int labelSpacing = 18;
-        int columnSpacing = 340;
+        int contentTop = panelBounds.Y + UIWidgets.HeaderHeight + 16;
+        var columnY = new int[] { contentTop, contentTop, contentTop };
 
-        int startX = panelBounds.X + 30;
-        int startY = panelBounds.Y + 110;
-
-        for (int i = 0; i < _sliders.Count; i++)
+        _sectionHeaders.Clear();
+        foreach (var section in SliderSections)
         {
-            int column = i / SlidersPerColumn;
-            int row = i % SlidersPerColumn;
+            int x = panelBounds.X + PanelPadding + section.Column * (ColumnWidth + ColumnGap);
+            int y = columnY[section.Column];
+            _sectionHeaders.Add((section.Title, new Rectangle(x, y, ColumnWidth, SectionHeaderHeight)));
+            y += SectionHeaderHeight;
 
-            int x = startX + (column * columnSpacing);
-            int y = startY + (row * rowSpacing);
-
-            var slider = _sliders[i];
-            slider.Bounds = new Rectangle(x, y + labelSpacing, sliderWidth, sliderHeight);
-            slider.LabelPosition = new Vector2(x, y);
-            slider.HasLabelPosition = true;
+            for (int i = section.First; i < section.First + section.Count && i < _sliders.Count; i++)
+            {
+                var slider = _sliders[i];
+                // The label and value sit on the first line; the track (and its hit area) below
+                slider.Bounds = new Rectangle(x, y + 20, ColumnWidth, 18);
+                slider.LabelPosition = new Vector2(x, y);
+                slider.HasLabelPosition = true;
+                y += SliderRowHeight;
+            }
+            columnY[section.Column] = y + SectionGap;
         }
 
-        // Position buttons at bottom
+        // Stabilizer card fills the rest of the third column
+        int cardX = panelBounds.X + PanelPadding + 2 * (ColumnWidth + ColumnGap);
+        int cardY = columnY[2];
+        _stabilizerCard = new Rectangle(cardX, cardY, ColumnWidth, contentTop + ColumnHeight - cardY);
+
+        // Footer buttons
         _buttons.Clear();
-        int buttonY = panelBounds.Bottom - 50;
-        int buttonWidth = 190;
-        int buttonHeight = 35;
+        int footerY = contentTop + ColumnHeight + 16;
+        _footerDivider = new Rectangle(panelBounds.X + PanelPadding, footerY, panelBounds.Width - PanelPadding * 2, 1);
+        int buttonY = footerY + 15;
+        int buttonWidth = 170;
+        int buttonHeight = 32;
 
         _buttons.Add(new UIButton(
-            new Rectangle(panelBounds.X + 30, buttonY, buttonWidth, buttonHeight),
+            new Rectangle(panelBounds.X + PanelPadding, buttonY, buttonWidth, buttonHeight),
             "Restore Stable",
             () => RestorePlanet()));
 
         _buttons.Add(new UIButton(
-            new Rectangle(panelBounds.X + 250, buttonY, buttonWidth, buttonHeight),
+            new Rectangle(panelBounds.X + PanelPadding + buttonWidth + 12, buttonY, buttonWidth, buttonHeight),
             "Destabilize",
             () => DestabilizePlanet()));
 
+        // Stabilizer switch: the whole row inside the card is clickable
         _buttons.Add(new UIButton(
-            new Rectangle(panelBounds.X + 470, buttonY, buttonWidth, buttonHeight),
-            _stabilizer.IsActive ? "Stabilizer: ON" : "Stabilizer: OFF",
+            new Rectangle(_stabilizerCard.X + 8, _stabilizerCard.Y + 34, _stabilizerCard.Width - 16, 30),
+            "Auto-stabilizer",
             () => _stabilizer.IsActive = !_stabilizer.IsActive));
 
         _buttons.Add(new UIButton(
-            new Rectangle(panelBounds.Right - 210, buttonY, buttonWidth, buttonHeight),
-            "Close (X)",
+            new Rectangle(panelBounds.Right - PanelPadding - 120, buttonY, 120, buttonHeight),
+            "Close",
+            () => IsVisible = false));
+
+        // Close cross in the title bar
+        _buttons.Add(new UIButton(
+            UIWidgets.CloseButtonRect(panelBounds),
+            "",
             () => IsVisible = false));
     }
 
@@ -331,68 +338,61 @@ public class PlanetaryControlsUI
 
         int screenWidth = _graphicsDevice.Viewport.Width;
         int screenHeight = _graphicsDevice.Viewport.Height;
+        PositionSliders();
         var panelBounds = GetPanelBounds();
 
-        // Semi-transparent background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(0, 0, 0, 180));
+        UIWidgets.DrawBackdrop(spriteBatch, screenWidth, screenHeight);
+        UIWidgets.DrawWindow(spriteBatch, panelBounds, "PLANETARY CONTROLS", UITheme.Gold, closeButton: true,
+            note: "Drag a slider to change the whole planet");
 
-        // Panel background
-        spriteBatch.Draw(_pixelTexture, panelBounds,
-            new Color(20, 30, 50, 240));
+        foreach (var header in _sectionHeaders)
+            UIWidgets.DrawSection(spriteBatch, header.Area.X, header.Area.Y, header.Area.Width, header.Title);
 
-        // Panel border
-        DrawBorder(spriteBatch, panelBounds.X, panelBounds.Y, panelBounds.Width, panelBounds.Height, new Color(100, 150, 255), 3);
-
-        // Title
-        _font.DrawString(spriteBatch, "PLANETARY CONTROLS",
-            new Vector2(panelBounds.X + panelBounds.Width / 2 - 150, panelBounds.Y + 15),
-            new Color(255, 200, 50), 1.5f);
-
-        // Subtitle
-        _font.DrawString(spriteBatch, "SimEarth-Style Global Parameter Adjustment",
-            new Vector2(panelBounds.X + panelBounds.Width / 2 - 180, panelBounds.Y + 45),
-            new Color(150, 200, 255), 0.9f);
-
-        // Section headers
-        int headerY = panelBounds.Y + 90;
-        int headerSpacing = 340;
-        _font.DrawString(spriteBatch, "=== CLIMATE ===",
-            new Vector2(panelBounds.X + 30, headerY - 25), Color.Orange, 1.0f);
-        _font.DrawString(spriteBatch, "=== ATMOSPHERE / GEOLOGY ===",
-            new Vector2(panelBounds.X + 30 + headerSpacing, headerY - 25), Color.Cyan, 1.0f);
-        _font.DrawString(spriteBatch, "=== SURFACE & MAGNETOSPHERE ===",
-            new Vector2(panelBounds.X + 30 + (headerSpacing * 2), headerY - 25), Color.Red, 1.0f);
-
-        // Draw sliders
         foreach (var slider in _sliders)
-        {
             DrawSlider(spriteBatch, slider);
-        }
 
-        // Draw buttons
-        foreach (var button in _buttons)
+        DrawStabilizerCard(spriteBatch);
+
+        // Footer
+        UIWidgets.DrawDivider(spriteBatch, _footerDivider.X, _footerDivider.Y, _footerDivider.Width);
+        UIWidgets.DrawActionButton(spriteBatch, _buttons[0].Bounds, _buttons[0].Label, UITheme.Good);
+        UIWidgets.DrawActionButton(spriteBatch, _buttons[1].Bounds, _buttons[1].Label, UITheme.Bad);
+        UIWidgets.DrawButton(spriteBatch, _buttons[3].Bounds, _buttons[3].Label);
+
+        string hint = "Restore: Earth-like values, stabilizer on.  Destabilize: random values, stabilizer off.";
+        int hintX = _buttons[1].Bounds.Right + 16;
+        int hintWidth = _buttons[3].Bounds.X - 16 - hintX;
+        hint = UITheme.Ellipsize(hint, hintWidth, UITheme.FontSmall);
+        var hintSize = UITheme.Measure(hint, UITheme.FontSmall);
+        UITheme.DrawText(spriteBatch, hint,
+            new Vector2(hintX, _buttons[0].Bounds.Y + (_buttons[0].Bounds.Height - hintSize.Y) / 2f),
+            UITheme.TextMuted, UITheme.FontSmall);
+    }
+
+    private void DrawStabilizerCard(SpriteBatch spriteBatch)
+    {
+        var card = _stabilizerCard;
+        UIWidgets.DrawCard(spriteBatch, card);
+        int x = card.X + 12;
+        int width = card.Width - 24;
+        UIWidgets.DrawSection(spriteBatch, x, card.Y + 10, width, "AUTO-STABILIZER", _stabilizer.IsActive ? UITheme.Good : UITheme.TextDim);
+        UIWidgets.DrawToggleRow(spriteBatch, _buttons[2].Bounds,
+            _stabilizer.IsActive ? "Keeping the planet habitable" : "Switched off", _stabilizer.IsActive, emphasised: true);
+
+        int y = _buttons[2].Bounds.Bottom + 10;
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Adjustments made", _stabilizer.AdjustmentsMade.ToString("N0"),
+            _stabilizer.IsActive ? UITheme.Text : UITheme.TextDim, UITheme.FontSmall) - 3;
+        UITheme.DrawText(spriteBatch, "Last action", new Vector2(x, y), UITheme.TextDim, UITheme.FontSmall);
+        y += 17;
+        string action = string.IsNullOrEmpty(_stabilizer.LastAction) ? "None yet" : _stabilizer.LastAction;
+        int maxLines = Math.Max(1, (card.Bottom - 6 - y) / 16);
+        var lines = UITheme.WrapText(action, width, UITheme.FontSmall);
+        for (int i = 0; i < lines.Count && i < maxLines; i++)
         {
-            Color bgColor = button.Bounds.Contains(Mouse.GetState().Position) ?
-                new Color(70, 110, 180) : new Color(40, 60, 100);
-
-            spriteBatch.Draw(_pixelTexture, button.Bounds, bgColor);
-            DrawBorder(spriteBatch, button.Bounds.X, button.Bounds.Y,
-                button.Bounds.Width, button.Bounds.Height, Color.White, 2);
-
-            var textSize = _font.MeasureString(button.Label, 14);
-            _font.DrawString(spriteBatch, button.Label,
-                new Vector2(button.Bounds.X + (button.Bounds.Width - textSize.X) / 2,
-                           button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2),
-                Color.White, 14);
+            string line = i == maxLines - 1 && lines.Count > maxLines ? UITheme.Ellipsize(lines[i] + " more text", width, UITheme.FontSmall) : lines[i];
+            UITheme.DrawText(spriteBatch, line, new Vector2(x, y), _stabilizer.IsActive ? UITheme.Good : UITheme.TextMuted, UITheme.FontSmall);
+            y += 16;
         }
-
-        // Stabilizer status
-        string stabilizerStatus = $"AI Stabilizer: {(_stabilizer.IsActive ? "ACTIVE" : "INACTIVE")} | " +
-                                 $"Last Action: {_stabilizer.LastAction} | Adjustments: {_stabilizer.AdjustmentsMade}";
-        _font.DrawString(spriteBatch, stabilizerStatus,
-            new Vector2(panelBounds.X + 20, panelBounds.Bottom - 85),
-            _stabilizer.IsActive ? Color.LightGreen : Color.Gray, 0.8f);
     }
 
     private void DrawSlider(SpriteBatch spriteBatch, Slider slider)
@@ -401,52 +401,32 @@ public class PlanetaryControlsUI
             ? slider.LabelPosition
             : new Vector2(slider.Bounds.X, slider.Bounds.Y - 20);
 
-        _font.DrawString(spriteBatch, slider.Label,
-            labelPosition, Color.White, 12);
+        bool active = slider.IsDragging || slider.Bounds.Contains(Mouse.GetState().Position);
+        UITheme.DrawText(spriteBatch, slider.Label, labelPosition, active ? UITheme.Text : UITheme.TextDim, UITheme.FontNormal);
 
-        // Slider track
-        spriteBatch.Draw(_pixelTexture, slider.Bounds, new Color(60, 60, 80));
-        DrawBorder(spriteBatch, slider.Bounds.X, slider.Bounds.Y,
-            slider.Bounds.Width, slider.Bounds.Height, Color.Gray, 1);
-
-        // Slider fill
-        float normalizedValue = slider.GetNormalizedValue();
-        int fillWidth = (int)(slider.Bounds.Width * normalizedValue);
-        if (fillWidth > 0)
-        {
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(slider.Bounds.X, slider.Bounds.Y, fillWidth, slider.Bounds.Height),
-                new Color(100, 150, 255, 180));
-        }
-
-        // Slider handle
-        int handleX = slider.Bounds.X + (int)(slider.Bounds.Width * normalizedValue) - 5;
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(handleX, slider.Bounds.Y - 2, 10, slider.Bounds.Height + 4),
-            slider.IsDragging ? Color.Yellow : Color.White);
-
-        // Value display
+        // Value, right-aligned on the label line
         string valueText = FormatSliderValue(slider);
-        Vector2 valuePos = new Vector2(slider.Bounds.X + slider.Bounds.Width + 12, slider.Bounds.Y - 2);
-        var valueSize = _font.MeasureString(valueText, 12);
-        var valueRect = new Rectangle((int)valuePos.X - 4, (int)valuePos.Y - 2,
-            (int)valueSize.X + 8, slider.Bounds.Height + 4);
-        spriteBatch.Draw(_pixelTexture, valueRect, new Color(10, 20, 35, 220));
-        _font.DrawString(spriteBatch, valueText, valuePos, Color.LightGreen, 12);
+        var valueSize = UITheme.Measure(valueText, UITheme.FontNormal);
+        UITheme.DrawText(spriteBatch, valueText,
+            new Vector2(slider.Bounds.Right - valueSize.X, labelPosition.Y),
+            slider.IsDragging ? UITheme.Gold : UITheme.Text, UITheme.FontNormal);
+
+        UIWidgets.DrawSlider(spriteBatch, slider.Bounds, slider.GetNormalizedValue(), slider.IsDragging);
     }
 
     private static string FormatSliderValue(Slider slider)
     {
+        // Ice coverage is stored as a 0..1 fraction
+        if (slider.Unit == "%" && slider.Max <= 1f) return $"{slider.Value * 100f:F0} %";
         string format = slider.Max >= 1000f ? "F0" : "F2";
-        return $"{slider.Value.ToString(format)}{slider.Unit}";
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
+        string number = slider.Value.ToString(format);
+        return slider.Unit switch
+        {
+            "" => number,
+            "x" => number + "x",
+            "%" => number + " %",
+            _ => number + " " + slider.Unit
+        };
     }
 
     // Control implementation methods

@@ -11,7 +11,6 @@ public class DiseaseControlUI
 {
     private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
-    private Texture2D _pixelTexture;
     private readonly DiseaseManager _diseaseManager;
     private readonly PlanetMap _map;
     private readonly CivilizationManager _civManager;
@@ -19,26 +18,36 @@ public class DiseaseControlUI
     private bool _isVisible = false;
     private Disease? _selectedDisease = null;
 
-    // UI panels
+    // UI panels (computed by ComputeLayout, used by both Update and Draw)
     private Rectangle _mainPanel;
     private Rectangle _statsPanel;
     private Rectangle _evolutionPanel;
+    private Rectangle _evolutionView;
     private Rectangle _diseaseSelectorPanel;
+    private Rectangle _closeRect;
+    private Rectangle _createRect;
 
-    // Buttons
-    private List<UIButton> _evolutionButtons = new();
-    private List<UIButton> _actionButtons = new();
-    private UIButton? _closeButton;
-    private UIButton? _createDiseaseButton;
+    // Evolution traits
+    private readonly List<TraitButton> _evolutionButtons = new();
+    private readonly List<(string Title, int Y)> _evolutionCategories = new();
+    private int _evolutionContentHeight;
 
-    // Scroll for evolution traits
+    // Scroll for evolution traits (in rows)
     private int _evolutionScrollOffset = 0;
+    private const int EvolutionRowHeight = 34;
 
     // Create disease modal
     private bool _showCreateDiseaseModal = false;
     private string _newDiseaseName = "Plague";
     private PathogenType _newDiseaseType = PathogenType.Virus;
     private int _selectedOriginCivId = -1;
+
+    private static readonly Color DiseaseAccent = new Color(255, 110, 110);
+    private static readonly string[] PathogenNames = { "Bacteria", "Virus", "Fungus", "Parasite", "Prion", "Bioweapon" };
+    private static readonly string[] PathogenNotes =
+    {
+        "fast, easily cured", "very fast, hard to cure", "slow, mild", "hard to detect", "slow, extremely lethal", "engineered"
+    };
 
     public bool IsVisible
     {
@@ -53,35 +62,111 @@ public class DiseaseControlUI
         _diseaseManager = diseaseManager;
         _map = map;
         _civManager = civManager;
-
-        // Create pixel texture
-        _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
-        _pixelTexture.SetData(new[] { Color.White });
     }
+
+    // ---- Layout ------------------------------------------------------------------------
+
+    private void ComputeLayout(int screenWidth, int screenHeight)
+    {
+        int width = Math.Min(900, screenWidth - 40);
+        int height = Math.Min(650, screenHeight - 130);
+        _mainPanel = new Rectangle((screenWidth - width) / 2, Math.Max(50, (screenHeight - height) / 2 - 10), width, height);
+        _closeRect = UIWidgets.CloseButtonRect(_mainPanel);
+
+        int top = _mainPanel.Y + UIWidgets.HeaderHeight + 12;
+        int bottom = _mainPanel.Bottom - 12;
+        _diseaseSelectorPanel = new Rectangle(_mainPanel.X + 12, top, 250, bottom - top);
+        _createRect = new Rectangle(_diseaseSelectorPanel.X + 10, _diseaseSelectorPanel.Bottom - 42, _diseaseSelectorPanel.Width - 20, 32);
+
+        int rightX = _diseaseSelectorPanel.Right + 12;
+        int rightWidth = _mainPanel.Right - 12 - rightX;
+        _statsPanel = new Rectangle(rightX, top, rightWidth, 190);
+        _evolutionPanel = new Rectangle(rightX, _statsPanel.Bottom + 10, rightWidth, bottom - (_statsPanel.Bottom + 10));
+        _evolutionView = new Rectangle(_evolutionPanel.X + 12, _evolutionPanel.Y + 8, _evolutionPanel.Width - 30, _evolutionPanel.Height - 16);
+    }
+
+    private Rectangle DiseaseRowRect(int index)
+    {
+        return new Rectangle(_diseaseSelectorPanel.X + 10, _diseaseSelectorPanel.Y + 36 + index * 42, _diseaseSelectorPanel.Width - 20, 38);
+    }
+
+    /// <summary>Rows of the disease list that fit above the create button.</summary>
+    private int VisibleDiseaseRows => Math.Max(0, (_createRect.Y - 8 - (_diseaseSelectorPanel.Y + 36)) / 42);
+
+    private readonly struct ModalLayout
+    {
+        public Rectangle Panel { get; init; }
+        public Rectangle Close { get; init; }
+        public Rectangle[] Types { get; init; }
+        public Rectangle[] Civs { get; init; }
+        public Rectangle Create { get; init; }
+        public Rectangle Cancel { get; init; }
+        public int LabelY { get; init; }
+    }
+
+    private const int MaxOriginCivs = 6;
+
+    private ModalLayout GetModalLayout(int screenWidth, int screenHeight)
+    {
+        const int width = 500, rowHeight = 30, rowGap = 4;
+        int rows = PathogenNames.Length;
+        int height = UIWidgets.HeaderHeight + 12 + 22 + rows * (rowHeight + rowGap) + 14 + 34 + 14;
+        var panel = new Rectangle((screenWidth - width) / 2, (screenHeight - height) / 2, width, height);
+        int columnWidth = (width - 16 * 2 - 14) / 2;
+        int labelY = panel.Y + UIWidgets.HeaderHeight + 12;
+        int rowsY = labelY + 22;
+
+        var types = new Rectangle[rows];
+        for (int i = 0; i < rows; i++)
+            types[i] = new Rectangle(panel.X + 16, rowsY + i * (rowHeight + rowGap), columnWidth, rowHeight);
+
+        int civCount = Math.Min(MaxOriginCivs, _civManager.Civilizations.Count);
+        var civs = new Rectangle[civCount];
+        for (int i = 0; i < civCount; i++)
+            civs[i] = new Rectangle(panel.X + 16 + columnWidth + 14, rowsY + i * (rowHeight + rowGap), columnWidth, rowHeight);
+
+        int buttonY = panel.Bottom - 14 - 34;
+        return new ModalLayout
+        {
+            Panel = panel,
+            Close = UIWidgets.CloseButtonRect(panel),
+            Types = types,
+            Civs = civs,
+            Create = new Rectangle(panel.Right - 16 - 190, buttonY, 190, 34),
+            Cancel = new Rectangle(panel.Right - 16 - 190 - 10 - 110, buttonY, 110, 34),
+            LabelY = labelY
+        };
+    }
+
+    // ---- Update ------------------------------------------------------------------------
 
     public void Update(MouseState mouseState, MouseState previousMouseState, KeyboardState keyState)
     {
         if (!_isVisible) return;
 
+        int screenWidth = _graphicsDevice.Viewport.Width;
+        int screenHeight = _graphicsDevice.Viewport.Height;
+        ComputeLayout(screenWidth, screenHeight);
+
         bool clicked = mouseState.LeftButton == ButtonState.Released &&
                       previousMouseState.LeftButton == ButtonState.Pressed;
 
+        // Create disease modal (drawn on top, so it takes all the input)
+        if (_showCreateDiseaseModal)
+        {
+            UpdateCreateDiseaseModal(mouseState, clicked, screenWidth, screenHeight);
+            return;
+        }
+
         // Close button
-        if (_closeButton != null && clicked && _closeButton.Bounds.Contains(mouseState.Position))
+        if (clicked && _closeRect.Contains(mouseState.Position))
         {
             _isVisible = false;
             return;
         }
 
-        // Create disease modal
-        if (_showCreateDiseaseModal)
-        {
-            UpdateCreateDiseaseModal(mouseState, clicked);
-            return;
-        }
-
         // Create disease button
-        if (_createDiseaseButton != null && clicked && _createDiseaseButton.Bounds.Contains(mouseState.Position))
+        if (clicked && _createRect.Contains(mouseState.Position))
         {
             _showCreateDiseaseModal = true;
             _selectedOriginCivId = _civManager.Civilizations.FirstOrDefault()?.Id ?? -1;
@@ -94,435 +179,406 @@ public class DiseaseControlUI
         // Evolution buttons
         if (_selectedDisease != null && !_selectedDisease.CureDeployed)
         {
+            BuildEvolutionButtons();
             foreach (var btn in _evolutionButtons)
             {
-                if (clicked && btn.Bounds.Contains(mouseState.Position) && btn.IsEnabled)
+                if (clicked && btn.Visible && btn.Bounds.Contains(mouseState.Position) && btn.IsEnabled)
                 {
                     // Evolve trait
-                    _diseaseManager.EvolveTrait(_selectedDisease, btn.Tag ?? "");
+                    _diseaseManager.EvolveTrait(_selectedDisease, btn.Tag);
                 }
             }
-        }
 
-        // Scroll
-        int scrollDelta = mouseState.ScrollWheelValue - previousMouseState.ScrollWheelValue;
-        if (scrollDelta != 0 && _evolutionPanel.Contains(mouseState.Position))
-        {
-            _evolutionScrollOffset -= scrollDelta / 120; // Standard mouse wheel unit
-            _evolutionScrollOffset = Math.Max(0, _evolutionScrollOffset);
+            // Scroll
+            int scrollDelta = mouseState.ScrollWheelValue - previousMouseState.ScrollWheelValue;
+            if (scrollDelta != 0 && _evolutionPanel.Contains(mouseState.Position))
+            {
+                _evolutionScrollOffset -= scrollDelta / 120; // Standard mouse wheel unit
+                _evolutionScrollOffset = Math.Clamp(_evolutionScrollOffset, 0, MaxEvolutionScroll);
+            }
         }
     }
 
-    private void UpdateCreateDiseaseModal(MouseState mouseState, bool clicked)
+    private int MaxEvolutionScroll =>
+        Math.Max(0, (int)Math.Ceiling((_evolutionContentHeight - _evolutionView.Height) / (float)EvolutionRowHeight));
+
+    private void UpdateCreateDiseaseModal(MouseState mouseState, bool clicked, int screenWidth, int screenHeight)
     {
-        // Simple modal with pathogen type selection and civilization origin
-        // For now, just create with defaults
-        if (clicked)
+        if (!clicked) return;
+
+        var layout = GetModalLayout(screenWidth, screenHeight);
+
+        // Click outside the modal, on its close button or on Cancel closes it
+        if (!layout.Panel.Contains(mouseState.Position) ||
+            layout.Close.Contains(mouseState.Position) ||
+            layout.Cancel.Contains(mouseState.Position))
         {
-            // Check if clicked outside modal to close
-            var modalBounds = new Rectangle(400, 200, 480, 320);
-            if (!modalBounds.Contains(mouseState.Position))
+            _showCreateDiseaseModal = false;
+            return;
+        }
+
+        // Pathogen type buttons
+        for (int i = 0; i < layout.Types.Length; i++)
+        {
+            if (layout.Types[i].Contains(mouseState.Position))
             {
+                _newDiseaseType = (PathogenType)i;
+            }
+        }
+
+        // Civilization selector
+        int civIndex = 0;
+        foreach (var civ in _civManager.Civilizations.Take(layout.Civs.Length))
+        {
+            if (layout.Civs[civIndex].Contains(mouseState.Position))
+            {
+                _selectedOriginCivId = civ.Id;
+            }
+            civIndex++;
+        }
+
+        // Create button
+        if (layout.Create.Contains(mouseState.Position))
+        {
+            // Create the disease
+            var originCiv = _civManager.Civilizations.FirstOrDefault(c => c.Id == _selectedOriginCivId);
+            if (originCiv != null && originCiv.Territory.Any())
+            {
+                var originCell = originCiv.Territory.First();
+                _selectedDisease = _diseaseManager.CreateDisease(_newDiseaseName, _newDiseaseType, originCell.x, originCell.y);
                 _showCreateDiseaseModal = false;
-                return;
-            }
-
-            // Pathogen type buttons
-            for (int i = 0; i < 6; i++)
-            {
-                var btnBounds = new Rectangle(420, 280 + i * 35, 200, 30);
-                if (btnBounds.Contains(mouseState.Position))
-                {
-                    _newDiseaseType = (PathogenType)i;
-                }
-            }
-
-            // Civilization selector
-            int civIndex = 0;
-            foreach (var civ in _civManager.Civilizations.Take(5))
-            {
-                var civBounds = new Rectangle(640, 280 + civIndex * 35, 200, 30);
-                if (civBounds.Contains(mouseState.Position))
-                {
-                    _selectedOriginCivId = civ.Id;
-                }
-                civIndex++;
-            }
-
-            // Create button
-            var createBounds = new Rectangle(500, 470, 180, 35);
-            if (createBounds.Contains(mouseState.Position))
-            {
-                // Create the disease
-                var originCiv = _civManager.Civilizations.FirstOrDefault(c => c.Id == _selectedOriginCivId);
-                if (originCiv != null && originCiv.Territory.Any())
-                {
-                    var originCell = originCiv.Territory.First();
-                    _selectedDisease = _diseaseManager.CreateDisease(_newDiseaseName, _newDiseaseType, originCell.x, originCell.y);
-                    _showCreateDiseaseModal = false;
-                }
             }
         }
     }
 
     private void UpdateDiseaseSelector(MouseState mouseState, bool clicked)
     {
+        if (!clicked) return;
         int index = 0;
+        int visible = VisibleDiseaseRows;
         foreach (var disease in _diseaseManager.Diseases)
         {
-            var bounds = new Rectangle(_diseaseSelectorPanel.X + 10, _diseaseSelectorPanel.Y + 50 + index * 40, _diseaseSelectorPanel.Width - 20, 35);
-            if (clicked && bounds.Contains(mouseState.Position))
+            if (index >= visible) break;
+            if (DiseaseRowRect(index).Contains(mouseState.Position))
             {
                 _selectedDisease = disease;
+                _evolutionScrollOffset = 0;
             }
             index++;
         }
     }
+
+    // ---- Draw --------------------------------------------------------------------------
 
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (!_isVisible) return;
 
-        // Semi-transparent overlay
-        spriteBatch.Draw(_pixelTexture, new Rectangle(0, 0, screenWidth, screenHeight), new Color(0, 0, 0, 180));
+        ComputeLayout(screenWidth, screenHeight);
 
-        // Calculate panel positions
-        _mainPanel = new Rectangle(50, 50, screenWidth - 100, screenHeight - 100);
-        // Sub-panels start below the title bar
-        _diseaseSelectorPanel = new Rectangle(_mainPanel.X + 12, _mainPanel.Y + 56, 280, _mainPanel.Height - 68);
-        _statsPanel = new Rectangle(_diseaseSelectorPanel.Right + 12, _mainPanel.Y + 56, 400, 250);
-        _evolutionPanel = new Rectangle(_statsPanel.X, _statsPanel.Bottom + 10, _statsPanel.Width, _mainPanel.Bottom - 12 - (_statsPanel.Bottom + 10));
+        UIWidgets.DrawBackdrop(spriteBatch, screenWidth, screenHeight);
+        UIWidgets.DrawWindow(spriteBatch, _mainPanel, "DISEASE CONTROL CENTER", DiseaseAccent, closeButton: true,
+            note: "K to close");
 
-        // Draw create disease modal
-        if (_showCreateDiseaseModal)
-        {
-            DrawCreateDiseaseModal(spriteBatch, screenWidth, screenHeight);
-            return;
-        }
-
-        // Draw main panel background and title
-        UITheme.DrawTitledPanel(spriteBatch, _mainPanel, "DISEASE CONTROL CENTER", new Color(255, 110, 110), 44);
-
-        // Close button
-        _closeButton = new UIButton
-        {
-            Bounds = new Rectangle(_mainPanel.Right - 38, _mainPanel.Y + 8, 28, 28),
-            Label = "X"
-        };
-        DrawButton(spriteBatch, _closeButton, Color.Red);
-
-        // Disease selector panel
         DrawDiseaseSelector(spriteBatch);
 
-        // Selected disease info
         if (_selectedDisease != null)
         {
             DrawStatsPanel(spriteBatch);
-            DrawEvolutionPanel(spriteBatch);
+            DrawEvolutionPanel(spriteBatch, screenWidth, screenHeight);
         }
         else
         {
             // No disease selected - show instructions
-            var msg = "Create a new pandemic or select an active disease";
-            var msgSize = _font.MeasureString(msg, 16);
-            _font.DrawString(spriteBatch, msg,
-                new Vector2(_statsPanel.X + (_statsPanel.Width - msgSize.X) / 2, _statsPanel.Y + 100),
-                new Color(200, 200, 200, 255), 16);
+            var area = new Rectangle(_statsPanel.X, _statsPanel.Y, _statsPanel.Width, _evolutionPanel.Bottom - _statsPanel.Y);
+            UIWidgets.DrawCard(spriteBatch, area);
+            var icons = MapIcons.GetShared(_graphicsDevice);
+            int cy = area.Y + area.Height / 2;
+            spriteBatch.Draw(icons.Biohazard, new Rectangle(area.X + area.Width / 2 - 28, cy - 78, 56, 56), DiseaseAccent * 0.55f);
+            UITheme.DrawTextCentered(spriteBatch, "No disease selected",
+                new Rectangle(area.X, cy - 10, area.Width, 24), UITheme.Text, UITheme.FontLarge);
+            string msg = _diseaseManager.Diseases.Count == 0
+                ? "Create a new pandemic with the button on the left."
+                : "Pick an active disease on the left, or create a new pandemic.";
+            UITheme.DrawTextCentered(spriteBatch, UITheme.Ellipsize(msg, area.Width - 30), new Rectangle(area.X, cy + 20, area.Width, 20),
+                UITheme.TextDim, UITheme.FontNormal);
         }
+
+        if (_showCreateDiseaseModal)
+        {
+            DrawCreateDiseaseModal(spriteBatch, screenWidth, screenHeight);
+        }
+    }
+
+    private static (string Text, Color Color) StatusOf(Disease disease)
+    {
+        if (disease.CureDeployed) return ("CURE DEPLOYED", UITheme.Good);
+        if (disease.IsActive) return ("ACTIVE", UITheme.Bad);
+        return ("ERADICATED", UITheme.TextMuted);
     }
 
     private void DrawDiseaseSelector(SpriteBatch spriteBatch)
     {
-        // Panel background
-        UITheme.DrawPanel(spriteBatch, _diseaseSelectorPanel, UITheme.PanelBgLight, UITheme.Border, shadow: false);
-
-        // Title
-        _font.DrawString(spriteBatch, "Active Diseases", new Vector2(_diseaseSelectorPanel.X + 10, _diseaseSelectorPanel.Y + 10), Color.White, 18);
-
-        // Create disease button
-        _createDiseaseButton = new UIButton
-        {
-            Bounds = new Rectangle(_diseaseSelectorPanel.X + 10, _diseaseSelectorPanel.Y + _diseaseSelectorPanel.Height - 45, _diseaseSelectorPanel.Width - 20, 35),
-            Label = "+ Create Pandemic"
-        };
-        DrawButton(spriteBatch, _createDiseaseButton, new Color(150, 50, 50));
+        var panel = _diseaseSelectorPanel;
+        UIWidgets.DrawCard(spriteBatch, panel);
+        UIWidgets.DrawSection(spriteBatch, panel.X + 10, panel.Y + 10, panel.Width - 20, "ACTIVE DISEASES");
 
         // List diseases
         int index = 0;
+        int visible = VisibleDiseaseRows;
+        int total = _diseaseManager.Diseases.Count;
         foreach (var disease in _diseaseManager.Diseases)
         {
-            var bounds = new Rectangle(_diseaseSelectorPanel.X + 10, _diseaseSelectorPanel.Y + 50 + index * 40, _diseaseSelectorPanel.Width - 20, 35);
-
-            bool isSelected = disease == _selectedDisease;
-            Color bgColor = isSelected ? new Color(80, 40, 40, 200) : new Color(40, 50, 70, 180);
-            Color borderColor = isSelected ? new Color(200, 100, 100) : new Color(100, 120, 140);
-
-            if (disease.IsActive)
-            {
-                borderColor = new Color(255, 100, 100);
-            }
-            if (disease.CureDeployed)
-            {
-                borderColor = new Color(100, 255, 100);
-            }
-
-            spriteBatch.Draw(_pixelTexture, bounds, bgColor);
-            DrawBorder(spriteBatch, bounds.X, bounds.Y, bounds.Width, bounds.Height, borderColor, 1);
-
-            // Disease name and type
-            _font.DrawString(spriteBatch, disease.Name, new Vector2(bounds.X + 5, bounds.Y + 2), Color.White, 14);
-            _font.DrawString(spriteBatch, disease.Type.ToString(), new Vector2(bounds.X + 5, bounds.Y + 18), new Color(180, 180, 180), 11);
-
+            if (index >= visible) break;
+            var status = StatusOf(disease);
+            UIWidgets.DrawListRow(spriteBatch, DiseaseRowRect(index), disease.Name,
+                $"{disease.Type}  -  {status.Text.ToLowerInvariant()}", disease == _selectedDisease, status.Color);
             index++;
         }
+
+        if (total == 0)
+        {
+            UIWidgets.DrawParagraph(spriteBatch, panel.X + 10, panel.Y + 38, panel.Width - 20,
+                "The world is healthy. No pathogen has been released yet.", UITheme.TextMuted);
+        }
+        else if (total > visible)
+        {
+            UITheme.DrawText(spriteBatch, $"+ {total - visible} more", new Vector2(panel.X + 12, _createRect.Y - 20), UITheme.TextMuted, UITheme.FontSmall);
+        }
+
+        UIWidgets.DrawActionButton(spriteBatch, _createRect, "+ Create Pandemic", DiseaseAccent);
     }
 
     private void DrawStatsPanel(SpriteBatch spriteBatch)
     {
         if (_selectedDisease == null) return;
+        var disease = _selectedDisease;
+        var panel = _statsPanel;
+        UIWidgets.DrawCard(spriteBatch, panel);
 
-        // Panel background
-        spriteBatch.Draw(_pixelTexture, _statsPanel, new Color(20, 30, 50, 220));
-        DrawBorder(spriteBatch, _statsPanel.X, _statsPanel.Y, _statsPanel.Width, _statsPanel.Height, new Color(200, 100, 100), 2);
+        int x = panel.X + 14;
+        int width = panel.Width - 28;
+        int y = panel.Y + 12;
 
-        int y = _statsPanel.Y + 10;
+        // Name, pathogen type and status badge
+        var status = StatusOf(disease);
+        var pillSize = UITheme.Measure(status.Text, 11f);
+        int pillWidth = (int)pillSize.X + 16;
+        string name = UITheme.Ellipsize(disease.Name, width - pillWidth - 120, UITheme.FontLarge);
+        UITheme.DrawTextShadowed(spriteBatch, name, new Vector2(x, y), DiseaseAccent, UITheme.FontLarge);
+        float nameWidth = UITheme.Measure(name, UITheme.FontLarge).X;
+        UITheme.DrawText(spriteBatch, disease.Type.ToString(), new Vector2(x + nameWidth + 10, y + 6), UITheme.TextDim, UITheme.FontSmall);
+        UIWidgets.DrawPill(spriteBatch, panel.Right - 14 - pillWidth, y + 3, status.Text, status.Color);
+        y += 34;
 
-        // Disease name
-        _font.DrawString(spriteBatch, _selectedDisease.Name, new Vector2(_statsPanel.X + 10, y), new Color(255, 150, 150), 20);
-        y += 30;
+        // Headline numbers in three tiles
+        int tileGap = 10;
+        int tileWidth = (width - tileGap * 2) / 3;
+        DrawStatTile(spriteBatch, new Rectangle(x, y, tileWidth, 50), "INFECTED", disease.TotalInfected.ToString("N0"), UITheme.Warn);
+        DrawStatTile(spriteBatch, new Rectangle(x + tileWidth + tileGap, y, tileWidth, 50), "DEAD", disease.TotalDeaths.ToString("N0"), UITheme.Bad);
+        DrawStatTile(spriteBatch, new Rectangle(x + (tileWidth + tileGap) * 2, y, tileWidth, 50), "HEALTHY", disease.HealthyRemaining.ToString("N0"), UITheme.Good);
+        y += 62;
 
-        // Status
-        string status = _selectedDisease.CureDeployed ? "CURE DEPLOYED" :
-                       _selectedDisease.IsActive ? "ACTIVE" : "ERADICATED";
-        Color statusColor = _selectedDisease.CureDeployed ? Color.Green :
-                           _selectedDisease.IsActive ? Color.Red : Color.Gray;
-        _font.DrawString(spriteBatch, status, new Vector2(_statsPanel.X + 10, y), statusColor, 16);
-        y += 25;
-
-        // Statistics
-        _font.DrawString(spriteBatch, $"Infected: {_selectedDisease.TotalInfected:N0}", new Vector2(_statsPanel.X + 10, y), new Color(255, 200, 100), 14);
-        y += 20;
-        _font.DrawString(spriteBatch, $"Dead: {_selectedDisease.TotalDeaths:N0}", new Vector2(_statsPanel.X + 10, y), new Color(255, 100, 100), 14);
-        y += 20;
-        _font.DrawString(spriteBatch, $"Healthy: {_selectedDisease.HealthyRemaining:N0}", new Vector2(_statsPanel.X + 10, y), new Color(100, 255, 100), 14);
-        y += 25;
-
-        // Disease traits
-        _font.DrawString(spriteBatch, $"Infectivity: {(_selectedDisease.Infectivity * 100):F0}%", new Vector2(_statsPanel.X + 10, y), Color.White, 12);
-        DrawBar(spriteBatch, new Rectangle(_statsPanel.X + 150, y + 2, 200, 12), _selectedDisease.Infectivity, new Color(255, 200, 100));
-        y += 18;
-
-        _font.DrawString(spriteBatch, $"Severity: {(_selectedDisease.Severity * 100):F0}%", new Vector2(_statsPanel.X + 10, y), Color.White, 12);
-        DrawBar(spriteBatch, new Rectangle(_statsPanel.X + 150, y + 2, 200, 12), _selectedDisease.Severity, new Color(255, 150, 50));
-        y += 18;
-
-        _font.DrawString(spriteBatch, $"Lethality: {(_selectedDisease.Lethality * 100):F0}%", new Vector2(_statsPanel.X + 10, y), Color.White, 12);
-        DrawBar(spriteBatch, new Rectangle(_statsPanel.X + 150, y + 2, 200, 12), _selectedDisease.Lethality, new Color(255, 50, 50));
-        y += 20;
-
-        // Cure progress
-        if (!_selectedDisease.CureDeployed)
-        {
-            _font.DrawString(spriteBatch, $"Cure Progress: {_selectedDisease.GlobalCureProgress:F1}%", new Vector2(_statsPanel.X + 10, y), new Color(100, 255, 200), 14);
-            DrawBar(spriteBatch, new Rectangle(_statsPanel.X + 150, y + 2, 200, 12), _selectedDisease.GlobalCureProgress / 100f, new Color(100, 255, 200));
-        }
+        // Traits and cure progress, two per line
+        int half = (width - 24) / 2;
+        UIWidgets.DrawMeterRow(spriteBatch, x, y, half, "Infectivity", $"{disease.Infectivity * 100:F0} %", disease.Infectivity, new Color(255, 200, 100));
+        UIWidgets.DrawMeterRow(spriteBatch, x + half + 24, y, half, "Severity", $"{disease.Severity * 100:F0} %", disease.Severity, new Color(255, 150, 50));
+        y += 34;
+        UIWidgets.DrawMeterRow(spriteBatch, x, y, half, "Lethality", $"{disease.Lethality * 100:F0} %", disease.Lethality, new Color(255, 80, 70));
+        if (disease.CureDeployed)
+            UIWidgets.DrawMeterRow(spriteBatch, x + half + 24, y, half, "Cure", "deployed", 1f, UITheme.Good);
+        else
+            UIWidgets.DrawMeterRow(spriteBatch, x + half + 24, y, half, "Cure research", $"{disease.GlobalCureProgress:F1} %",
+                disease.GlobalCureProgress / 100f, new Color(100, 230, 200));
     }
 
-    private void DrawEvolutionPanel(SpriteBatch spriteBatch)
+    private static void DrawStatTile(SpriteBatch spriteBatch, Rectangle rect, string label, string value, Color color)
+    {
+        UITheme.FillRounded(spriteBatch, rect, new Color(20, 27, 42, 230));
+        UITheme.OutlineRounded(spriteBatch, rect, UITheme.Border * 0.8f);
+        UITheme.FillRect(spriteBatch, new Rectangle(rect.X + 1, rect.Y + 6, 3, rect.Height - 12), color);
+        UITheme.DrawText(spriteBatch, label, new Vector2(rect.X + 12, rect.Y + 6), UITheme.TextDim, 11f);
+        UITheme.DrawText(spriteBatch, UITheme.Ellipsize(value, rect.Width - 20, UITheme.FontLarge), new Vector2(rect.X + 12, rect.Y + 21), color, UITheme.FontLarge);
+    }
+
+    /// <summary>
+    /// Lays the trait buttons out in a three-column grid under their category captions.
+    /// Called from both Update and Draw so clicks land on what is drawn.
+    /// </summary>
+    private void BuildEvolutionButtons()
+    {
+        _evolutionButtons.Clear();
+        _evolutionCategories.Clear();
+        if (_selectedDisease == null) return;
+        var d = _selectedDisease;
+
+        const int columns = 3, gap = 8;
+        int x0 = _evolutionView.X;
+        int buttonWidth = (_evolutionView.Width - gap * (columns - 1)) / columns;
+        int start = _evolutionView.Y - _evolutionScrollOffset * EvolutionRowHeight;
+        int y = start;
+        int column = 0;
+
+        void Category(string name)
+        {
+            if (column != 0) { y += EvolutionRowHeight; column = 0; }
+            if (_evolutionCategories.Count > 0) y += 6;
+            _evolutionCategories.Add((name, y));
+            y += 22;
+        }
+
+        void Trait(string name, string description, bool available)
+        {
+            var bounds = new Rectangle(x0 + column * (buttonWidth + gap), y, buttonWidth, EvolutionRowHeight - 6);
+            _evolutionButtons.Add(new TraitButton
+            {
+                Bounds = bounds,
+                Label = name.Replace("_", " "),
+                Tag = name,
+                Description = description,
+                IsEnabled = available,
+                Visible = bounds.Y >= _evolutionView.Y && bounds.Bottom <= _evolutionView.Bottom
+            });
+            column++;
+            if (column == columns) { column = 0; y += EvolutionRowHeight; }
+        }
+
+        Category("TRANSMISSION");
+        Trait("Air", "Airborne transmission", !d.TransmissionMethods.HasFlag(TransmissionMethod.Air));
+        Trait("Water", "Waterborne transmission", !d.TransmissionMethods.HasFlag(TransmissionMethod.Water));
+        Trait("Blood", "Blood transmission", !d.TransmissionMethods.HasFlag(TransmissionMethod.Blood));
+        Trait("Livestock", "Animal transmission", !d.TransmissionMethods.HasFlag(TransmissionMethod.Livestock));
+        Trait("Insects", "Insect vectors", !d.TransmissionMethods.HasFlag(TransmissionMethod.Insects));
+
+        Category("SYMPTOMS");
+        Trait("Coughing", "Mild symptoms, increases spread", !d.Symptoms.HasFlag(DiseaseSymptoms.Coughing));
+        Trait("Fever", "Noticeable symptoms", !d.Symptoms.HasFlag(DiseaseSymptoms.Fever));
+        Trait("Pneumonia", "Severe respiratory issues", !d.Symptoms.HasFlag(DiseaseSymptoms.Pneumonia));
+        Trait("Organ_Failure", "Critical organ damage", !d.Symptoms.HasFlag(DiseaseSymptoms.OrganFailure));
+        Trait("Total_Organ_Failure", "Complete system shutdown", !d.Symptoms.HasFlag(DiseaseSymptoms.TotalOrganFailure));
+
+        Category("RESISTANCES");
+        Trait("Cold_Resistance", "Survive in cold climates", d.ColdResistance < 0.99f);
+        Trait("Heat_Resistance", "Survive in hot climates", d.HeatResistance < 0.99f);
+        Trait("Drug_Resistance", "Resist medical treatment", d.DrugResistance < 0.99f);
+
+        Category("ABILITIES");
+        Trait("Hardened_Resurgence", "Can re-infect cured people", !d.HardenedResurgence);
+        Trait("Genetic_Reshuffle", "Delays cure research", !d.GeneticReShuffle);
+        Trait("Total_Organ_Shutdown", "Massively increases lethality", !d.TotalOrganShutdown);
+
+        if (column != 0) y += EvolutionRowHeight;
+        _evolutionContentHeight = y - start;
+    }
+
+    private void DrawEvolutionPanel(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (_selectedDisease == null) return;
 
-        // Panel background
-        spriteBatch.Draw(_pixelTexture, _evolutionPanel, new Color(20, 30, 50, 220));
-        DrawBorder(spriteBatch, _evolutionPanel.X, _evolutionPanel.Y, _evolutionPanel.Width, _evolutionPanel.Height, new Color(150, 100, 200), 2);
-
-        // Title
-        _font.DrawString(spriteBatch, "Evolution", new Vector2(_evolutionPanel.X + 10, _evolutionPanel.Y + 10), new Color(200, 150, 255), 18);
+        UIWidgets.DrawCard(spriteBatch, _evolutionPanel);
 
         if (_selectedDisease.CureDeployed)
         {
-            _font.DrawString(spriteBatch, "Cannot evolve - cure deployed", new Vector2(_evolutionPanel.X + 10, _evolutionPanel.Y + 40), Color.Gray, 14);
+            UIWidgets.DrawSection(spriteBatch, _evolutionView.X, _evolutionView.Y, _evolutionView.Width, "EVOLUTION", UITheme.TextDim);
+            UITheme.DrawText(spriteBatch, "The cure is out: this pathogen can no longer evolve.",
+                new Vector2(_evolutionView.X, _evolutionView.Y + 26), UITheme.TextMuted, UITheme.FontNormal);
             return;
         }
 
-        _evolutionButtons.Clear();
+        _evolutionScrollOffset = Math.Clamp(_evolutionScrollOffset, 0, MaxEvolutionScroll);
+        BuildEvolutionButtons();
 
-        int y = _evolutionPanel.Y + 45 - _evolutionScrollOffset * 30;
-        int x = _evolutionPanel.X + 10;
+        foreach (var category in _evolutionCategories)
+        {
+            if (category.Y >= _evolutionView.Y && category.Y + 18 <= _evolutionView.Bottom)
+                UIWidgets.DrawSection(spriteBatch, _evolutionView.X, category.Y, _evolutionView.Width, category.Title, UITheme.Warn);
+        }
 
-        // Transmission traits
-        AddEvolutionCategory(spriteBatch, "TRANSMISSION", ref y);
-
-        AddEvolutionButton("Air", "Airborne transmission", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Air), ref x, ref y);
-        AddEvolutionButton("Water", "Waterborne transmission", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Water), ref x, ref y);
-        AddEvolutionButton("Blood", "Blood transmission", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Blood), ref x, ref y);
-        AddEvolutionButton("Livestock", "Animal transmission", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Livestock), ref x, ref y);
-        AddEvolutionButton("Insects", "Insect vectors", !_selectedDisease.TransmissionMethods.HasFlag(TransmissionMethod.Insects), ref x, ref y);
-
-        y += 10;
-        AddEvolutionCategory(spriteBatch, "SYMPTOMS", ref y);
-
-        AddEvolutionButton("Coughing", "Mild symptoms, increases spread", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Coughing), ref x, ref y);
-        AddEvolutionButton("Fever", "Noticeable symptoms", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Fever), ref x, ref y);
-        AddEvolutionButton("Pneumonia", "Severe respiratory issues", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.Pneumonia), ref x, ref y);
-        AddEvolutionButton("Organ_Failure", "Critical organ damage", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.OrganFailure), ref x, ref y);
-        AddEvolutionButton("Total_Organ_Failure", "Complete system shutdown", !_selectedDisease.Symptoms.HasFlag(DiseaseSymptoms.TotalOrganFailure), ref x, ref y);
-
-        y += 10;
-        AddEvolutionCategory(spriteBatch, "RESISTANCES", ref y);
-
-        AddEvolutionButton("Cold_Resistance", "Survive in cold climates", _selectedDisease.ColdResistance < 0.99f, ref x, ref y);
-        AddEvolutionButton("Heat_Resistance", "Survive in hot climates", _selectedDisease.HeatResistance < 0.99f, ref x, ref y);
-        AddEvolutionButton("Drug_Resistance", "Resist medical treatment", _selectedDisease.DrugResistance < 0.99f, ref x, ref y);
-
-        y += 10;
-        AddEvolutionCategory(spriteBatch, "ABILITIES", ref y);
-
-        AddEvolutionButton("Hardened_Resurgence", "Can re-infect cured people", !_selectedDisease.HardenedResurgence, ref x, ref y);
-        AddEvolutionButton("Genetic_Reshuffle", "Delays cure research", !_selectedDisease.GeneticReShuffle, ref x, ref y);
-        AddEvolutionButton("Total_Organ_Shutdown", "Massively increases lethality", !_selectedDisease.TotalOrganShutdown, ref x, ref y);
-
-        // Draw all evolution buttons
+        TraitButton? hovered = null;
         foreach (var btn in _evolutionButtons)
         {
-            if (btn.Bounds.Bottom > _evolutionPanel.Y + 40 && btn.Bounds.Y < _evolutionPanel.Bottom - 10)
-            {
-                DrawEvolutionButton(spriteBatch, btn);
-            }
+            if (!btn.Visible) continue;
+            DrawEvolutionButton(spriteBatch, btn);
+            if (!_showCreateDiseaseModal && btn.Bounds.Contains(Mouse.GetState().Position)) hovered = btn;
+        }
+
+        int maxScroll = MaxEvolutionScroll;
+        UIWidgets.DrawScrollBar(spriteBatch,
+            new Rectangle(_evolutionPanel.Right - 9, _evolutionView.Y, 4, _evolutionView.Height),
+            _evolutionScrollOffset, maxScroll, _evolutionView.Height, _evolutionContentHeight);
+
+        if (hovered != null)
+        {
+            string state = hovered.IsEnabled ? "Click to evolve" : "Already evolved";
+            UITheme.DrawTooltip(spriteBatch, $"{hovered.Label}\n{hovered.Description}\n{state}",
+                new Point(hovered.Bounds.Center.X, hovered.Bounds.Y), screenWidth, screenHeight, preferAbove: true);
         }
     }
 
-    private void AddEvolutionCategory(SpriteBatch spriteBatch, string name, ref int y)
+    private void DrawEvolutionButton(SpriteBatch spriteBatch, TraitButton btn)
     {
-        if (y > _evolutionPanel.Y + 35)
+        if (btn.IsEnabled)
         {
-            _font.DrawString(spriteBatch, name, new Vector2(_evolutionPanel.X + 10, y), new Color(255, 200, 100), 15);
+            UIWidgets.DrawActionButton(spriteBatch, btn.Bounds, btn.Label, UITheme.Accent, centered: false, fontSize: 13f);
+            return;
         }
-        y += 25;
-    }
 
-    private void AddEvolutionButton(string name, string description, bool available, ref int x, ref int y)
-    {
-        var btn = new UIButton
-        {
-            Bounds = new Rectangle(x, y, 180, 30),
-            Label = name.Replace("_", " "),
-            Tag = name,
-            IsEnabled = available
-        };
-        _evolutionButtons.Add(btn);
-        y += 35;
-    }
-
-    private void DrawEvolutionButton(SpriteBatch spriteBatch, UIButton btn)
-    {
-        Color bgColor = btn.IsEnabled ? new Color(60, 80, 120, 200) : new Color(40, 40, 40, 150);
-        Color borderColor = btn.IsEnabled ? new Color(120, 150, 200) : new Color(80, 80, 80);
-        Color textColor = btn.IsEnabled ? Color.White : new Color(120, 120, 120);
-
-        spriteBatch.Draw(_pixelTexture, btn.Bounds, bgColor);
-        DrawBorder(spriteBatch, btn.Bounds.X, btn.Bounds.Y, btn.Bounds.Width, btn.Bounds.Height, borderColor, 1);
-
-        _font.DrawString(spriteBatch, btn.Label, new Vector2(btn.Bounds.X + 5, btn.Bounds.Y + 8), textColor, 14);
+        // Already evolved: lit, with a tick, and no longer a button
+        var rect = btn.Bounds;
+        UITheme.FillRounded(spriteBatch, rect, new Color(26, 58, 44, 235));
+        UITheme.OutlineRounded(spriteBatch, rect, UITheme.Good * 0.7f);
+        var c = new Vector2(rect.Right - 16, rect.Y + rect.Height / 2f);
+        UITheme.DrawLine(spriteBatch, c + new Vector2(-5, 0), c + new Vector2(-2, 4), UITheme.Good, 2f);
+        UITheme.DrawLine(spriteBatch, c + new Vector2(-2, 4), c + new Vector2(5, -4), UITheme.Good, 2f);
+        string fitted = UITheme.Ellipsize(btn.Label, rect.Width - 40, 13f);
+        var size = UITheme.Measure(fitted, 13f);
+        UITheme.DrawText(spriteBatch, fitted, new Vector2(rect.X + 14, rect.Y + (rect.Height - size.Y) / 2f), new Color(170, 230, 190), 13f);
     }
 
     private void DrawCreateDiseaseModal(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
-        var modalBounds = new Rectangle(screenWidth / 2 - 240, screenHeight / 2 - 160, 480, 320);
+        var layout = GetModalLayout(screenWidth, screenHeight);
 
-        // Modal background
-        spriteBatch.Draw(_pixelTexture, modalBounds, new Color(30, 40, 60, 250));
-        DrawBorder(spriteBatch, modalBounds.X, modalBounds.Y, modalBounds.Width, modalBounds.Height, new Color(150, 100, 100), 3);
-
-        // Title
-        _font.DrawString(spriteBatch, "Create New Pandemic", new Vector2(modalBounds.X + 20, modalBounds.Y + 15), new Color(255, 150, 150), 20);
-
-        int y = modalBounds.Y + 60;
+        UIWidgets.DrawBackdrop(spriteBatch, screenWidth, screenHeight, 0.5f);
+        UIWidgets.DrawWindow(spriteBatch, layout.Panel, "CREATE NEW PANDEMIC", DiseaseAccent);
 
         // Pathogen type selection
-        _font.DrawString(spriteBatch, "Pathogen Type:", new Vector2(modalBounds.X + 20, y), Color.White, 14);
-        y += 25;
-
-        string[] types = { "Bacteria", "Virus", "Fungus", "Parasite", "Prion", "Bioweapon" };
-        for (int i = 0; i < types.Length; i++)
+        int columnWidth = layout.Types[0].Width;
+        UIWidgets.DrawSection(spriteBatch, layout.Types[0].X, layout.LabelY, columnWidth, "PATHOGEN");
+        for (int i = 0; i < layout.Types.Length; i++)
         {
-            var btnBounds = new Rectangle(modalBounds.X + 20, y, 200, 30);
-            bool isSelected = (PathogenType)i == _newDiseaseType;
-
-            Color bgColor = isSelected ? new Color(100, 60, 60, 220) : new Color(50, 60, 80, 180);
-            Color borderColor = isSelected ? new Color(200, 120, 120) : new Color(100, 120, 140);
-
-            spriteBatch.Draw(_pixelTexture, btnBounds, bgColor);
-            DrawBorder(spriteBatch, btnBounds.X, btnBounds.Y, btnBounds.Width, btnBounds.Height, borderColor, 1);
-            _font.DrawString(spriteBatch, types[i], new Vector2(btnBounds.X + 10, btnBounds.Y + 8), Color.White, 12);
-
-            y += 35;
+            UIWidgets.DrawListRow(spriteBatch, layout.Types[i], PathogenNames[i], PathogenNotes[i], (PathogenType)i == _newDiseaseType);
         }
 
         // Origin civilization
-        y = modalBounds.Y + 60;
-        _font.DrawString(spriteBatch, "Origin:", new Vector2(modalBounds.X + 240, y), Color.White, 14);
-        y += 25;
-
+        int civX = layout.Types[0].Right + 14;
+        UIWidgets.DrawSection(spriteBatch, civX, layout.LabelY, columnWidth, "STARTS IN");
         int civIndex = 0;
-        foreach (var civ in _civManager.Civilizations.Take(5))
+        bool canCreate = false;
+        foreach (var civ in _civManager.Civilizations.Take(layout.Civs.Length))
         {
-            var civBounds = new Rectangle(modalBounds.X + 240, y, 200, 30);
-            bool isSelected = civ.Id == _selectedOriginCivId;
-
-            Color bgColor = isSelected ? new Color(100, 60, 60, 220) : new Color(50, 60, 80, 180);
-            Color borderColor = isSelected ? new Color(200, 120, 120) : new Color(100, 120, 140);
-
-            spriteBatch.Draw(_pixelTexture, civBounds, bgColor);
-            DrawBorder(spriteBatch, civBounds.X, civBounds.Y, civBounds.Width, civBounds.Height, borderColor, 1);
-            _font.DrawString(spriteBatch, civ.Name, new Vector2(civBounds.X + 10, civBounds.Y + 8), Color.White, 12);
-
-            y += 35;
+            bool selected = civ.Id == _selectedOriginCivId;
+            if (selected && civ.Territory.Any()) canCreate = true;
+            UIWidgets.DrawListRow(spriteBatch, layout.Civs[civIndex], civ.Name, null, selected);
             civIndex++;
         }
+        if (civIndex == 0)
+        {
+            UIWidgets.DrawParagraph(spriteBatch, civX, layout.LabelY + 26, columnWidth,
+                "No civilization exists yet. A pandemic needs people to infect.", UITheme.TextMuted);
+        }
 
-        // Create button
-        var createBounds = new Rectangle(modalBounds.X + (modalBounds.Width - 180) / 2, modalBounds.Bottom - 50, 180, 35);
-        spriteBatch.Draw(_pixelTexture, createBounds, new Color(150, 50, 50, 220));
-        DrawBorder(spriteBatch, createBounds.X, createBounds.Y, createBounds.Width, createBounds.Height, new Color(200, 100, 100), 2);
-        var createText = _font.MeasureString("CREATE PANDEMIC", 16);
-        _font.DrawString(spriteBatch, "CREATE PANDEMIC",
-            new Vector2(createBounds.X + (createBounds.Width - createText.X) / 2, createBounds.Y + 8),
-            Color.White, 16);
+        UIWidgets.DrawButton(spriteBatch, layout.Cancel, "Cancel");
+        UIWidgets.DrawActionButton(spriteBatch, layout.Create, "Create Pandemic", DiseaseAccent, enabled: canCreate);
     }
 
-    private void DrawButton(SpriteBatch spriteBatch, UIButton btn, Color color)
-    {
-        bool hovered = btn.Bounds.Contains(Mouse.GetState().Position);
-        UITheme.DrawButton(spriteBatch, btn.Bounds, UITheme.Ellipsize(btn.Label, btn.Bounds.Width - 14), hovered, false, color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(btn.Bounds.X + 6, btn.Bounds.Bottom - 3, btn.Bounds.Width - 12, 2),
-            color * (hovered ? 1f : 0.65f));
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
-    }
-
-    private void DrawBar(SpriteBatch spriteBatch, Rectangle bounds, float value, Color color)
-    {
-        // Background
-        spriteBatch.Draw(_pixelTexture, bounds, new Color(40, 40, 40));
-        // Fill
-        int fillWidth = (int)(bounds.Width * Math.Clamp(value, 0f, 1f));
-        spriteBatch.Draw(_pixelTexture, new Rectangle(bounds.X, bounds.Y, fillWidth, bounds.Height), color);
-        // Border
-        DrawBorder(spriteBatch, bounds.X, bounds.Y, bounds.Width, bounds.Height, new Color(100, 100, 100), 1);
-    }
-
-    private class UIButton
+    private class TraitButton
     {
         public Rectangle Bounds { get; set; }
         public string Label { get; set; } = "";
-        public string? Tag { get; set; }
+        public string Tag { get; set; } = "";
+        public string Description { get; set; } = "";
         public bool IsEnabled { get; set; } = true;
+        public bool Visible { get; set; } = true;
     }
 }
