@@ -1375,6 +1375,7 @@ Start with uninhabitable planet:
 | J | Geological Profile | Subsurface cross-section viewer |
 | L | Life Painter | Paint life forms |
 | Y | Graphs | Planetary statistics graphs |
+| Z | Subsurface 3D | Pick a region and view the crust beneath it as a 3D block (drag: orbit, right-drag/WASD: move, `[` `]`: section, Q/E: rotate, Esc: close) |
 | X | Planetary Controls | Parameter sliders |
 | S | Sediment Viewer | Click ocean to view |
 

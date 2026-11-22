@@ -203,7 +203,7 @@ public class SimPlanetGame : Game
 
         _graphics.ApplyChanges();
 
-        Window.Title = "SimPlanet - Planetary Evolution Simulator";
+        Window.Title = "SimPlanet 2.0 - Planetary Evolution Simulator";
 
         // Initialize non-nullable fields to null! (suppress warning)
         // These are initialized in Initialize() or LoadContent() which run before usage

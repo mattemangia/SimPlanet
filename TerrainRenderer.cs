@@ -1267,8 +1267,9 @@ public partial class TerrainRenderer
             };
 
             // Blend life color with terrain - more prominent for civilizations
+            // Settled land keeps its natural colours: towns, roads and borders show who lives there
             float blend = cell.LifeType == LifeForm.Civilization ?
-                Math.Min(cell.Biomass * 0.7f, 0.6f) :
+                (cell.IsWater ? 0f : Math.Min(cell.Biomass * 0.2f, 0.16f)) :
                 cell.Biomass * 0.5f;
             // Keep the sea readable: marine life only tints the water slightly
             if (cell.IsWater) blend *= 0.3f;

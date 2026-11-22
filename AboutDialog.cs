@@ -19,7 +19,7 @@ public class AboutDialog
     public bool IsVisible { get; set; } = false;
 
     // Version information
-    private const string Version = "1.0.0";
+    private const string Version = "2.0.0";
     private const string GitHubUrl = "https://github.com/mattemangia/SimPlanet";
 
     private Rectangle _closeButtonBounds;

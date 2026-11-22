@@ -2,7 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
-## Latest Changes
+## Version 2.0.0
+
+### Subsurface 3D
+
+- New view (Tools > Subsurface 3D, or `Z`): click a region to see an isometric block of crust.
+  Sections show sediment beds, crust, Moho, mantle, subducting slabs, magma, faults, salt,
+  oil and gas fields, wells and geothermal doublets. Depth is exaggerated near the surface so
+  beds stay visible next to the Moho.
+- Animated from the simulation: plate motion, uplift and subsidence, fault ruptures and slip,
+  P and S waves displacing the surface, eruptions, asteroid impacts, sedimentation.
+- Panels: seismograms of the nearest station, the reflection seismic section of the field in
+  view, and the wireline log (gamma ray, resistivity, sonic) of a clicked well.
+
+### Geology
+
+- Fixed: plate boundary type depended on the game speed, and convergent and divergent were
+  swapped; at normal speed every boundary was treated as a transform fault.
+- Fixed: trenches and mountains grew without limit; land area crept up over time.
+- Fixed: thousands of earthquakes per year, at a rate tied to the frame rate; faults appearing
+  and vanishing at random. Earthquakes are now ruptures along stressed faults.
+- Fixed: new arc volcanoes died without erupting; large eruptions dimmed the sun permanently.
+- Fixed: coal, oil and gas were never generated.
+- Fixed: "ground deformation" from disaster earthquakes was random noise.
+- Mountain belts with an isostatic limit, island arcs, ridges, rifts, sea-floor subsidence,
+  stream-power erosion with transport and deposition, coseismic uplift and subsidence.
+
+### Oil, gas and geothermal
+
+- Reservoirs with trap types; reflection seismic surveys (land crews and vessels); wells,
+  dry holes and offshore platforms; fields deplete.
+- Geothermal plants on high heat flow near volcanoes, plumes and rifts; a new energy source.
+- One stratigraphy model feeds the 3D sections, the synthetic seismics and the well logs.
+
+### Seismology
+
+- Seismograph networks built by scientific nations, recording P and S arrivals from a wave
+  field propagated through a crust whose velocity follows the geology.
+- Epicentre location from S-P times and travel-time tomography (map overlay and 3D sections).
+- SIMD and optional OpenCL compute backend.
+
+### Graphics
+
+- Terrain rendered at screen resolution for the visible area, with procedural relief and sea
+  floor shading; zoom up to 8x.
+- Nation borders with glow, sharper settlements, armies, vehicles and routes.
+
+### Other
+
+- Targets .NET 10.
+- Sandbox start options for the game: `--civs N --start-tech N`.
+- Headless checks: `--geo-report`, `--geo-only`, `--seismo-test`.
+
+## Earlier Changes
 
 ### Living Civilizations: villages, economy, armies and history
 

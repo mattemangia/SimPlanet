@@ -119,7 +119,7 @@ SimPlanet/
 ```
 
 ### Key Technologies
-- **Framework**: .NET 8.0
+- **Framework**: .NET 10.0
 - **Game Engine**: MonoGame 3.8.1 (DesktopGL)
 - **Platform Support**: 100% cross-platform
   - **Windows**: OpenGL 2.1+ (all versions)
@@ -600,7 +600,7 @@ Each life form has specific requirements:
 ## How to Build and Run
 
 ### Prerequisites
-- .NET 8.0 SDK
+- .NET 10.0 SDK
 
 ### Build Commands
 
