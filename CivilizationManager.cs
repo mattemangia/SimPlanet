@@ -166,7 +166,8 @@ public partial class CivilizationManager
                 var cell = _map.Cells[x, y];
 
                 // Intelligence level life can form civilizations
-                if (cell.LifeType == LifeForm.Intelligence &&
+                // (on land: a people cannot found its first village on the open sea)
+                if (cell.LifeType == LifeForm.Intelligence && cell.IsLand && !cell.IsIce &&
                     cell.Biomass > 0.6f &&
                     _random.NextDouble() < 0.01 &&
                     OwnerAt(x, y) == 0 &&

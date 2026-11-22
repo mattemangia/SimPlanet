@@ -158,6 +158,9 @@ public class PlanetStabilizer
         PreventExtremeFeedbacks();
     }
 
+    /// <summary>Set by the game: true where a nation holds the land.</summary>
+    public Func<int, int, bool>? IsClaimed { get; set; }
+
     private static bool IsCivilizationCell(TerrainCell cell)
     {
         return cell.LifeType == LifeForm.Civilization;
@@ -247,7 +250,7 @@ public class PlanetStabilizer
             if (avgCO2 > _maxCO2)
             {
                 // The more CO2 there is, the faster it goes (as rock weathering does in nature)
-                AdjustCO2Globally(-MathF.Min(0.2f, 0.02f + (avgCO2 - _maxCO2) * 0.08f));
+                AdjustCO2Globally(-MathF.Min(0.4f, 0.02f + (avgCO2 - _maxCO2) * 0.25f));
                 LastAction = $"Removing CO2 to cool planet ({reason}: {avgTemp:F1}°C)";
                 gasesHigh = true;
             }
@@ -255,12 +258,13 @@ public class PlanetStabilizer
 
             // The sun is dimmed only when the air is already clean and the planet as a whole is too warm
             // (a local hot spot is handled where it is, by the clamp below, not by darkening the planet)
-            if (!gasesHigh && tempDeviation > 1f && _map.SolarEnergy > 0.6f)
+            // or when clearing the air is not keeping up and the planet is well above its target
+            if ((!gasesHigh || tempDeviation > 3f) && tempDeviation > 1f && _map.SolarEnergy > 0.6f)
             {
                 _map.SolarEnergy -= 0.001f * _responseMultiplier;
                 LastAction = $"Decreasing solar energy ({reason}: {avgTemp:F1}°C)";
             }
-            else if (gasesHigh && _map.SolarEnergy < 1f)
+            else if (gasesHigh && tempDeviation < 2f && _map.SolarEnergy < 1f)
             {
                 // Cooling is being done by clearing the air: give back the sunlight taken earlier
                 _map.SolarEnergy = MathF.Min(1f, _map.SolarEnergy + 0.0004f * _responseMultiplier);
@@ -713,7 +717,9 @@ public class PlanetStabilizer
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
-                if (cell.IsLand && cell.Elevation < 0.2f && !IsCivilizationCell(cell))
+                // Settled land is left alone, and the sea only creeps in from the shore
+                if (cell.IsLand && cell.Elevation < 0.2f && !IsCivilizationCell(cell) && !(IsClaimed?.Invoke(x, y) ?? false) &&
+                    (cell.Elevation > 0.03f || cell.IsCoastal))
                 {
                     cell.Elevation -= elevationChange;
                 }

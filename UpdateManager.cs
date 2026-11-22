@@ -69,6 +69,7 @@ namespace SimPlanet
             _diseaseManager = diseaseManager;
             _ecosystemSimulator = ecosystemSimulator;
             _interconnect = new SimulationInterconnect(map);
+            _planetStabilizer.IsClaimed = _civilizationManager.IsClaimed;
             Petroleum = new PetroleumSystem(map, map.Width * 31 + map.Height);
             Petroleum.Chronicle = (year, text, x, y, civId) =>
                 _civilizationManager.RecordHistory(year, HistoryCategory.Science, text, x, y, civId);

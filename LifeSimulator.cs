@@ -429,12 +429,6 @@ public class LifeSimulator
         {
             for (int y = 0; y < _map.Height; y++)
             {
-                // Tool users and civilizations live on land; the sea keeps its animals
-                if (newLifeType[x, y] >= LifeForm.Intelligence && _map.Cells[x, y].IsWater)
-                {
-                    newLifeType[x, y] = LifeForm.ComplexAnimals;
-                }
-
                 _map.Cells[x, y].Evolution = newEvolution[x, y];
                 _map.Cells[x, y].LifeType = newLifeType[x, y];
                 _map.Cells[x, y].Biomass = newBiomass[x, y];
@@ -481,7 +475,8 @@ public class LifeSimulator
                 break;
 
             case LifeForm.ComplexAnimals:
-                if (cell.Oxygen > 18)
+                // Tool users arise on land
+                if (cell.Oxygen > 18 && cell.IsLand)
                 {
                     evolvedLifeType = LifeForm.Intelligence;
                     evolvedBiomass = 0.2f;

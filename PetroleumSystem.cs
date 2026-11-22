@@ -165,7 +165,6 @@ public sealed class PetroleumSystem
         int placed = 0;
         foreach (var (cell, deposit) in gas)
         {
-            if (rnd.NextDouble() < 0.1) continue; // A little gas stays with the oil it came from
             if (placed++ % 4 == 0) anchor = basin[rnd.Next(basin.Count)];
 
             // Fields form clusters: stay near the anchor, inside the basin
@@ -229,6 +228,7 @@ public sealed class PetroleumSystem
                 var (cx, cy) = reservoir.Cells[0];
                 var seed = _map.Cells[cx, cy].Resources.First(IsHydrocarbon);
                 int radius = 1 + rnd.Next(2);
+                bool seedInForedeep = _map.Cells[cx, cy].Geology.IsForedeep;
                 for (int dy = -radius; dy <= radius; dy++)
                 {
                     int ny = cy + dy;
@@ -241,6 +241,7 @@ public sealed class PetroleumSystem
                         if (dist > radius + 0.3f || rnd.NextDouble() < 0.2) continue;
                         var cell = _map.Cells[nx, ny];
                         if (cell.Elevation > 0.35f) continue; // Basins, not mountains
+                        if (seedInForedeep && !cell.Geology.IsForedeep) continue; // A foredeep field stays in its basin
                         cell.AddResource(new ResourceDeposit(seed.Type, seed.Amount * (0.6f - 0.15f * dist), seed.Concentration, seed.Depth));
                         _reservoirAt[nx, ny] = reservoir.Id + 1;
                         reservoir.Cells.Add((nx, ny));
@@ -277,7 +278,9 @@ public sealed class PetroleumSystem
             reservoir.DepthKm = 1.2f + depth * 3.3f;
             reservoir.ThicknessKm = 0.15f + 0.25f * (float)rnd.NextDouble();
             reservoir.Trap = nearFault ? TrapType.FaultTrap : (TrapType)(new[] { 0, 0, 2, 3 }[rnd.Next(4)]);
-            reservoir.InForedeep = reservoir.Cells.Count(c => _map.Cells[c.x, c.y].Geology.IsForedeep) * 2 >= reservoir.Cells.Count;
+            // A field belongs to the foredeep when that is where its gas sits
+            var gasCells = reservoir.Cells.Where(c => _map.Cells[c.x, c.y].Resources.Exists(d => d.Type == ResourceType.NaturalGas)).ToList();
+            reservoir.InForedeep = gasCells.Count > 0 && gasCells.Count(c => _map.Cells[c.x, c.y].Geology.IsForedeep) * 2 >= gasCells.Count;
             if (reservoir.InForedeep)
             {
                 // Folds and thrusts at the front of the belt make the traps; the thick fill buries them deep

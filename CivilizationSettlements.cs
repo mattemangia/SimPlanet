@@ -90,6 +90,9 @@ public partial class CivilizationManager
         return _borders.GetValueOrDefault(key);
     }
 
+    /// <summary>True where a nation holds the land (other systems must not flood or bury it).</summary>
+    public bool IsClaimed(int x, int y) => OwnerAt(x, y) > 0;
+
     private int OwnerAt(int x, int y)
     {
         if (_owner == null) return IsCellInCivilization(x, y) ? -1 : 0;

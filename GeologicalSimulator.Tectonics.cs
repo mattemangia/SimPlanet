@@ -434,7 +434,10 @@ public partial class GeologicalSimulator
                     case TectonicMode.Foredeep:
                     {
                         // Flexural subsidence keeps making room; the range next door keeps filling it
-                        rate = -0.35f * weight * Math.Clamp((elevation + 0.14f) / 0.3f, 0f, 1f);
+                        // On land the fill keeps pace and the trough stays a low plain (a Po plain, not a
+                        // drowned one); where it is already under the sea it stays a shallow gulf
+                        float floor = elevation > 0.02f ? 0.03f : -0.14f;
+                        rate = -0.35f * weight * Math.Clamp((elevation - floor) / 0.3f, 0f, 1f);
                         load = 0.25f * weight;
                         geo.SedimentaryRock = MathF.Min(5f, geo.SedimentaryRock + 0.004f * weight * scale * deltaTime);
                         _depositAcc[x, y] += 0.00004f * weight * scale * deltaTime;
@@ -676,6 +679,8 @@ public partial class GeologicalSimulator
                 // Stream power: steeper, wetter and higher ground wears down faster
                 float erosion = k * (0.00001f + 0.012f * drop) * power * cell.Elevation / (0.5f + geo.RockHardness);
                 erosion = MathF.Min(erosion, MathF.Min(drop * 0.25f, 0.02f));
+                // Sea level is the base level: rivers cannot cut land down below it
+                erosion = MathF.Min(erosion, MathF.Max(0f, cell.Elevation - 0.015f));
                 if (erosion > 0f)
                 {
                     cell.Elevation -= erosion;

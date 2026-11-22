@@ -103,6 +103,7 @@ public sealed class GeothermalSystem
             {
                 plant.Progress = 1f;
                 plant.Producing = true;
+                if (Perf.Enabled) Console.WriteLine($"[geothermal] plant {plant.Id} producing at {plant.X},{plant.Y}");
                 var owner = civilizations.FirstOrDefault(c => c.Id == plant.CivId);
                 Chronicle?.Invoke(year, $"{owner?.Name ?? "A nation"} opens a geothermal power plant on {plant.ReservoirTempC:F0} C rock", plant.X, plant.Y, plant.CivId);
             }

@@ -77,6 +77,11 @@ All notable changes to this project will be documented in this file.
 - Epicentres are located by fitting P and S arrival times with free velocities.
 - Subsurface 3D: Quake, Erupt and Impact buttons cause the event in the block being viewed.
 - `SIMPLANET_PERF=1` prints timings; headless `--save-test` checks a save/load round trip.
+- Fixed: new civilizations could arise on the open sea and drown at once; intelligence and
+  first villages now need land. Erosion no longer cuts land below sea level, land foredeeps
+  stay above it, and the stabilizer does not flood land a nation holds.
+- All the in-game panels (planet controls, disasters, diseases, divine powers, tools, profile
+  viewer, about, civilization control) share one set of themed controls.
 
 ### Other
 
