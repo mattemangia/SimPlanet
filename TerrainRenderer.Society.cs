@@ -60,6 +60,8 @@ public partial class TerrainRenderer
     /// <summary>Computes the colour of each nation for the current society view.</summary>
     private void PrepareSocietyView()
     {
+        UpdateBorderOverlay();
+        UpdateNationLabelAnchors();
         _nationTint.Clear();
         _plantSites.Clear();
         _nationAnchor.Clear();
@@ -79,9 +81,9 @@ public partial class TerrainRenderer
         foreach (var (id, s) in sums)
         {
             float cx = (float)(s.sx / s.n);
-            // Territories wrapping around the map seam would average to the middle: fall back to the centre
-            var civ = CivData.FindCiv(id);
-            if (civ != null && Math.Abs(cx - civ.Value.CenterX) > w / 4f) cx = civ.Value.CenterX;
+            // Territories wrapping around the map seam would average to the middle of the map:
+            // use the seam-safe centre of mass instead
+            if (_nationLabels.TryGetValue(id, out var label)) cx = label.X;
             _nationAnchor[id] = new Vector2(cx, s.maxY + 1);
         }
 
@@ -241,7 +243,7 @@ public partial class TerrainRenderer
         for (int i = 1; i <= segments; i++)
         {
             var p = Bezier(a, c, b, i / (float)segments);
-            UITheme.DrawLine(sb, prev, p, color, thickness);
+            MapGfx.Line(sb, prev, p, color, thickness);
             prev = p;
         }
     }
@@ -256,8 +258,8 @@ public partial class TerrainRenderer
             var p = Bezier(a, c, b, i / (float)segments);
             if ((i + phase) % 2 == 0)
             {
-                UITheme.DrawLine(sb, prev, p, Color.Black * 0.45f, thickness + 1.5f);
-                UITheme.DrawLine(sb, prev, p, color, thickness);
+                MapGfx.Line(sb, prev, p, Color.Black * 0.45f, thickness + 1.5f);
+                MapGfx.Line(sb, prev, p, color, thickness);
             }
             prev = p;
         }
@@ -278,6 +280,8 @@ public partial class TerrainRenderer
 
     private void DrawSocietyUnderlay(SpriteBatch sb, CivRenderData data, int offsetX, int offsetY, Rectangle clip, float iconScale, float time)
     {
+        MapGfx.Ensure(_graphicsDevice);
+        DrawTerritoryOverlay(sb, offsetX, offsetY);
         switch (Mode)
         {
             case RenderMode.Electricity:
@@ -307,15 +311,15 @@ public partial class TerrainRenderer
         {
             ForEachLinkSegment(l.X1, l.Y1, l.X2, l.Y2, offsetX, offsetY, clip, (a, b) =>
             {
-                UITheme.DrawLine(sb, a, b, Color.Black * 0.5f, 3.5f);
-                UITheme.DrawLine(sb, a, b, col * 0.25f, 6f);
-                UITheme.DrawLine(sb, a, b, col, 1.6f);
+                MapGfx.Line(sb, a, b, Color.Black * 0.5f, 3.5f);
+                MapGfx.Line(sb, a, b, col * 0.25f, 6f);
+                MapGfx.Line(sb, a, b, col, 1.6f);
                 float len = Vector2.Distance(a, b);
                 if (len < 4) return;
                 var dir = (b - a) / len;
                 // Pylons
                 for (float t = 8; t < len - 4; t += 16)
-                    sb.Draw(_pixelTexture, new Rectangle((int)(a.X + dir.X * t) - 1, (int)(a.Y + dir.Y * t) - 1, 3, 3), new Color(60, 50, 30));
+                    MapGfx.Dot(sb, a + dir * t, 1.8f, new Color(60, 50, 30));
                 // Current flowing along the line
                 float phase = (time * 40f + (l.X1 * 7 + l.Y1 * 13)) % Math.Max(1f, len);
                 UITheme.DrawGlow(sb, a + dir * phase, 5f, new Color(255, 250, 200, 0) * 0.9f);
@@ -348,9 +352,9 @@ public partial class TerrainRenderer
                 }
                 else
                 {
-                    UITheme.DrawLine(sb, a, b, Color.Black * 0.45f, 3f);
-                    UITheme.DrawLine(sb, a, b, land * 0.25f, 5f);
-                    UITheme.DrawLine(sb, a, b, land, 1.4f);
+                    MapGfx.Line(sb, a, b, Color.Black * 0.45f, 3f);
+                    MapGfx.Line(sb, a, b, land * 0.25f, 5f);
+                    MapGfx.Line(sb, a, b, land, 1.4f);
                     UITheme.DrawGlow(sb, Vector2.Lerp(a, b, phase), 4.5f, new Color(220, 255, 255, 0));
                 }
             });
@@ -366,12 +370,12 @@ public partial class TerrainRenderer
                 float len = Vector2.Distance(a, b);
                 if (len < 2) return;
                 var dir = (b - a) / len;
-                UITheme.DrawLine(sb, a, b, new Color(30, 24, 22), 4f);
+                MapGfx.Line(sb, a, b, new Color(30, 24, 22), 4f);
                 // Classic map railway: dark track with light dashes
                 for (float t = 0; t < len; t += 10)
                 {
                     float e = Math.Min(len, t + 5);
-                    UITheme.DrawLine(sb, a + dir * t, a + dir * e, new Color(236, 228, 210), 1.6f);
+                    MapGfx.Line(sb, a + dir * t, a + dir * e, new Color(236, 228, 210), 1.6f);
                 }
             });
         }
@@ -490,7 +494,7 @@ public partial class TerrainRenderer
                         // Blackout: grey bolt with a red slash
                         var at = pos + new Vector2(size * 0.5f, -size * 0.45f);
                         DrawIcon(sb, _icons.Bolt, at, small * 0.8f, 0.55f);
-                        UITheme.DrawLine(sb, at + new Vector2(-small * 0.35f, small * 0.35f), at + new Vector2(small * 0.35f, -small * 0.35f), SocietyStyle.Blackout, 2f);
+                        MapGfx.Line(sb, at + new Vector2(-small * 0.35f, small * 0.35f), at + new Vector2(small * 0.35f, -small * 0.35f), SocietyStyle.Blackout, 2f);
                     }
                 }
                 break;
@@ -1090,17 +1094,17 @@ public partial class TerrainRenderer
                 if (row.Icon != null) sb.Draw(row.Icon, new Rectangle(r.X + 1, r.Y, 16, 16), Color.White);
                 break;
             case LegendKind.Line:
-                UITheme.DrawLine(sb, mid, end, Color.Black * 0.5f, 4f);
-                UITheme.DrawLine(sb, mid, end, row.Color, 2f);
+                MapGfx.Line(sb, mid, end, Color.Black * 0.5f, 4f);
+                MapGfx.Line(sb, mid, end, row.Color, 2f);
                 break;
             case LegendKind.Dashed:
                 for (int x = 0; x < r.Width; x += 6)
-                    UITheme.DrawLine(sb, mid + new Vector2(x, 0), mid + new Vector2(Math.Min(r.Width, x + 3), 0), row.Color, 2f);
+                    MapGfx.Line(sb, mid + new Vector2(x, 0), mid + new Vector2(Math.Min(r.Width, x + 3), 0), row.Color, 2f);
                 break;
             case LegendKind.Rail:
-                UITheme.DrawLine(sb, mid, end, new Color(30, 24, 22), 4f);
+                MapGfx.Line(sb, mid, end, new Color(30, 24, 22), 4f);
                 for (int x = 0; x < r.Width; x += 8)
-                    UITheme.DrawLine(sb, mid + new Vector2(x, 0), mid + new Vector2(Math.Min(r.Width, x + 4), 0), new Color(236, 228, 210), 1.6f);
+                    MapGfx.Line(sb, mid + new Vector2(x, 0), mid + new Vector2(Math.Min(r.Width, x + 4), 0), new Color(236, 228, 210), 1.6f);
                 break;
             case LegendKind.Glow:
                 UITheme.DrawGlow(sb, r.Center.ToVector2(), 9f, row.Color);
@@ -1110,13 +1114,13 @@ public partial class TerrainRenderer
                     sb.Draw(_pixelTexture, new Rectangle(r.X + x, r.Center.Y - 1, 2, 2), row.Color);
                 break;
             case LegendKind.Arrow:
-                UITheme.DrawLine(sb, mid, end, row.Color * 0.8f, 3f);
-                UITheme.DrawLine(sb, end, end + new Vector2(-6, -4), row.Color, 2f);
-                UITheme.DrawLine(sb, end, end + new Vector2(-6, 4), row.Color, 2f);
+                MapGfx.Line(sb, mid, end, row.Color * 0.8f, 3f);
+                MapGfx.Line(sb, end, end + new Vector2(-6, -4), row.Color, 2f);
+                MapGfx.Line(sb, end, end + new Vector2(-6, 4), row.Color, 2f);
                 break;
             case LegendKind.Cross:
-                UITheme.DrawLine(sb, r.Center.ToVector2() + new Vector2(-5, -5), r.Center.ToVector2() + new Vector2(5, 5), row.Color, 2f);
-                UITheme.DrawLine(sb, r.Center.ToVector2() + new Vector2(-5, 5), r.Center.ToVector2() + new Vector2(5, -5), row.Color, 2f);
+                MapGfx.Line(sb, r.Center.ToVector2() + new Vector2(-5, -5), r.Center.ToVector2() + new Vector2(5, 5), row.Color, 2f);
+                MapGfx.Line(sb, r.Center.ToVector2() + new Vector2(-5, 5), r.Center.ToVector2() + new Vector2(5, -5), row.Color, 2f);
                 break;
             case LegendKind.Herd:
                 _discTexture ??= BuildDisc(_graphicsDevice, 64);
@@ -1265,7 +1269,7 @@ public partial class TerrainRenderer
                 {
                     float a = i / 48f * MathF.PI * 2f;
                     var p = center + new Vector2(MathF.Cos(a) * r, MathF.Sin(a) * r * tilt);
-                    UITheme.DrawLine(sb, prev, p, new Color(120, 160, 220) * (MathF.Sin(a) >= 0 ? 0.35f : 0.18f), 1f);
+                    MapGfx.Line(sb, prev, p, new Color(120, 160, 220) * (MathF.Sin(a) >= 0 ? 0.35f : 0.18f), 1f);
                     prev = p;
                 }
             }
