@@ -1185,9 +1185,9 @@ public class WeatherSystem
 
                 // Convert active precipitation into the long-term rainfall metric
                 float rainfallGain = met.Precipitation * 0.08f * deltaTime * rainfallMultiplier; // Was 0.025f
-                if (cell.IsLand && cell.Rainfall < 0.3f)
+                if (cell.IsLand && cell.Rainfall < 0.25f)
                 {
-                    rainfallGain *= 1.5f; // Extra boost for dry land
+                    rainfallGain *= 0.35f; // A passing shower does not turn a desert green
                 }
                 if (rainfallGain > 0)
                 {
@@ -1396,6 +1396,24 @@ public class WeatherSystem
     }
 
     public List<Storm> GetActiveStorms() => _storms;
+
+    /// <summary>Starts a storm at a place (manual disasters, divine intervention).</summary>
+    public void SpawnStorm(int x, int y, StormType type, float intensity)
+    {
+        if (x < 0 || x >= _map.Width || y < 0 || y >= _map.Height) return;
+        var cell = _map.Cells[x, y];
+        float latitude = (y - _map.Height / 2f) / (_map.Height / 2f);
+        bool tropical = type >= StormType.TropicalDepression && type <= StormType.HurricaneCategory5;
+        _storms.Add(new Storm
+        {
+            CenterX = x, CenterY = y, Intensity = Math.Clamp(intensity, 0.1f, 1f), Type = type,
+            VelocityX = latitude > 0 ? 0.5f : -0.5f, VelocityY = latitude > 0 ? 0.2f : -0.2f,
+            CentralPressure = tropical ? 1000f - 80f * intensity : 1005f,
+            MaxWindSpeed = tropical ? 33f + 40f * intensity : 20f,
+            SeaSurfaceTemp = cell.Temperature, OverLand = cell.IsLand,
+            RotationDirection = latitude > 0 ? 1f : -1f
+        });
+    }
 
     public void LoadStorms(List<StormData> stormData)
     {

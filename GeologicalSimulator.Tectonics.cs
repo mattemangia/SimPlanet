@@ -587,6 +587,17 @@ public partial class GeologicalSimulator
         }
     }
 
+    /// <summary>
+    /// Dust and aerosols thrown into the stratosphere (impacts, firestorms) dim the sun, then
+    /// settle out over the following years.
+    /// </summary>
+    public void AddStratosphericDust(float amount)
+    {
+        amount = Math.Clamp(amount, 0f, 0.4f);
+        _aerosol += amount;
+        _map.SolarEnergy -= amount;
+    }
+
     private void AddVolcanicAerosol(float amount)
     {
         amount = Math.Clamp(amount, 0f, 0.08f);

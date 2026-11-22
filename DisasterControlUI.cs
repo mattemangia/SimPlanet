@@ -86,6 +86,14 @@ public class DisasterControlUI
             () => StartDisasterSelection(DisasterType.Tornado)));
         _actionButtons.Add(new ActionButton("Heavy rain", DisasterType.HeavyRain,
             () => StartDisasterSelection(DisasterType.HeavyRain)));
+        _actionButtons.Add(new ActionButton("Eruption", DisasterType.VolcanicEruption,
+            () => StartDisasterSelection(DisasterType.VolcanicEruption)));
+        _actionButtons.Add(new ActionButton("Flood", DisasterType.Flood,
+            () => StartDisasterSelection(DisasterType.Flood)));
+        _actionButtons.Add(new ActionButton("Tsunami", DisasterType.Tsunami,
+            () => StartDisasterSelection(DisasterType.Tsunami)));
+        _actionButtons.Add(new ActionButton("Hurricane", DisasterType.Hurricane,
+            () => StartDisasterSelection(DisasterType.Hurricane)));
 
         Layout();
     }
@@ -274,6 +282,18 @@ public class DisasterControlUI
                 break;
             case DisasterType.HeavyRain:
                 _disasterManager.TriggerHeavyRain(x, y, year);
+                break;
+            case DisasterType.VolcanicEruption:
+                _disasterManager.TriggerEruption(x, y, year);
+                break;
+            case DisasterType.Flood:
+                _disasterManager.TriggerFlood(x, y, year);
+                break;
+            case DisasterType.Tsunami:
+                _disasterManager.TriggerTsunami(x, y, year);
+                break;
+            case DisasterType.Hurricane:
+                _disasterManager.TriggerHurricane(x, y, _selectedDisasterSize, year);
                 break;
         }
     }

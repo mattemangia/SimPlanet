@@ -439,23 +439,57 @@ public class ClimateSimulator
                     continue;
                 }
 
-                // 1. Distance to ocean is the primary driver of rainfall
-                int distanceToWater = _distanceToWaterMap[x, y];
-                float distanceEffect = MathF.Pow(1f / (1f + distanceToWater * 0.1f), 2f);
+                // 1. General circulation. Air rises and rains at the equator (ITCZ), sinks dry
+                //    over the subtropics around 25-30 degrees (the desert belts), rains again
+                //    along the mid-latitude storm tracks and is dry near the poles.
+                float latitude = (0.5f - (y + 0.5f) / _map.Height) * 180f;
+                float absLatitude = MathF.Abs(latitude);
+                float circulation = 0.11f
+                    + 1.35f * MathF.Exp(-(absLatitude / 13f) * (absLatitude / 13f))
+                    + 1.00f * MathF.Exp(-((absLatitude - 50f) / 14f) * ((absLatitude - 50f) / 14f));
 
-                // 2. Temperature effect (warmer air holds more moisture)
-                float temperatureEffect = 1f + Math.Clamp(cell.Temperature / 40f, -0.5f, 1.5f);
+                // 2. Moisture comes with the prevailing wind: trade winds blow from the east in
+                //    the tropics, westerlies from the west in mid-latitudes, easterlies again
+                //    near the poles. Follow the wind back towards its source: the air loses
+                //    water over every stretch of land and most of it crossing a mountain range
+                //    (rain shadow); a long way from any sea it arrives dry.
+                int upwind = absLatitude < 30f || absLatitude > 62f ? 1 : -1;
+                float moisture = 1f;
+                float barrier = cell.Elevation;
+                bool reachedSea = false;
+                const int fetch = 14;
+                for (int step = 1; step <= fetch; step++)
+                {
+                    var source = _map.Cells[((x + upwind * step) % _map.Width + _map.Width) % _map.Width, y];
+                    if (source.IsWater)
+                    {
+                        reachedSea = true;
+                        break;
+                    }
+                    moisture *= 0.93f;
+                    if (source.Elevation > barrier) barrier = source.Elevation;
+                }
+                if (!reachedSea)
+                {
+                    // Deep interior: only what the nearest sea in any direction can lend
+                    int distanceToWater = _distanceToWaterMap[x, y];
+                    moisture *= 0.55f / (1f + distanceToWater * 0.03f);
+                }
+                float shadow = barrier - cell.Elevation;
+                if (shadow > 0.12f) moisture *= MathF.Max(0.22f, 1f - (shadow - 0.12f) * 2.2f);
 
-                // 3. Orographic lift (mountains force rain)
+                // 3. Warm air carries more water
+                float temperatureEffect = 0.75f + Math.Clamp(cell.Temperature / 45f, -0.35f, 0.6f);
+
+                // 4. Mountains wring rain out of the air on their windward side
                 float orographicEffect = 0;
                 if (cell.Elevation > 0.4f)
                 {
-                    orographicEffect = (cell.Elevation - 0.4f) * 1.5f;
+                    orographicEffect = (cell.Elevation - 0.4f) * 0.9f * moisture;
                 }
 
-                float baseRainfall = 0.8f;
-                float targetRainfall = baseRainfall * distanceEffect * temperatureEffect + orographicEffect;
-                targetRainfall = Math.Clamp(targetRainfall * rainfallMultiplier, 0.05f, 1f);
+                float targetRainfall = circulation * moisture * temperatureEffect + orographicEffect;
+                targetRainfall = Math.Clamp(targetRainfall * rainfallMultiplier, 0.03f, 1f);
 
                 // Faster transition for stability
                 cell.Rainfall += (targetRainfall - cell.Rainfall) * deltaTime * 0.5f;

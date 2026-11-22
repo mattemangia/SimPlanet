@@ -70,6 +70,7 @@ namespace SimPlanet
             _ecosystemSimulator = ecosystemSimulator;
             _interconnect = new SimulationInterconnect(map);
             _planetStabilizer.IsClaimed = _civilizationManager.IsClaimed;
+            _disasterManager.Weather = _weatherSystem;
             Petroleum = new PetroleumSystem(map, map.Width * 31 + map.Height);
             Petroleum.Chronicle = (year, text, x, y, civId) =>
                 _civilizationManager.RecordHistory(year, HistoryCategory.Science, text, x, y, civId);

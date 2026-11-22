@@ -789,6 +789,9 @@ public class PlanetStabilizer
 
     private void ReinforceMoistureCorridors(float avgLandRainfall)
     {
+        // Deserts are part of a healthy planet (the subtropical belts, rain shadows, deep
+        // interiors). Only a drought of the whole land surface is something to correct.
+        if (avgLandRainfall >= 0.25f) return;
         bool urgent = _emergencyLifeProtection || avgLandRainfall < 0.2f;
         if (!urgent && _adjustmentTimer < 1.0f) return;
 
@@ -820,6 +823,8 @@ public class PlanetStabilizer
 
     private void CombatRapidDesertification(float avgLandRainfall)
     {
+        if (avgLandRainfall >= 0.25f) return; // Natural deserts are left alone
+
         float severityScale = avgLandRainfall < 0.18f ? 1.5f : 1f;
         float rainfallBoost = 0.01f * _responseMultiplier * severityScale; // Reduced from 0.1f
         float cooling = 0.2f * _responseMultiplier * severityScale; // Reduced from 2f

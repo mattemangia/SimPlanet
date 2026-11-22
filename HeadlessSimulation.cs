@@ -456,6 +456,21 @@ public class HeadlessSimulation
                 if (c.IsLand) { landTemp += c.Temperature; landCells++; }
             }
         }
+        int desert = 0, dry = 0, wet = 0, landTotal = 0, forest = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var c = _map.Cells[x, y];
+                if (!c.IsLand || c.IsIce) continue;
+                landTotal++;
+                if (c.Rainfall < 0.2f) desert++;
+                else if (c.Rainfall < 0.4f) dry++;
+                else wet++;
+                if (c.IsForest) forest++;
+            }
+        }
+        Console.WriteLine($"   Land cover: desert {desert * 100f / Math.Max(1, landTotal):F0}% | dry {dry * 100f / Math.Max(1, landTotal):F0}% | wet {wet * 100f / Math.Max(1, landTotal):F0}% | forest {forest * 100f / Math.Max(1, landTotal):F0}% | rainfall multiplier {_map.PlanetaryControls.RainfallMultiplier:F2}");
         Console.WriteLine($"   Climate: CH4 {ch4 / cells:F3} N2O {n2o / cells:F3} greenhouse {gh / cells:F3} solar {_map.SolarEnergy:F3} land temp {landTemp / Math.Max(1, landCells):F1}C");
         var allCities = _civilizationManager.Civilizations.SelectMany(c => c.Cities).ToList();
         var routes = _civilizationManager.Civilizations.SelectMany(c => c.TransportRoutes).ToList();
