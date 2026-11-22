@@ -253,8 +253,9 @@ public class PlanetStabilizer
             }
             if (gasesHigh) AdjustmentsMade++;
 
-            // The sun is dimmed only when the air is already clean, or somewhere is dangerously hot
-            if ((!gasesHigh || maxTemp > safetyTempLimit) && _map.SolarEnergy > 0.6f)
+            // The sun is dimmed only when the air is already clean and the planet as a whole is too warm
+            // (a local hot spot is handled where it is, by the clamp below, not by darkening the planet)
+            if (!gasesHigh && tempDeviation > 1f && _map.SolarEnergy > 0.6f)
             {
                 _map.SolarEnergy -= 0.001f * _responseMultiplier;
                 LastAction = $"Decreasing solar energy ({reason}: {avgTemp:F1}°C)";

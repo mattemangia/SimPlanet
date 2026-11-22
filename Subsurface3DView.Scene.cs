@@ -492,7 +492,7 @@ public sealed partial class Subsurface3DView
 
             // Tephra falls out of the plume and blankets the ground, thickest near the vent
             int ci = c % n, cj = c / n;
-            const int reach = 5;
+            const int reach = 7;
             for (int dj = -reach; dj <= reach; dj++)
             {
                 for (int di = -reach; di <= reach; di++)
@@ -501,15 +501,15 @@ public sealed partial class Subsurface3DView
                     if (oi < 0 || oj < 0 || oi >= n || oj >= n) continue;
                     float d = MathF.Sqrt(di * di + dj * dj);
                     if (d > reach) continue;
-                    _ash[oj * n + oi] = MathF.Min(1f, _ash[oj * n + oi] + dt * 0.22f * (1f - d / reach) * (1f - d / reach));
+                    _ash[oj * n + oi] = MathF.Min(1f, _ash[oj * n + oi] + dt * 0.3f * (1f - d / reach));
                 }
             }
-            if (_random.NextDouble() < dt * 30f)
+            for (int fall = 0; fall < 3; fall++)
             {
-                var from = CellTop(ci, cj, 2.2f * unit) + new Vector3(Rand(-reach, reach) * 0.7f, Rand(-0.4f, 0.4f) * unit, Rand(-reach, reach) * 0.7f);
+                var from = CellTop(ci, cj, 2.6f * unit) + new Vector3(Rand(-reach, reach) * 0.7f, Rand(-0.4f, 0.4f) * unit, Rand(-reach, reach) * 0.7f);
                 _particles.Add(new Particle
                 {
-                    Position = from, Velocity = new Vector3(0.1f, -0.5f * unit, 0.05f), MaxLife = 5f, Size = 0.06f,
+                    Position = from, Velocity = new Vector3(0.1f, -0.5f * unit, 0.05f), MaxLife = 5f, Size = 0.08f,
                     Gravity = 0.25f * unit, Floor = ElevY(_elev[c]) - 0.5f * unit, Color = new Color(70, 66, 70)
                 });
             }
@@ -565,13 +565,14 @@ public sealed partial class Subsurface3DView
                     var vent = CellTop(i, j, 0.05f);
                     if (_erupting[c] > 0f)
                     {
-                        for (int k = 0; k < 3; k++)
+                        for (int k = 0; k < 5; k++)
                         {
+                            // The column rises, slows, and spreads sideways into an umbrella cloud
                             _particles.Add(new Particle
                             {
-                                Position = vent, Velocity = new Vector3(Rand(-0.25f, 0.25f), Rand(0.9f, 1.7f), Rand(-0.25f, 0.25f)) * unit * 0.6f,
-                                MaxLife = Rand(2.5f, 4.5f), Size = 0.35f, Growth = 0.6f, Floor = BottomY,
-                                Color = new Color(96, 90, 92) * 0.75f
+                                Position = vent, Velocity = new Vector3(Rand(-0.5f, 0.5f), Rand(1.3f, 2.3f), Rand(-0.5f, 0.5f)) * unit * 0.6f,
+                                MaxLife = Rand(3.5f, 6f), Size = 0.4f, Growth = 0.9f, Gravity = 0.28f * unit, Floor = vent.Y,
+                                Color = new Color(84, 78, 82) * 0.8f
                             });
                         }
                         _particles.Add(new Particle
@@ -855,7 +856,7 @@ public sealed partial class Subsurface3DView
             }
         }
         if (_showWaves) ComputeBackend.AddScaled(_y, _bumpV, 1f);
-        ComputeBackend.AddScaled(_y, _ashV, 0.05f * unit);   // The ash blanket has thickness
+        ComputeBackend.AddScaled(_y, _ashV, 0.09f * unit);   // The ash blanket has thickness
         ComputeBackend.AddScaled(_y, _lavaV, 0.03f * unit);
 
         Array.Clear(_waveP);
@@ -921,7 +922,7 @@ public sealed partial class Subsurface3DView
     {
         var c = _vertexColor[vertex];
         float ash = _ashV[vertex], lava = _lavaV[vertex];
-        if (ash > 0.01f) c = Color.Lerp(c, new Color(104, 100, 104), MathF.Min(0.9f, ash * 1.6f));
+        if (ash > 0.01f) c = Color.Lerp(c, new Color(72, 68, 74), MathF.Min(0.92f, ash * 2.2f));
         c = Shade(c, lit);
         if (lava > 0.03f)
         {
@@ -1226,6 +1227,7 @@ public sealed partial class Subsurface3DView
                 {
                     float pulse = 0.75f + 0.25f * MathF.Sin(_time * 3f + cell);
                     float pressure = Math.Clamp(_pressure[cell], 0f, 1.2f);
+                    if (_erupting[cell] > 0f) pressure = 1.2f; // Lit up while it erupts
                     float chamberTop = AbsY(surfaceKm + 3.5f), chamberBottom = AbsY(surfaceKm + 9f + 3f * pressure);
                     float centreY = (chamberTop + chamberBottom) * 0.5f, radiusY = (chamberTop - chamberBottom) * 0.5f, radiusX = 0.55f + 0.35f * pressure;
                     Color hot = Color.Lerp(new Color(200, 60, 20, 230), new Color(255, 200, 70, 255), pressure * pulse);

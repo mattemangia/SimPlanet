@@ -63,6 +63,21 @@ All notable changes to this project will be documented in this file.
   as seismic waves pass; eruptions lay down an ash blanket and lava flows that cool.
 - Early oil nations can drill shallow offshore fields.
 
+### Saved games, basins, climate and speed
+
+- Saved games keep the layers under every cell, faults, oil and gas fields with what is left
+  in them, wells, seismic surveys, geothermal plants and seismographs.
+- Foredeep basins: a mountain belt bends the crust at its foot into a trough that sinks and
+  fills with flysch and molasse. Most gas fields now lie in these basins.
+- Climate: the stabilizer removes excess greenhouse gases before it dims the sun, gives the
+  sunlight back afterwards and no longer darkens the planet for a local hot spot. Ecosystems
+  led by animals still photosynthesize, so the air does not lose its oxygen as life evolves.
+- Speed: slow simulators run on staggered beats (about half the tick time, same results); the
+  sharp map view is built off the render thread and at half resolution while the camera moves.
+- Epicentres are located by fitting P and S arrival times with free velocities.
+- Subsurface 3D: Quake, Erupt and Impact buttons cause the event in the block being viewed.
+- `SIMPLANET_PERF=1` prints timings; headless `--save-test` checks a save/load round trip.
+
 ### Other
 
 - Targets .NET 10.

@@ -138,6 +138,16 @@ public sealed partial class Subsurface3DView : IDisposable
         _pitch = MathHelper.ToRadians(20f);
     }
 
+    /// <summary>Moves the section so it passes through a map cell inside the block.</summary>
+    public void CutThrough(int mapX, int mapY)
+    {
+        int row = mapY - OriginY;
+        if (row < 1 || row >= Size) return;
+        _cut = row + 1;
+        _focusWell = null;
+        _snapshotTimer = 0f;
+    }
+
     private int ClampCenterY(int y) => Math.Clamp(y, Size / 2 + 1, _map.Height - 1 - (Size - Size / 2));
 
     private int OriginX => CenterX - Size / 2;

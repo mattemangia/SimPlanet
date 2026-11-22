@@ -925,6 +925,7 @@ public class SimPlanetGame : Game
                 {
                     var volcano = Nearest(g => g.IsVolcano);
                     if (volcano == null) { _subsurface.Notify("No volcano in this block"); break; }
+                    _subsurface.CutThrough(volcano.Value.x, volcano.Value.y); // Show the conduit and the chamber
                     _geologicalSimulator.TriggerEruption(volcano.Value.x, volcano.Value.y, year);
                     break;
                 }
@@ -1514,7 +1515,9 @@ public class SimPlanetGame : Game
             _ui.SetManagers(_civilizationManager, _weatherSystem);
             _ui.SetPlanetStabilizer(_planetStabilizer);
             _minimap3D.Dispose();
+            bool globeWasVisible = _minimap3D != null && _minimap3D.IsVisible;
             _minimap3D = new PlanetMinimap3D(GraphicsDevice, _map);
+            _minimap3D.IsVisible = globeWasVisible; // Loading a game keeps the globe as the player left it
             _minimap3D.SetWeatherSystem(_weatherSystem); // Connect weather system for clouds and storms
             _eventsUI.InitializeOverlayTexture(_map);
             _eventsUI.SetSimulators(_geologicalSimulator, _hydrologySimulator);
@@ -1871,7 +1874,7 @@ public class SimPlanetGame : Game
 
         // Update and draw 3D minimap
         _minimap3D.UpdateTexture(_terrainRenderer);
-        _minimap3D.Draw(_spriteBatch);
+        if (_subsurface == null || !_subsurface.IsOpen) _minimap3D.Draw(_spriteBatch);
 
         // Draw interactive controls
         _interactiveControls.Draw(_spriteBatch);
