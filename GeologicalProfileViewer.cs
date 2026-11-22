@@ -25,10 +25,10 @@ public class GeologicalProfileViewer : IDisposable
 
     // UI Constants
     private const int PanelMargin = 50;
-    private const int TopBarHeight = 30;
-    private const int LegendWidth = 200;
+    private const int TopBarHeight = UIWidgets.HeaderHeight;
+    private const int LegendWidth = 214;
     private const int BottomAxisHeight = 30;
-    private const int LeftAxisWidth = 40;
+    private const int LeftAxisWidth = 78;
 
     public GeologicalProfileViewer(GraphicsDevice graphicsDevice, FontRenderer font, PlanetMap map)
     {
@@ -52,23 +52,22 @@ public class GeologicalProfileViewer : IDisposable
         _pixelTexture?.Dispose();
     }
 
+    /// <summary>Window rectangle, shared by Update (close button) and Draw.</summary>
+    private static Rectangle GetPanel(int screenWidth, int screenHeight)
+    {
+        return new Rectangle(PanelMargin, PanelMargin, screenWidth - PanelMargin * 2, screenHeight - PanelMargin * 2);
+    }
+
     public void Update(MouseState mouseState)
     {
         if (!IsVisible) return;
 
-        // Close with right click or ESC (handled in Game class, but also here for click)
-        // Check for close button click
-        int screenWidth = _graphicsDevice.Viewport.Width;
-        int screenHeight = _graphicsDevice.Viewport.Height;
-        int panelX = PanelMargin;
-        int panelY = PanelMargin;
-        int panelWidth = screenWidth - (PanelMargin * 2);
+        // Close with the button in the title bar (ESC is handled in the Game class)
+        var panel = GetPanel(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height);
 
         if (mouseState.LeftButton == ButtonState.Released && _previousMouseState.LeftButton == ButtonState.Pressed)
         {
-            // Close button rect
-            Rectangle closeRect = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
-            if (closeRect.Contains(mouseState.Position))
+            if (UIWidgets.CloseButtonRect(panel).Contains(mouseState.Position))
             {
                 IsVisible = false;
             }
@@ -84,36 +83,45 @@ public class GeologicalProfileViewer : IDisposable
         if (!IsVisible) return;
 
         // 1. Draw Window Frame
-        int panelX = PanelMargin;
-        int panelY = PanelMargin;
-        int panelWidth = screenWidth - (PanelMargin * 2);
-        int panelHeight = screenHeight - (PanelMargin * 2);
+        var panel = GetPanel(screenWidth, screenHeight);
+        int panelX = panel.X;
+        int panelY = panel.Y;
+        int panelWidth = panel.Width;
+        int panelHeight = panel.Height;
 
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(panelX, panelY, panelWidth, panelHeight), new Color(30, 30, 35, 240));
-        DrawBorder(spriteBatch, panelX, panelY, panelWidth, panelHeight, Color.Gray, 2);
-
-        // Header
-        spriteBatch.Draw(_pixelTexture, new Rectangle(panelX, panelY, panelWidth, TopBarHeight), new Color(50, 50, 60));
-        _font.DrawString(spriteBatch, $"Geological Profile ({StartPoint.X},{StartPoint.Y}) -> ({EndPoint.X},{EndPoint.Y})",
-            new Vector2(panelX + 10, panelY + 5), Color.White);
-
-        // Close Button
-        Rectangle closeRect = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
-        spriteBatch.Draw(_pixelTexture, closeRect, new Color(180, 50, 50));
-        _font.DrawString(spriteBatch, "X", new Vector2(closeRect.X + 8, closeRect.Y + 4), Color.White);
+        UIWidgets.DrawBackdrop(spriteBatch, screenWidth, screenHeight, 0.45f);
+        UIWidgets.DrawWindow(spriteBatch, panel, "GEOLOGICAL SECTION", UITheme.Gold, closeButton: true,
+            note: $"from ({StartPoint.X}, {StartPoint.Y}) to ({EndPoint.X}, {EndPoint.Y})");
 
         // 2. Sample Data
         var samples = SampleProfile(StartPoint, EndPoint);
-        if (samples.Count < 2) return;
+        if (samples.Count < 2)
+        {
+            UITheme.DrawTextCentered(spriteBatch, "The two points are the same cell: pick two different points.",
+                new Rectangle(panelX, panelY + TopBarHeight, panelWidth, panelHeight - TopBarHeight), UITheme.TextDim, UITheme.FontNormal);
+            return;
+        }
+
+        float maxElevation = float.MinValue, minElevation = float.MaxValue;
+        int faultCount = 0;
+        foreach (var sample in samples)
+        {
+            maxElevation = Math.Max(maxElevation, sample.Elevation);
+            minElevation = Math.Min(minElevation, sample.Elevation);
+            if (sample.GeoData.IsFault) faultCount++;
+        }
 
         // 3. Define Drawing Area for Graph
         int graphX = panelX + LeftAxisWidth;
-        int graphY = panelY + TopBarHeight + 10;
-        int graphWidth = panelWidth - LeftAxisWidth - LegendWidth - 10;
-        int graphHeight = panelHeight - TopBarHeight - BottomAxisHeight - 20;
+        int graphY = panelY + TopBarHeight + 14;
+        int graphWidth = panelWidth - LeftAxisWidth - LegendWidth - 14 - 14;
+        int graphHeight = panelHeight - TopBarHeight - BottomAxisHeight - 28;
 
         Rectangle graphRect = new Rectangle(graphX, graphY, graphWidth, graphHeight);
+
+        // Sky behind the section
+        UITheme.FillRect(spriteBatch, graphRect, new Color(6, 9, 15));
+        UITheme.FillGradient(spriteBatch, new Rectangle(graphX, graphY, graphWidth, graphHeight / 3), new Color(40, 70, 120) * 0.35f);
 
         // Clip to graph area
         var originalScissor = spriteBatch.GraphicsDevice.ScissorRectangle;
@@ -337,16 +345,16 @@ public class GeologicalProfileViewer : IDisposable
                 if (s1.GeoData.FaultType == FaultType.Normal)
                 {
                     // Arrows pointing away
-                    _font.DrawString(spriteBatch, "<- ->", new Vector2(midX - 15, yTop - 15), faultColor, 0.8f);
+                    UITheme.DrawTextOutlined(spriteBatch, "<- ->", new Vector2(midX - 15, yTop - 16), faultColor, UITheme.FontSmall);
                 }
                 else if (s1.GeoData.FaultType == FaultType.Thrust || s1.GeoData.FaultType == FaultType.Reverse)
                 {
                     // Arrows pointing together
-                    _font.DrawString(spriteBatch, "-> <-", new Vector2(midX - 15, yTop - 15), faultColor, 0.8f);
+                    UITheme.DrawTextOutlined(spriteBatch, "-> <-", new Vector2(midX - 15, yTop - 16), faultColor, UITheme.FontSmall);
                 }
                 else if (s1.GeoData.FaultType == FaultType.Strike_Slip)
                 {
-                    _font.DrawString(spriteBatch, "O X", new Vector2(midX - 10, yTop - 15), faultColor, 0.8f);
+                    UITheme.DrawTextOutlined(spriteBatch, "O X", new Vector2(midX - 10, yTop - 16), faultColor, UITheme.FontSmall);
                 }
             }
         }
@@ -355,45 +363,67 @@ public class GeologicalProfileViewer : IDisposable
         spriteBatch.GraphicsDevice.ScissorRectangle = originalScissor;
         spriteBatch.Begin();
 
-        // 6. Draw Axis Labels & Legend
-        // Y-Axis Labels
+        // 6. Axes, grid and legend
+        UITheme.DrawRectOutline(spriteBatch, graphRect, UITheme.Border);
+
+        // Y axis: depth in km (1.0 elevation unit = 8 km), faint grid lines across the plot
         for (float y = MathF.Floor(yMax); y >= MathF.Ceiling(yMin); y -= 1.0f)
         {
             float sy = GetScreenY(y, yMax, yRange, graphY, graphHeight);
             if (sy >= graphY && sy <= graphY + graphHeight)
             {
-                DrawLine(spriteBatch, new Vector2(graphX - 5, sy), new Vector2(graphX, sy), Color.White, 1);
-                string label = $"{y * 8:F0}km"; // Assume 1.0 = 8km
-                _font.DrawString(spriteBatch, label, new Vector2(panelX + 2, sy - 7), Color.LightGray, 0.8f);
+                bool seaLevel = y == 0f;
+                UITheme.FillRect(spriteBatch, new Rectangle(graphX + 1, (int)sy, graphWidth - 2, 1),
+                    seaLevel ? new Color(120, 190, 255) * 0.45f : Color.White * 0.07f);
+                UITheme.FillRect(spriteBatch, new Rectangle(graphX - 5, (int)sy, 5, 1), UITheme.TextMuted);
+                string label = seaLevel ? "sea level" : $"{y * 8:+0;-0} km";
+                var size = UITheme.Measure(label, UITheme.FontSmall);
+                UITheme.DrawText(spriteBatch, label, new Vector2(graphX - 9 - size.X, sy - size.Y / 2f),
+                    seaLevel ? new Color(120, 190, 255) : UITheme.TextMuted, UITheme.FontSmall);
             }
         }
 
-        // Legend
-        int legendX = graphX + graphWidth + 10;
-        int legendY = graphY;
+        // X axis: distance along the section in map cells, with the two ends named A and B
+        int axisY = graphY + graphHeight;
+        int cells = samples.Count - 1;
+        for (int t = 0; t <= 4; t++)
+        {
+            int tx = graphX + (int)(graphWidth * t / 4f);
+            UITheme.FillRect(spriteBatch, new Rectangle(Math.Min(tx, graphX + graphWidth - 1), axisY, 1, 5), UITheme.TextMuted);
+            string label = t == 0 ? $"A  ({StartPoint.X}, {StartPoint.Y})"
+                         : t == 4 ? $"({EndPoint.X}, {EndPoint.Y})  B"
+                         : $"{cells * t / 4} cells";
+            var size = UITheme.Measure(label, UITheme.FontSmall);
+            float lx = t == 0 ? tx : t == 4 ? tx - size.X : tx - size.X / 2f;
+            UITheme.DrawText(spriteBatch, label, new Vector2(lx, axisY + 8), t == 0 || t == 4 ? UITheme.Gold : UITheme.TextMuted, UITheme.FontSmall);
+        }
 
-        DrawLegendItem(spriteBatch, legendX, ref legendY, Color.White, "Surface/Ice");
-        DrawLegendItem(spriteBatch, legendX, ref legendY, new Color(0, 100, 200), "Ocean");
-        DrawLegendItem(spriteBatch, legendX, ref legendY, new Color(180, 160, 120), "Sediment");
-        DrawLegendItem(spriteBatch, legendX, ref legendY, new Color(60, 60, 60), "Volcanic Rock");
-        DrawLegendItem(spriteBatch, legendX, ref legendY, new Color(100, 80, 80), "Crystalline Crust");
-        DrawLegendItem(spriteBatch, legendX, ref legendY, new Color(50, 0, 0), "Mantle");
-        DrawLegendItem(spriteBatch, legendX, ref legendY, Color.OrangeRed, "Magma/Volcano");
+        // Legend card
+        var legend = new Rectangle(graphX + graphWidth + 14, graphY, LegendWidth, graphHeight);
+        UIWidgets.DrawCard(spriteBatch, legend);
+        int legendX = legend.X + 12;
+        int legendWidth = legend.Width - 24;
+        int legendY = UIWidgets.DrawSection(spriteBatch, legendX, legend.Y + 10, legendWidth, "LAYERS");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, Color.White, "Surface / ice");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, new Color(0, 100, 200), "Ocean");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, new Color(180, 160, 120), "Sediment");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, new Color(60, 60, 60), "Volcanic rock");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, new Color(100, 80, 80), "Crystalline crust");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, new Color(50, 0, 0), "Mantle");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, Color.OrangeRed, "Magma / volcano");
 
-        // Fault types legend
-        legendY += 10; // Add some spacing
-        _font.DrawString(spriteBatch, "Faults:", new Vector2(legendX, legendY), Color.Gray);
-        legendY += 20;
-        DrawLegendItem(spriteBatch, legendX, ref legendY, Color.Yellow, "Normal (Graben)");
-        DrawLegendItem(spriteBatch, legendX, ref legendY, Color.Magenta, "Thrust/Reverse");
-        DrawLegendItem(spriteBatch, legendX, ref legendY, Color.Cyan, "Strike-Slip");
-    }
+        legendY = UIWidgets.DrawSection(spriteBatch, legendX, legendY + 10, legendWidth, "FAULTS");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, Color.Yellow, "Normal (graben)");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, Color.Magenta, "Thrust / reverse");
+        legendY = UIWidgets.DrawLegendRow(spriteBatch, legendX, legendY, legendWidth, Color.Cyan, "Strike-slip");
 
-    private void DrawLegendItem(SpriteBatch sb, int x, ref int y, Color c, string text)
-    {
-        sb.Draw(_pixelTexture, new Rectangle(x, y, 15, 15), c);
-        _font.DrawString(sb, text, new Vector2(x + 20, y), Color.White);
-        y += 25;
+        legendY = UIWidgets.DrawSection(spriteBatch, legendX, legendY + 10, legendWidth, "SECTION");
+        legendY = UIWidgets.DrawKeyValue(spriteBatch, legendX, legendY, legendWidth, "Length", $"{cells} cells", UITheme.Text, UITheme.FontSmall) - 3;
+        legendY = UIWidgets.DrawKeyValue(spriteBatch, legendX, legendY, legendWidth, "Highest", $"{maxElevation * 8f:+0.0;-0.0} km", UITheme.Text, UITheme.FontSmall) - 3;
+        legendY = UIWidgets.DrawKeyValue(spriteBatch, legendX, legendY, legendWidth, "Lowest", $"{minElevation * 8f:+0.0;-0.0} km", UITheme.Text, UITheme.FontSmall) - 3;
+        legendY = UIWidgets.DrawKeyValue(spriteBatch, legendX, legendY, legendWidth, "Faults crossed", faultCount.ToString(), faultCount > 0 ? UITheme.Warn : UITheme.TextDim, UITheme.FontSmall);
+        if (legendY + 40 < legend.Bottom)
+            UIWidgets.DrawParagraph(spriteBatch, legendX, legendY + 6, legendWidth, "Vertical scale is exaggerated.", UITheme.TextMuted);
     }
 
     private void DrawQuad(SpriteBatch sb, float x1_top, float y1_top, float x2_top, float y2_top, float x1_bot, float y1_bot, float x2_bot, float y2_bot, Color c)

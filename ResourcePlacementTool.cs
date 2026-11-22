@@ -113,83 +113,49 @@ public class ResourcePlacementTool
         };
     }
 
+    private static readonly ResourceType[] ListedResources =
+    {
+        ResourceType.Iron, ResourceType.Copper, ResourceType.Coal,
+        ResourceType.Gold, ResourceType.Silver, ResourceType.Oil,
+        ResourceType.NaturalGas, ResourceType.Uranium,
+        ResourceType.Platinum, ResourceType.Diamond
+    };
+
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (!IsActive) return;
 
-        int panelX = screenWidth - 220;
-        int panelY = screenHeight - 350;
-        int panelWidth = 210;
-        int panelHeight = 340;
+        const int panelWidth = 220, rowHeight = 20;
+        int panelHeight = UIWidgets.HeaderHeight + 10 + 22 + UIWidgets.RowHeight + 31 + 8 + 22 + ListedResources.Length * rowHeight + 8 + 34 + 8;
+        var panel = new Rectangle(screenWidth - panelWidth - 10, screenHeight - panelHeight - 80, panelWidth, panelHeight);
+        int x = panel.X + 12;
+        int width = panelWidth - 24;
 
-        // Background
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX, panelY, panelWidth, panelHeight),
-            new Color(40, 30, 20, 230));
+        int y = UIWidgets.DrawWindow(spriteBatch, panel, "RESOURCE TOOL", UITheme.Warn, closeButton: false, note: "M: close");
 
-        // Border
-        DrawBorder(spriteBatch, panelX, panelY, panelWidth, panelHeight, Color.Orange, 2);
+        // Current deposit
+        y = UIWidgets.DrawSection(spriteBatch, x, y, width, "DEPOSIT");
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Type", CurrentResourceType.ToString(),
+            UIWidgets.Readable(ResourceExtensions.GetResourceColor(CurrentResourceType)));
+        y = UIWidgets.DrawMeterRow(spriteBatch, x, y, width, "Amount (wheel)", $"{DepositAmount:F0}", DepositAmount / 100f, UITheme.Warn) + 8;
 
-        // Title
-        _font.DrawString(spriteBatch, "RESOURCE TOOL",
-            new Vector2(panelX + 45, panelY + 5), Color.Orange);
-
-        int textY = panelY + 30;
-        int lineHeight = 20;
-
-        // Current resource
-        _font.DrawString(spriteBatch, $"Type: {CurrentResourceType}",
-            new Vector2(panelX + 10, textY), Color.White);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, "(R to cycle)",
-            new Vector2(panelX + 10, textY), Color.Gray);
-        textY += lineHeight + 5;
-
-        // Deposit amount
-        _font.DrawString(spriteBatch, $"Amount: {DepositAmount:F0}",
-            new Vector2(panelX + 10, textY), Color.White);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, "(Scroll wheel)",
-            new Vector2(panelX + 10, textY), Color.Gray);
-        textY += lineHeight + 10;
-
-        // Instructions
-        _font.DrawString(spriteBatch, "RESOURCES:",
-            new Vector2(panelX + 10, textY), Color.Yellow);
-        textY += lineHeight;
-
-        var resourceTypes = new[]
+        // All resources, the selected one highlighted
+        y = UIWidgets.DrawSection(spriteBatch, x, y, width, "RESOURCES (R: NEXT)");
+        foreach (var type in ListedResources)
         {
-            ResourceType.Iron, ResourceType.Copper, ResourceType.Coal,
-            ResourceType.Gold, ResourceType.Silver, ResourceType.Oil,
-            ResourceType.NaturalGas, ResourceType.Uranium,
-            ResourceType.Platinum, ResourceType.Diamond
-        };
-
-        foreach (var type in resourceTypes)
-        {
-            Color color = type == CurrentResourceType ? Color.Orange : Color.Gray;
-            _font.DrawString(spriteBatch, $"- {type}",
-                new Vector2(panelX + 15, textY), color);
-            textY += 16;
+            bool selected = type == CurrentResourceType;
+            if (selected)
+            {
+                var row = new Rectangle(x - 4, y - 1, width + 8, rowHeight);
+                UITheme.FillRounded(spriteBatch, row, Color.Lerp(UITheme.ButtonBg, UITheme.Warn, 0.25f));
+                UITheme.OutlineRounded(spriteBatch, row, UITheme.Warn * 0.8f);
+            }
+            UIWidgets.DrawSwatch(spriteBatch, new Rectangle(x + 2, y + 4, 12, 10), ResourceExtensions.GetResourceColor(type));
+            UITheme.DrawText(spriteBatch, type.ToString(), new Vector2(x + 22, y + 2), selected ? Color.White : UITheme.TextDim, UITheme.FontSmall);
+            y += rowHeight;
         }
 
-        textY += 5;
-        _font.DrawString(spriteBatch, "Click to place",
-            new Vector2(panelX + 10, textY), Color.Yellow);
-        textY += lineHeight;
-        _font.DrawString(spriteBatch, "M: Toggle Tool",
-            new Vector2(panelX + 10, textY), Color.Yellow);
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
+        UIWidgets.DrawParagraph(spriteBatch, x, y + 8, width, "Click the map to place a deposit. It is discovered at once.", UITheme.TextMuted);
     }
 
     public void CycleResourceType()

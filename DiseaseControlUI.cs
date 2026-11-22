@@ -69,7 +69,7 @@ public class DiseaseControlUI
     private void ComputeLayout(int screenWidth, int screenHeight)
     {
         int width = Math.Min(900, screenWidth - 40);
-        int height = Math.Min(650, screenHeight - 130);
+        int height = Math.Min(590, screenHeight - 130);
         _mainPanel = new Rectangle((screenWidth - width) / 2, Math.Max(50, (screenHeight - height) / 2 - 10), width, height);
         _closeRect = UIWidgets.CloseButtonRect(_mainPanel);
 

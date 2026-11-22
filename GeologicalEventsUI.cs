@@ -838,11 +838,8 @@ public class GeologicalEventsUI
 
     private void DrawCloseButton(Rectangle rect, bool hovered)
     {
-        UITheme.FillRounded(_spriteBatch, rect, hovered ? new Color(190, 60, 60) : new Color(60, 70, 92));
-        var c = rect.Center.ToVector2();
-        float r = rect.Width * 0.22f;
-        UITheme.DrawLine(_spriteBatch, c + new Vector2(-r, -r), c + new Vector2(r, r), Color.White, 1.6f);
-        UITheme.DrawLine(_spriteBatch, c + new Vector2(-r, r), c + new Vector2(r, -r), Color.White, 1.6f);
+        // Same close button as every other panel
+        UIWidgets.DrawCloseButton(_spriteBatch, rect);
     }
 
     private static Rectangle CalculateCloseButtonRect(int screenWidth, int toolbarHeight)

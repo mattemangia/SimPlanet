@@ -36,33 +36,48 @@ public class PlayerCivilizationControl
 
     private void InitializeControlButtons()
     {
-        int buttonWidth = 180;
-        int buttonHeight = 35;
-        int startX = 10;
-        int startY = 520; // Adjusted for new panel size
-        int spacing = 5;
-
+        // Bounds are assigned by LayoutControlPanel(), which Update and Draw both call.
         _controlButtons = new List<Button>
         {
-            new Button(new Rectangle(startX, startY, buttonWidth, buttonHeight),
-                "Declare War", Color.Red, DeclareWar),
-
-            new Button(new Rectangle(startX, startY + (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Make Peace", Color.Green, MakePeace),
-
-            new Button(new Rectangle(startX, startY + 2 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Join Climate Pact", Color.Cyan, JoinClimatePact),
-
-            new Button(new Rectangle(startX, startY + 3 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Build Nuclear", Color.Orange, BuildNuclear),
-
-            new Button(new Rectangle(startX, startY + 4 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Increase Eco", Color.LightGreen, IncreaseEcoFriendliness),
-
-            new Button(new Rectangle(startX, startY + 5 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Release Control", Color.Gray, ReleaseControl)
+            new Button("Declare War", UITheme.Bad, DeclareWar),
+            new Button("Make Peace", UITheme.Good, MakePeace),
+            new Button("Join Climate Pact", Color.Cyan, JoinClimatePact),
+            new Button("Build Nuclear", Color.Orange, BuildNuclear),
+            new Button("Increase Eco", Color.LightGreen, IncreaseEcoFriendliness),
+            new Button("Release Control", new Color(150, 150, 170), ReleaseControl)
         };
+        LayoutControlPanel();
     }
+
+    // ---- Layout (shared by Update and Draw) ---------------------------------------------
+
+    private const int ControlPanelWidth = 264;
+    private const int ControlPanelX = 290;     // right of the info panel
+    private const int ControlContentHeight = 4 * UIWidgets.RowHeight + 8      // nation
+                                           + 22 + 4 * UIWidgets.RowHeight + 8 // resources
+                                           + 22 + 8                           // status badges
+                                           + 22;                              // orders caption
+    private Rectangle _controlPanel;
+
+    private void LayoutControlPanel()
+    {
+        const int buttonHeight = 28, gap = 6;
+        int rows = (_controlButtons.Count + 1) / 2;
+        int height = UIWidgets.HeaderHeight + 10 + ControlContentHeight + rows * (buttonHeight + gap) + 6;
+        int y = Math.Max(56, _graphicsDevice.Viewport.Height - height - 24);
+        _controlPanel = new Rectangle(ControlPanelX, y, ControlPanelWidth, height);
+
+        int x = _controlPanel.X + 12;
+        int half = (ControlPanelWidth - 24 - gap) / 2;
+        int by = _controlPanel.Y + UIWidgets.HeaderHeight + 10 + ControlContentHeight;
+        for (int i = 0; i < _controlButtons.Count; i++)
+        {
+            _controlButtons[i].Bounds = new Rectangle(x + (i % 2) * (half + gap), by + (i / 2) * (buttonHeight + gap), half, buttonHeight);
+        }
+    }
+
+    private Rectangle _selectorPanel;
+    private Rectangle _selectorClose;
 
     public void Update(MouseState mouseState)
     {
@@ -74,12 +89,19 @@ public class PlayerCivilizationControl
             // Handle civilization selector
             if (ShowCivSelector)
             {
-                foreach (var button in _selectorButtons)
+                if (_selectorClose.Contains(mousePos))
                 {
-                    if (button.Bounds.Contains(mousePos))
+                    ShowCivSelector = false;
+                }
+                else
+                {
+                    foreach (var button in _selectorButtons)
                     {
-                        button.OnClick?.Invoke();
-                        break;
+                        if (button.Bounds.Contains(mousePos))
+                        {
+                            button.OnClick?.Invoke();
+                            break;
+                        }
                     }
                 }
             }
@@ -87,6 +109,7 @@ public class PlayerCivilizationControl
             // Handle control panel
             if (ShowControlPanel && PlayerCivilization != null)
             {
+                LayoutControlPanel();
                 foreach (var button in _controlButtons)
                 {
                     if (button.Bounds.Contains(mousePos))
@@ -106,33 +129,42 @@ public class PlayerCivilizationControl
         ShowCivSelector = true;
         _selectorButtons.Clear();
 
-        int buttonWidth = 300;
-        int buttonHeight = 40;
-        int startX = 400;
-        int startY = 100;
-        int spacing = 5;
+        const int panelWidth = 380, rowHeight = 40, spacing = 4;
+        int screenWidth = _graphicsDevice.Viewport.Width;
+        int screenHeight = _graphicsDevice.Viewport.Height;
 
         var civilizations = _civManager.GetAllCivilizations();
-        for (int i = 0; i < civilizations.Count; i++)
+        // Only as many nations as fit on screen get a row
+        int maxRows = Math.Max(1, (screenHeight - 120 - UIWidgets.HeaderHeight - 70) / (rowHeight + spacing));
+        int rows = Math.Min(civilizations.Count, maxRows);
+
+        int listHeight = Math.Max(1, rows) * (rowHeight + spacing);
+        int panelHeight = UIWidgets.HeaderHeight + 12 + listHeight + 8 + 32 + 14;
+        _selectorPanel = new Rectangle((screenWidth - panelWidth) / 2, Math.Max(56, (screenHeight - panelHeight) / 2 - 20), panelWidth, panelHeight);
+        _selectorClose = UIWidgets.CloseButtonRect(_selectorPanel);
+
+        int startX = _selectorPanel.X + 14;
+        int startY = _selectorPanel.Y + UIWidgets.HeaderHeight + 12;
+        int buttonWidth = panelWidth - 28;
+
+        for (int i = 0; i < rows; i++)
         {
             var civ = civilizations[i];
             int index = i; // Capture for lambda
 
             _selectorButtons.Add(new Button(
-                new Rectangle(startX, startY + i * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                $"{civ.Name} (Pop: {civ.Population}, Tech: {civ.TechLevel})",
-                GetCivTypeColor(civ.CivType),
+                civ.Name,
+                TerrainRenderer.GetCivPaletteColor(civ.Id),
                 () => SelectCivilization(civilizations[index])
-            ));
+            ) { Bounds = new Rectangle(startX, startY + i * (rowHeight + spacing), buttonWidth, rowHeight), Civ = civ });
         }
 
         // Add cancel button
         _selectorButtons.Add(new Button(
-            new Rectangle(startX, startY + civilizations.Count * (buttonHeight + spacing), buttonWidth, buttonHeight),
             "Cancel",
             Color.Gray,
             () => ShowCivSelector = false
-        ));
+        ) { Bounds = new Rectangle(_selectorPanel.Right - 14 - 110, startY + listHeight + 8, 110, 32) });
     }
 
     private void SelectCivilization(Civilization civ)
@@ -227,140 +259,92 @@ public class PlayerCivilizationControl
 
     private void DrawCivilizationSelector(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
-        // Background overlay
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(4, 6, 12) * 0.7f);
+        UIWidgets.DrawBackdrop(spriteBatch, screenWidth, screenHeight);
+        UIWidgets.DrawWindow(spriteBatch, _selectorPanel, "TAKE CONTROL OF A NATION", UITheme.Gold);
 
-        // Card behind the buttons
-        if (_selectorButtons.Count > 0)
+        if (_selectorButtons.Count == 1)
         {
-            var first = _selectorButtons[0].Bounds;
-            var last = _selectorButtons[^1].Bounds;
-            var card = new Rectangle(first.X - 20, first.Y - 56, first.Width + 40, last.Bottom - first.Y + 76);
-            UITheme.DrawTitledPanel(spriteBatch, card, "SELECT A CIVILIZATION TO CONTROL", UITheme.Gold, 40);
+            UITheme.DrawText(spriteBatch, "No nations exist yet.",
+                new Vector2(_selectorPanel.X + 14, _selectorPanel.Y + UIWidgets.HeaderHeight + 22), UITheme.TextMuted, UITheme.FontNormal);
         }
 
-        // Draw selector buttons
+        // Draw selector buttons: one row per nation, then Cancel
         foreach (var button in _selectorButtons)
         {
-            DrawButton(spriteBatch, button);
+            if (button.Civ != null)
+            {
+                var civ = button.Civ;
+                UIWidgets.DrawListRow(spriteBatch, button.Bounds, civ.Name,
+                    $"{civ.CivType}  -  population {civ.Population:N0}  -  tech {civ.TechLevel}",
+                    civ == PlayerCivilization, button.Color);
+            }
+            else
+            {
+                UIWidgets.DrawButton(spriteBatch, button.Bounds, button.Text);
+            }
+        }
+
+        int total = _civManager.GetAllCivilizations().Count;
+        int shown = _selectorButtons.Count - 1;
+        if (total > shown)
+        {
+            UITheme.DrawText(spriteBatch, $"+ {total - shown} more not shown",
+                new Vector2(_selectorPanel.X + 14, _selectorButtons[^1].Bounds.Y + 9), UITheme.TextMuted, UITheme.FontSmall);
         }
     }
 
     private void DrawControlPanel(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
-        int panelWidth = 200;
-        int panelHeight = 420; // Increased to fit resources
-        int panelX = 10;
-        int panelY = 320; // Moved up to fit resources
+        LayoutControlPanel();
+        var civ = PlayerCivilization!;
+        var panel = _controlPanel;
+        int x = panel.X + 12;
+        int width = panel.Width - 24;
 
-        // Background
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(panelX, panelY, panelWidth, panelHeight),
-            new Color(0, 0, 30, 220));
+        int y = UIWidgets.DrawWindow(spriteBatch, panel, "YOU RULE: " + civ.Name.ToUpperInvariant(), UITheme.Gold, closeButton: false);
+        UITheme.FillRect(spriteBatch, new Rectangle(panel.X + 1, panel.Y + 8, 3, UIWidgets.HeaderHeight - 16), TerrainRenderer.GetCivPaletteColor(civ.Id));
 
-        // Border
-        DrawBorder(spriteBatch, panelX, panelY, panelWidth, panelHeight, Color.Gold, 2);
+        // Nation
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Population", civ.Population.ToString("N0"));
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Tech level", civ.TechLevel.ToString());
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Type", civ.CivType.ToString(), UIWidgets.Readable(GetCivTypeColor(civ.CivType)));
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Eco-friendliness", civ.EcoFriendliness.ToString("P0"), UITheme.Good);
+        y += 8;
 
-        // Title
-        _font.DrawString(spriteBatch, $"CONTROLLING: {PlayerCivilization!.Name}",
-            new Vector2(panelX + 10, panelY + 5), Color.Gold);
+        // Resources: stock and yearly change
+        y = UIWidgets.DrawSection(spriteBatch, x, y, width, "RESOURCES");
+        float foodRate = civ.FoodProduction - civ.FoodConsumption;
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Food", $"{civ.Food:F0}  ({foodRate:+0.0;-0.0})",
+            civ.Food > 50 ? UITheme.Good : UITheme.Bad);
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Wood", $"{civ.Wood:F0}  (+{civ.WoodProduction:F1})", new Color(206, 160, 110));
+        y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Stone", $"{civ.Stone:F0}  (+{civ.StoneProduction:F1})", new Color(180, 186, 198));
+        if (civ.CivType >= CivType.Industrial)
+            y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Metal", $"{civ.Metal:F0}  (+{civ.MetalProduction:F1})", Color.Silver);
+        else
+            y = UIWidgets.DrawKeyValue(spriteBatch, x, y, width, "Metal", "needs industry", UITheme.TextMuted);
+        y += 8;
 
-        // Stats
-        int textY = panelY + 30;
-        int lineHeight = 18;
+        // Status badges
+        int badgeX = x;
+        if (civ.AtWar)
+            badgeX = UIWidgets.DrawPill(spriteBatch, badgeX, y, "AT WAR", UITheme.Bad).Right + 6;
+        if (civ.HasNuclearWeapons)
+            badgeX = UIWidgets.DrawPill(spriteBatch, badgeX, y, $"NUKES {civ.NuclearStockpile}", UITheme.Warn).Right + 6;
+        if (civ.InClimateAgreement)
+            badgeX = UIWidgets.DrawPill(spriteBatch, badgeX, y, "CLIMATE PACT", Color.Cyan).Right + 6;
+        if (badgeX == x)
+            UIWidgets.DrawPill(spriteBatch, badgeX, y, "AT PEACE", UITheme.Good);
+        y += 22 + 8;
 
-        _font.DrawString(spriteBatch, $"Population: {PlayerCivilization.Population:N0}",
-            new Vector2(panelX + 10, textY), Color.White);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Tech Level: {PlayerCivilization.TechLevel}",
-            new Vector2(panelX + 10, textY), Color.White);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Type: {PlayerCivilization.CivType}",
-            new Vector2(panelX + 10, textY), GetCivTypeColor(PlayerCivilization.CivType));
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Eco: {PlayerCivilization.EcoFriendliness:P0}",
-            new Vector2(panelX + 10, textY), Color.LightGreen);
-        textY += lineHeight + 5;
-
-        // Resources
-        _font.DrawString(spriteBatch, "RESOURCES:",
-            new Vector2(panelX + 10, textY), Color.Orange);
-        textY += lineHeight;
-
-        Color foodColor = PlayerCivilization.Food > 50 ? Color.LightGreen : Color.Red;
-        _font.DrawString(spriteBatch, $"Food: {PlayerCivilization.Food:F0} ({PlayerCivilization.FoodProduction - PlayerCivilization.FoodConsumption:+0.0;-0.0})",
-            new Vector2(panelX + 10, textY), foodColor);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Wood: {PlayerCivilization.Wood:F0} (+{PlayerCivilization.WoodProduction:F1})",
-            new Vector2(panelX + 10, textY), new Color(139, 90, 43));
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Stone: {PlayerCivilization.Stone:F0} (+{PlayerCivilization.StoneProduction:F1})",
-            new Vector2(panelX + 10, textY), Color.Gray);
-        textY += lineHeight;
-
-        if (PlayerCivilization.CivType >= CivType.Industrial)
-        {
-            _font.DrawString(spriteBatch, $"Metal: {PlayerCivilization.Metal:F0} (+{PlayerCivilization.MetalProduction:F1})",
-                new Vector2(panelX + 10, textY), Color.Silver);
-            textY += lineHeight;
-        }
-
-        textY += 5;
-
-        if (PlayerCivilization.AtWar)
-        {
-            _font.DrawString(spriteBatch, "AT WAR",
-                new Vector2(panelX + 10, textY), Color.Red);
-            textY += lineHeight;
-        }
-
-        if (PlayerCivilization.HasNuclearWeapons)
-        {
-            _font.DrawString(spriteBatch, $"Nukes: {PlayerCivilization.NuclearStockpile}",
-                new Vector2(panelX + 10, textY), Color.Orange);
-            textY += lineHeight;
-        }
-
-        if (PlayerCivilization.InClimateAgreement)
-        {
-            _font.DrawString(spriteBatch, "In Climate Pact",
-                new Vector2(panelX + 10, textY), Color.Cyan);
-        }
+        UIWidgets.DrawSection(spriteBatch, x, y, width, "ORDERS");
 
         // Draw control buttons
         foreach (var button in _controlButtons)
         {
-            DrawButton(spriteBatch, button);
+            // Nuclear weapons need tech level 70
+            bool enabled = button.Text != "Build Nuclear" || civ.TechLevel >= 70;
+            UIWidgets.DrawActionButton(spriteBatch, button.Bounds, button.Text, button.Color, enabled: enabled, fontSize: UITheme.FontSmall);
         }
-    }
-
-    private void DrawButton(SpriteBatch spriteBatch, Button button)
-    {
-        bool hovered = button.Bounds.Contains(Mouse.GetState().Position);
-        string text = UITheme.Ellipsize(button.Text, button.Bounds.Width - 16, UITheme.FontNormal);
-        UITheme.DrawButton(spriteBatch, button.Bounds, text, hovered, false, button.Color);
-        // Colour key along the bottom edge
-        spriteBatch.Draw(_pixelTexture, new Rectangle(button.Bounds.X + 6, button.Bounds.Bottom - 3, button.Bounds.Width - 12, 2),
-            button.Color * (hovered ? 1f : 0.6f));
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        // Top
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        // Bottom
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        // Left
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        // Right
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
     }
 
     private Color GetCivTypeColor(CivType civType)
@@ -378,14 +362,14 @@ public class PlayerCivilizationControl
 
     private class Button
     {
-        public Rectangle Bounds { get; }
+        public Rectangle Bounds { get; set; }
         public string Text { get; }
         public Color Color { get; }
         public Action? OnClick { get; }
+        public Civilization? Civ { get; set; }
 
-        public Button(Rectangle bounds, string text, Color color, Action? onClick)
+        public Button(string text, Color color, Action? onClick)
         {
-            Bounds = bounds;
             Text = text;
             Color = color;
             OnClick = onClick;

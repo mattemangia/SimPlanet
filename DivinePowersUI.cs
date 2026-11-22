@@ -12,7 +12,6 @@ public class DivinePowersUI
     private readonly GraphicsDevice _graphicsDevice;
     private readonly FontRenderer _font;
     private readonly CivilizationManager _civManager;
-    private Texture2D _pixelTexture;
     private MouseState _previousMouseState;
 
     public bool IsOpen { get; set; } = false;
@@ -28,11 +27,26 @@ public class DivinePowersUI
     private string _statusMessage = "";
     private float _messageTimer = 0f;
 
-    // UI Style
-    private readonly Color _panelBgColor = new Color(20, 20, 40, 230);
-    private readonly Color _borderColor = Color.Gold;
-    private const int PanelWidth = 250;
-    private const int PanelHeight = 600;
+    // UI layout (screen coordinates, shared by Update and Draw)
+    private const int PanelX = 530;      // right of the info panel and the disaster panel
+    private const int PanelY = 56;       // below the toolbar
+    private const int PanelWidth = 240;
+    private const int PanelGap = 10;
+    private const int ButtonHeight = 28;
+    private const int ButtonSpacing = 4;
+    private const int ContentPadding = 12;
+    private const int HintHeight = 40;   // room for the two-line hint above a list of choices
+
+    private static readonly (string Title, int First, int Count)[] MainSections =
+    {
+        ("ONE NATION", 0, 4),
+        ("BETWEEN TWO NATIONS", 4, 4),
+        ("THE WHOLE WORLD", 8, 2),
+    };
+
+    private readonly List<(string Title, int Y)> _mainSectionHeaders = new();
+    private Rectangle _mainPanel;
+    private Rectangle _closeRect;
 
     public DivinePowersUI(GraphicsDevice graphicsDevice, FontRenderer font, CivilizationManager civManager)
     {
@@ -40,63 +54,81 @@ public class DivinePowersUI
         _font = font;
         _civManager = civManager;
 
-        _pixelTexture = new Texture2D(_graphicsDevice, 1, 1);
-        _pixelTexture.SetData(new[] { Color.White });
-
         InitializeMainButtons();
     }
 
     private void InitializeMainButtons()
     {
-        int buttonWidth = 200;
-        int buttonHeight = 30;
-        // These coordinates are now relative to the panel
-        int startX = 25; // Panel padding
-        int startY = 50;
-        int spacing = 5;
-
+        // Bounds are assigned by LayoutMain(); the order matches MainSections.
         _mainButtons = new List<Button>
         {
-            new Button(new Rectangle(startX, startY, buttonWidth, buttonHeight),
-                "Change Government", Color.Purple, () => OpenMode(DivinePowerMode.ChangeGovernment)),
+            new Button("Change Government", Color.MediumPurple, () => OpenMode(DivinePowerMode.ChangeGovernment), DivinePowerMode.ChangeGovernment),
+            new Button("Bless Civilization", Color.Gold, () => OpenMode(DivinePowerMode.Bless), DivinePowerMode.Bless),
+            new Button("Curse Civilization", new Color(150, 150, 170), () => OpenMode(DivinePowerMode.Curse), DivinePowerMode.Curse),
+            new Button("Advance Civilization", Color.CornflowerBlue, () => OpenMode(DivinePowerMode.AdvanceCivilization), DivinePowerMode.AdvanceCivilization),
 
-            new Button(new Rectangle(startX, startY + (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Send Spies", Color.DarkRed, () => OpenMode(DivinePowerMode.SendSpies)),
+            new Button("Send Spies", new Color(200, 70, 70), () => OpenMode(DivinePowerMode.SendSpies), DivinePowerMode.SendSpies),
+            new Button("Force Betrayal", Color.OrangeRed, () => OpenMode(DivinePowerMode.ForceBetray), DivinePowerMode.ForceBetray),
+            new Button("Force Alliance", new Color(90, 200, 110), () => OpenMode(DivinePowerMode.ForceAlliance), DivinePowerMode.ForceAlliance),
+            new Button("Force War", new Color(255, 70, 60), () => OpenMode(DivinePowerMode.ForceWar), DivinePowerMode.ForceWar),
 
-            new Button(new Rectangle(startX, startY + 2 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Force Betrayal", Color.OrangeRed, () => OpenMode(DivinePowerMode.ForceBetray)),
-
-            new Button(new Rectangle(startX, startY + 3 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Bless Civilization", Color.Gold, () => OpenMode(DivinePowerMode.Bless)),
-
-            new Button(new Rectangle(startX, startY + 4 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Curse Civilization", Color.DarkGray, () => OpenMode(DivinePowerMode.Curse)),
-
-            new Button(new Rectangle(startX, startY + 5 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Force Alliance", Color.Green, () => OpenMode(DivinePowerMode.ForceAlliance)),
-
-            new Button(new Rectangle(startX, startY + 6 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Force War", Color.Red, () => OpenMode(DivinePowerMode.ForceWar)),
-
-            new Button(new Rectangle(startX, startY + 7 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Advance Civilization", Color.CornflowerBlue, () => OpenMode(DivinePowerMode.AdvanceCivilization)),
-
-            new Button(new Rectangle(startX, startY + 8 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Armageddon", new Color(200, 30, 20), () => OpenMode(DivinePowerMode.Armageddon)),
-
-            new Button(new Rectangle(startX, startY + 9 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Instant Peace", new Color(120, 200, 255), () =>
+            new Button("Instant Peace", new Color(120, 200, 255), () =>
                 {
                     _currentMode = DivinePowerMode.None;
                     _civButtons.Clear();
                     PeaceRequested?.Invoke();
                     ShowMessage("All wars end. The nations swear 30 years of peace.");
                 }),
-
-            new Button(new Rectangle(startX, startY + 10 * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                "Close Menu", Color.Gray, () => IsOpen = false)
+            new Button("Armageddon", new Color(230, 50, 40), () => OpenMode(DivinePowerMode.Armageddon), DivinePowerMode.Armageddon),
         };
+        LayoutMain();
     }
+
+    private void LayoutMain()
+    {
+        int x = PanelX + ContentPadding;
+        int width = PanelWidth - ContentPadding * 2;
+        int y = PanelY + UIWidgets.HeaderHeight + 10;
+
+        _mainSectionHeaders.Clear();
+        foreach (var section in MainSections)
+        {
+            _mainSectionHeaders.Add((section.Title, y));
+            y += 22;
+            for (int i = section.First; i < section.First + section.Count; i++)
+            {
+                _mainButtons[i].Bounds = new Rectangle(x, y, width, ButtonHeight);
+                y += ButtonHeight + ButtonSpacing;
+            }
+            y += 8;
+        }
+
+        _mainPanel = new Rectangle(PanelX, PanelY, PanelWidth, y + 2 - PanelY);
+        _closeRect = UIWidgets.CloseButtonRect(_mainPanel);
+    }
+
+    /// <summary>X of the second (target) and third (details) panels.</summary>
+    private static int SecondPanelX => PanelX + PanelWidth + PanelGap;
+    private static int ThirdPanelX => PanelX + (PanelWidth + PanelGap) * 2;
+
+    /// <summary>Where the first choice button of a side panel goes.</summary>
+    private static int ListTop => PanelY + UIWidgets.HeaderHeight + 10 + HintHeight;
+
+    private static Rectangle ListButtonRect(int panelX, int index)
+    {
+        return new Rectangle(panelX + ContentPadding, ListTop + index * (ButtonHeight + ButtonSpacing),
+            PanelWidth - ContentPadding * 2, ButtonHeight);
+    }
+
+    private static Rectangle ListPanelRect(int panelX, int rows)
+    {
+        int height = ListTop - PanelY + Math.Max(1, rows) * (ButtonHeight + ButtonSpacing) + 10;
+        return new Rectangle(panelX, PanelY, PanelWidth, height);
+    }
+
+    private const int ArmageddonButtonsOffset = 262;
+    private const int ArmageddonButtonsY = PanelY + ArmageddonButtonsOffset;
+    private static Rectangle ArmageddonPanelRect => new Rectangle(SecondPanelX, PanelY, PanelWidth, ArmageddonButtonsOffset + 34 + 6 + 28 + 14);
 
     /// <summary>
     /// Invoked when the player confirms Armageddon (global nuclear war). The game runs it
@@ -118,20 +150,21 @@ public class DivinePowersUI
         if (mode == DivinePowerMode.Armageddon)
         {
             // Confirmation step instead of a target list
-            int x = 25 + PanelWidth + 10;
+            int x = SecondPanelX + ContentPadding;
+            int width = PanelWidth - ContentPadding * 2;
             _civButtons.Clear();
-            _civButtons.Add(new Button(new Rectangle(x, 320, 220, 34), "LAUNCH EVERYTHING", new Color(220, 30, 20), () =>
+            _civButtons.Add(new Button("LAUNCH EVERYTHING", new Color(230, 50, 40), () =>
             {
                 ArmageddonRequested?.Invoke();
                 ShowMessage("The missiles fly. May the survivors forgive you.");
                 _currentMode = DivinePowerMode.None;
                 _civButtons.Clear();
-            }));
-            _civButtons.Add(new Button(new Rectangle(x, 362, 220, 30), "Cancel", Color.Gray, () =>
+            }) { Bounds = new Rectangle(x, ArmageddonButtonsY, width, 34) });
+            _civButtons.Add(new Button("Cancel", new Color(150, 150, 170), () =>
             {
                 _currentMode = DivinePowerMode.None;
                 _civButtons.Clear();
-            }));
+            }) { Bounds = new Rectangle(x, ArmageddonButtonsY + 34 + 6, width, 28) });
             return;
         }
 
@@ -143,14 +176,10 @@ public class DivinePowersUI
     {
         _civButtons.Clear();
 
-        int buttonWidth = 220;
-        int buttonHeight = 30;
-        int startX = 25 + PanelWidth + 10; // Next to main panel
-        int startY = 50;
-        int spacing = 5;
-
+        // Only as many nations as fit on screen get a button
+        int maxRows = Math.Max(1, (_graphicsDevice.Viewport.Height - 20 - ListTop) / (ButtonHeight + ButtonSpacing));
         var civilizations = _civManager.Civilizations;
-        for (int i = 0; i < civilizations.Count; i++)
+        for (int i = 0; i < civilizations.Count && i < maxRows; i++)
         {
             var civ = civilizations[i];
             int index = i;
@@ -163,11 +192,10 @@ public class DivinePowersUI
             }
 
             _civButtons.Add(new Button(
-                new Rectangle(startX, startY + i * (buttonHeight + spacing), buttonWidth, buttonHeight),
                 buttonText,
-                GetCivColor(civ),
+                TerrainRenderer.GetCivPaletteColor(civ.Id),
                 () => SelectCivilization(civilizations[index])
-            ));
+            ) { Bounds = ListButtonRect(SecondPanelX, i), Civ = civ });
         }
     }
 
@@ -212,24 +240,16 @@ public class DivinePowersUI
     {
         _govButtons.Clear();
 
-        int buttonWidth = 200;
-        int buttonHeight = 30;
-        int startX = 25 + PanelWidth * 2 + 20; // Next to civ panel
-        int startY = 50;
-        int spacing = 5;
-
         var govTypes = Enum.GetValues<GovernmentType>();
         for (int i = 0; i < govTypes.Length; i++)
         {
             var govType = govTypes[i];
-            int index = i;
 
             _govButtons.Add(new Button(
-                new Rectangle(startX, startY + i * (buttonHeight + spacing), buttonWidth, buttonHeight),
                 govType.ToString(),
                 GetGovernmentColor(govType),
                 () => ChangeGovernment(govType)
-            ));
+            ) { Bounds = ListButtonRect(ThirdPanelX, i) });
         }
     }
 
@@ -299,24 +319,16 @@ public class DivinePowersUI
     {
         _spyButtons.Clear();
 
-        int buttonWidth = 200;
-        int buttonHeight = 30;
-        int startX = 25 + PanelWidth * 2 + 20;
-        int startY = 50;
-        int spacing = 5;
-
         var missions = Enum.GetValues<SpyMission>();
         for (int i = 0; i < missions.Length; i++)
         {
             var mission = missions[i];
-            int index = i;
 
             _spyButtons.Add(new Button(
-                new Rectangle(startX, startY + i * (buttonHeight + spacing), buttonWidth, buttonHeight),
-                mission.ToString(),
-                Color.DarkRed,
+                SplitWords(mission.ToString()),
+                new Color(200, 70, 70),
                 () => ExecuteSpyMission(mission)
-            ));
+            ) { Bounds = ListButtonRect(ThirdPanelX, i) });
         }
     }
 
@@ -346,38 +358,29 @@ public class DivinePowersUI
             _messageTimer -= deltaTime;
         }
 
-        if (mouseState.LeftButton == ButtonState.Pressed &&
+        // A closed panel has no buttons to press
+        if (IsOpen &&
+            mouseState.LeftButton == ButtonState.Pressed &&
             _previousMouseState.LeftButton == ButtonState.Released)
         {
             var mousePos = new Point(mouseState.X, mouseState.Y);
+            LayoutMain();
 
-            // Update button positions based on panel position
-            int panelX = 440; // Similar offset to disaster control
-            int panelY = 45;  // Below toolbar
-
-            // We need to offset the button bounds for hit testing because we draw them relative to panel
-            Point relativeMousePos = new Point(mousePos.X - panelX, mousePos.Y - panelY);
+            if (_closeRect.Contains(mousePos))
+            {
+                IsOpen = false;
+                _previousMouseState = mouseState;
+                return;
+            }
 
             // Main buttons
             foreach (var button in _mainButtons)
             {
-                 // Check absolute bounds since buttons are stored with relative coords?
-                 // Actually, simpler to just store absolute bounds or adjust here.
-                 // Let's assume button bounds are stored relative to screen for now in previous code,
-                 // but I changed them to be relative to 0,0 in Initialize.
-                 // Wait, the previous code had hardcoded screen coordinates.
-                 // Let's adjust the bounds in Draw and hit test against those adjusted bounds.
-                 // Better: Update button bounds to be correct screen coordinates in Initialize/Update.
-
-                 // Correction: I will update button bounds dynamically in Draw/Update or make them relative.
-                 // Let's stick to absolute coordinates for simplicity in hit testing, but calculate them based on panel pos.
-
-                 Rectangle absBounds = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
-                 if (absBounds.Contains(mousePos))
-                 {
-                     button.OnClick?.Invoke();
-                     break;
-                 }
+                if (button.Bounds.Contains(mousePos))
+                {
+                    button.OnClick?.Invoke();
+                    break;
+                }
             }
 
             // Civilization selection buttons (Panel 2)
@@ -385,8 +388,7 @@ public class DivinePowersUI
             {
                 foreach (var button in _civButtons)
                 {
-                    Rectangle absBounds = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
-                    if (absBounds.Contains(mousePos))
+                    if (button.Bounds.Contains(mousePos))
                     {
                         button.OnClick?.Invoke();
                         break;
@@ -395,14 +397,12 @@ public class DivinePowersUI
             }
 
             // Sub-menu buttons (Panel 3)
-            if ((_currentMode == DivinePowerMode.ChangeGovernment && _selectedCiv != null) ||
-                (_spyButtons.Count > 0 && _currentMode == DivinePowerMode.SendSpies)) // Fix logic here
+            if (ThirdPanelVisible)
             {
                 var buttonsToCheck = _currentMode == DivinePowerMode.ChangeGovernment ? _govButtons : _spyButtons;
                 foreach (var button in buttonsToCheck)
                 {
-                    Rectangle absBounds = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
-                    if (absBounds.Contains(mousePos))
+                    if (button.Bounds.Contains(mousePos))
                     {
                         button.OnClick?.Invoke();
                         break;
@@ -414,67 +414,129 @@ public class DivinePowersUI
         _previousMouseState = mouseState;
     }
 
+    private bool ThirdPanelVisible =>
+        (_currentMode == DivinePowerMode.ChangeGovernment && _selectedCiv != null) ||
+        (_currentMode == DivinePowerMode.SendSpies && _selectedCiv != null && _targetCiv != null);
+
+    private static bool NeedsTwoNations(DivinePowerMode mode) =>
+        mode == DivinePowerMode.SendSpies || mode == DivinePowerMode.ForceBetray ||
+        mode == DivinePowerMode.ForceAlliance || mode == DivinePowerMode.ForceWar;
+
+    private static string ModeName(DivinePowerMode mode)
+    {
+        return mode switch
+        {
+            DivinePowerMode.ChangeGovernment => "Change government",
+            DivinePowerMode.SendSpies => "Send spies",
+            DivinePowerMode.ForceBetray => "Force betrayal",
+            DivinePowerMode.Bless => "Bless",
+            DivinePowerMode.Curse => "Curse",
+            DivinePowerMode.ForceAlliance => "Force alliance",
+            DivinePowerMode.ForceWar => "Force war",
+            DivinePowerMode.AdvanceCivilization => "Advance",
+            _ => mode.ToString()
+        };
+    }
+
+    /// <summary>"StealTechnology" -> "Steal Technology".</summary>
+    private static string SplitWords(string name)
+    {
+        var sb = new System.Text.StringBuilder(name.Length + 4);
+        for (int i = 0; i < name.Length; i++)
+        {
+            if (i > 0 && char.IsUpper(name[i]) && !char.IsUpper(name[i - 1])) sb.Append(' ');
+            sb.Append(name[i]);
+        }
+        return sb.ToString();
+    }
+
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (!IsOpen) return;
 
-        int panelX = 440; // Offset from left (info panel + gap)
-        int panelY = 45;  // Below toolbar
+        LayoutMain();
 
-        // Draw Main Panel
-        DrawPanel(spriteBatch, panelX, panelY, PanelWidth, PanelHeight, "DIVINE POWERS");
-
-        // Draw main buttons
+        // Main panel
+        UIWidgets.DrawWindow(spriteBatch, _mainPanel, "DIVINE POWERS", UITheme.Gold);
+        foreach (var header in _mainSectionHeaders)
+            UIWidgets.DrawSection(spriteBatch, PanelX + ContentPadding, header.Y, PanelWidth - ContentPadding * 2, header.Title);
         foreach (var button in _mainButtons)
         {
-            // Offset button position by panel position
-            Rectangle drawRect = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
-            DrawButton(spriteBatch, drawRect, button.Text, button.Color);
+            bool active = button.Mode != DivinePowerMode.None && button.Mode == _currentMode;
+            UIWidgets.DrawActionButton(spriteBatch, button.Bounds, button.Text, button.Color, active);
         }
 
-        // Draw Secondary Panel (Civ Selection)
+        // Secondary panel (target selection or the Armageddon confirmation)
         if (_currentMode != DivinePowerMode.None)
         {
-            int secPanelX = panelX + PanelWidth + 10;
-            bool armageddon = _currentMode == DivinePowerMode.Armageddon;
-            DrawPanel(spriteBatch, secPanelX, panelY, PanelWidth, PanelHeight, armageddon ? "ARMAGEDDON?" : "SELECT TARGET");
-            if (armageddon) DrawArmageddonWarning(spriteBatch, secPanelX, panelY);
+            int x = SecondPanelX + ContentPadding;
+            int width = PanelWidth - ContentPadding * 2;
+            int hintY = PanelY + UIWidgets.HeaderHeight + 8;
 
-            foreach (var button in _civButtons)
+            if (_currentMode == DivinePowerMode.Armageddon)
             {
-                Rectangle drawRect = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
-                DrawButton(spriteBatch, drawRect, button.Text, button.Color);
+                UIWidgets.DrawWindow(spriteBatch, ArmageddonPanelRect, "ARMAGEDDON?", UITheme.Bad, closeButton: false);
+                DrawArmageddonWarning(spriteBatch, SecondPanelX, PanelY);
+                UIWidgets.DrawActionButton(spriteBatch, _civButtons[0].Bounds, _civButtons[0].Text, _civButtons[0].Color);
+                UIWidgets.DrawButton(spriteBatch, _civButtons[1].Bounds, _civButtons[1].Text);
+            }
+            else
+            {
+                bool two = NeedsTwoNations(_currentMode);
+                bool pickingTarget = two && _selectedCiv != null;
+                string title = !two ? "CHOOSE A NATION" : pickingTarget ? "AGAINST WHOM?" : "WHO ACTS?";
+                UIWidgets.DrawWindow(spriteBatch, ListPanelRect(SecondPanelX, _civButtons.Count), title, UITheme.Gold, closeButton: false);
+
+                string hint = !two ? ModeName(_currentMode) + ": pick the nation it falls on."
+                    : pickingTarget ? $"{_selectedCiv!.Name} acts. Now pick the other nation."
+                    : ModeName(_currentMode) + ": first pick the nation that acts.";
+                DrawHint(spriteBatch, x, hintY, width, hint);
+
+                if (_civButtons.Count == 0)
+                    UITheme.DrawText(spriteBatch, "No nations exist yet", new Vector2(x, ListTop + 4), UITheme.TextMuted, UITheme.FontSmall);
+
+                foreach (var button in _civButtons)
+                {
+                    bool chosen = button.Civ != null && (button.Civ == _selectedCiv || button.Civ == _targetCiv);
+                    UIWidgets.DrawActionButton(spriteBatch, button.Bounds, button.Text, button.Color, chosen, centered: false, fontSize: 13f);
+                }
             }
         }
 
-        // Draw Tertiary Panel (Details/Actions)
-        if ((_currentMode == DivinePowerMode.ChangeGovernment && _selectedCiv != null) ||
-            (_currentMode == DivinePowerMode.SendSpies && _selectedCiv != null && _targetCiv != null))
+        // Tertiary panel (new government or spy mission)
+        if (ThirdPanelVisible)
         {
-            int terPanelX = panelX + (PanelWidth + 10) * 2;
-            string title = _currentMode == DivinePowerMode.ChangeGovernment ? "NEW GOV" : "MISSION";
-            DrawPanel(spriteBatch, terPanelX, panelY, PanelWidth, PanelHeight, title);
+            bool government = _currentMode == DivinePowerMode.ChangeGovernment;
+            var buttonsToDraw = government ? _govButtons : _spyButtons;
+            UIWidgets.DrawWindow(spriteBatch, ListPanelRect(ThirdPanelX, buttonsToDraw.Count),
+                government ? "NEW GOVERNMENT" : "SPY MISSION", UITheme.Gold, closeButton: false);
+            string hint = government
+                ? $"How shall {_selectedCiv!.Name} be ruled from now on?"
+                : $"What should the spies of {_selectedCiv!.Name} do in {_targetCiv!.Name}?";
+            DrawHint(spriteBatch, ThirdPanelX + ContentPadding, PanelY + UIWidgets.HeaderHeight + 8, PanelWidth - ContentPadding * 2, hint);
 
-            var buttonsToDraw = _currentMode == DivinePowerMode.ChangeGovernment ? _govButtons : _spyButtons;
             foreach (var button in buttonsToDraw)
             {
-                Rectangle drawRect = new Rectangle(button.Bounds.X + panelX, button.Bounds.Y + panelY, button.Bounds.Width, button.Bounds.Height);
-                DrawButton(spriteBatch, drawRect, button.Text, button.Color);
+                bool current = government && _selectedCiv?.Government != null && button.Text == _selectedCiv.Government.Type.ToString();
+                UIWidgets.DrawActionButton(spriteBatch, button.Bounds, button.Text, button.Color, current, centered: false);
             }
         }
 
         // Status message
         if (_messageTimer > 0 && !string.IsNullOrEmpty(_statusMessage))
         {
-            var msgSize = _font.MeasureString(_statusMessage);
-            var msgPos = new Vector2((screenWidth - msgSize.X) / 2, screenHeight - 100);
+            UIWidgets.DrawToast(spriteBatch, _statusMessage, screenWidth, screenHeight - 150);
+        }
+    }
 
-            // Background
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle((int)msgPos.X - 10, (int)msgPos.Y - 5, (int)msgSize.X + 20, (int)msgSize.Y + 10),
-                new Color(0, 0, 0, 200));
-
-            _font.DrawString(spriteBatch, _statusMessage, msgPos, Color.Yellow);
+    /// <summary>Two-line hint above a list of choices (extra text is cut with an ellipsis).</summary>
+    private static void DrawHint(SpriteBatch spriteBatch, int x, int y, int width, string text)
+    {
+        var lines = UITheme.WrapText(text, width, UITheme.FontSmall);
+        for (int i = 0; i < lines.Count && i < 2; i++)
+        {
+            string line = i == 1 && lines.Count > 2 ? UITheme.Ellipsize(lines[1] + " " + lines[2], width, UITheme.FontSmall) : lines[i];
+            UITheme.DrawText(spriteBatch, line, new Vector2(x, y + i * 16), UITheme.TextDim, UITheme.FontSmall);
         }
     }
 
@@ -483,71 +545,41 @@ public class DivinePowersUI
         var data = CivRenderData.Latest;
         int powers = data.Civs.Count(c => c.HasNuclearWeapons && c.NuclearWarheads > 0);
         int warheads = data.Civs.Sum(c => c.NuclearWarheads);
-        int ty = y + 50;
+        int left = x + ContentPadding;
+        int width = PanelWidth - ContentPadding * 2;
+        int ty = y + UIWidgets.HeaderHeight + 10;
         var icons = MapIcons.GetShared(_graphicsDevice);
-        spriteBatch.Draw(icons.Trefoil, new Rectangle(x + PanelWidth / 2 - 24, ty, 48, 48), Color.White);
-        ty += 60;
+        spriteBatch.Draw(icons.Trefoil, new Rectangle(x + PanelWidth / 2 - 22, ty, 44, 44), Color.White);
+        ty += 52;
         string text = "Every nuclear power declares war on its rivals and launches its whole arsenal. " +
                       "Cities burn, fallout spreads and soot darkens the sky for years (nuclear winter). This cannot be undone.";
-        foreach (var line in UITheme.WrapText(text, PanelWidth - 30, 13f))
+        int limit = y + ArmageddonButtonsOffset - 8 - 2 * UIWidgets.RowHeight - 18;
+        foreach (var line in UITheme.WrapText(text, width, UITheme.FontSmall))
         {
-            UITheme.DrawText(spriteBatch, line, new Vector2(x + 15, ty), UITheme.Text, 13f);
-            ty += 18;
+            if (ty + 16 > limit) break;
+            UITheme.DrawText(spriteBatch, line, new Vector2(left, ty), UITheme.Text, UITheme.FontSmall);
+            ty += 16;
         }
-        ty += 8;
+        ty = limit + 4;
         Color c = powers > 0 ? UITheme.Bad : UITheme.TextMuted;
-        UITheme.DrawText(spriteBatch, $"Nuclear powers: {powers}", new Vector2(x + 15, ty), c, 13f);
-        UITheme.DrawText(spriteBatch, $"Warheads: {warheads:N0}", new Vector2(x + 15, ty + 18), c, 13f);
+        ty = UIWidgets.DrawKeyValue(spriteBatch, left, ty, width, "Nuclear powers", powers.ToString(), c, UITheme.FontSmall) - 3;
+        ty = UIWidgets.DrawKeyValue(spriteBatch, left, ty, width, "Warheads", warheads.ToString("N0"), c, UITheme.FontSmall) - 3;
         if (powers == 0)
-            UITheme.DrawText(spriteBatch, "(no nation has the bomb yet)", new Vector2(x + 15, ty + 38), UITheme.TextMuted, 12f);
-    }
-
-    private void DrawPanel(SpriteBatch spriteBatch, int x, int y, int width, int height, string title)
-    {
-        UITheme.DrawTitledPanel(spriteBatch, new Rectangle(x, y, width, height), title, _borderColor, 36);
-    }
-
-    private void DrawButton(SpriteBatch spriteBatch, Rectangle bounds, string text, Color color)
-    {
-        bool hovered = bounds.Contains(Microsoft.Xna.Framework.Input.Mouse.GetState().Position);
-        string fitted = UITheme.Ellipsize(text, bounds.Width - 14, UITheme.FontNormal);
-        UITheme.DrawButton(spriteBatch, bounds, fitted, hovered, false, color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(bounds.X + 6, bounds.Bottom - 3, bounds.Width - 12, 2), color * (hovered ? 1f : 0.65f));
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
-    }
-
-    private Color GetCivColor(Civilization civ)
-    {
-        return civ.CivType switch
-        {
-            CivType.Tribal => new Color(139, 90, 43),
-            CivType.Agricultural => new Color(100, 160, 80),
-            CivType.Industrial => new Color(120, 120, 120),
-            CivType.Scientific => new Color(100, 149, 237),
-            CivType.Spacefaring => new Color(147, 112, 219),
-            _ => Color.White
-        };
+            UITheme.DrawText(spriteBatch, "No nation has the bomb yet", new Vector2(left, ty), UITheme.TextMuted, UITheme.FontSmall);
     }
 
     private Color GetGovernmentColor(GovernmentType type)
     {
         return type switch
         {
-            GovernmentType.Tribal => Color.Brown,
-            GovernmentType.Monarchy => Color.Purple,
+            GovernmentType.Tribal => new Color(190, 130, 80),
+            GovernmentType.Monarchy => Color.MediumPurple,
             GovernmentType.Dynasty => Color.Gold,
             GovernmentType.Theocracy => Color.Cyan,
-            GovernmentType.Republic => Color.Blue,
-            GovernmentType.Democracy => Color.Green,
+            GovernmentType.Republic => Color.CornflowerBlue,
+            GovernmentType.Democracy => new Color(90, 200, 110),
             GovernmentType.Oligarchy => Color.Orange,
-            GovernmentType.Dictatorship => Color.Red,
+            GovernmentType.Dictatorship => new Color(255, 70, 60),
             GovernmentType.Federation => Color.LightBlue,
             _ => Color.White
         };
@@ -555,17 +587,19 @@ public class DivinePowersUI
 
     private class Button
     {
-        public Rectangle Bounds { get; }
+        public Rectangle Bounds { get; set; }
         public string Text { get; }
         public Color Color { get; }
         public Action? OnClick { get; }
+        public DivinePowerMode Mode { get; }
+        public Civilization? Civ { get; set; }
 
-        public Button(Rectangle bounds, string text, Color color, Action? onClick)
+        public Button(string text, Color color, Action? onClick, DivinePowerMode mode = DivinePowerMode.None)
         {
-            Bounds = bounds;
             Text = text;
             Color = color;
             OnClick = onClick;
+            Mode = mode;
         }
     }
 }

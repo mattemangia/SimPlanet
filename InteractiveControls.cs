@@ -37,47 +37,36 @@ public class InteractiveControls
 
     private void InitializeButtons()
     {
-        _buttons = new List<Button>();
+        // Bounds are assigned by Layout(), which Update and Draw both call.
+        _buttons = new List<Button>
+        {
+            // Terraforming button - restore planet to habitable state
+            new Button("Terraform", UITheme.Good, () => ActivateTerraforming()),
+            // Cool Planet button - reduce global temperature
+            new Button("Cool Planet", Color.LightBlue, () => CoolPlanet()),
+            // Seed Life button - add bacteria to suitable areas
+            new Button("Seed Life", Color.LightGreen, () => SeedLife()),
+            // Clear Pollution button - reduce CO2
+            new Button("Clear CO2", Color.Cyan, () => ClearPollution()),
+        };
+        Layout();
+    }
 
-        // Position buttons at the top right or higher up to avoid bottom bar overlap
-        int startX = _graphicsDevice.Viewport.Width - 160;
-        int startY = 100;
-        int spacing = 40;
+    private Rectangle _panel;
 
-        // Terraforming button - restore planet to habitable state
-        _buttons.Add(new Button(
-            new Rectangle(startX, startY, 140, 30),
-            "Terraform",
-            Color.Green,
-            () => ActivateTerraforming()
-        ));
-        startY += spacing;
-
-        // Cool Planet button - reduce global temperature
-        _buttons.Add(new Button(
-            new Rectangle(startX, startY, 140, 30),
-            "Cool Planet",
-            Color.LightBlue,
-            () => CoolPlanet()
-        ));
-        startY += spacing;
-
-        // Seed Life button - add bacteria to suitable areas
-        _buttons.Add(new Button(
-            new Rectangle(startX, startY, 140, 30),
-            "Seed Life",
-            Color.LightGreen,
-            () => SeedLife()
-        ));
-        startY += spacing;
-
-        // Clear Pollution button - reduce CO2
-        _buttons.Add(new Button(
-            new Rectangle(startX, startY, 140, 30),
-            "Clear CO2",
-            Color.Cyan,
-            () => ClearPollution()
-        ));
+    /// <summary>Small panel in the top-right corner, below the toolbar.</summary>
+    private void Layout()
+    {
+        const int width = 176, buttonHeight = 30, spacing = 6;
+        int x = _graphicsDevice.Viewport.Width - width - 12;
+        int y = 100;
+        int by = y + UIWidgets.HeaderHeight + 10;
+        foreach (var button in _buttons)
+        {
+            button.Bounds = new Rectangle(x + 12, by, width - 24, buttonHeight);
+            by += buttonHeight + spacing;
+        }
+        _panel = new Rectangle(x, y, width, by - spacing + 12 - y);
     }
 
     public void Update(float deltaTime)
@@ -103,10 +92,13 @@ public class InteractiveControls
         // Handle mouse input
         var mouseState = Mouse.GetState();
 
-        if (mouseState.LeftButton == ButtonState.Pressed &&
+        // The buttons only exist while the panel is shown
+        if (ShowControls &&
+            mouseState.LeftButton == ButtonState.Pressed &&
             _previousMouseState.LeftButton == ButtonState.Released)
         {
             var mousePos = new Point(mouseState.X, mouseState.Y);
+            Layout();
 
             foreach (var button in _buttons)
             {
@@ -245,10 +237,14 @@ public class InteractiveControls
     {
         if (!ShowControls) return;
 
+        Layout();
+        UIWidgets.DrawWindow(spriteBatch, _panel, "QUICK ACTIONS", UITheme.Good, closeButton: false);
+
         // Draw buttons
         foreach (var button in _buttons)
         {
-            DrawButton(spriteBatch, button);
+            bool running = TerraformingActive && button == _buttons[0];
+            UIWidgets.DrawActionButton(spriteBatch, button.Bounds, button.Text, button.Color, selected: running);
         }
 
         // Draw terraforming progress
@@ -256,70 +252,26 @@ public class InteractiveControls
         {
             int screenHeight = _graphicsDevice.Viewport.Height;
             int screenWidth = _graphicsDevice.Viewport.Width;
-            int progressWidth = 600;
-            int progressHeight = 30;
-            int progressX = (screenWidth - progressWidth) / 2;
-            int progressY = screenHeight - 125; // Positioned well above bottom bar
+            int progressWidth = Math.Min(600, screenWidth - 40);
+            var box = new Rectangle((screenWidth - progressWidth) / 2, screenHeight - 138, progressWidth, 50); // above the bottom bar
+            UITheme.DrawPanel(spriteBatch, box, new Color(12, 17, 28, 246), Color.Lerp(UITheme.Border, UITheme.Good, 0.45f));
 
-            // Background
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(progressX, progressY, progressWidth, progressHeight),
-                new Color(0, 0, 0, 180));
-
-            // Progress bar
-            float progressRatio = _terraformProgress / TerraformDuration;
-            int filledWidth = (int)(progressWidth * Math.Min(progressRatio, 1.0f));
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(progressX, progressY, filledWidth, progressHeight),
-                new Color(0, 255, 0, 180));
-
-            // Progress text
-            _font.DrawString(spriteBatch,
-                $"Terraforming: {(progressRatio * 100):F0}%",
-                new Vector2(progressX + 10, progressY + 5),
-                Color.White);
+            float progressRatio = Math.Min(_terraformProgress / TerraformDuration, 1.0f);
+            UIWidgets.DrawKeyValue(spriteBatch, box.X + 14, box.Y + 8, box.Width - 28, "Terraforming the planet",
+                $"{progressRatio * 100:F0} %", UITheme.Good);
+            UITheme.DrawMeter(spriteBatch, new Rectangle(box.X + 14, box.Y + 31, box.Width - 28, 8), progressRatio, UITheme.Good);
         }
-    }
-
-    private void DrawButton(SpriteBatch spriteBatch, Button button)
-    {
-        // Button background
-        spriteBatch.Draw(_pixelTexture, button.Bounds, new Color(button.Color, 0.7f));
-
-        // Button border
-        DrawRectangleBorder(spriteBatch, button.Bounds, Color.White, 2);
-
-        // Button text
-        var textSize = _font.MeasureString(button.Text);
-        var textPos = new Vector2(
-            button.Bounds.X + (button.Bounds.Width - textSize.X) / 2,
-            button.Bounds.Y + (button.Bounds.Height - textSize.Y) / 2
-        );
-        _font.DrawString(spriteBatch, button.Text, textPos, Color.White);
-    }
-
-    private void DrawRectangleBorder(SpriteBatch spriteBatch, Rectangle rect, Color color, int thickness)
-    {
-        // Top
-        spriteBatch.Draw(_pixelTexture, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
-        // Bottom
-        spriteBatch.Draw(_pixelTexture, new Rectangle(rect.X, rect.Bottom - thickness, rect.Width, thickness), color);
-        // Left
-        spriteBatch.Draw(_pixelTexture, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
-        // Right
-        spriteBatch.Draw(_pixelTexture, new Rectangle(rect.Right - thickness, rect.Y, thickness, rect.Height), color);
     }
 
     private class Button
     {
-        public Rectangle Bounds { get; }
+        public Rectangle Bounds { get; set; }
         public string Text { get; }
         public Color Color { get; }
         public Action? OnClick { get; }
 
-        public Button(Rectangle bounds, string text, Color color, Action? onClick)
+        public Button(string text, Color color, Action? onClick)
         {
-            Bounds = bounds;
             Text = text;
             Color = color;
             OnClick = onClick;
