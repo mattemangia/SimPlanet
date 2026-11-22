@@ -89,30 +89,30 @@ public class ProfileTool : IDisposable
         if (!IsActive) return;
 
         // Draw instructions
-        string text = !StartPoint.HasValue ? "Click to start profile line" : "Click to end profile line (Right-click to reset)";
-        var textSize = _font.MeasureString(text, 14);
-        int panelWidth = (int)textSize.X + 20;
-        int panelHeight = 40;
-        int xPos = (screenWidth - panelWidth) / 2;
-        int yPos = 100; // Top center
-
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(xPos, yPos, panelWidth, panelHeight), new Color(0, 0, 0, 200));
-        // Border
-        DrawBorder(spriteBatch, xPos, yPos, panelWidth, panelHeight, Color.White, 2);
-
-        _font.DrawString(spriteBatch, text, new Vector2(xPos + 10, yPos + 10), Color.White, 14);
+        bool started = StartPoint.HasValue;
+        var items = new (string, string, Color?)[]
+        {
+            ("Step", started ? "2 of 2" : "1 of 2", UITheme.Gold),
+            ("From", started ? $"{StartPoint!.Value.X}, {StartPoint.Value.Y}" : "-", started ? UITheme.Text : UITheme.TextMuted),
+        };
+        string hint = started
+            ? "Click the map where the section ends  -  right-click: start over"
+            : "Click the map where the section starts";
+        UIWidgets.DrawToolBar(spriteBatch, screenWidth / 2, 100, screenWidth, "Geological Section", UITheme.Accent, items, hint);
 
         // Draw Start Point
         if (StartPoint.HasValue)
         {
             Vector2 startScreenPos = MapToScreen(StartPoint.Value, cameraX, cameraY, zoom, screenOffsetX, screenOffsetY, cellSize);
-            spriteBatch.Draw(_pixelTexture, new Rectangle((int)startScreenPos.X - 4, (int)startScreenPos.Y - 4, 8, 8), Color.Red);
 
             // Draw line to mouse if EndPoint not set
             Vector2 mousePos = new Vector2(Mouse.GetState().X, Mouse.GetState().Y);
 
-            DrawLine(spriteBatch, startScreenPos, mousePos, Color.Yellow, 2);
+            DrawLine(spriteBatch, startScreenPos + new Vector2(1, 1), mousePos + new Vector2(1, 1), Color.Black * 0.6f, 3);
+            DrawLine(spriteBatch, startScreenPos, mousePos, UITheme.Gold, 2);
+            UITheme.FillRounded(spriteBatch, new Rectangle((int)startScreenPos.X - 6, (int)startScreenPos.Y - 6, 12, 12), new Color(8, 11, 18));
+            UITheme.FillRounded(spriteBatch, new Rectangle((int)startScreenPos.X - 4, (int)startScreenPos.Y - 4, 8, 8), UITheme.Gold);
+            UITheme.DrawTextOutlined(spriteBatch, "A", startScreenPos + new Vector2(8, -18), UITheme.Gold, UITheme.FontNormal);
         }
     }
 
@@ -137,14 +137,6 @@ public class ProfileTool : IDisposable
             Vector2.Zero,
             SpriteEffects.None,
             0);
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
     }
 
     public void Dispose()

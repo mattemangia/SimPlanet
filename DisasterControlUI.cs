@@ -44,109 +44,98 @@ public class DisasterControlUI
 
     private void InitializeButtons()
     {
-        int panelX = 300; // Offset to not cover info panel
-        int panelY = 50; // Below toolbar
-        int buttonWidth = 180;
-        int buttonHeight = 30;
-        int spacing = 5;
-        int currentY = panelY + 40;
-
-        // Main toggle
-        _toggleButtons.Add(new ToggleButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Random Disasters",
+        // Bounds are assigned by Layout(), which Update and Draw both call.
+        _toggleButtons.Add(new ToggleButton("Random disasters",
             () => _disasterManager.RandomDisastersEnabled,
             (val) => _disasterManager.RandomDisastersEnabled = val));
-        currentY += buttonHeight + spacing;
 
-        currentY += 10; // Section spacing
-
-        // Individual disaster toggles
-        _toggleButtons.Add(new ToggleButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Asteroids",
+        _toggleButtons.Add(new ToggleButton("Asteroids",
             () => _disasterManager.AsteroidsEnabled,
             (val) => _disasterManager.AsteroidsEnabled = val));
-        currentY += buttonHeight + spacing;
 
-        _toggleButtons.Add(new ToggleButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Earthquakes",
+        _toggleButtons.Add(new ToggleButton("Earthquakes",
             () => _disasterManager.EarthquakesEnabled,
             (val) => _disasterManager.EarthquakesEnabled = val));
-        currentY += buttonHeight + spacing;
 
-        _toggleButtons.Add(new ToggleButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Nuclear Accidents",
+        _toggleButtons.Add(new ToggleButton("Nuclear accidents",
             () => _disasterManager.NuclearAccidentsEnabled,
             (val) => _disasterManager.NuclearAccidentsEnabled = val));
-        currentY += buttonHeight + spacing;
 
-        _toggleButtons.Add(new ToggleButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Acid Rain",
+        _toggleButtons.Add(new ToggleButton("Acid rain",
             () => _disasterManager.AcidRainEnabled,
             (val) => _disasterManager.AcidRainEnabled = val));
-        currentY += buttonHeight + spacing;
 
-        _toggleButtons.Add(new ToggleButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Tornadoes",
+        _toggleButtons.Add(new ToggleButton("Tornadoes",
             () => _disasterManager.TornadoesEnabled,
             (val) => _disasterManager.TornadoesEnabled = val));
-        currentY += buttonHeight + spacing;
 
-        _toggleButtons.Add(new ToggleButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Heavy Rains",
+        _toggleButtons.Add(new ToggleButton("Heavy rains",
             () => _disasterManager.HeavyRainsEnabled,
             (val) => _disasterManager.HeavyRainsEnabled = val));
-        currentY += buttonHeight + spacing;
-
-        currentY += 15; // Section spacing
 
         // Manual trigger buttons
-        _actionButtons.Add(new ActionButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Trigger Asteroid",
-            new Color(100, 50, 0),
+        _actionButtons.Add(new ActionButton("Asteroid", DisasterType.Asteroid,
             () => StartDisasterSelection(DisasterType.Asteroid)));
-        currentY += buttonHeight + spacing;
-
-        _actionButtons.Add(new ActionButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Trigger Earthquake",
-            new Color(100, 80, 60),
+        _actionButtons.Add(new ActionButton("Earthquake", DisasterType.Earthquake,
             () => StartDisasterSelection(DisasterType.Earthquake)));
-        currentY += buttonHeight + spacing;
-
-        _actionButtons.Add(new ActionButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Trigger Nuclear",
-            new Color(150, 0, 0),
+        _actionButtons.Add(new ActionButton("Nuclear", DisasterType.NuclearAccident,
             () => StartDisasterSelection(DisasterType.NuclearAccident)));
-        currentY += buttonHeight + spacing;
-
-        _actionButtons.Add(new ActionButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Trigger Acid Rain",
-            new Color(100, 150, 50),
+        _actionButtons.Add(new ActionButton("Acid rain", DisasterType.AcidRain,
             () => StartDisasterSelection(DisasterType.AcidRain)));
-        currentY += buttonHeight + spacing;
-
-        _actionButtons.Add(new ActionButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Trigger Tornado",
-            new Color(80, 80, 80),
+        _actionButtons.Add(new ActionButton("Tornado", DisasterType.Tornado,
             () => StartDisasterSelection(DisasterType.Tornado)));
-        currentY += buttonHeight + spacing;
-
-        _actionButtons.Add(new ActionButton(
-            new Rectangle(panelX, currentY, buttonWidth, buttonHeight),
-            "Trigger Heavy Rain",
-            new Color(50, 100, 180),
+        _actionButtons.Add(new ActionButton("Heavy rain", DisasterType.HeavyRain,
             () => StartDisasterSelection(DisasterType.HeavyRain)));
+
+        Layout();
+    }
+
+    // ---- Layout (single source of truth for Update and Draw) ----------------------------
+
+    private const int PanelX = 290;   // right of the info panel
+    private const int PanelY = 56;    // below the toolbar
+    private const int PanelWidth = 236;
+    private const int RecentRows = 6;
+
+    private Rectangle _panel;
+    private Rectangle _closeRect;
+    private int _typesSectionY;
+    private int _triggerSectionY;
+    private int _recentSectionY;
+
+    private void Layout()
+    {
+        int x = PanelX + 12;
+        int width = PanelWidth - 24;
+        int y = PanelY + UIWidgets.HeaderHeight + 10;
+
+        // Master switch
+        _toggleButtons[0].Bounds = new Rectangle(x, y, width, 30);
+        y += 30 + 12;
+
+        _typesSectionY = y;
+        y += 22;
+        for (int i = 1; i < _toggleButtons.Count; i++)
+        {
+            _toggleButtons[i].Bounds = new Rectangle(x, y, width, 26);
+            y += 27;
+        }
+        y += 10;
+
+        _triggerSectionY = y;
+        y += 22;
+        int half = (width - 6) / 2;
+        for (int i = 0; i < _actionButtons.Count; i++)
+        {
+            _actionButtons[i].Bounds = new Rectangle(x + (i % 2) * (half + 6), y + (i / 2) * 34, half, 28);
+        }
+        y += ((_actionButtons.Count + 1) / 2) * 34 + 8;
+
+        _recentSectionY = y;
+        y += 22 + RecentRows * 18 + 10;
+
+        _panel = new Rectangle(PanelX, PanelY, PanelWidth, y - PanelY);
+        _closeRect = UIWidgets.CloseButtonRect(_panel);
     }
 
     private void StartDisasterSelection(DisasterType type)
@@ -220,6 +209,14 @@ public class DisasterControlUI
         // Don't process UI clicks if selecting target on map
         if (!IsSelectingTarget && clicked)
         {
+            Layout();
+            if (_closeRect.Contains(mousePos))
+            {
+                IsVisible = false;
+                _previousMouseState = mouseState;
+                return;
+            }
+
             // Toggle buttons
             foreach (var button in _toggleButtons)
             {
@@ -285,114 +282,85 @@ public class DisasterControlUI
     {
         if (!IsVisible) return;
 
-        int panelX = 300;
-        int panelY = 50;
-        int panelWidth = 200;
-        int panelHeight = 600;
+        Layout();
+        int x = _panel.X + 12;
+        int width = _panel.Width - 24;
 
-        // Background and title
-        UITheme.DrawTitledPanel(spriteBatch, new Rectangle(panelX - 5, panelY - 5, panelWidth, panelHeight), "DISASTER CONTROL", UITheme.Bad, 32);
+        UIWidgets.DrawWindow(spriteBatch, _panel, "DISASTER CONTROL", UITheme.Bad);
 
-        // Draw toggle buttons
-        foreach (var button in _toggleButtons)
+        // Master switch, then one switch per kind (dimmed while random disasters are off)
+        bool master = _toggleButtons[0].GetValue();
+        UIWidgets.DrawToggleRow(spriteBatch, _toggleButtons[0].Bounds, _toggleButtons[0].Text, master, emphasised: true);
+
+        UIWidgets.DrawSection(spriteBatch, x, _typesSectionY, width, "ALLOWED KINDS");
+        for (int i = 1; i < _toggleButtons.Count; i++)
         {
-            DrawToggleButton(spriteBatch, button);
+            var button = _toggleButtons[i];
+            UIWidgets.DrawToggleRow(spriteBatch, button.Bounds, button.Text, button.GetValue());
         }
 
-        // Draw action buttons
+        UIWidgets.DrawSection(spriteBatch, x, _triggerSectionY, width, "STRIKE THE MAP");
         foreach (var button in _actionButtons)
         {
-            DrawActionButton(spriteBatch, button);
+            bool selected = IsSelectingTarget && _selectedDisasterType == button.Type;
+            UIWidgets.DrawActionButton(spriteBatch, button.Bounds, button.Text, GetDisasterColor(button.Type), selected,
+                fontSize: UITheme.FontSmall);
         }
 
-        // Draw selection instructions
-        if (IsSelectingTarget)
+        DrawRecentDisasters(spriteBatch, x, width);
+
+        // Placement instructions while a target is being chosen
+        if (IsSelectingTarget && _selectedDisasterType.HasValue)
         {
-            string instruction = $"Click on map to place {_selectedDisasterType}";
-            if (_selectedDisasterType == DisasterType.Asteroid)
-            {
-                instruction += $"\nSize: {_selectedDisasterSize} (scroll to change)";
-            }
-            else if (_selectedDisasterType == DisasterType.Earthquake)
-            {
-                instruction += $"\nMagnitude: {_selectedDisasterSize}.0 (scroll to change)";
-            }
-            instruction += "\nRight-click to cancel";
-
-            _font.DrawString(spriteBatch, instruction,
-                new Vector2(panelX + 10, panelY + panelHeight - 60), Color.Yellow);
+            var type = _selectedDisasterType.Value;
+            var items = new List<(string, string, Color?)>();
+            if (type == DisasterType.Asteroid)
+                items.Add(("Size", _selectedDisasterSize.ToString(), UITheme.Gold));
+            else if (type == DisasterType.Earthquake)
+                items.Add(("Magnitude", $"{_selectedDisasterSize}.0", UITheme.Gold));
+            bool sized = items.Count > 0;
+            string hint = sized
+                ? "Click the map to strike  -  wheel: change  -  right-click: cancel"
+                : "Click the map to strike  -  right-click: cancel";
+            UIWidgets.DrawToolBar(spriteBatch, screenWidth / 2, screenHeight - 115, screenWidth,
+                "Place " + DisasterName(type), GetDisasterColor(type), items.ToArray(), hint);
         }
-
-        // Draw recent disasters list
-        DrawRecentDisasters(spriteBatch, screenWidth);
     }
 
-    private void DrawRecentDisasters(SpriteBatch spriteBatch, int screenWidth)
+    private void DrawRecentDisasters(SpriteBatch spriteBatch, int x, int width)
     {
-        int listX = screenWidth - 220;
-        int listY = 10;
-        int listWidth = 210;
-        int listHeight = 200;
+        UIWidgets.DrawSection(spriteBatch, x, _recentSectionY, width, "RECENT DISASTERS");
+        int textY = _recentSectionY + 22;
 
-        // Background
-        spriteBatch.Draw(_pixelTexture,
-            new Rectangle(listX, listY, listWidth, listHeight),
-            new Color(20, 20, 40, 230));
-
-        // Border
-        DrawBorder(spriteBatch, listX, listY, listWidth, listHeight, Color.DarkRed, 2);
-
-        // Title
-        _font.DrawString(spriteBatch, "RECENT DISASTERS",
-            new Vector2(listX + 10, listY + 5), Color.Red);
-
-        // List disasters
         var disasters = _disasterManager.GetAllDisasters();
-        int displayCount = Math.Min(disasters.Count, 8);
-        int startIndex = Math.Max(0, disasters.Count - displayCount);
+        if (disasters.Count == 0)
+        {
+            UITheme.DrawText(spriteBatch, "None so far", new Vector2(x, textY), UITheme.TextMuted, UITheme.FontSmall);
+            return;
+        }
 
-        int textY = listY + 30;
-        for (int i = startIndex; i < disasters.Count; i++)
+        // Newest first
+        int shown = 0;
+        for (int i = disasters.Count - 1; i >= 0 && shown < RecentRows; i--, shown++)
         {
             var disaster = disasters[i];
-            string text = $"Y{disaster.Year}: {disaster.Type}";
-            Color color = GetDisasterColor(disaster.Type);
-
-            _font.DrawString(spriteBatch, text,
-                new Vector2(listX + 10, textY), color);
+            UITheme.FillRounded(spriteBatch, new Rectangle(x, textY + 4, 7, 7), GetDisasterColor(disaster.Type));
+            UIWidgets.DrawKeyValue(spriteBatch, x + 14, textY, width - 14, DisasterName(disaster.Type), $"year {disaster.Year}",
+                UITheme.TextMuted, UITheme.FontSmall);
             textY += 18;
         }
     }
 
-    private void DrawToggleButton(SpriteBatch spriteBatch, ToggleButton button)
+    private static string DisasterName(DisasterType type)
     {
-        bool isOn = button.GetValue();
-        bool hovered = button.Bounds.Contains(Mouse.GetState().Position);
-        UITheme.DrawButton(spriteBatch, button.Bounds, "", hovered, false);
-
-        // Label on the left, ON/OFF pill on the right
-        var ts = UITheme.Measure(button.Text, UITheme.FontNormal);
-        UITheme.DrawTextShadowed(spriteBatch, button.Text,
-            new Vector2(button.Bounds.X + 10, button.Bounds.Y + (button.Bounds.Height - ts.Y) / 2f), UITheme.Text);
-        var pill = new Rectangle(button.Bounds.Right - 46, button.Bounds.Y + (button.Bounds.Height - 18) / 2, 38, 18);
-        UITheme.FillRounded(spriteBatch, pill, isOn ? new Color(40, 130, 70) : new Color(90, 40, 40));
-        UITheme.DrawTextCentered(spriteBatch, isOn ? "ON" : "OFF", pill, Color.White, 11f);
-    }
-
-    private void DrawActionButton(SpriteBatch spriteBatch, ActionButton button)
-    {
-        bool hovered = button.Bounds.Contains(Mouse.GetState().Position);
-        UITheme.DrawButton(spriteBatch, button.Bounds, UITheme.Ellipsize(button.Text, button.Bounds.Width - 14), hovered, false, button.Color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(button.Bounds.X + 6, button.Bounds.Bottom - 3, button.Bounds.Width - 12, 2),
-            button.Color * (hovered ? 1f : 0.65f));
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
+        return type switch
+        {
+            DisasterType.NuclearAccident => "Nuclear accident",
+            DisasterType.AcidRain => "Acid rain",
+            DisasterType.HeavyRain => "Heavy rain",
+            DisasterType.VolcanicEruption => "Volcanic eruption",
+            _ => type.ToString()
+        };
     }
 
     private Color GetDisasterColor(DisasterType type)
@@ -400,11 +368,11 @@ public class DisasterControlUI
         return type switch
         {
             DisasterType.Asteroid => new Color(255, 150, 0),
-            DisasterType.Earthquake => new Color(150, 100, 50),
-            DisasterType.VolcanicEruption => new Color(255, 50, 0),
-            DisasterType.NuclearAccident => new Color(200, 0, 0),
+            DisasterType.Earthquake => new Color(196, 140, 84),
+            DisasterType.VolcanicEruption => new Color(255, 80, 30),
+            DisasterType.NuclearAccident => new Color(240, 60, 60),
             DisasterType.AcidRain => new Color(150, 200, 50),
-            DisasterType.Tornado => new Color(100, 100, 100),
+            DisasterType.Tornado => new Color(170, 176, 190),
             DisasterType.HeavyRain => new Color(100, 150, 255),
             _ => Color.White
         };
@@ -412,14 +380,13 @@ public class DisasterControlUI
 
     private class ToggleButton
     {
-        public Rectangle Bounds { get; }
+        public Rectangle Bounds { get; set; }
         public string Text { get; }
         private Func<bool> _getValue;
         private Action<bool> _setValue;
 
-        public ToggleButton(Rectangle bounds, string text, Func<bool> getValue, Action<bool> setValue)
+        public ToggleButton(string text, Func<bool> getValue, Action<bool> setValue)
         {
-            Bounds = bounds;
             Text = text;
             _getValue = getValue;
             _setValue = setValue;
@@ -435,16 +402,15 @@ public class DisasterControlUI
 
     private class ActionButton
     {
-        public Rectangle Bounds { get; }
+        public Rectangle Bounds { get; set; }
         public string Text { get; }
-        public Color Color { get; }
+        public DisasterType Type { get; }
         public Action? OnClick { get; }
 
-        public ActionButton(Rectangle bounds, string text, Color color, Action? onClick)
+        public ActionButton(string text, DisasterType type, Action? onClick)
         {
-            Bounds = bounds;
             Text = text;
-            Color = color;
+            Type = type;
             OnClick = onClick;
         }
     }

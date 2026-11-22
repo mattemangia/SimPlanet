@@ -85,27 +85,29 @@ public class LifePainterUI : IDisposable
     {
         if (!IsVisible) return;
 
-        string text = $"Life Painter | Brush: {_brushSize} | Species: {_selectedLifeForm}";
-        var textSize = _font.MeasureString(text, 14);
-        int panelWidth = (int)textSize.X + 20;
-        int panelHeight = 40;
-        int xPos = (screenWidth - panelWidth) / 2;
-        int yPos = screenHeight - panelHeight - 75; // Moved up to avoid bottom button bar
-
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(xPos, yPos, panelWidth, panelHeight), new Color(0, 0, 0, 200));
-        // Border
-        DrawBorder(spriteBatch, xPos, yPos, panelWidth, panelHeight, Color.White, 2);
-
-        _font.DrawString(spriteBatch, text, new Vector2(xPos + 10, yPos + 10), Color.White, 14);
+        // Status bar above the bottom button bar
+        var items = new (string, string, Color?)[]
+        {
+            ("Species", SpeciesName(_selectedLifeForm), UITheme.Good),
+            ("Brush", _brushSize.ToString(), UITheme.Gold),
+        };
+        UIWidgets.DrawToolBar(spriteBatch, screenWidth / 2, screenHeight - 115, screenWidth, "Life Painter",
+            UITheme.Good, items,
+            "Hold left button: paint  -  right-click: next species  -  wheel: brush size");
     }
 
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
+    /// <summary>"SimpleAnimals" -> "Simple Animals"; None paints life away.</summary>
+    private static string SpeciesName(LifeForm form)
     {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
+        if (form == LifeForm.None) return "None (erase)";
+        string name = form.ToString();
+        var sb = new System.Text.StringBuilder(name.Length + 4);
+        for (int i = 0; i < name.Length; i++)
+        {
+            if (i > 0 && char.IsUpper(name[i]) && !char.IsUpper(name[i - 1])) sb.Append(' ');
+            sb.Append(name[i]);
+        }
+        return sb.ToString();
     }
 
     public void Dispose()

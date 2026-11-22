@@ -121,7 +121,12 @@ public class GeologicalEventsUI
 
     public void HandleInput(MouseState mouseState, MouseState prevMouseState, int screenWidth, int toolbarHeight)
     {
-        if (!ShowEvents) return;
+        // The panel (and its close button) is only drawn while there is something to list
+        if (!ShowEvents || _eventLog.Count == 0)
+        {
+            _isHoveringClose = false;
+            return;
+        }
 
         _closeButtonRect = CalculateCloseButtonRect(screenWidth, toolbarHeight);
         _isHoveringClose = _closeButtonRect.Contains(mouseState.Position);
@@ -838,11 +843,8 @@ public class GeologicalEventsUI
 
     private void DrawCloseButton(Rectangle rect, bool hovered)
     {
-        UITheme.FillRounded(_spriteBatch, rect, hovered ? new Color(190, 60, 60) : new Color(60, 70, 92));
-        var c = rect.Center.ToVector2();
-        float r = rect.Width * 0.22f;
-        UITheme.DrawLine(_spriteBatch, c + new Vector2(-r, -r), c + new Vector2(r, r), Color.White, 1.6f);
-        UITheme.DrawLine(_spriteBatch, c + new Vector2(-r, r), c + new Vector2(r, -r), Color.White, 1.6f);
+        // Same close button as every other panel
+        UIWidgets.DrawCloseButton(_spriteBatch, rect);
     }
 
     private static Rectangle CalculateCloseButtonRect(int screenWidth, int toolbarHeight)

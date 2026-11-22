@@ -216,18 +216,24 @@ public class ManualFaultTool : IDisposable
         if (!IsActive) return;
 
         // Draw tool UI
-        string text = $"Manual Fault Tool | Type: {_selectedFaultType} (TAB) | Drag to draw";
-        var textSize = _font.MeasureString(text, 14);
-        int panelWidth = (int)textSize.X + 20;
-        int panelHeight = 40;
-        int xPos = (screenWidth - panelWidth) / 2;
-        int yPos = screenHeight - panelHeight - 120; // Above terraforming tool
-
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(xPos, yPos, panelWidth, panelHeight), new Color(0, 0, 0, 200));
-        DrawBorder(spriteBatch, xPos, yPos, panelWidth, panelHeight, Color.Red, 2);
-
-        _font.DrawString(spriteBatch, text, new Vector2(xPos + 10, yPos + 10), Color.White, 14);
+        Color typeColor = _selectedFaultType switch
+        {
+            FaultType.Normal => Color.Yellow,
+            FaultType.Thrust => Color.Magenta,
+            FaultType.Strike_Slip => Color.Cyan,
+            _ => UITheme.Bad
+        };
+        string typeName = _selectedFaultType switch
+        {
+            FaultType.Normal => "Normal (rift valley)",
+            FaultType.Thrust => "Thrust (ridge)",
+            FaultType.Strike_Slip => "Strike-slip (no relief)",
+            _ => _selectedFaultType.ToString()
+        };
+        var items = new (string, string, Color?)[] { ("Type", typeName, typeColor) };
+        // Sits above the terraforming / life painter status bar
+        UIWidgets.DrawToolBar(spriteBatch, screenWidth / 2, screenHeight - 158, screenWidth, "Fault Tool",
+            typeColor, items, "Drag on the map to draw  -  Tab: next type  -  right-click: cancel");
 
         // Draw drag line if active
         if (_startPoint.HasValue && _endPoint.HasValue && Mouse.GetState().LeftButton == ButtonState.Pressed)
@@ -240,7 +246,10 @@ public class ManualFaultTool : IDisposable
             Vector2 startScreen = MapToScreen(_startPoint.Value, cameraX, cameraY, zoom, screenOffsetX, screenOffsetY, cellSize);
             Vector2 endScreen = MapToScreen(_endPoint.Value, cameraX, cameraY, zoom, screenOffsetX, screenOffsetY, cellSize);
 
-            DrawLine(spriteBatch, startScreen, endScreen, Color.Red, 2);
+            DrawLine(spriteBatch, startScreen + new Vector2(1, 1), endScreen + new Vector2(1, 1), Color.Black * 0.6f, 3);
+            DrawLine(spriteBatch, startScreen, endScreen, typeColor, 2);
+            UITheme.FillRounded(spriteBatch, new Rectangle((int)startScreen.X - 4, (int)startScreen.Y - 4, 8, 8), typeColor);
+            UITheme.FillRounded(spriteBatch, new Rectangle((int)endScreen.X - 4, (int)endScreen.Y - 4, 8, 8), typeColor);
         }
     }
 
@@ -289,14 +298,6 @@ public class ManualFaultTool : IDisposable
             Vector2.Zero,
             SpriteEffects.None,
             0);
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
     }
 
     public void Dispose()
