@@ -13,7 +13,7 @@ public struct EarthquakeEvent
 /// <summary>
 /// Simulates plate tectonics, volcanism, erosion, and sedimentation
 /// </summary>
-public class GeologicalSimulator
+public partial class GeologicalSimulator
 {
     private readonly PlanetMap _map;
     private readonly Random _random;
@@ -51,6 +51,8 @@ public class GeologicalSimulator
         AssignCellsToPlates();
         InitializeCrustTypes();
         InitializeVolcanicHotspots();
+        AllocateTectonicFields();
+        ClassifyBoundaries();
     }
 
     private void InitializeCrustTypes()
@@ -140,9 +142,12 @@ public class GeologicalSimulator
             {
                 VelocityX = (float)(_random.NextDouble() - 0.5) * 0.5f,
                 VelocityY = (float)(_random.NextDouble() - 0.5) * 0.5f,
-                IsOceanic = _random.NextDouble() < 0.6, // 60% oceanic
-                Density = _random.NextDouble() < 0.6 ? 3.0f : 2.7f // Oceanic vs Continental
+                IsOceanic = _random.NextDouble() < 0.6 // 60% oceanic
             };
+            // Density follows the crust the plate carries (older oceanic plates are denser)
+            plate.Density = plate.IsOceanic
+                ? 2.95f + (float)_random.NextDouble() * 0.15f
+                : 2.70f + (float)_random.NextDouble() * 0.05f;
             _plates.Add(plate);
         }
     }
@@ -287,7 +292,12 @@ public class GeologicalSimulator
         for (int i = 0; i < numHotspots; i++)
         {
             int x = _random.Next(_map.Width);
-            int y = _random.Next(_map.Height);
+            int y = _random.Next(_map.Height / 8, _map.Height * 7 / 8);
+            for (int attempt = 0; attempt < 20 && HasVolcanoWithin(x, y, 12); attempt++)
+            {
+                x = _random.Next(_map.Width);
+                y = _random.Next(_map.Height / 8, _map.Height * 7 / 8);
+            }
 
             var cell = _map.Cells[x, y];
             var geo = cell.GetGeology();
@@ -310,6 +320,7 @@ public class GeologicalSimulator
         // The deltaTime passed in is already scaled by TimeSpeed in the main loop.
         UpdatePlateTectonics(currentYear, deltaTime);
         UpdateVolcanicActivity(currentYear, deltaTime);
+        UpdateVolcanicAerosols(deltaTime);
         UpdateErosionAndSedimentation(deltaTime);
         UpdateCarbonatePlatforms(deltaTime);
         UpdateTurbidites(deltaTime);
@@ -321,6 +332,7 @@ public class GeologicalSimulator
         if (_plateMovementAccumulator >= PlateMovementThreshold)
         {
             UpdatePlateMovement();
+            ClassifyBoundaries();
             _plateMovementAccumulator = 0.0f;
         }
 
@@ -406,7 +418,7 @@ public class GeologicalSimulator
                     geo.SedimentaryRock += productionRate * deltaTime * 0.1f;
 
                     // Carbonates can build up to shallow platforms
-                    if (geo.CarbonateLayer > 0.5f)
+                    if (geo.CarbonateLayer > 0.5f && cell.Elevation < -0.02f)
                     {
                         cell.Elevation += 0.001f * deltaTime; // Very slow uplift from accumulation
                     }
@@ -414,254 +426,7 @@ public class GeologicalSimulator
                     // Add limestone to sediment column
                     if (_simulationRandom.NextDouble() < productionRate)
                     {
-                        geo.SedimentColumn.Add(SedimentType.Limestone);
-                    }
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Updates plate movements and boundary interactions.
-    /// Scientific Basis:
-    /// - Plate Tectonics: Wilson Cycle (Wilson, 1966).
-    /// - Plate Motions: McKenzie, D. P., & Parker, R. L. (1967). "The North Pacific: an example of tectonics on a sphere". Nature.
-    /// </summary>
-    private void UpdatePlateTectonics(int currentYear, float deltaTime)
-    {
-        float tectonicScale = TectonicScale * deltaTime;
-        float volcanicScale = VolcanicScale * deltaTime;
-
-        // Identify plate boundaries and calculate interactions
-        for (int x = 0; x < _map.Width; x++)
-        {
-            for (int y = 0; y < _map.Height; y++)
-            {
-                var cell = _map.Cells[x, y];
-                var geo = cell.GetGeology();
-                int plateId = _plateMap[x, y];
-
-                // Check neighbors for plate boundaries
-                var neighbors = _map.GetNeighbors(x, y).ToList();
-
-                // User-created faults override plate boundaries
-                if (geo.IsManualFault)
-                {
-                    geo.BoundaryType = PlateBoundaryType.Transform;
-                    geo.TectonicStress += 0.05f * tectonicScale; // Higher stress buildup
-                    geo.IsFault = true;
-
-                    // Earthquakes on manual faults
-                    if (geo.TectonicStress > 1.0f && _simulationRandom.NextDouble() < 0.05 * tectonicScale)
-                    {
-                        Earthquakes.Enqueue(new EarthquakeEvent { X = x, Y = y, Magnitude = geo.TectonicStress, Year = currentYear });
-                        geo.TectonicStress = 0;
-                    }
-
-                    // Trigger neighbors to also be faults? No, just the line.
-                }
-
-                foreach (var (nx, ny, neighbor) in neighbors)
-                {
-                    int neighborPlate = _plateMap[nx, ny];
-                    if (neighborPlate != plateId && !geo.IsManualFault) // Don't override manual fault
-                    {
-                        // Determine boundary type
-                        var plate1 = _plates[plateId];
-                        var plate2 = _plates[neighborPlate];
-
-                        // Calculate relative velocity
-                        float relVelX = (plate1.VelocityX - plate2.VelocityX) * tectonicScale;
-                        float relVelY = (plate1.VelocityY - plate2.VelocityY) * tectonicScale;
-                        float relVel = MathF.Sqrt(relVelX * relVelX + relVelY * relVelY);
-
-                        // Determine boundary type
-                        float convergence = -(relVelX * (nx - x) + relVelY * (ny - y));
-
-                        if (convergence > 0.1f) // Converging
-                        {
-                            geo.BoundaryType = PlateBoundaryType.Convergent;
-
-                            // Mountain building or subduction
-                            double arcChance = 0.00002 * volcanicScale;
-
-                            // PATCHY UPLIFT FIX: Use Perlin noise to break up the "continuous wall"
-                            // This makes trenches and mountains form in segments rather than perfectly continuous lines
-                            float boundaryNoise = _boundaryNoise.OctaveNoise(x * 0.1f, y * 0.1f, 2, 0.5f, 2.0f);
-                            float upliftRate = 0.005f * tectonicScale * (boundaryNoise * 0.5f + 0.5f); // Modulate rate
-
-                            // Threshold for uplift to happen at all (creates gaps)
-                            bool activeSegment = boundaryNoise > -0.2f;
-
-                            if (plate1.IsOceanic && !plate2.IsOceanic)
-                            {
-                                // Oceanic subducts under continental (Andes)
-                                // Trench on oceanic side (this cell)
-
-                                if (activeSegment)
-                                {
-                                    // Logic: I am Oceanic. Neighbor is Continental. I subduct.
-                                    cell.Elevation -= upliftRate * 0.5f; // Form Trench
-                                }
-
-                                geo.TectonicStress += 0.02f * tectonicScale;
-                                geo.SubductionRate = relVel * 0.01f;
-                            }
-                            else if (!plate1.IsOceanic && plate2.IsOceanic)
-                            {
-                                // Continental over Oceanic
-                                // I am Continental. Neighbor is Oceanic.
-                                // I get uplift (mountains) and volcanoes.
-
-                                if (activeSegment)
-                                {
-                                    cell.Elevation += upliftRate; // Mountain building
-                                }
-
-                                // Volcanic arc on continental side - use noise for patchiness
-                                if (!geo.IsVolcano && activeSegment && _simulationRandom.NextDouble() < arcChance && CanPlaceVolcano(x, y))
-                                {
-                                    geo.IsVolcano = true;
-                                    geo.VolcanicActivity = 0.6f;
-                                    geo.MagmaPressure = 0.3f;
-                                }
-
-                                geo.TectonicStress += 0.02f * tectonicScale;
-                            }
-                            else if (!plate1.IsOceanic && !plate2.IsOceanic)
-                            {
-                                // Continent-Continent Collision (Himalayas)
-                                if (activeSegment)
-                                {
-                                    // Massive uplift for both sides
-                                    cell.Elevation += upliftRate * 1.5f;
-                                }
-                                geo.TectonicStress += 0.03f * tectonicScale;
-
-                                // Occasional volcanism (tibetan plateau style)
-                                if (!geo.IsVolcano && cell.Elevation > 0.6f && activeSegment && _simulationRandom.NextDouble() < 0.002 * volcanicScale && CanPlaceVolcano(x, y))
-                                {
-                                    geo.IsVolcano = true;
-                                    geo.VolcanicActivity = 0.3f;
-                                }
-                            }
-                            else if (plate1.IsOceanic && plate2.IsOceanic)
-                            {
-                                // Ocean-Ocean Convergence (Island Arcs)
-                                if (plate1.Density > plate2.Density)
-                                {
-                                    // I am denser -> I subduct -> Trench
-                                    if (activeSegment)
-                                        cell.Elevation -= upliftRate * 0.5f;
-                                }
-                                else
-                                {
-                                    // I am lighter -> I ride over -> Island Arc
-                                    if (activeSegment)
-                                        cell.Elevation += upliftRate * 0.8f;
-
-                                    // Island arc volcanism - patchy
-                                    if (!geo.IsVolcano && activeSegment && _simulationRandom.NextDouble() < 0.00005 * volcanicScale && CanPlaceVolcano(x, y))
-                                    {
-                                        cell.Elevation += 0.05f; // Build island base
-                                        geo.IsVolcano = true;
-                                        geo.VolcanicActivity = 0.7f;
-                                        geo.MagmaPressure = 0.4f;
-                                    }
-                                }
-                            }
-                        }
-                        else if (convergence < -0.1f) // Diverging
-                        {
-                            geo.BoundaryType = PlateBoundaryType.Divergent;
-
-                            // Divergent Boundary - Rift Valley or Mid-Ocean Ridge
-                            // Consistent uplift to form ridges
-                            float ridgeUplift = 0.004f * tectonicScale;
-
-                            if (cell.IsWater)
-                            {
-                                // Mid-ocean ridge
-                                // Build ridge, but don't necessarily breach surface immediately
-                                if (cell.Elevation < -0.2f)
-                                {
-                                    cell.Elevation += ridgeUplift;
-                                }
-
-                                // Ridge volcanism is common
-                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.0001 * volcanicScale && CanPlaceVolcano(x, y))
-                                {
-                                    geo.IsVolcano = true;
-                                    geo.VolcanicActivity = 0.4f;
-                                    geo.MagmaPressure = 0.2f;
-                                    cell.Elevation += 0.02f;
-                                }
-                            }
-                            else
-                            {
-                                // Continental Rift (East Africa)
-                                // Rift valley formation (subsidence in center, uplift on flanks - hard to simulate flanks here)
-                                // We simulate the subsidence
-                                cell.Elevation -= 0.002f * tectonicScale;
-
-                                // Rift volcanism
-                                if (!geo.IsVolcano && _simulationRandom.NextDouble() < 0.00005 * volcanicScale && CanPlaceVolcano(x, y))
-                                {
-                                    geo.IsVolcano = true;
-                                    geo.VolcanicActivity = 0.5f;
-                                }
-                            }
-                        }
-                        else // Transform
-                        {
-                            geo.BoundaryType = PlateBoundaryType.Transform;
-                            geo.TectonicStress += 0.02f * tectonicScale;
-
-                            // Earthquakes
-                            if (geo.TectonicStress > 1.0f && _simulationRandom.NextDouble() < 0.01 * tectonicScale)
-                            {
-                                Earthquakes.Enqueue(new EarthquakeEvent { X = x, Y = y, Magnitude = geo.TectonicStress, Year = currentYear });
-                                geo.TectonicStress = 0;
-                            }
-                        }
-                    }
-                }
-
-                // Stress relief through earthquakes
-                if (geo.TectonicStress > 1.5f && _simulationRandom.NextDouble() < 0.005 * tectonicScale)
-                {
-                    Earthquakes.Enqueue(new EarthquakeEvent { X = x, Y = y, Magnitude = geo.TectonicStress, Year = currentYear });
-                    geo.TectonicStress *= 0.1f;
-                }
-
-                // CRITICAL: Validate and clamp TectonicStress to prevent overflow
-                if (float.IsNaN(geo.TectonicStress) || float.IsInfinity(geo.TectonicStress))
-                    geo.TectonicStress = 0;
-
-                // Clamp to reasonable maximum (0-10 range, with normal values 0-2)
-                geo.TectonicStress = Math.Clamp(geo.TectonicStress, 0f, 10f);
-
-                // Cleanup inactive faults to prevent performance degradation and crashes
-                // Only clean up faults that are not manually placed and not on active plate boundaries
-                if (geo.IsFault && !geo.IsManualFault && geo.BoundaryType == PlateBoundaryType.None)
-                {
-                    // Decay activity over time
-                    // Use tectonicScale to ensure it scales with simulation speed
-                    // Default decay: 0.1 per second at 1x speed (takes ~10s to clear)
-                    float decayRate = 0.1f * tectonicScale;
-
-                    geo.FaultActivity -= decayRate;
-
-                    // Also slowly decay stress on inactive faults so they don't just re-trigger immediately
-                    geo.SeismicStress -= decayRate * 0.5f;
-
-                    // If activity drops to zero, remove the fault
-                    if (geo.FaultActivity <= 0.0f)
-                    {
-                        geo.IsFault = false;
-                        geo.FaultType = FaultType.None;
-                        geo.FaultActivity = 0f;
-                        geo.SeismicStress = Math.Max(0f, geo.SeismicStress);
+                        AddLayer(geo, SedimentType.Limestone);
                     }
                 }
             }
@@ -727,11 +492,11 @@ public class GeologicalSimulator
                     geo.LastEruptionYear = currentYear;
                 }
 
-                // Dormant volcanoes cool down
-                if (currentYear - geo.LastEruptionYear > 100)
-                {
-                    geo.VolcanicActivity *= MathF.Max(0.9f, 1.0f - 0.01f * volcanicScale);
-                }
+                // Magma supply follows the tectonic setting: plumes and active arcs/ridges keep
+                // feeding their volcanoes, while one carried away from its source slowly dies.
+                float supply = geo.IsHotSpot ? 0.55f : _magmaSupply[x, y];
+                float relax = MathF.Min(1f, 0.004f * volcanicScale);
+                geo.VolcanicActivity += (supply - geo.VolcanicActivity) * relax;
 
                 if (ShouldExtinguishVolcano(geo, currentYear) || IsCrowdedDormantVolcano(x, y, geo, currentYear))
                 {
@@ -757,13 +522,10 @@ public class GeologicalSimulator
         if (!geo.IsVolcano)
             return false;
 
-        int lastActivityYear = geo.LastEruptionYear <= 0 ? 0 : geo.LastEruptionYear;
-
-        int dormantYears = currentYear - lastActivityYear;
-        if (dormantYears < 400)
+        if (geo.IsHotSpot)
             return false;
 
-        return geo.VolcanicActivity < 0.05f && geo.MagmaPressure < 0.1f;
+        return geo.VolcanicActivity < 0.05f;
     }
 
     /// <summary>
@@ -773,7 +535,7 @@ public class GeologicalSimulator
     private bool IsCrowdedDormantVolcano(int x, int y, GeologicalData geo, int currentYear)
     {
         if (geo.IsHotSpot || currentYear - geo.LastEruptionYear < 150) return false;
-        if (_simulationRandom.NextDouble() > 0.02) return false; // Gradual
+        if (_simulationRandom.NextDouble() > 0.0005) return false; // Gradual
 
         for (int dx = -2; dx <= 2; dx++)
         {
@@ -812,18 +574,15 @@ public class GeologicalSimulator
             if (geo.IsVolcano || !CanPlaceVolcano(x, y))
                 continue;
 
-            bool tectonicTrigger = geo.BoundaryType == PlateBoundaryType.Convergent ||
-                                   geo.BoundaryType == PlateBoundaryType.Divergent;
-            bool hasHighRelief = cell.Elevation > 0.65f;
-
-            if (!tectonicTrigger && !geo.IsHotSpot && !hasHighRelief)
+            // Volcanoes only appear where there is magma: arcs, ridges and rifts
+            if (_magmaSupply[x, y] < 0.2f)
                 continue;
 
             if (cell.IsWater && _simulationRandom.NextDouble() > 0.35)
                 continue;
 
             geo.IsVolcano = true;
-            geo.VolcanicActivity = 0.25f + (float)_simulationRandom.NextDouble() * 0.4f;
+            geo.VolcanicActivity = _magmaSupply[x, y];
             geo.MagmaPressure = 0.1f + (float)_simulationRandom.NextDouble() * 0.2f;
             geo.LastEruptionYear = currentYear;
             geo.LastEruptionType = EruptionType.Effusive;
@@ -874,6 +633,11 @@ public class GeologicalSimulator
                 PhreatomagmaticEruption(x, y, vei);
                 break;
         }
+
+        // Explosive heating is brief: keep cells within a physically plausible range
+        ClampEruptionHeat(x, y, 8 + vei * 2);
+        cell.Elevation = Math.Clamp(cell.Elevation, -1.2f, 1.25f);
+        GeoEvents.Publish(new GeoEvent { Kind = GeoEventKind.Eruption, X = x, Y = y, Magnitude = vei, Year = year, Eruption = eruptionType });
 
         TryTriggerVolcanicTsunami(x, y, eruptionType, vei, year);
     }
@@ -937,7 +701,7 @@ public class GeologicalSimulator
             geo.Basalt += 0.2f;
         }
 
-        cell.Elevation += elevationIncrease;
+        BuildEdifice(x, y, elevationIncrease, 2);
         geo.VolcanicRock += 0.3f; // Direct lava adds to volcanic rock
         cell.Temperature += 20 * (vei + 1);
         cell.CO2 += 1.0f * (vei + 1);
@@ -981,7 +745,7 @@ public class GeologicalSimulator
             elevationIncrease *= 2.0f;
         }
 
-        cell.Elevation += elevationIncrease;
+        BuildEdifice(x, y, elevationIncrease, 1);
         geo.VolcanicRock += 0.25f;
         cell.Temperature += 35 * (vei + 1);
         cell.CO2 += 1.5f * (vei + 1);
@@ -1009,7 +773,7 @@ public class GeologicalSimulator
                 else
                 {
                     neighbor.GetGeology().SedimentLayer += 0.05f * (1.0f - distance / radius);
-                    neighbor.GetGeology().SedimentColumn.Add(SedimentType.Volcanic);
+                    AddLayer(neighbor.GetGeology(), SedimentType.Volcanic);
                 }
                 neighbor.Biomass *= (0.8f - distance / radius * 0.2f);
             }
@@ -1051,7 +815,7 @@ public class GeologicalSimulator
         var cell = _map.Cells[x, y];
         var geo = cell.GetGeology();
 
-        cell.Elevation += 0.03f * (vei + 1);
+        BuildEdifice(x, y, 0.03f * (vei + 1), 1);
         geo.VolcanicRock += 0.2f;
         cell.Temperature += 50 * (vei + 1);
         cell.CO2 += 3.0f * (vei + 1);
@@ -1081,7 +845,7 @@ public class GeologicalSimulator
                 neighbor.Biomass *= (1.0f - 0.4f * effect); // Ash kills plants
 
                 // Volcanic ash sediment
-                neighbor.GetGeology().SedimentColumn.Add(SedimentType.Volcanic);
+                AddLayer(neighbor.GetGeology(), SedimentType.Volcanic);
             }
         }
     }
@@ -1099,7 +863,7 @@ public class GeologicalSimulator
         }
         else
         {
-            cell.Elevation += 0.06f * (vei + 1);
+            BuildEdifice(x, y, 0.06f * (vei + 1), 1);
         }
 
         geo.VolcanicRock += 0.4f;
@@ -1144,7 +908,7 @@ public class GeologicalSimulator
                 // Heavy volcanic ash layers
                 for (int i = 0; i < (int)(5 * effect); i++)
                 {
-                    neighbor.GetGeology().SedimentColumn.Add(SedimentType.Volcanic);
+                    AddLayer(neighbor.GetGeology(), SedimentType.Volcanic);
                 }
             }
         }
@@ -1152,7 +916,7 @@ public class GeologicalSimulator
         // Global climate effect for VEI 6+
         if (vei >= 6)
         {
-            _map.SolarEnergy -= 0.05f; // Volcanic winter
+            AddVolcanicAerosol(0.02f * (vei - 5)); // Volcanic winter that clears in a few years
         }
     }
 
@@ -1194,223 +958,7 @@ public class GeologicalSimulator
                 // Fine ash and steam deposits
                 if (_random.NextDouble() < effect)
                 {
-                    neighbor.GetGeology().SedimentColumn.Add(SedimentType.Volcanic);
-                }
-            }
-        }
-    }
-
-    private void UpdateErosionAndSedimentation(float deltaTime)
-    {
-        // Validate deltaTime to prevent NaN propagation
-        if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime < 0)
-        {
-            return;
-        }
-
-        float erosionScale = ErosionScale * 0.1f; // Reduce erosion scale by 90%
-        
-        // Add sediment compaction and removal mechanism
-        float compactionRate = 0.02f; // Sediment compacts over time (increased from 0.01f)
-
-        for (int x = 0; x < _map.Width; x++)
-        {
-            for (int y = 0; y < _map.Height; y++)
-            {
-                var cell = _map.Cells[x, y];
-                var geo = cell.GetGeology();
-
-                // Apply sediment compaction - converts sediment to rock over time
-                if (geo.SedimentLayer > 2.0f)
-                {
-                    float compaction = (geo.SedimentLayer - 2.0f) * compactionRate * deltaTime;
-                    geo.SedimentLayer -= compaction;
-                    geo.SedimentaryRock += compaction * 0.5f; // 50% becomes rock
-                    geo.SedimentaryRock = Math.Clamp(geo.SedimentaryRock, 0f, 5f);
-                }
-                
-                // Ocean sediment removal at subduction zones and deep burial
-                if (!cell.IsLand && cell.Elevation < -0.5f)
-                {
-                    // Deep ocean sediments get subducted or deeply buried
-                    if (geo.BoundaryType == PlateBoundaryType.Convergent || geo.SedimentLayer > 5.0f)
-                    {
-                        float removalRate = 0.02f * deltaTime;
-                        geo.SedimentLayer *= (1.0f - removalRate);
-                    }
-                }
-
-                if (!cell.IsLand) continue;
-
-                // Fix any existing NaN values AND clamp to reasonable ranges
-                if (float.IsNaN(geo.SedimentLayer) || float.IsInfinity(geo.SedimentLayer))
-                {
-                    geo.SedimentLayer = 0.0f;
-                }
-                geo.SedimentLayer = Math.Clamp(geo.SedimentLayer, 0f, 10f); // Max 10 units of sediment
-
-                if (float.IsNaN(geo.ErosionRate) || float.IsInfinity(geo.ErosionRate))
-                {
-                    geo.ErosionRate = 0.0f;
-                }
-                geo.ErosionRate = Math.Clamp(geo.ErosionRate, 0f, 100f); // Max erosion rate
-
-                // Erosion rate based on rainfall, temperature, and slope
-                float slope = CalculateSlope(x, y);
-
-                // Validate inputs before calculation
-                float rainfall = float.IsNaN(cell.Rainfall) ? 0.0f : Math.Max(0, cell.Rainfall);
-                rainfall = Math.Clamp(rainfall, 0f, 1f); // Rainfall should be 0-1
-                float temperature = float.IsNaN(cell.Temperature) ? 0.0f : cell.Temperature;
-                temperature = Math.Clamp(temperature, -100f, 100f); // Physically possible range
-                slope = float.IsNaN(slope) ? 0.0f : Math.Max(0, slope);
-                slope = Math.Clamp(slope, 0f, 10f); // Max slope
-
-                geo.ErosionRate = rainfall * 0.05f * (1.0f + slope * 1.5f); // Reduced from 0.1f and 2.0f
-                geo.ErosionRate *= erosionScale;
-
-                // Temperature affects weathering
-                if (temperature > 20)
-                {
-                    geo.ErosionRate *= 1.2f; // Reduced from 1.5f
-                }
-
-                // Ice erosion
-                if (cell.IsIce)
-                {
-                    geo.ErosionRate *= 1.5f; // Reduced from 2.0f
-                }
-
-                geo.ErosionRate = Math.Clamp(geo.ErosionRate, 0f, 10f);
-
-                // Apply erosion - reduced rate
-                float erosion = geo.ErosionRate * deltaTime * 0.00005f; // Reduced from 0.0001f
-
-                // Validate erosion value and clamp
-                if (float.IsNaN(erosion) || float.IsInfinity(erosion) || erosion < 0)
-                    erosion = 0;
-
-                erosion = Math.Clamp(erosion, 0f, 0.1f); // Max erosion per update
-
-                if (erosion > 0)
-                {
-                    // Validate elevation before modification
-                    if (float.IsNaN(cell.Elevation) || float.IsInfinity(cell.Elevation))
-                        cell.Elevation = 0;
-
-                    cell.Elevation -= erosion;
-                    geo.SedimentLayer += erosion;
-                    geo.SedimentLayer = Math.Clamp(geo.SedimentLayer, 0f, 10f); // Clamp after erosion addition
-
-                    // Clamp elevation and sediment to reasonable ranges
-                    cell.Elevation = Math.Clamp(cell.Elevation, -2f, 2f); // Keep in reasonable range
-                    geo.SedimentLayer = Math.Clamp(geo.SedimentLayer, 0f, 10f);
-                }
-
-                // Transport sediment downhill (by rivers and flooding)
-                var lowestNeighbor = GetLowestNeighbor(x, y);
-                if (lowestNeighbor.HasValue && geo.SedimentLayer > 0.01f)
-                {
-                    var (lx, ly) = lowestNeighbor.Value;
-                    var targetGeo = _map.Cells[lx, ly].GetGeology();
-
-                    // Fix any NaN values in target cell AND clamp
-                    if (float.IsNaN(targetGeo.SedimentLayer) || float.IsInfinity(targetGeo.SedimentLayer))
-                    {
-                        targetGeo.SedimentLayer = 0.0f;
-                    }
-                    targetGeo.SedimentLayer = Math.Clamp(targetGeo.SedimentLayer, 0f, 10f);
-
-                    // Transport rate depends on water flow (rainfall + flooding)
-                    float floodLevel = float.IsNaN(geo.FloodLevel) ? 0.0f : Math.Max(0, geo.FloodLevel);
-                    floodLevel = Math.Clamp(floodLevel, 0f, 10f); // Clamp flood level
-
-                    float waterFlow = float.IsNaN(geo.WaterFlow) ? 0.0f : Math.Max(0, geo.WaterFlow);
-                    waterFlow = Math.Clamp(waterFlow, 0f, 10f); // Clamp water flow
-
-                    float waterCurrent = (rainfall + floodLevel + waterFlow) * erosionScale;
-
-                    // Validate waterCurrent AND CLAMP to prevent astronomical values
-                    if (float.IsNaN(waterCurrent) || float.IsInfinity(waterCurrent))
-                    {
-                        waterCurrent = 0.0f;
-                    }
-                    waterCurrent = Math.Clamp(waterCurrent, 0f, 20f); // Max reasonable water current
-
-                    float transport = geo.SedimentLayer * 0.05f * waterCurrent; // Reduced from 0.1f to 0.05f
-
-                    // Validate transport value AND CLAMP to prevent astronomical values
-                    if (float.IsNaN(transport) || float.IsInfinity(transport) || transport < 0)
-                    {
-                        continue; // Skip this transport if invalid
-                    }
-                    transport = Math.Clamp(transport, 0f, 1f); // Max sediment transport per update
-
-                    // Determine sediment type based on source material and current strength
-                    SedimentType sedimentType;
-                    if (waterCurrent > 0.8f)
-                    {
-                        sedimentType = SedimentType.Gravel; // High current carries coarse material
-                    }
-                    else if (waterCurrent > 0.5f)
-                    {
-                        sedimentType = SedimentType.Sand;
-                    }
-                    else if (waterCurrent > 0.3f)
-                    {
-                        sedimentType = SedimentType.Silt;
-                    }
-                    else
-                    {
-                        sedimentType = SedimentType.Clay; // Fine particles settle in calm water
-                    }
-
-                    // Volcanic sediments
-                    if (!float.IsNaN(geo.VolcanicRock) && geo.VolcanicRock > 0.5f)
-                    {
-                        sedimentType = SedimentType.Volcanic;
-                    }
-
-                    // Organic sediments from biomass
-                    float biomass = float.IsNaN(cell.Biomass) ? 0.0f : cell.Biomass;
-                    if (biomass > 0.5f && waterCurrent < 0.4f)
-                    {
-                        sedimentType = SedimentType.Organic;
-                    }
-
-                    geo.SedimentLayer -= transport;
-
-                    // Deposit sediment in target cell
-                    if (waterCurrent < 0.5f && transport > 0.01f) // Low current = deposition
-                    {
-                        targetGeo.SedimentLayer += transport;
-                        targetGeo.SedimentLayer = Math.Clamp(targetGeo.SedimentLayer, 0f, 10f); // Clamp after addition
-                        targetGeo.SedimentColumn.Add(sedimentType); // Add to sediment column
-                        targetGeo.SedimentaryRock += transport * 0.1f;
-                        targetGeo.SedimentaryRock = Math.Clamp(targetGeo.SedimentaryRock, 0f, 5f); // Also clamp rock accumulation
-
-                        // Sediment builds up elevation in lowlands
-                        if (_map.Cells[lx, ly].IsWater || _map.Cells[lx, ly].Elevation < 0.1f)
-                        {
-                            float elevationIncrease = transport * 0.5f;
-                            if (!float.IsNaN(elevationIncrease) && !float.IsInfinity(elevationIncrease))
-                            {
-                                _map.Cells[lx, ly].Elevation += elevationIncrease;
-                                _map.Cells[lx, ly].Elevation = Math.Clamp(_map.Cells[lx, ly].Elevation, -2f, 2f); // Clamp elevation
-                            }
-                        }
-                    }
-                    else // High current = sediment keeps moving
-                    {
-                        targetGeo.SedimentLayer += transport;
-                        targetGeo.SedimentLayer = Math.Clamp(targetGeo.SedimentLayer, 0f, 10f); // Clamp after addition
-                    }
-
-                    // Limit sediment column size (keep only recent layers)
-                    if (targetGeo.SedimentColumn.Count > 100)
-                    {
-                        targetGeo.SedimentColumn.RemoveAt(0);
-                    }
+                    AddLayer(neighbor.GetGeology(), SedimentType.Volcanic);
                 }
             }
         }

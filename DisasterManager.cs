@@ -107,6 +107,8 @@ public class DisasterManager
             Magnitude = size
         });
 
+        GeoEvents.Publish(new GeoEvent { Kind = GeoEventKind.Impact, X = x, Y = y, Magnitude = size, Year = year, Radius = size * 10 });
+
         // MASSIVE crater formation - asteroids are devastating
         int craterRadius = size * 5;          // Much larger crater
         int blastRadius = size * 10;          // Thermal blast extends further
@@ -423,6 +425,9 @@ public class DisasterManager
             Magnitude = magnitude
         });
 
+        // The fault itself breaks and deforms the ground coherently along the rupture
+        EarthquakeSystem.Rupture(_map, x, y, year, magnitude);
+
         int radius = (int)(magnitude * 5);
 
         for (int dx = -radius; dx <= radius; dx++)
@@ -438,10 +443,7 @@ public class DisasterManager
 
                 var target = _map.Cells[nx, ny];
                 var targetGeo = target.GetGeology();
-                float effect = (1.0f - distance / radius) * magnitude;
-
-                // Ground deformation
-                target.Elevation += (float)(_random.NextDouble() - 0.5) * 0.05f * effect;
+                float effect = (1.0f - distance / radius) * magnitude / 9f;
 
                 // Building damage (affects civilizations)
                 target.Biomass *= (1.0f - 0.3f * effect);
@@ -484,7 +486,9 @@ public class DisasterManager
         if (stressedCells.Any())
         {
             var chosen = stressedCells[_random.Next(stressedCells.Count)];
-            float magnitude = 4.0f + (float)_random.NextDouble() * 5.0f; // 4.0-9.0
+            // Mostly moderate shocks; great earthquakes are rare
+            float roll = (float)_random.NextDouble();
+            float magnitude = 4.5f + 4.0f * roll * roll * roll;
             TriggerEarthquake(chosen.x, chosen.y, magnitude, year);
 
             // Release tectonic stress

@@ -1294,6 +1294,7 @@ public class SimPlanetGame : Game
             _saveLoadManager.ApplySaveData(saveData, _map, _gameState,
                                           _civilizationManager, _weatherSystem,
                                           _hydrologySimulator);
+            _geologicalSimulator.SyncPlatesFromCells(); // Plates as saved, not as first generated
 
             // Update renderer
             _terrainRenderer.Dispose();

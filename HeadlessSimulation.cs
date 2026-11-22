@@ -73,6 +73,12 @@ public class HeadlessSimulation
         Console.WriteLine($"Seed: {_mapOptions.Seed}");
         Console.Out.Flush();
 
+        if (_seismoTest)
+        {
+            RunSeismologyTest();
+            return;
+        }
+
         // Define test phases
         var phases = _years > 0
             ? new[] { new { DurationYears = _years, Speed = 64.0f } }
@@ -104,12 +110,16 @@ public class HeadlessSimulation
     private int _doomsdayYear = -1; // --doomsday N: global nuclear war in year N
     private int _peaceYear = -1;    // --peace N: divine world peace in year N
     private int _startTech = 0;
+    private bool _geoOnly = false;    // --geo-only: only tectonics, volcanism, erosion and earthquakes (fast)
+    private bool _seismoTest = false; // --seismo-test: check wave propagation, picks, location and tomography
     private bool _geoReport = false; // --geo-report: print tectonic / seismic / volcanic statistics     // --start-tech N: seeded civilizations start at this tech level
 
     private void ParseArguments(string[] args)
     {
         _civOnly = args.Contains("--civ-only");
         _geoReport = args.Contains("--geo-report");
+        _geoOnly = args.Contains("--geo-only");
+        _seismoTest = args.Contains("--seismo-test");
         for (int i = 0; i < args.Length - 1; i++)
         {
             switch (args[i])
@@ -280,7 +290,12 @@ public class HeadlessSimulation
                 _civilizationManager.TriggerGlobalNuclearWar(_year);
             }
 
-            if (_civOnly)
+            if (_geoOnly)
+            {
+                _geologicalSimulator.Update(simDeltaTime, _year);
+                EarthquakeSystem.Update(_map, simDeltaTime, _year, out _, out _, out _);
+            }
+            else if (_civOnly)
             {
                 _civilizationManager.Update(simDeltaTime, _year);
                 _diseaseManager.Update(simDeltaTime, _year);
@@ -486,5 +501,85 @@ public class HeadlessSimulation
         Console.WriteLine($"GEO y{_year,5} | land {land * 100f / cells,5:F1}% elev [{minE:F2},{maxE:F2}] mountains {high * 100f / cells:F2}% | " +
                           $"boundary conv {conv} div {div} trans {trans} | volcanoes {volcanoes} faults {faults} | " +
                           $"quakes/yr {quakes / (float)years:F1} eruptions/yr {eruptions / (float)years:F2} | stress avg {sumStress / cells:F2} | sediment avg {sumSed / cells:F2} max {maxSed:F1}");
+    }
+
+    /// <summary>
+    /// Exercises the seismology chain end to end and compares the compute backends.
+    /// </summary>
+    private void RunSeismologyTest()
+    {
+        ComputeBackend.Initialize();
+        Console.WriteLine($"Compute backend: {ComputeBackend.Preferred} ({ComputeBackend.Description}); OpenCL available: {ComputeBackend.OpenClAvailable}");
+
+        // Let the geology settle so there are boundaries, basins and volcanoes to image
+        for (int i = 0; i < 600; i++) _geologicalSimulator.Update(1f, i / 10);
+
+        var seismo = new SeismologyManager(_map);
+        var rnd = new Random(_seed);
+        while (seismo.Stations.Count < 40)
+        {
+            int x = rnd.Next(_map.Width), y = rnd.Next(_map.Height / 8, _map.Height * 7 / 8);
+            if (_map.Cells[x, y].IsLand) seismo.AddStation(x, y, 0, 0);
+        }
+
+        // Backend agreement and speed on the real grid
+        int n = _map.Width * _map.Height;
+        var courant = new float[n];
+        for (int i = 0; i < n; i++) courant[i] = seismo.VelocityP[i] / SeismologyManager.MaxSpeedKmS * 0.6f;
+        var kinds = new List<ComputeKind> { ComputeKind.Scalar, ComputeKind.Simd };
+        if (ComputeBackend.OpenClAvailable) kinds.Add(ComputeKind.OpenCL);
+        float[]? reference = null;
+        foreach (var kind in kinds)
+        {
+            using var solver = new SeismicWaveSolver(_map.Width, _map.Height, courant, kind);
+            solver.Inject(_map.Width / 2, _map.Height / 2, 1f);
+            var sw = Stopwatch.StartNew();
+            for (int b = 0; b < 50; b++) solver.Advance(4);
+            sw.Stop();
+            float diff = 0f;
+            if (reference == null) reference = (float[])solver.Field.Clone();
+            else for (int i = 0; i < n; i++) diff = Math.Max(diff, Math.Abs(solver.Field[i] - reference[i]));
+            Console.WriteLine($"  {solver.Kind,-7} 200 steps on {_map.Width}x{_map.Height}: {sw.Elapsed.TotalMilliseconds,8:F1} ms  ({n * 200 / sw.Elapsed.TotalSeconds / 1e6:F0} M cells/s)  max diff vs scalar {diff:E2}");
+        }
+
+        // A great earthquake recorded by the whole network
+        var faults = new List<(int x, int y)>();
+        for (int x = 0; x < _map.Width; x++)
+            for (int y = 6; y < _map.Height - 6; y++)
+                if (_map.Cells[x, y].Geology.BoundaryType != PlateBoundaryType.None) faults.Add((x, y));
+
+        var first = faults[rnd.Next(faults.Count)];
+        seismo.BeginEvent(first.x, first.y, 8.0f, 1);
+        seismo.RunToCompletion();
+        var rec = seismo.Records.Last();
+        Console.WriteLine($"M8.0 at ({first.x},{first.y}): P at {rec.StationsP}/{seismo.Stations.Count} stations, S at {rec.StationsS}; located ({rec.LocatedX},{rec.LocatedY}), error {rec.LocationErrorKm:F0} km; {rec.DurationSeconds:F0} s of record");
+        float sumP = 0, sumS = 0; int cnt = 0;
+        foreach (var st in seismo.Stations.Where(s => s.PickP > 0 && s.PickS > 0 && s.DistanceKm > 1500).Take(8))
+        {
+            Console.WriteLine($"   station ({st.X,3},{st.Y,3}) {st.DistanceKm,6:F0} km  P {st.PickP,6:F0} s ({st.DistanceKm / st.PickP:F2} km/s)  S {st.PickS,6:F0} s ({st.DistanceKm / st.PickS:F2} km/s)  S-P {st.PickS - st.PickP:F0} s");
+        }
+        foreach (var st in seismo.Stations.Where(s => s.PickP > 0 && s.PickS > 0 && s.DistanceKm > 1500))
+        {
+            sumP += st.DistanceKm / st.PickP; sumS += st.DistanceKm / st.PickS; cnt++;
+        }
+        if (cnt > 0) Console.WriteLine($"   apparent velocities: P {sumP / cnt:F2} km/s, S {sumS / cnt:F2} km/s, ratio {sumP / sumS:F2}");
+
+        // Many events build up the tomography
+        float errSum = 0; int errCount = 0;
+        for (int e = 0; e < 40; e++)
+        {
+            var c = faults[rnd.Next(faults.Count)];
+            seismo.BeginEvent(c.x, c.y, 6.3f + (float)rnd.NextDouble() * 1.7f, 2 + e);
+            seismo.RunToCompletion();
+            var r = seismo.Records.Last();
+            if (r.LocationErrorKm >= 0) { errSum += r.LocationErrorKm; errCount++; }
+            if (e % 10 == 9)
+            {
+                int covered = seismo.TomoCoverage.Count(v => v > 0);
+                Console.WriteLine($"   after {e + 1} events: {seismo.TomoRays} rays, {covered * 100 / seismo.TomoCoverage.Length}% of blocks crossed, reference {seismo.TomoReference:F2} km/s, correlation with true crust {seismo.TomoCorrelation:F2}");
+            }
+        }
+        Console.WriteLine($"   mean location error {errSum / Math.Max(1, errCount):F0} km over {errCount} located events (cell = {seismo.CellKm:F0} km)");
+        seismo.Dispose();
     }
 }

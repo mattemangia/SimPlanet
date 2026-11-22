@@ -108,6 +108,10 @@ public class GeologicalData
     public PlateBoundaryType BoundaryType { get; set; }
     public float TectonicStress { get; set; }  // Builds up at boundaries
     public float SubductionRate { get; set; }  // Rate of subduction at convergent boundaries
+    public float Convergence { get; set; }     // Signed closing speed across the boundary (+ converging, - diverging)
+    public bool IsSubducting { get; set; }     // This side of a convergent boundary goes down into the mantle
+    public float UpliftRate { get; set; }      // Current tectonic vertical motion (+ up, - down), elevation units per second
+    public float DepositionRate { get; set; }  // Recent sediment deposition (fades when deposition stops)
 
     // Crust properties
     public CrustType CrustType { get; set; } = CrustType.Continental;
