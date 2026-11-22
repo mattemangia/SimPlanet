@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace SimPlanet;
 
 /// <summary>
-/// Top-down vehicle sprites (24 px, pointing east so they can be rotated by heading).
+/// Top-down vehicle sprites (24-unit grid rendered at 32 px, pointing east so they can be rotated by heading).
 /// Each comes with a mask drawn in the operator's nation colour.
 /// </summary>
 public partial class MapIcons
@@ -55,8 +55,8 @@ public partial class MapIcons
 
     private static (Texture2D, Texture2D) BuildVehicle(GraphicsDevice device, VehicleKind kind)
     {
-        var b = new Canvas(SmallIconSize);
-        var m = new Canvas(SmallIconSize);
+        var b = new Canvas(SmallIconSize, MapSpriteScale);
+        var m = new Canvas(SmallIconSize, MapSpriteScale);
         var tintBase = new Color(128, 128, 128);
         switch (kind)
         {
