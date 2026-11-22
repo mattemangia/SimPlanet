@@ -258,6 +258,7 @@ public class SedimentColumnViewer
             _ => "Plate interior"
         };
         Row("Setting", setting, GetBoundaryColor(geo.BoundaryType));
+        if (geo.IsForedeep) Row("Basin", "Foredeep: sinking, filling with sediment", new Color(226, 200, 130));
         Row("Crust", $"{geo.CrustType}, {geo.CrustThickness:F0} km thick", UITheme.Text);
         string motion = geo.UpliftRate > 0.0002f ? "rising" : geo.UpliftRate < -0.0002f ? "sinking" : "stable";
         Row("Vertical motion", motion, geo.UpliftRate > 0.0002f ? UITheme.Good : geo.UpliftRate < -0.0002f ? new Color(120, 190, 255) : UITheme.TextDim);

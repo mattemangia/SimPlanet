@@ -381,38 +381,81 @@ public sealed class SeismologyManager : IDisposable
     }
 
     /// <summary>
-    /// Epicentre from S-P times: each station's delay gives a distance, and the epicentre is
-    /// where those circles meet best.
+    /// Epicentre from the arrival times. For a trial position the P times should grow in a
+    /// straight line with distance (t = origin time + distance / speed), and so should the S
+    /// times; the epicentre is where the picks fit those lines best. Fitting the speeds from the
+    /// data, instead of assuming them, removes the bias a fixed velocity model would add.
     /// </summary>
     private void Locate(SeismicRecord record)
     {
-        var ranged = Stations.Where(s => s.PickP >= 0 && s.PickS > s.PickP).ToList();
-        if (ranged.Count < 3) return;
+        var stations = Stations.Where(s => s.PickP >= 0).ToList();
+        if (stations.Count < 4) return;
 
-        const float vp = 6.6f, vs = vp / 1.732f;
-        float kmPerSecond = vp * vs / (vp - vs);
+        int n = stations.Count;
+        var distance = new float[n];
         float best = float.MaxValue;
-        for (int y = 2; y < _map.Height - 2; y += 2)
+        int bestX = -1, bestY = -1;
+
+        void Try(int x, int y)
         {
-            for (int x = 0; x < _map.Width; x += 2)
+            for (int i = 0; i < n; i++) distance[i] = DistanceCells(x, y, stations[i].X, stations[i].Y);
+            float misfit = LineMisfit(stations, distance, false) + LineMisfit(stations, distance, true);
+            if (misfit < best)
             {
-                float error = 0f;
-                foreach (var s in ranged)
-                {
-                    float d = DistanceCells(x, y, s.X, s.Y) * CellKm;
-                    float expected = (s.PickS - s.PickP) * kmPerSecond;
-                    float diff = d - expected;
-                    error += diff * diff;
-                }
-                if (error < best)
-                {
-                    best = error;
-                    record.LocatedX = x;
-                    record.LocatedY = y;
-                }
+                best = misfit;
+                bestX = x;
+                bestY = y;
             }
         }
-        record.LocationErrorKm = DistanceCells(record.LocatedX, record.LocatedY, record.X, record.Y) * CellKm;
+
+        // Coarse search over the planet, then cell by cell around the best spot
+        for (int y = 2; y < _map.Height - 2; y += 3)
+        {
+            for (int x = 0; x < _map.Width; x += 3) Try(x, y);
+        }
+        int cx = bestX, cy = bestY;
+        for (int y = Math.Max(2, cy - 4); y <= Math.Min(_map.Height - 3, cy + 4); y++)
+        {
+            for (int dx = -4; dx <= 4; dx++) Try(((cx + dx) % _map.Width + _map.Width) % _map.Width, y);
+        }
+
+        record.LocatedX = bestX;
+        record.LocatedY = bestY;
+        record.LocationErrorKm = DistanceCells(bestX, bestY, record.X, record.Y) * CellKm;
+    }
+
+    /// <summary>Mean squared residual of the best straight line through (distance, arrival time).</summary>
+    private static float LineMisfit(List<SeismicStation> stations, float[] distance, bool sWave)
+    {
+        // Near stations count for more: their rays are short, so the crust they crossed
+        // differs less from the average, and their arrivals are sharper
+        double sw = 0, sd = 0, st = 0, sdd = 0, sdt = 0;
+        int count = 0;
+        for (int i = 0; i < stations.Count; i++)
+        {
+            float t = sWave ? stations[i].PickS : stations[i].PickP;
+            if (t < 0) continue;
+            double w = 1.0 / (12.0 + distance[i]);
+            sw += w; sd += w * distance[i]; st += w * t; sdd += w * distance[i] * distance[i]; sdt += w * distance[i] * t;
+            count++;
+        }
+        if (count < 4) return 0f;
+
+        double denominator = sw * sdd - sd * sd;
+        if (Math.Abs(denominator) < 1e-9) return 1e9f;
+        double slope = (sw * sdt - sd * st) / denominator;   // Seconds per cell: must be positive
+        if (slope <= 0) return 1e9f;
+        double intercept = (st - slope * sd) / sw;
+
+        double sum = 0;
+        for (int i = 0; i < stations.Count; i++)
+        {
+            float t = sWave ? stations[i].PickS : stations[i].PickP;
+            if (t < 0) continue;
+            double r = t - (intercept + slope * distance[i]);
+            sum += r * r / (12.0 + distance[i]);
+        }
+        return (float)(sum / sw);
     }
 
     // ---------------------------------------------------------------------------------------

@@ -321,18 +321,19 @@ public partial class TerrainRenderer
 
     private void BuildDetailTexture()
     {
-        float sf = _viewScale;
+        float sf = _jobScale;
         int s = Math.Max(1, (int)MathF.Round(sf)); // Texels per cell, for cell-edge features
         int w = _map.Width, h = _map.Height;
-        int dw = _viewW, dh = _viewH;
-        float viewX0 = _viewX0, viewY0 = _viewY0;
-        bool terrainLike = Mode is RenderMode.Terrain or RenderMode.TerrainClean;
-        bool shaded = IsShadedMode(Mode);
-        bool discrete = IsDiscreteMode(Mode);
-        bool political = Mode == RenderMode.Terrain && _hasTerritory;
-        bool roads = (Mode == RenderMode.Terrain || Mode == RenderMode.Civilizations || Mode == RenderMode.Infrastructure) && s >= 3;
-        bool typedRoads = Mode == RenderMode.Infrastructure;
-        bool societyBorders = IsSocietyMode(Mode) && _hasTerritory;
+        int dw = _jobW, dh = _jobH;
+        float viewX0 = _jobX0, viewY0 = _jobY0;
+        var mode = _jobMode;
+        bool terrainLike = mode is RenderMode.Terrain or RenderMode.TerrainClean;
+        bool shaded = IsShadedMode(mode);
+        bool discrete = IsDiscreteMode(mode);
+        bool political = mode == RenderMode.Terrain && _hasTerritory;
+        bool roads = (mode == RenderMode.Terrain || mode == RenderMode.Civilizations || mode == RenderMode.Infrastructure) && s >= 3;
+        bool typedRoads = mode == RenderMode.Infrastructure;
+        bool societyBorders = IsSocietyMode(mode) && _hasTerritory;
         bool fine = sf >= 5f; // Close enough for the finest octave to matter
         int mid = s / 2;
 
@@ -585,32 +586,78 @@ public partial class TerrainRenderer
         int tw = (int)(area.Width * reduce), th = (int)(area.Height * reduce);
         if (_detailTexture == null || _detailTexture.Width != tw || _detailTexture.Height != th)
         {
+            if (_viewBuild != null && !_viewBuild.IsCompleted) return; // Let the running job finish with its buffer
+            _viewBuild = null;
             _detailTexture?.Dispose();
             _detailTexture = new Texture2D(_graphicsDevice, tw, th);
             _detailColors = new Color[tw * th];
-            _viewW = tw;
-            _viewH = th;
+            _viewW = 0;
+            _viewH = 0;
             _lastHdBuild = 0;
             _hdDirty = true;
         }
 
-        float scale = cellPx * reduce;
-        float x0 = (area.X - camX) / cellPx, y0 = (area.Y - camY) / cellPx;
-        bool moved = MathF.Abs(scale - _viewScale) > 1e-4f || MathF.Abs(x0 - _viewX0) > 1e-3f || MathF.Abs(y0 - _viewY0) > 1e-3f;
-        long now = Environment.TickCount64;
-
-        // Follow the camera closely; data changes can wait a little longer
-        if ((moved && now - _lastHdBuild >= 30) || (_hdDirty && now - _lastHdBuild >= 220) || _lastHdBuild == 0)
+        // A finished job becomes the picture on screen
+        if (_viewBuild != null && _viewBuild.IsCompleted)
         {
-            _viewScale = scale;
-            _viewX0 = x0;
-            _viewY0 = y0;
-            BuildDetailTexture();
-            _detailTexture.SetData(_detailColors);
+            if (_viewBuild.IsCompletedSuccessfully)
+            {
+                long upload = Perf.Start();
+                _detailTexture.SetData(0, new Rectangle(0, 0, _jobW, _jobH), _detailColors, 0, _jobW * _jobH);
+                Perf.Stop("map-upload", upload);
+                _viewScale = _jobScale;
+                _viewX0 = _jobX0;
+                _viewY0 = _jobY0;
+                _viewW = _jobW;
+                _viewH = _jobH;
+            }
+            _viewBuild = null;
+        }
+        if (_viewBuild != null) return;
+
+        long now = Environment.TickCount64;
+        float x0 = (area.X - camX) / cellPx, y0 = (area.Y - camY) / cellPx;
+        bool moving = MathF.Abs(cellPx - _lastCellPx) > 1e-4f || MathF.Abs(x0 - _lastX0) > 1e-3f || MathF.Abs(y0 - _lastY0) > 1e-3f;
+        if (moving) _lastCameraMove = now;
+        _lastCellPx = cellPx;
+        _lastX0 = x0;
+        _lastY0 = y0;
+
+        // While the camera moves the view is drawn at half resolution (a quarter of the work)
+        // and sharpened as soon as it rests. All of it happens off the render thread.
+        bool settling = now - _lastCameraMove < 140;
+        float quality = settling ? 0.5f : 1f;
+        float scale = cellPx * reduce * quality;
+        bool stale = MathF.Abs(scale - _viewScale) > 1e-4f || MathF.Abs(x0 - _viewX0) > 1e-3f || MathF.Abs(y0 - _viewY0) > 1e-3f;
+
+        if (stale || (_hdDirty && now - _lastHdBuild >= 220) || _lastHdBuild == 0)
+        {
+            _jobScale = scale;
+            _jobX0 = x0;
+            _jobY0 = y0;
+            _jobW = Math.Max(1, (int)(tw * quality));
+            _jobH = Math.Max(1, (int)(th * quality));
+            _jobMode = Mode;
             _hdDirty = false;
             _lastHdBuild = now;
+            _viewBuild = Task.Run(() =>
+            {
+                long build = Perf.Start();
+                BuildDetailTexture();
+                Perf.Stop(_jobScale < _lastCellPx * 0.75f ? "map-build-half" : "map-build-full", build);
+            });
         }
     }
+
+    /// <summary>True while a full-size panel hides the map: the sharp view is not refreshed.</summary>
+    public bool Covered { get; set; }
+
+    private Task? _viewBuild;
+    private float _jobScale = 1f, _jobX0, _jobY0;
+    private int _jobW, _jobH;
+    private RenderMode _jobMode;
+    private float _lastCellPx, _lastX0, _lastY0;
+    private long _lastCameraMove;
 
     /// <summary>Tileable monochrome noise: dark and light specks around transparent.</summary>
     private static Texture2D BuildGrain(GraphicsDevice device, int size)
@@ -784,13 +831,13 @@ public partial class TerrainRenderer
         spriteBatch.Draw(_terrainTexture, mapRect, Color.White);
 
         float viewCellPx = CellSize * ZoomLevel;
-        RefreshViewTexture(area, camX, camY, viewCellPx);
-        if (_detailTexture != null)
+        if (!Covered) RefreshViewTexture(area, camX, camY, viewCellPx);
+        if (_detailTexture != null && _viewW > 0)
         {
             var viewRect = new Rectangle(
                 (int)MathF.Round(camX + _viewX0 * viewCellPx), (int)MathF.Round(camY + _viewY0 * viewCellPx),
                 (int)MathF.Round(_viewW / _viewScale * viewCellPx), (int)MathF.Round(_viewH / _viewScale * viewCellPx));
-            spriteBatch.Draw(_detailTexture, viewRect, Color.White);
+            if (_viewW > 0) spriteBatch.Draw(_detailTexture, viewRect, new Rectangle(0, 0, _viewW, _viewH), Color.White);
         }
 
         // Fine surface grain when zoomed in, so close-ups don't look blurry

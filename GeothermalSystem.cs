@@ -2,15 +2,16 @@ namespace SimPlanet;
 
 public sealed class GeothermalPlant
 {
-    public int Id;
-    public int X, Y;
-    public int CivId;
-    public int YearBuilt;
-    public float Progress;        // Drilling 0-1
-    public bool Producing;
-    public float DepthKm;         // Depth of the production and injection wells
-    public float ReservoirTempC;  // Temperature of the rock they tap
-    public float HeatFlow;        // mW/m2 at the site
+    public int Id { get; set; }
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int CivId { get; set; }
+    public int YearBuilt { get; set; }
+    public float Progress { get; set; }        // Drilling 0-1
+    public bool Producing { get; set; }
+    public float DepthKm { get; set; }         // Depth of the production and injection wells
+    public float ReservoirTempC { get; set; }  // Temperature of the rock they tap
+    public float HeatFlow { get; set; }        // mW/m2 at the site
 }
 
 /// <summary>
@@ -78,6 +79,18 @@ public sealed class GeothermalSystem
             if (Math.Max(dx, Math.Abs(plant.Y - y)) <= radius) return plant;
         }
         return null;
+    }
+
+    public void Restore(List<GeothermalPlant>? plants)
+    {
+        if (plants == null) return;
+        Plants.Clear();
+        foreach (var plant in plants)
+        {
+            if (plant.X < 0 || plant.X >= _map.Width || plant.Y < 0 || plant.Y >= _map.Height) continue;
+            Plants.Add(plant);
+            _nextId = Math.Max(_nextId, plant.Id + 1);
+        }
     }
 
     public void Update(float deltaTime, int year, IReadOnlyList<Civilization> civilizations)

@@ -36,6 +36,9 @@ public class SaveGameData
 
     // Rivers
     public List<RiverData> Rivers { get; set; } = new();
+
+    // Layers, faults, oil and gas, geothermal plants, seismographs (absent in older saves)
+    public GeoscienceSaveData? Geoscience { get; set; }
 }
 
 public class CellData

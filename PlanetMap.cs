@@ -22,6 +22,9 @@ public class MapGenerationOptions
 /// </summary>
 public class PlanetMap
 {
+    /// <summary>Set once small oil and gas deposits have been widened into fields (see PetroleumSystem).</summary>
+    public bool FieldsExpanded { get; set; }
+
     public int Width { get; }
     public int Height { get; }
     public TerrainCell[,] Cells { get; }

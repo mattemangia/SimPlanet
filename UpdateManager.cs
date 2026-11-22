@@ -77,31 +77,50 @@ namespace SimPlanet
             Seismology = new SeismologyManager(map);
         }
 
+        // Slow planetary processes do not need every tick: each runs on its own beat with the
+        // time that has passed since its last turn, and the beats are offset so the heavy ones
+        // do not land on the same tick.
+        private readonly float[] _pending = new float[8];
+        private long _tick;
+        private static readonly bool EveryTick = Environment.GetEnvironmentVariable("SIMPLANET_EVERY_TICK") == "1";
+        private const float LargestStep = 3.3f; // The simulators are already run with steps this large at 32x
+
+        private bool Due(int slot, int period, int phase, float simDeltaTime, out float deltaTime)
+        {
+            float pending = _pending[slot] + simDeltaTime;
+            bool run = EveryTick || (_tick + phase) % period == 0 || pending + simDeltaTime > LargestStep;
+            deltaTime = pending;
+            _pending[slot] = run ? 0f : pending;
+            return run;
+        }
+
         public void Update(float simDeltaTime, int newYear, float timeSpeed)
         {
+            _tick++;
             // Stage 1: Core physics and geology simulators. These have few dependencies on each other.
             var stage1Tasks = new Task[]
             {
-                Task.Run(() => _climateSimulator.Update(simDeltaTime)),
-                Task.Run(() => _atmosphereSimulator.Update(simDeltaTime)),
-                Task.Run(() => _geologicalSimulator.Update(simDeltaTime, newYear)),
-                Task.Run(() => _hydrologySimulator.Update(simDeltaTime)),
-                Task.Run(() => _magnetosphereSimulator.Update(simDeltaTime, newYear)),
-                Task.Run(() => _animalEvolutionSimulator.Update(simDeltaTime, newYear)),
-                Task.Run(() => _biomeSimulator.Update(simDeltaTime))
+                Task.Run(() => { if (!Due(0, 2, 0, simDeltaTime, out float dt)) return; long t = Perf.Start(); _climateSimulator.Update(dt); Perf.Stop("sim:climateSimulator", t); }),
+                Task.Run(() => { if (!Due(1, 3, 1, simDeltaTime, out float dt)) return; long t = Perf.Start(); _atmosphereSimulator.Update(dt); Perf.Stop("sim:atmosphereSimulator", t); }),
+                Task.Run(() => { if (!Due(6, 2, 1, simDeltaTime, out float dt)) return; long t = Perf.Start(); _geologicalSimulator.Update(dt, newYear); Perf.Stop("sim:geologicalSimulator", t); }),
+                Task.Run(() => { if (!Due(2, 3, 0, simDeltaTime, out float dt)) return; long t = Perf.Start(); _hydrologySimulator.Update(dt); Perf.Stop("sim:hydrologySimulator", t); }),
+                Task.Run(() => { if (!Due(3, 4, 2, simDeltaTime, out float dt)) return; long t = Perf.Start(); _magnetosphereSimulator.Update(dt, newYear); Perf.Stop("sim:magnetosphereSimulator", t); }),
+                Task.Run(() => { long t = Perf.Start(); _animalEvolutionSimulator.Update(simDeltaTime, newYear); Perf.Stop("sim:animalEvolutionSimulator", t); }),
+                Task.Run(() => { if (!Due(4, 4, 3, simDeltaTime, out float dt)) return; long t = Perf.Start(); _biomeSimulator.Update(dt); Perf.Stop("sim:biomeSimulator", t); })
             };
             Task.WhenAll(stage1Tasks).Wait();
 
             // Stage 2: Systems that depend on the core physics.
             var stage2Tasks = new Task[]
             {
-                Task.Run(() => _weatherSystem.Update(simDeltaTime, newYear)),
-                Task.Run(() => _civilizationManager.Update(simDeltaTime, newYear)),
-                Task.Run(() => _disasterManager.Update(simDeltaTime, newYear))
+                Task.Run(() => { if (!Due(5, 3, 2, simDeltaTime, out float dt)) return; long t = Perf.Start(); _weatherSystem.Update(dt, newYear); Perf.Stop("sim:weatherSystem", t); }),
+                Task.Run(() => { long t = Perf.Start(); _civilizationManager.Update(simDeltaTime, newYear); Perf.Stop("sim:civilizationManager", t); }),
+                Task.Run(() => { long t = Perf.Start(); _disasterManager.Update(simDeltaTime, newYear); Perf.Stop("sim:disasterManager", t); })
             };
             Task.WhenAll(stage2Tasks).Wait();
 
             // Oil exploration and seismograph networks follow the civilizations
+            long geoStart = Perf.Start();
             Petroleum.Update(simDeltaTime, newYear, _civilizationManager.Civilizations);
             Geothermal.Update(simDeltaTime, newYear, _civilizationManager.Civilizations);
             if (newYear != _lastNetworkYear)
@@ -110,33 +129,37 @@ namespace SimPlanet
                 Seismology.UpdateNetworks(_civilizationManager.Civilizations, newYear);
             }
 
+            Perf.Stop("sim:geoscience", geoStart);
+
             // Stage 3: Systems that depend on weather and civilization.
             var stage3Tasks = new Task[]
             {
-                Task.Run(() => _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem)),
-                Task.Run(() => _diseaseManager.Update(simDeltaTime, newYear)),
-                Task.Run(() => _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager))
+                Task.Run(() => { long t = Perf.Start(); _lifeSimulator.Update(simDeltaTime, _geologicalSimulator, _weatherSystem); Perf.Stop("sim:lifeSimulator", t); }),
+                Task.Run(() => { long t = Perf.Start(); _diseaseManager.Update(simDeltaTime, newYear); Perf.Stop("sim:diseaseManager", t); }),
+                Task.Run(() => { long t = Perf.Start(); _forestFireManager.Update(simDeltaTime, _weatherSystem, _civilizationManager); Perf.Stop("sim:forestFireManager", t); })
             };
             Task.WhenAll(stage3Tasks).Wait();
 
             // Stage 3.5: Ecosystem interactions (must run after LifeSimulator to avoid race conditions)
             // EcosystemSimulator modifies biomass and neighbors, so it should run sequentially
-            _ecosystemSimulator.Update(simDeltaTime);
+            { long t = Perf.Start(); _ecosystemSimulator.Update(simDeltaTime); Perf.Stop("sim:ecosystem", t); }
 
             // Stage 4: Finalizers and special systems.
-            _planetStabilizer.Update(simDeltaTime, timeSpeed);
+            { long t = Perf.Start(); _planetStabilizer.Update(simDeltaTime, timeSpeed); Perf.Stop("sim:stabilizer", t); }
 
+            long quakeStart = Perf.Start();
             EarthquakeSystem.Update(_map, simDeltaTime, newYear, out bool tsunamiTriggered, out var tsunamiEpicenter, out float tsunamiMagnitude);
+            Perf.Stop("sim:earthquakes", quakeStart);
             if (tsunamiTriggered)
             {
                 TsunamiSystem.InitiateTsunami(_map, tsunamiEpicenter.x, tsunamiEpicenter.y, tsunamiMagnitude, newYear);
             }
 
-            TsunamiSystem.Update(_map, simDeltaTime, newYear);
-            TsunamiSystem.DrainFloodWaters(_map, simDeltaTime);
+            { long t = Perf.Start(); TsunamiSystem.Update(_map, simDeltaTime, newYear); Perf.Stop("sim:tsunami", t); }
+            { long t = Perf.Start(); TsunamiSystem.DrainFloodWaters(_map, simDeltaTime); Perf.Stop("sim:flooddrain", t); }
 
             // Bind systems together so gas cycles, hydrology, geology, and biosphere feed each other.
-            _interconnect.Update(simDeltaTime, newYear);
+            { long t = Perf.Start(); _interconnect.Update(simDeltaTime, newYear); Perf.Stop("sim:interconnect", t); }
         }
 
         public async Task FastForward(int years, int startYear, Action<float, int> onProgress, CancellationToken cancellationToken)

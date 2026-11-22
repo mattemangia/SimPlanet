@@ -27,7 +27,7 @@ public sealed partial class Subsurface3DView
     private byte[] _boundary = Array.Empty<byte>(), _faultType = Array.Empty<byte>(), _flags = Array.Empty<byte>();
     private Color[] _cellColor = Array.Empty<Color>();
     private StrataColumn[] _columns = Array.Empty<StrataColumn>();
-    private const byte FlagIce = 1, FlagVolcano = 2, FlagHotSpot = 4, FlagFault = 8, FlagSubducting = 16, FlagOceanic = 32;
+    private const byte FlagIce = 1, FlagVolcano = 2, FlagHotSpot = 4, FlagFault = 8, FlagSubducting = 16, FlagOceanic = 32, FlagForedeep = 64;
 
     // ---- Per-vertex surface data ---------------------------------------------------------
     private int _g;                               // Vertices per side
@@ -224,6 +224,7 @@ public sealed partial class Subsurface3DView
                 if (geo.IsFault) flags |= FlagFault;
                 if (geo.IsSubducting) flags |= FlagSubducting;
                 if (geo.CrustType == CrustType.Oceanic) flags |= FlagOceanic;
+                if (geo.IsForedeep) flags |= FlagForedeep;
                 _flags[c] = flags;
                 _cellColor[c] = TerrainColor(cell);
                 Stratigraphy.Build(_map, _oil, mx, my, _columns[c]);
@@ -1651,6 +1652,13 @@ public sealed partial class Subsurface3DView
         _labels.Add((SidePoint(side, u + 2.5f, AbsY(surfaceKm + moho), 0.1f), "Moho", new Color(255, 236, 170), 5));
         _labels.Add((SidePoint(side, length * 0.5f, Lerp(AbsY(BottomKm * 0.75f), BottomY, 0.3f), 0.1f), "Mantle", MantleTop, 4));
 
+        for (int i = 1; i < length - 1; i++)
+        {
+            int c = SideCell(side, i);
+            if ((_flags[c] & FlagForedeep) == 0) continue;
+            _labels.Add((SidePoint(side, i + 0.5f, AbsY(-_elev[c] * KmPerElevation + _columns[c].SedimentKm * 0.55f), 0.1f), "Foredeep basin", new Color(226, 200, 130), 8));
+            break;
+        }
         for (int i = 0; i < length; i++)
         {
             int c = SideCell(side, i);

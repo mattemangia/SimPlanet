@@ -96,6 +96,8 @@ public class HeadlessSimulation
             RunPhase(phase.DurationYears, phase.Speed);
         }
 
+        if (_saveTest) RunSaveTest();
+
         Console.WriteLine("\nSimulation Complete.");
         Console.Out.Flush();
     }
@@ -112,6 +114,7 @@ public class HeadlessSimulation
     private int _startTech = 0;
     private bool _geoOnly = false;    // --geo-only: only tectonics, volcanism, erosion and earthquakes (fast)
     private bool _seismoTest = false; // --seismo-test: check wave propagation, picks, location and tomography
+    private bool _saveTest = false;   // --save-test: after the run, save, reload into a fresh world and compare
     private bool _geoReport = false; // --geo-report: print tectonic / seismic / volcanic statistics     // --start-tech N: seeded civilizations start at this tech level
 
     private void ParseArguments(string[] args)
@@ -120,6 +123,7 @@ public class HeadlessSimulation
         _geoReport = args.Contains("--geo-report");
         _geoOnly = args.Contains("--geo-only");
         _seismoTest = args.Contains("--seismo-test");
+        _saveTest = args.Contains("--save-test");
         for (int i = 0; i < args.Length - 1; i++)
         {
             switch (args[i])
@@ -311,7 +315,10 @@ public class HeadlessSimulation
             }
             else
             {
+                long tick = Perf.Start();
                 _updateManager.Update(simDeltaTime, _year, _timeSpeed);
+                Perf.Stop("sim-tick", tick);
+                Perf.Report();
             }
 
             // Check for NaNs
@@ -459,7 +466,7 @@ public class HeadlessSimulation
         var spies = _civilizationManager.Civilizations.SelectMany(c => c.SpyNetworks).ToList();
         Console.WriteLine($"   Spy networks: {spies.Count} (agents {spies.Sum(n => n.Agents)}, compromised {spies.Count(n => n.Compromised)}, missions {string.Join(",", spies.GroupBy(n => n.Mission).Select(g => $"{g.Key}:{g.Count()}"))}) | animal groups: {string.Join(" ", _civilizationManager.GetAnimalGroups().GroupBy(g => g.Name).Select(g => $"{g.Key}:{g.Count()}"))}");
         var oil = _updateManager.Petroleum;
-        Console.WriteLine($"   Petroleum: reservoirs {oil.Reservoirs.Count} (onshore {oil.Reservoirs.Count(r => !r.Offshore)}, surveyed {oil.Reservoirs.Count(r => r.Surveyed)}, discovered {oil.Reservoirs.Count(r => r.Discovered)}) | surveys {oil.Surveys.Count} (active {oil.Surveys.Count(s => !s.Completed)}) | wells: {string.Join(" ", oil.Wells.GroupBy(w => (w.Offshore ? "platform-" : "well-") + w.Status).Select(g => $"{g.Key}:{g.Count()}"))} | seismographs {_updateManager.Seismology.Stations.Count} | geothermal plants {_updateManager.Geothermal.Plants.Count} (producing {_updateManager.Geothermal.Plants.Count(p => p.Producing)})");
+        Console.WriteLine($"   Petroleum: reservoirs {oil.Reservoirs.Count} (onshore {oil.Reservoirs.Count(r => !r.Offshore)}, gas in foredeeps {oil.Reservoirs.Count(r => r.HasGas && r.InForedeep)}/{oil.Reservoirs.Count(r => r.HasGas)}, surveyed {oil.Reservoirs.Count(r => r.Surveyed)}, discovered {oil.Reservoirs.Count(r => r.Discovered)}) | surveys {oil.Surveys.Count} (active {oil.Surveys.Count(s => !s.Completed)}) | wells: {string.Join(" ", oil.Wells.GroupBy(w => (w.Offshore ? "platform-" : "well-") + w.Status).Select(g => $"{g.Key}:{g.Count()}"))} | seismographs {_updateManager.Seismology.Stations.Count} | geothermal plants {_updateManager.Geothermal.Plants.Count} (producing {_updateManager.Geothermal.Plants.Count(p => p.Producing)})");
         Console.WriteLine($"   People in space: {_civilizationManager.PeopleInSpace} | Nuclear winter: {_civilizationManager.NuclearWinter:F2} | Active diseases: {_diseaseManager.Diseases.Count(d => d.IsActive && !d.CureDeployed)}");
         Console.WriteLine($"Year: {_year} | Speed: {_timeSpeed}x | " +
                           $"Temp: {_map.GlobalTemperature:F1}C | O2: {_map.GlobalOxygen:F1}% | CO2: {_map.GlobalCO2:F2}% | " +
@@ -586,5 +593,53 @@ public class HeadlessSimulation
         }
         Console.WriteLine($"   mean location error {errSum / Math.Max(1, errCount):F0} km over {errCount} located events (cell = {seismo.CellKm:F0} km)");
         seismo.Dispose();
+    }
+
+    private string GeoscienceSummary()
+    {
+        var oil = _updateManager.Petroleum;
+        long columns = 0;
+        int faults = 0, unconformities = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var geo = _map.Cells[x, y].Geology;
+                int k = 0;
+                foreach (var bed in geo.SedimentColumn) columns += ((int)bed + 1) * (++k);
+                if (geo.IsFault) faults++;
+                if (geo.UnconformityBeds >= 0) unconformities++;
+            }
+        }
+        return $"wells {string.Join(",", oil.Wells.GroupBy(w => w.Status).OrderBy(g => g.Key).Select(g => $"{g.Key}:{g.Count()}"))} | " +
+               $"surveys {oil.Surveys.Count} (done {oil.Surveys.Count(s => s.Completed)}, with image {oil.Surveys.Count(s => s.Section.Length > 0)}) | " +
+               $"fields surveyed {oil.Reservoirs.Count(r => r.Surveyed)} discovered {oil.Reservoirs.Count(r => r.Discovered)} reserves {oil.Reservoirs.Sum(r => oil.RemainingReserves(r)):F3} | " +
+               $"geothermal {_updateManager.Geothermal.Plants.Count} | seismographs {_updateManager.Seismology.Stations.Count} | " +
+               $"faults {faults} | erosion surfaces {unconformities} | layers checksum {columns}";
+    }
+
+    /// <summary>Saves the world, loads it into a freshly generated one and checks nothing was lost.</summary>
+    private void RunSaveTest()
+    {
+        string before = GeoscienceSummary();
+        var saves = new SaveLoadManager();
+        var state = new GameState { Year = _year, TimeSpeed = 1f };
+        saves.SaveGame(_map, state, _civilizationManager, _weatherSystem, _hydrologySimulator, "HeadlessSaveTest",
+            data => data.Geoscience = GeoscienceSaveData.Capture(_map, _updateManager));
+
+        _civCount = 0;
+        Initialize(); // A brand new world from the same seed
+        string fresh = GeoscienceSummary();
+
+        var loaded = saves.LoadGame("HeadlessSaveTest")!;
+        saves.ApplySaveData(loaded, _map, state, _civilizationManager, _weatherSystem, _hydrologySimulator);
+        _geologicalSimulator.SyncPlatesFromCells();
+        loaded.Geoscience?.Restore(_map, _updateManager);
+        string after = GeoscienceSummary();
+
+        Console.WriteLine($"SAVE TEST before : {before}");
+        Console.WriteLine($"SAVE TEST fresh  : {fresh}");
+        Console.WriteLine($"SAVE TEST loaded : {after}");
+        Console.WriteLine(before == after ? "SAVE TEST PASSED: the loaded world matches the saved one" : "SAVE TEST FAILED: differences above");
     }
 }

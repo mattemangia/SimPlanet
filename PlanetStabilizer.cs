@@ -230,32 +230,46 @@ public class PlanetStabilizer
             float avgN2O = CalculateAverageN2O();
             string reason = tempDeviation > 1f ? "avg temp" : "max temp";
 
-            // Prioritize removing the most potent gases first
+            // Draw down every greenhouse gas that is in excess, the most potent ones hardest
+            bool gasesHigh = false;
             if (avgN2O > 0.1f)
             {
-                ReduceN2OGlobally(0.05f); // Reduced from 0.5f
+                ReduceN2OGlobally(0.05f);
                 LastAction = $"Removing N2O to cool planet ({reason}: {avgTemp:F1}°C)";
-                AdjustmentsMade++;
+                gasesHigh = true;
             }
-            else if (avgMethane > 0.2f)
+            if (avgMethane > 0.2f)
             {
-                ReduceMethaneGlobally(0.05f); // Reduced from 0.5f
+                ReduceMethaneGlobally(0.05f);
                 LastAction = $"Removing methane to cool planet ({reason}: {avgTemp:F1}°C)";
-                AdjustmentsMade++;
+                gasesHigh = true;
             }
-            else if (avgCO2 > 0.1f)
+            if (avgCO2 > _maxCO2)
             {
-                AdjustCO2Globally(-0.02f); // Reduced from -0.2f
+                // The more CO2 there is, the faster it goes (as rock weathering does in nature)
+                AdjustCO2Globally(-MathF.Min(0.2f, 0.02f + (avgCO2 - _maxCO2) * 0.08f));
                 LastAction = $"Removing CO2 to cool planet ({reason}: {avgTemp:F1}°C)";
-                AdjustmentsMade++;
+                gasesHigh = true;
             }
-            
-            // Decrease solar energy
-            if (_map.SolarEnergy > 0.6f)
+            if (gasesHigh) AdjustmentsMade++;
+
+            // The sun is dimmed only when the air is already clean, or somewhere is dangerously hot
+            if ((!gasesHigh || maxTemp > safetyTempLimit) && _map.SolarEnergy > 0.6f)
             {
-                _map.SolarEnergy -= 0.001f * _responseMultiplier; // Reduced from 0.01f
+                _map.SolarEnergy -= 0.001f * _responseMultiplier;
                 LastAction = $"Decreasing solar energy ({reason}: {avgTemp:F1}°C)";
             }
+            else if (gasesHigh && _map.SolarEnergy < 1f)
+            {
+                // Cooling is being done by clearing the air: give back the sunlight taken earlier
+                _map.SolarEnergy = MathF.Min(1f, _map.SolarEnergy + 0.0004f * _responseMultiplier);
+            }
+        }
+        else if (MathF.Abs(_map.SolarEnergy - 1f) > 0.002f)
+        {
+            // Temperature is where it should be: let the sun drift back to its normal output,
+            // so an old correction does not become permanent
+            _map.SolarEnergy += MathF.Sign(1f - _map.SolarEnergy) * MathF.Min(0.0004f * _responseMultiplier, MathF.Abs(1f - _map.SolarEnergy));
         }
 
         // EMERGENCY: Direct temperature reduction if critically high anywhere
@@ -272,11 +286,8 @@ public class PlanetStabilizer
         {
             // Boost photosynthesis massively
             BoostPlantGrowth();
-            // Direct injection if critically low
-            if (avgOxygen < 10f)
-            {
-                InjectOxygenGlobally(0.05f); // Reduced from 0.5f
-            }
+            // Direct injection, stronger the further the air is from breathable
+            InjectOxygenGlobally(MathF.Min(0.2f, (lowOxygenThreshold - avgOxygen) * 0.03f));
             LastAction = $"Boosting O2 production (current: {avgOxygen:F1}%)";
             AdjustmentsMade++;
         }
@@ -284,6 +295,14 @@ public class PlanetStabilizer
         {
             ReduceOxygenGlobally(0.05f); // Reduced from 0.5f
             LastAction = $"Reducing excess O2 (current: {avgOxygen:F1}%)";
+            AdjustmentsMade++;
+        }
+
+        // Far too much CO2 is drawn down whatever the temperature (weathering and ocean uptake)
+        if (avgCO2 > _maxCO2 * 3f)
+        {
+            AdjustCO2Globally(-MathF.Min(0.2f, (avgCO2 - _maxCO2 * 3f) * 0.05f));
+            LastAction = $"Drawing down excess CO2 (current: {avgCO2:F2}%)";
             AdjustmentsMade++;
         }
 
@@ -370,15 +389,8 @@ public class PlanetStabilizer
             }
         }
 
-        if (_map.SolarEnergy > 0.85f)
-        {
-            float newEnergy = Math.Max(0.65f, _map.SolarEnergy - 0.0008f * _responseMultiplier);
-            if (Math.Abs(newEnergy - _map.SolarEnergy) > 0.0001f)
-            {
-                adjusted = true;
-                _map.SolarEnergy = newEnergy;
-            }
-        }
+        // The poles are cooled locally. The sun itself is left alone: dimming it to grow ice
+        // starved the whole planet of light and was never undone.
 
         if (adjusted)
         {

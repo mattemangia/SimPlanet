@@ -110,6 +110,7 @@ public class GeologicalData
     public float SubductionRate { get; set; }  // Rate of subduction at convergent boundaries
     public float Convergence { get; set; }     // Signed closing speed across the boundary (+ converging, - diverging)
     public bool IsSubducting { get; set; }     // This side of a convergent boundary goes down into the mantle
+    public bool IsForedeep { get; set; }       // Foreland basin: crust bent down in front of a mountain belt, filling with its debris
     public float UpliftRate { get; set; }      // Current tectonic vertical motion (+ up, - down), elevation units per second
     public float DepositionRate { get; set; }  // Recent sediment deposition (fades when deposition stops)
     public float CumulativeErosion { get; set; }    // Total thickness removed by erosion (elevation units)

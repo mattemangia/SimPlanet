@@ -202,6 +202,7 @@ public static class Stratigraphy
             var g = c.Geology;
             float thickness = 0.6f + 0.5f * Math.Clamp(g.SedimentaryRock, 0f, 5f) + 0.2f * Math.Clamp(g.SedimentLayer, 0f, 10f);
             if (g.CrustType == CrustType.Oceanic) thickness = MathF.Min(thickness, 1.2f);
+            if (g.IsForedeep) thickness += 2.6f; // The foreland trough holds kilometres of fill
             sedimentKm += weight * thickness;
             waterKm += weight * (c.IsWater ? MathF.Min(6f, -c.Elevation * 4.4f) : 0f);
         }

@@ -13,6 +13,7 @@ public partial class GeologicalSimulator
     private enum TectonicMode : byte
     {
         None,
+        Foredeep,    // Crust flexed down by the weight of a mountain belt: a deep trough of sediment at its foot
         Rift,        // Continental crust pulled apart: subsiding graben
         Ridge,       // Mid-ocean ridge: new crust rises to ridge depth
         Trench,      // Subducting slab bends down
@@ -140,6 +141,7 @@ public partial class GeologicalSimulator
                 }
 
                 geo.IsSubducting = false;
+                geo.IsForedeep = false;
                 geo.SubductionRate = 0;
 
                 if (n == 0)
@@ -253,6 +255,50 @@ public partial class GeologicalSimulator
                     // Continental margin above the slab: coastal range with a volcanic arc inland
                     StampBelt(x, y, p, TectonicMode.Orogen, strength, OrogenProfile, 0.6f, 2, 3);
                 }
+            }
+        }
+
+        StampForedeeps();
+    }
+
+    /// <summary>
+    /// A mountain belt loads the plate it sits on. The crust beside the belt bends down into a
+    /// trough (foredeep) that fills with the sediment shed by the rising range: first deep-water
+    /// muds and turbidites, then sand and gravel as it fills up. This is where gas collects.
+    /// </summary>
+    private void StampForedeeps()
+    {
+        int w = _map.Width, h = _map.Height;
+        const int reach = 3;
+        for (int x = 0; x < w; x++)
+        {
+            for (int y = 0; y < h; y++)
+            {
+                if (_tectMode[x, y] != TectonicMode.None) continue;
+                var cell = _map.Cells[x, y];
+                if (cell.Geology.CrustType == CrustType.Oceanic || cell.Elevation < -0.55f) continue;
+
+                float best = 0f;
+                for (int dy = -reach; dy <= reach; dy++)
+                {
+                    int ny = y + dy;
+                    if (ny < 0 || ny >= h) continue;
+                    for (int dx = -reach; dx <= reach; dx++)
+                    {
+                        int nx = (x + dx + w) % w;
+                        var mode = _tectMode[nx, ny];
+                        if (mode != TectonicMode.Orogen && mode != TectonicMode.Collision) continue;
+                        float distance = MathF.Sqrt(dx * dx + dy * dy);
+                        if (distance > reach + 0.5f) continue;
+                        // Deepest at the mountain front, shallowing away from it
+                        float strength = _tectWeight[nx, ny] * (1f - (distance - 1f) / (reach + 0.5f));
+                        if (strength > best) best = strength;
+                    }
+                }
+                if (best < 0.25f) continue;
+                _tectMode[x, y] = TectonicMode.Foredeep;
+                _tectWeight[x, y] = MathF.Min(1f, best);
+                cell.Geology.IsForedeep = true;
             }
         }
     }
@@ -385,6 +431,25 @@ public partial class GeologicalSimulator
                         rate = -0.5f * weight * Math.Clamp((elevation - RiftFloor) / 0.4f, 0f, 1f);
                         load = 0.4f * weight;
                         break;
+                    case TectonicMode.Foredeep:
+                    {
+                        // Flexural subsidence keeps making room; the range next door keeps filling it
+                        rate = -0.35f * weight * Math.Clamp((elevation + 0.14f) / 0.3f, 0f, 1f);
+                        load = 0.25f * weight;
+                        geo.SedimentaryRock = MathF.Min(5f, geo.SedimentaryRock + 0.004f * weight * scale * deltaTime);
+                        _depositAcc[x, y] += 0.00004f * weight * scale * deltaTime;
+                        geo.DepositionRate = MathF.Max(geo.DepositionRate, 0.25f * weight);
+                        if (_depositAcc[x, y] > 0.003f)
+                        {
+                            _depositAcc[x, y] = 0f;
+                            // Flysch while the trough is under water, molasse once it has filled
+                            int beds = geo.SedimentColumn.Count;
+                            AddLayer(geo, elevation < -0.03f
+                                ? (beds % 2 == 0 ? SedimentType.Clay : SedimentType.Sand)
+                                : (beds % 3 == 0 ? SedimentType.Gravel : SedimentType.Sand));
+                        }
+                        break;
+                    }
                     case TectonicMode.None:
                         if (geo.CrustType == CrustType.Oceanic && elevation < 0f && elevation > AbyssalDepth)
                         {
@@ -466,6 +531,18 @@ public partial class GeologicalSimulator
                 }
             }
         }
+    }
+
+    /// <summary>Makes a volcano erupt now (teaching tools and divine intervention).</summary>
+    public bool TriggerEruption(int x, int y, int year)
+    {
+        var geo = _map.Cells[x, y].Geology;
+        if (!geo.IsVolcano) return false;
+        geo.MagmaPressure = MathF.Max(geo.MagmaPressure, 1.6f);
+        VolcanicEruption(x, y, year);
+        geo.MagmaPressure = 0f;
+        geo.LastEruptionYear = year;
+        return true;
     }
 
     /// <summary>Lava and tephra pile up around the vent; tall edifices grow more slowly.</summary>

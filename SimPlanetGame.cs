@@ -85,6 +85,7 @@ public class SimPlanetGame : Game
     private GeoscienceOverlay? _geoOverlay;
     private Point _wellClickStart;
     private float _lastFrameSeconds;
+    private long _lastFrameStamp;
 
     // Game state
     private GameState _gameState;
@@ -306,7 +307,9 @@ public class SimPlanetGame : Game
 
                     lock (_mapDataLock)
                     {
+                        long simStart = Perf.Start();
                         _updateManager.Update(simDeltaTime, newYear, gameStateCopy.TimeSpeed);
+                        Perf.Stop("sim-tick", simStart);
                     }
 
                     // Update game state (thread-safe)
@@ -816,6 +819,7 @@ public class SimPlanetGame : Game
         _subsurface = new Subsurface3DView(GraphicsDevice, _map);
         _subsurface.SetSystems(_geologicalSimulator, _updateManager.Petroleum, _updateManager.Seismology, _updateManager.Geothermal);
         _subsurface.SetCivilizations(_civilizationManager);
+        _subsurface.RequestEvent = TriggerSubsurfaceEvent;
         bool oil = _geoOverlay?.ShowPetroleum ?? true, stations = _geoOverlay?.ShowSeismographs ?? true, tomo = _geoOverlay?.ShowTomography ?? false;
         _geoOverlay = new GeoscienceOverlay(_map) { ShowPetroleum = oil, ShowSeismographs = stations, ShowTomography = tomo };
         _geoOverlay.SetSystems(_updateManager.Petroleum, _updateManager.Seismology, _updateManager.Geothermal);
@@ -870,6 +874,66 @@ public class SimPlanetGame : Game
             civ.HasRailTransport = tech >= 25;
             civ.HasAirTransport = tech >= 50;
         }
+    }
+
+    /// <summary>
+    /// Causes an earthquake, an eruption or an impact inside the open subsurface block, so the
+    /// player can watch what it does to the ground and to what lies under it.
+    /// </summary>
+    private void TriggerSubsurfaceEvent(string kind)
+    {
+        if (_subsurface == null) return;
+        int half = _subsurface.Size / 2, cx = _subsurface.CenterX, cy = _subsurface.CenterY;
+        int year = _gameState.Year;
+
+        // Nearest cell in the block that satisfies a condition
+        (int x, int y)? Nearest(Func<GeologicalData, bool> wanted)
+        {
+            (int x, int y)? best = null;
+            int bestDistance = int.MaxValue;
+            for (int dy = -half; dy < half; dy++)
+            {
+                int y = cy + dy;
+                if (y < 2 || y >= _map.Height - 2) continue;
+                for (int dx = -half; dx < half; dx++)
+                {
+                    int x = ((cx + dx) % _map.Width + _map.Width) % _map.Width;
+                    int d = dx * dx + dy * dy;
+                    if (d < bestDistance && wanted(_map.Cells[x, y].Geology))
+                    {
+                        bestDistance = d;
+                        best = (x, y);
+                    }
+                }
+            }
+            return best;
+        }
+
+        lock (_mapDataLock)
+        {
+            switch (kind)
+            {
+                case "quake":
+                {
+                    var fault = Nearest(g => g.IsFault || g.BoundaryType != PlateBoundaryType.None);
+                    if (fault == null) { _subsurface.Notify("No fault in this block to break"); break; }
+                    _map.Cells[fault.Value.x, fault.Value.y].Geology.SeismicStress = 1.4f;
+                    EarthquakeSystem.Rupture(_map, fault.Value.x, fault.Value.y, year, 7.4f);
+                    break;
+                }
+                case "erupt":
+                {
+                    var volcano = Nearest(g => g.IsVolcano);
+                    if (volcano == null) { _subsurface.Notify("No volcano in this block"); break; }
+                    _geologicalSimulator.TriggerEruption(volcano.Value.x, volcano.Value.y, year);
+                    break;
+                }
+                case "impact":
+                    _disasterManager.TriggerAsteroid(cx, Math.Clamp(cy, 4, _map.Height - 5), 1, year);
+                    break;
+            }
+        }
+        _terrainRenderer.MarkDirty();
     }
 
     public void ToggleSubsurface() => _subsurface?.Toggle();
@@ -1391,8 +1455,12 @@ public class SimPlanetGame : Game
 
     private void SaveGame(string saveName)
     {
-        _saveLoadManager.SaveGame(_map, _gameState, _civilizationManager,
-                                  _weatherSystem, _hydrologySimulator, saveName);
+        lock (_mapDataLock)
+        {
+            _saveLoadManager.SaveGame(_map, _gameState, _civilizationManager,
+                                      _weatherSystem, _hydrologySimulator, saveName,
+                                      data => data.Geoscience = GeoscienceSaveData.Capture(_map, _updateManager));
+        }
     }
 
     private void LoadGame(string saveName)
@@ -1430,7 +1498,8 @@ public class SimPlanetGame : Game
                                           _civilizationManager, _weatherSystem,
                                           _hydrologySimulator);
             _geologicalSimulator.SyncPlatesFromCells(); // Plates as saved, not as first generated
-            _updateManager.Petroleum.BuildReservoirs();
+            saveData.Geoscience?.Restore(_map, _updateManager);
+            if (saveData.Geoscience != null) _geologicalSimulator.SyncPlatesFromCells(); // Boundaries around the restored faults
 
             // Update renderer
             _terrainRenderer.Dispose();
@@ -1675,13 +1744,17 @@ public class SimPlanetGame : Game
 
     protected override void Draw(GameTime gameTime)
     {
+        long frameStart = Perf.Start();
+
         // The pause menu is drawn on top of the (frozen) world
         bool inGame = _mainMenu.CurrentScreen == GameScreen.InGame || _mainMenu.CurrentScreen == GameScreen.PauseMenu;
 
         // The subsurface block renders to its own target, before the back buffer is touched
         if (inGame && _subsurface != null && _subsurface.IsOpen && !_isGenerating)
         {
+            long blockStart = Perf.Start();
             _subsurface.PreDraw(_spriteBatch, MapArea(), _mapDataLock, _lastFrameSeconds);
+            Perf.Stop("3d-block", blockStart);
         }
 
         GraphicsDevice.Clear(Color.Black);
@@ -1712,7 +1785,9 @@ public class SimPlanetGame : Game
             {
                 try
                 {
+                    long colourStart = Perf.Start();
                     _terrainRenderer.UpdateTerrainTexture();
+                    Perf.Stop("map-colours", colourStart);
                 }
                 finally
                 {
@@ -1734,6 +1809,7 @@ public class SimPlanetGame : Game
         _mapRenderOffsetX = offsetX;
         _mapRenderOffsetY = offsetY;
 
+        _terrainRenderer.Covered = _subsurface != null && _subsurface.IsOpen;
         _terrainRenderer.Draw(_spriteBatch, offsetX, offsetY);
 
         // Draw city markers on top of terrain (for all view modes except when it would be confusing)
@@ -1867,6 +1943,11 @@ public class SimPlanetGame : Game
         _splash?.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
         _spriteBatch.End();
+
+        Perf.Stop("frame-draw", frameStart);
+        Perf.Stop("frame-interval", _lastFrameStamp == 0 ? frameStart : _lastFrameStamp);
+        _lastFrameStamp = Perf.Start();
+        Perf.Report();
 
         base.Draw(gameTime);
     }

@@ -24,6 +24,7 @@ public sealed class Reservoir
     public bool Discovered;         // A well has found hydrocarbons
     public int DiscoveredBy = -1;
     public bool Depleted;
+    public bool InForedeep;         // In the foreland basin of a mountain belt
 }
 
 public enum WellStatus
@@ -37,35 +38,41 @@ public enum WellStatus
 /// <summary>A well on land, or a platform at sea.</summary>
 public sealed class OilWell
 {
-    public int Id;
-    public int X, Y;
-    public int CivId;
-    public int ReservoirId = -1;
-    public bool Offshore;
-    public float TargetDepthKm;
-    public float Progress;          // Drilling progress 0-1
-    public WellStatus Status;
-    public int YearSpudded;
-    public float Production;        // Last year's output
-    public float Cumulative;
+    public int Id { get; set; }
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int CivId { get; set; }
+    public int ReservoirId { get; set; } = -1;
+    public bool Offshore { get; set; }
+    public float TargetDepthKm { get; set; }
+    public float Progress { get; set; }          // Drilling progress 0-1
+    public WellStatus Status { get; set; }
+    public int YearSpudded { get; set; }
+    public float Production { get; set; }        // Last year's output
+    public float Cumulative { get; set; }
 }
 
 /// <summary>A reflection seismic line shot across a prospect.</summary>
 public sealed class SeismicSurvey
 {
-    public int Id;
-    public int CivId;
-    public int ReservoirId;
-    public float X1, Y1, X2, Y2;    // Line ends in cell coordinates (X may run past the map edge: it wraps)
-    public bool Marine;
-    public float Progress;          // 0-1 along the line
-    public int YearStarted;
-    public bool Completed;
+    public int Id { get; set; }
+    public int CivId { get; set; }
+    public int ReservoirId { get; set; }
+    public float X1 { get; set; }    // Line ends in cell coordinates (X may run past the map edge: it wraps)
+    public float Y1 { get; set; }
+    public float X2 { get; set; }
+    public float Y2 { get; set; }
+    public bool Marine { get; set; }
+    public float Progress { get; set; }          // 0-1 along the line
+    public int YearStarted { get; set; }
+    public bool Completed { get; set; }
 
     // Stacked section: Traces x Samples amplitudes, trace after trace
-    public int Traces, Samples;
-    public float[] Section = Array.Empty<float>();
-    public float TwoWayTimeSeconds; // Time at the bottom of the section
+    public int Traces { get; set; }
+    public int Samples { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public float[] Section { get; set; } = Array.Empty<float>();
+    public float TwoWayTimeSeconds { get; set; } // Time at the bottom of the section
 }
 
 /// <summary>
@@ -96,6 +103,7 @@ public sealed class PetroleumSystem
         _map = map;
         _random = new Random(seed + 777);
         _reservoirAt = new int[map.Width, map.Height];
+        MoveGasToForedeeps(seed);
         BuildReservoirs();
     }
 
@@ -128,9 +136,52 @@ public sealed class PetroleumSystem
         (d.Type == ResourceType.Oil || d.Type == ResourceType.NaturalGas) && d.Amount > 0.0005f;
 
     /// <summary>
-    /// Groups oil and gas deposits into fields. Safe to call again after loading a game.
+    /// Gas belongs where sediment is thickest: the foredeep basins at the foot of mountain
+    /// belts, whose fast-buried muds generate it and whose folds trap it. Most of the gas the
+    /// map generator scattered around is gathered into those basins.
     /// </summary>
-    public void BuildReservoirs()
+    private void MoveGasToForedeeps(int seed)
+    {
+        if (_map.FieldsExpanded) return;
+        var rnd = new Random(seed + 4409);
+        var basin = new List<(int x, int y)>();
+        var gas = new List<(TerrainCell cell, ResourceDeposit deposit)>();
+        for (int y = 2; y < _map.Height - 2; y++)
+        {
+            for (int x = 0; x < _map.Width; x++)
+            {
+                var cell = _map.Cells[x, y];
+                bool foredeep = cell.Geology.IsForedeep && cell.Elevation > -0.5f && cell.Elevation < 0.35f;
+                if (foredeep) basin.Add((x, y));
+                foreach (var deposit in cell.Resources)
+                {
+                    if (deposit.Type == ResourceType.NaturalGas && !foredeep) gas.Add((cell, deposit));
+                }
+            }
+        }
+        if (basin.Count < 12) return;
+
+        (int x, int y) anchor = basin[rnd.Next(basin.Count)];
+        int placed = 0;
+        foreach (var (cell, deposit) in gas)
+        {
+            if (rnd.NextDouble() < 0.1) continue; // A little gas stays with the oil it came from
+            if (placed++ % 4 == 0) anchor = basin[rnd.Next(basin.Count)];
+
+            // Fields form clusters: stay near the anchor, inside the basin
+            int tx = (anchor.x + rnd.Next(-2, 3) + _map.Width) % _map.Width, ty = Math.Clamp(anchor.y + rnd.Next(-2, 3), 2, _map.Height - 3);
+            if (!_map.Cells[tx, ty].Geology.IsForedeep) (tx, ty) = anchor;
+            cell.Resources.Remove(deposit);
+            deposit.Depth = MathF.Max(deposit.Depth, 0.45f);
+            _map.Cells[tx, ty].AddResource(deposit);
+        }
+    }
+
+    /// <summary>
+    /// Groups oil and gas deposits into fields. Runs once, on a freshly generated map (a loaded
+    /// game starts from the same generated map, so it finds the same fields).
+    /// </summary>
+    private void BuildReservoirs()
     {
         int w = _map.Width, h = _map.Height;
         Reservoirs.Clear();
@@ -173,7 +224,7 @@ public sealed class PetroleumSystem
             var rnd = new Random(reservoir.Cells[0].x * 7919 + reservoir.Cells[0].y * 104729);
 
             // A field is wider than a single cell: the accumulation thins out towards its edges
-            if (reservoir.Cells.Count < 5)
+            if (reservoir.Cells.Count < 5 && !_map.FieldsExpanded)
             {
                 var (cx, cy) = reservoir.Cells[0];
                 var seed = _map.Cells[cx, cy].Resources.First(IsHydrocarbon);
@@ -226,8 +277,83 @@ public sealed class PetroleumSystem
             reservoir.DepthKm = 1.2f + depth * 3.3f;
             reservoir.ThicknessKm = 0.15f + 0.25f * (float)rnd.NextDouble();
             reservoir.Trap = nearFault ? TrapType.FaultTrap : (TrapType)(new[] { 0, 0, 2, 3 }[rnd.Next(4)]);
+            reservoir.InForedeep = reservoir.Cells.Count(c => _map.Cells[c.x, c.y].Geology.IsForedeep) * 2 >= reservoir.Cells.Count;
+            if (reservoir.InForedeep)
+            {
+                // Folds and thrusts at the front of the belt make the traps; the thick fill buries them deep
+                reservoir.Trap = rnd.Next(3) == 0 ? TrapType.FaultTrap : TrapType.Anticline;
+                reservoir.DepthKm = MathF.Max(reservoir.DepthKm, 2.4f);
+            }
+        }
+        _map.FieldsExpanded = true; // Rebuilding later (after a load) must find the same fields
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Saved games
+    // ---------------------------------------------------------------------------------------
+
+    public PetroleumSaveData Capture()
+    {
+        var data = new PetroleumSaveData { NextWellId = _nextWellId, NextSurveyId = _nextSurveyId, Wells = Wells.ToList(), Surveys = Surveys.ToList() };
+        foreach (var reservoir in Reservoirs)
+        {
+            data.Reservoirs.Add(new ReservoirSaveData
+            {
+                Id = reservoir.Id, Surveyed = reservoir.Surveyed, Discovered = reservoir.Discovered,
+                DiscoveredBy = reservoir.DiscoveredBy, Depleted = reservoir.Depleted,
+                RemainingFraction = reservoir.InitialReserves > 0 ? RemainingReserves(reservoir) / reservoir.InitialReserves : 0f
+            });
+        }
+        return data;
+    }
+
+    /// <summary>
+    /// Puts back wells, surveys and the state of each field. The fields themselves are rebuilt
+    /// from the map (same seed, same fields), then drawn down to what was left.
+    /// </summary>
+    public void Restore(PetroleumSaveData? data)
+    {
+        if (data == null) return;
+        Wells.Clear();
+        Surveys.Clear();
+        _nextWellId = Math.Max(1, data.NextWellId);
+        _nextSurveyId = Math.Max(1, data.NextSurveyId);
+
+        foreach (var saved in data.Reservoirs)
+        {
+            if (saved.Id < 0 || saved.Id >= Reservoirs.Count) continue;
+            var reservoir = Reservoirs[saved.Id];
+            reservoir.Surveyed = saved.Surveyed;
+            reservoir.Discovered = saved.Discovered;
+            reservoir.DiscoveredBy = saved.DiscoveredBy;
+            reservoir.Depleted = saved.Depleted;
+            float fraction = Math.Clamp(saved.RemainingFraction, 0f, 1f);
+            foreach (var (x, y) in reservoir.Cells)
+            {
+                foreach (var deposit in _map.Cells[x, y].Resources)
+                {
+                    if (!IsHydrocarbonKind(deposit)) continue;
+                    deposit.Amount *= fraction;
+                    if (saved.Discovered) deposit.Discovered = true;
+                }
+            }
+        }
+
+        foreach (var well in data.Wells)
+        {
+            if (well.X < 0 || well.X >= _map.Width || well.Y < 0 || well.Y >= _map.Height) continue;
+            if (well.ReservoirId >= Reservoirs.Count) well.ReservoirId = -1;
+            Wells.Add(well);
+        }
+        foreach (var survey in data.Surveys)
+        {
+            if (survey.ReservoirId < 0 || survey.ReservoirId >= Reservoirs.Count) continue;
+            if (survey.Completed) BuildSection(survey); // The image is recomputed from the layers
+            Surveys.Add(survey);
         }
     }
+
+    private static bool IsHydrocarbonKind(ResourceDeposit d) => d.Type == ResourceType.Oil || d.Type == ResourceType.NaturalGas;
 
     public float RemainingReserves(Reservoir reservoir)
     {
@@ -291,7 +417,7 @@ public sealed class PetroleumSystem
         {
             if (well.CivId != civ.Id || well.Status != WellStatus.Producing || well.ReservoirId < 0) continue;
             var reservoir = Reservoirs[well.ReservoirId];
-            float wanted = 0.004f * tech;
+            float wanted = 0.002f * tech;
             float got = 0f;
 
             // Draw down the nearest cells of the field first (pressure drops around the well)
@@ -307,8 +433,8 @@ public sealed class PetroleumSystem
                     float taken = before - deposit.Amount;
                     wanted -= taken;
                     got += yield;
-                    civ.ResourceStockpile[deposit.Type] = MathF.Min(100f, civ.ResourceStockpile.GetValueOrDefault(deposit.Type) + yield * 30f);
-                    civ.AnnualProduction[deposit.Type] = civ.AnnualProduction.GetValueOrDefault(deposit.Type) + yield * 30f;
+                    civ.ResourceStockpile[deposit.Type] = MathF.Min(100f, civ.ResourceStockpile.GetValueOrDefault(deposit.Type) + yield * 60f);
+                    civ.AnnualProduction[deposit.Type] = civ.AnnualProduction.GetValueOrDefault(deposit.Type) + yield * 60f;
                 }
             }
 
@@ -565,4 +691,23 @@ public sealed class PetroleumSystem
         if (i >= 0 && i < reflectivity.Length) reflectivity[i] += coefficient * (1f - frac);
         if (i + 1 >= 0 && i + 1 < reflectivity.Length) reflectivity[i + 1] += coefficient * frac;
     }
+}
+
+public sealed class ReservoirSaveData
+{
+    public int Id { get; set; }
+    public bool Surveyed { get; set; }
+    public bool Discovered { get; set; }
+    public int DiscoveredBy { get; set; } = -1;
+    public bool Depleted { get; set; }
+    public float RemainingFraction { get; set; } = 1f;
+}
+
+public sealed class PetroleumSaveData
+{
+    public int NextWellId { get; set; } = 1;
+    public int NextSurveyId { get; set; } = 1;
+    public List<OilWell> Wells { get; set; } = new();
+    public List<SeismicSurvey> Surveys { get; set; } = new();
+    public List<ReservoirSaveData> Reservoirs { get; set; } = new();
 }

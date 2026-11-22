@@ -27,7 +27,7 @@ public class SaveLoadManager
 
     public void SaveGame(PlanetMap map, GameState gameState,
                         CivilizationManager civManager, WeatherSystem weatherSystem,
-                        HydrologySimulator hydroSim, string saveName)
+                        HydrologySimulator hydroSim, string saveName, Action<SaveGameData>? extend = null)
     {
         var saveData = new SaveGameData
         {
@@ -190,6 +190,8 @@ public class SaveLoadManager
                 Path = r.Path.ToList(),
                 WaterVolume = r.WaterVolume
             }).ToList();
+
+        extend?.Invoke(saveData);
 
         // Serialize to JSON
         string fileName = Path.Combine(SaveDirectory, $"{saveName}.json");

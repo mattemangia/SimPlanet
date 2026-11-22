@@ -20,6 +20,12 @@ public sealed partial class Subsurface3DView : IDisposable
     private SeismologyManager? _seismo;
     private GeothermalSystem? _geothermal;
 
+    /// <summary>Asks the game to cause an event in the block: "quake", "erupt" or "impact".</summary>
+    public Action<string>? RequestEvent;
+
+    /// <summary>Shows a line in the event list (for example when a request cannot be met).</summary>
+    public void Notify(string text) => AddTicker(text, UITheme.TextDim);
+
     public bool IsOpen { get; private set; }
     public bool IsSelecting { get; private set; }
     public bool IsMouseOver { get; private set; }
@@ -279,6 +285,10 @@ public sealed partial class Subsurface3DView : IDisposable
         }
 
         Add("X", 28, Close, null, "Close (Esc)");
+        x -= 8;
+        Add("Impact", 60, () => RequestEvent?.Invoke("impact"), null, "Drop a small asteroid on the middle of the block");
+        Add("Erupt", 54, () => RequestEvent?.Invoke("erupt"), null, "Make the nearest volcano in the block erupt");
+        Add("Quake", 56, () => RequestEvent?.Invoke("quake"), null, "Break the nearest fault in the block");
         x -= 8;
         Add("Tomo", 54, () => _tomoMode = (_tomoMode + 1) % 3, () => _tomoMode != 0, "Seismic tomography on the sections: off / recovered by the networks / true crust");
         Add("Labels", 62, () => _showLabels = !_showLabels, () => _showLabels, "Names of the structures");
