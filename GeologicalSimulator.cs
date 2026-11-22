@@ -35,6 +35,9 @@ public class GeologicalSimulator
     public List<(int x, int y, int year)> RecentEruptions { get; } = new();
     public ConcurrentQueue<EarthquakeEvent> Earthquakes { get; } = new();
 
+    /// <summary>Running count of eruptions since start (statistics and tests).</summary>
+    public int TotalEruptions { get; private set; }
+
     public GeologicalSimulator(PlanetMap map, int seed)
     {
         _map = map;
@@ -850,6 +853,7 @@ public class GeologicalSimulator
         geo.EruptionIntensity = vei;
 
         RecentEruptions.Add((x, y, year));
+        TotalEruptions++;
 
         // Apply eruption effects based on type
         switch (eruptionType)

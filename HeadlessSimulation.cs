@@ -103,11 +103,13 @@ public class HeadlessSimulation
     private bool _civOnly = false; // --civ-only: skip planetary physics to quickly test societies
     private int _doomsdayYear = -1; // --doomsday N: global nuclear war in year N
     private int _peaceYear = -1;    // --peace N: divine world peace in year N
-    private int _startTech = 0;     // --start-tech N: seeded civilizations start at this tech level
+    private int _startTech = 0;
+    private bool _geoReport = false; // --geo-report: print tectonic / seismic / volcanic statistics     // --start-tech N: seeded civilizations start at this tech level
 
     private void ParseArguments(string[] args)
     {
         _civOnly = args.Contains("--civ-only");
+        _geoReport = args.Contains("--geo-report");
         for (int i = 0; i < args.Length - 1; i++)
         {
             switch (args[i])
@@ -306,7 +308,7 @@ public class HeadlessSimulation
             if (_year > lastLogYear && (_year - lastLogYear) >= logInterval)
             {
                 UpdateGlobalStats(); // Refresh stats in map
-                LogStatus();
+                if (_geoReport) LogGeology(); else LogStatus();
                 lastLogYear = _year;
 
                 ValidateParameters();
@@ -443,5 +445,46 @@ public class HeadlessSimulation
                           $"Temp: {_map.GlobalTemperature:F1}C | O2: {_map.GlobalOxygen:F1}% | CO2: {_map.GlobalCO2:F2}% | " +
                           $"Life: {lifeCells} ({lifeCells/(float)totalCells*100:F1}%) | " +
                           $"Civs: {civCount} (Pop: {totalPop}) | Stabilizer: {_planetStabilizer.LastAction}");
+    }
+
+    private int _lastQuakeTotal;
+    private int _lastEruptionTotal;
+    private int _lastGeoYear;
+
+    /// <summary>Geological health report: boundaries, relief, volcanoes, faults and event rates.</summary>
+    private void LogGeology()
+    {
+        int conv = 0, div = 0, trans = 0, volcanoes = 0, faults = 0, land = 0, high = 0, cells = 0;
+        float minE = float.MaxValue, maxE = float.MinValue, sumStress = 0, maxSed = 0, sumSed = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var c = _map.Cells[x, y];
+                var g = c.Geology;
+                cells++;
+                if (g.BoundaryType == PlateBoundaryType.Convergent) conv++;
+                else if (g.BoundaryType == PlateBoundaryType.Divergent) div++;
+                else if (g.BoundaryType == PlateBoundaryType.Transform) trans++;
+                if (g.IsVolcano) volcanoes++;
+                if (g.IsFault) faults++;
+                if (c.IsLand) land++;
+                if (c.Elevation > 0.7f) high++;
+                minE = Math.Min(minE, c.Elevation);
+                maxE = Math.Max(maxE, c.Elevation);
+                sumStress += g.SeismicStress;
+                sumSed += g.SedimentLayer;
+                maxSed = Math.Max(maxSed, g.SedimentLayer);
+            }
+        }
+        int years = Math.Max(1, _year - _lastGeoYear);
+        int quakes = EarthquakeSystem.TotalEarthquakes - _lastQuakeTotal;
+        int eruptions = _geologicalSimulator.TotalEruptions - _lastEruptionTotal;
+        _lastQuakeTotal = EarthquakeSystem.TotalEarthquakes;
+        _lastEruptionTotal = _geologicalSimulator.TotalEruptions;
+        _lastGeoYear = _year;
+        Console.WriteLine($"GEO y{_year,5} | land {land * 100f / cells,5:F1}% elev [{minE:F2},{maxE:F2}] mountains {high * 100f / cells:F2}% | " +
+                          $"boundary conv {conv} div {div} trans {trans} | volcanoes {volcanoes} faults {faults} | " +
+                          $"quakes/yr {quakes / (float)years:F1} eruptions/yr {eruptions / (float)years:F2} | stress avg {sumStress / cells:F2} | sediment avg {sumSed / cells:F2} max {maxSed:F1}");
     }
 }

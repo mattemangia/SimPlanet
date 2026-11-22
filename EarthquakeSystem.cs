@@ -12,6 +12,9 @@ public static class EarthquakeSystem
     // Queue for UI to read recent earthquakes
     public static ConcurrentQueue<EarthquakeEvent> RecentSystemEarthquakes = new();
 
+    /// <summary>Running count of earthquakes since start (statistics and tests).</summary>
+    public static int TotalEarthquakes;
+
     /// <summary>
     /// Update seismic stress and trigger earthquakes
     /// </summary>
@@ -186,6 +189,8 @@ public static class EarthquakeSystem
     /// </summary>
     public static void TriggerEarthquake(PlanetMap map, int epicenterX, int epicenterY, float magnitude, int currentYear)
     {
+        TotalEarthquakes++;
+
         // Add to recent queue for UI
         RecentSystemEarthquakes.Enqueue(new EarthquakeEvent
         {
