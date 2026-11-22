@@ -121,7 +121,12 @@ public class GeologicalEventsUI
 
     public void HandleInput(MouseState mouseState, MouseState prevMouseState, int screenWidth, int toolbarHeight)
     {
-        if (!ShowEvents) return;
+        // The panel (and its close button) is only drawn while there is something to list
+        if (!ShowEvents || _eventLog.Count == 0)
+        {
+            _isHoveringClose = false;
+            return;
+        }
 
         _closeButtonRect = CalculateCloseButtonRect(screenWidth, toolbarHeight);
         _isHoveringClose = _closeButtonRect.Contains(mouseState.Position);

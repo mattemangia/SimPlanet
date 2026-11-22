@@ -443,15 +443,17 @@ public class GeologicalProfileViewer : IDisposable
 
         // Better approach for sloped layers:
         // Decompose into 1px vertical columns if width is small.
-        int steps = (int)Math.Max(1, w);
-        for (int i = 0; i < steps; i++)
+        // One column per screen pixel between the two samples, so no pixel column is skipped
+        // (stepping by the truncated width left a 1px black gap every few samples).
+        int xStart = (int)MathF.Floor(x1_top);
+        int xEnd = Math.Max(xStart + 1, (int)MathF.Floor(x2_top));
+        for (int px = xStart; px < xEnd; px++)
         {
-            float t = i / (float)steps;
-            float curX = x1_top + (x2_top - x1_top) * t;
+            float t = w > 0.001f ? Math.Clamp((px - x1_top) / w, 0f, 1f) : 0f;
             float curYTop = y1_top + (y2_top - y1_top) * t;
             float curYBot = y1_bot + (y2_bot - y1_bot) * t;
 
-            sb.Draw(_pixelTexture, new Rectangle((int)curX, (int)curYTop, 1, (int)(curYBot - curYTop + 1)), c);
+            sb.Draw(_pixelTexture, new Rectangle(px, (int)curYTop, 1, (int)(curYBot - curYTop + 1)), c);
         }
     }
 

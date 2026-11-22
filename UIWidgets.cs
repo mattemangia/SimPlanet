@@ -262,7 +262,8 @@ public static class UIWidgets
                  : hovered ? UITheme.ButtonHover
                  : UITheme.ButtonBg * 0.75f;
         UITheme.FillRounded(sb, rect, bg);
-        UITheme.OutlineRounded(sb, rect, selected ? UITheme.Accent : hovered ? UITheme.BorderBright : UITheme.Border * 0.8f);
+        UITheme.OutlineRounded(sb, rect, selected ? UITheme.Accent : hovered ? UITheme.BorderBright * 0.8f : UITheme.Border * 0.8f);
+        if (selected) UITheme.FillRect(sb, new Rectangle(rect.X + 1, rect.Y + 5, 3, rect.Height - 10), UITheme.Gold);
 
         int textX = rect.X + 10;
         if (marker.HasValue)
