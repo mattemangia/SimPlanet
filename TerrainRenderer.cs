@@ -450,35 +450,6 @@ public partial class TerrainRenderer
                             g = g * 0.86f + cc.G * 0.14f;
                             b = b * 0.86f + cc.B * 0.14f;
 
-                            // Border on the cell edges facing other owners (not facing the sea)
-                            bool edge =
-                                (lx == 0 && IsForeignLand(cx - 1, cy, owner)) ||
-                                (lx == s - 1 && IsForeignLand(cx + 1, cy, owner)) ||
-                                (ly == 0 && IsForeignLand(cx, cy - 1, owner)) ||
-                                (ly == s - 1 && IsForeignLand(cx, cy + 1, owner));
-                            if (edge)
-                            {
-                                r = r * 0.15f + cc.R * 0.85f;
-                                g = g * 0.15f + cc.G * 0.85f;
-                                b = b * 0.15f + cc.B * 0.85f;
-                            }
-                        }
-                    }
-
-                    if (societyBorders)
-                    {
-                        int owner = _civOwnerMap[cellIdx];
-                        if (owner > 0)
-                        {
-                            bool edge =
-                                (lx == 0 && IsForeignLand(cx - 1, cy, owner)) ||
-                                (lx == s - 1 && IsForeignLand(cx + 1, cy, owner)) ||
-                                (ly == 0 && IsForeignLand(cx, cy - 1, owner)) ||
-                                (ly == s - 1 && IsForeignLand(cx, cy + 1, owner));
-                            if (edge)
-                            {
-                                r *= 0.35f; g *= 0.35f; b *= 0.35f;
-                            }
                         }
                     }
 
@@ -2807,6 +2778,7 @@ public partial class TerrainRenderer
         _nightTexture?.Dispose();
         _starfield?.Dispose();
         _grain?.Dispose();
+        DisposeBorderOverlay();
         // _icons is shared across renderers and lives for the whole session
     }
 }
