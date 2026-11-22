@@ -222,7 +222,7 @@ public sealed partial class Subsurface3DView : IDisposable
                 _snapshotTimer = 0f;
             }
 
-            if (wheel != 0 && IsMouseOver) _zoom = Math.Clamp(_zoom * (wheel > 0 ? 1.1f : 0.9f), 0.5f, 3.5f);
+            if (wheel != 0 && IsMouseOver) _zoom = Math.Clamp(_zoom * (wheel > 0 ? 1.1f : 0.9f), 0.5f, 6f);
 
             if (Pressed(keys, Keys.Q)) _yaw += MathHelper.PiOver2;
             if (Pressed(keys, Keys.E)) _yaw -= MathHelper.PiOver2;

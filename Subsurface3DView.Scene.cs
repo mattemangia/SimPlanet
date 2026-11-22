@@ -37,6 +37,21 @@ public sealed partial class Subsurface3DView
 
     // ---- Transient effects ---------------------------------------------------------------
     private float[] _bump = Array.Empty<float>(), _flash = Array.Empty<float>(), _erupting = Array.Empty<float>();
+    private float[] _ash = Array.Empty<float>(), _lava = Array.Empty<float>();       // Fresh deposits of an eruption
+    private float[] _ashV = Array.Empty<float>(), _lavaV = Array.Empty<float>();
+    private readonly List<(int cell, float timer, int steps)> _lavaFronts = new();
+
+    private struct CityModel
+    {
+        public int I, J, Id, Population;
+        public CityType Type;
+        public CityStyle Style;
+        public string Name;
+    }
+    private readonly List<CityModel> _cities = new();
+    private CivilizationManager? _civilizations;
+
+    public void SetCivilizations(CivilizationManager civilizations) => _civilizations = civilizations;
     private readonly List<(int cell, float delay, float bump)> _pendingSlip = new();
     private readonly List<(Vector3 position, float age, float life, Color color, float speed)> _rings = new();
     private float _seismogramHold;
@@ -166,12 +181,15 @@ public sealed partial class Subsurface3DView
         _columns = new StrataColumn[cells];
         for (int i = 0; i < cells; i++) _columns[i] = new StrataColumn();
         _bump = new float[cells]; _flash = new float[cells]; _erupting = new float[cells];
+        _ash = new float[cells]; _lava = new float[cells];
+        _lavaFronts.Clear();
 
         _g = _n * Sub + 1;
         int vertices = _g * _g;
         _baseY = new float[vertices]; _y = new float[vertices];
         _waveP = new float[vertices]; _waveS = new float[vertices]; _bumpV = new float[vertices];
         _vertexColor = new Color[vertices];
+        _ashV = new float[vertices]; _lavaV = new float[vertices];
         _pendingSlip.Clear();
         _hasSnapshot = false;
     }
@@ -214,6 +232,19 @@ public sealed partial class Subsurface3DView
         }
 
         ComputeSlab();
+
+        _cities.Clear();
+        if (_civilizations != null)
+        {
+            foreach (var civ in _civilizations.Civilizations)
+            {
+                foreach (var city in civ.Cities)
+                {
+                    if (!ToRegion(city.X, city.Y, out int ci, out int cj)) continue;
+                    _cities.Add(new CityModel { I = ci, J = cj, Id = city.Id, Population = city.Population, Type = city.Type, Style = city.Style, Name = city.Name });
+                }
+            }
+        }
 
         // Smooth surface: bilinear between cell centres
         int g = _g;
@@ -364,6 +395,7 @@ public sealed partial class Subsurface3DView
                 {
                     AddTicker($"{e.Eruption} eruption  -  VEI {e.Magnitude:F0}", new Color(255, 140, 60));
                     _erupting[j * _n + i] = 5f + e.Magnitude;
+                    if (e.Eruption is EruptionType.Effusive or EruptionType.Strombolian) _lavaFronts.Add((j * _n + i, 0f, 0));
                     break;
                 }
                 case GeoEventKind.Impact:
@@ -447,11 +479,67 @@ public sealed partial class Subsurface3DView
 
         // Transient offsets relax (the lasting change comes from the simulation itself)
         float bumpDecay = MathF.Exp(-dt * 0.5f), flashDecay = MathF.Exp(-dt * 1.2f);
+        float ashDecay = MathF.Exp(-dt / 45f), lavaCooling = MathF.Exp(-dt / 9f);
         for (int c = 0; c < _bump.Length; c++)
         {
             _bump[c] *= bumpDecay;
             _flash[c] *= flashDecay;
-            if (_erupting[c] > 0f) _erupting[c] -= dt;
+            _ash[c] *= ashDecay;
+            _lava[c] *= lavaCooling;
+            if (_erupting[c] <= 0f) continue;
+            _erupting[c] -= dt;
+
+            // Tephra falls out of the plume and blankets the ground, thickest near the vent
+            int ci = c % n, cj = c / n;
+            const int reach = 5;
+            for (int dj = -reach; dj <= reach; dj++)
+            {
+                for (int di = -reach; di <= reach; di++)
+                {
+                    int oi = ci + di, oj = cj + dj;
+                    if (oi < 0 || oj < 0 || oi >= n || oj >= n) continue;
+                    float d = MathF.Sqrt(di * di + dj * dj);
+                    if (d > reach) continue;
+                    _ash[oj * n + oi] = MathF.Min(1f, _ash[oj * n + oi] + dt * 0.22f * (1f - d / reach) * (1f - d / reach));
+                }
+            }
+            if (_random.NextDouble() < dt * 30f)
+            {
+                var from = CellTop(ci, cj, 2.2f * unit) + new Vector3(Rand(-reach, reach) * 0.7f, Rand(-0.4f, 0.4f) * unit, Rand(-reach, reach) * 0.7f);
+                _particles.Add(new Particle
+                {
+                    Position = from, Velocity = new Vector3(0.1f, -0.5f * unit, 0.05f), MaxLife = 5f, Size = 0.06f,
+                    Gravity = 0.25f * unit, Floor = ElevY(_elev[c]) - 0.5f * unit, Color = new Color(70, 66, 70)
+                });
+            }
+        }
+
+        // Lava runs downhill from the vent, one cell at a time, and cools behind the front
+        for (int k = _lavaFronts.Count - 1; k >= 0; k--)
+        {
+            var front = _lavaFronts[k];
+            if (front.cell >= _lava.Length) { _lavaFronts.RemoveAt(k); continue; }
+            _lava[front.cell] = 1f;
+            front.timer += dt;
+            if (front.timer > 0.9f)
+            {
+                front.timer = 0f;
+                int ci = front.cell % n, cj = front.cell / n, next = -1;
+                float lowest = _elev[front.cell];
+                for (int dj = -1; dj <= 1; dj++)
+                {
+                    for (int di = -1; di <= 1; di++)
+                    {
+                        int oi = ci + di, oj = cj + dj;
+                        if (oi < 0 || oj < 0 || oi >= n || oj >= n) continue;
+                        if (_elev[oj * n + oi] < lowest) { lowest = _elev[oj * n + oi]; next = oj * n + oi; }
+                    }
+                }
+                front.steps++;
+                if (next < 0 || front.steps > 6 || _elev[next] < -0.05f) { _lavaFronts.RemoveAt(k); continue; }
+                front.cell = next;
+            }
+            _lavaFronts[k] = front;
         }
 
         for (int k = _rings.Count - 1; k >= 0; k--)
@@ -608,6 +696,9 @@ public sealed partial class Subsurface3DView
         BuildFaces();
         Flush(_grain, BlendState.Opaque, true);
 
+        BuildCities();
+        Flush(_white, BlendState.Opaque, true);
+
         // Translucent overlays drawn over the solid block
         BuildFaceOverlays();
         BuildSurfaceOverlays();
@@ -758,9 +849,13 @@ public sealed partial class Subsurface3DView
                 int x0 = (int)fx, x1 = Math.Min(n - 1, x0 + 1);
                 float tx = fx - x0;
                 _bumpV[vj * g + vi] = Lerp(Lerp(_bump[y0 * n + x0], _bump[y0 * n + x1], tx), Lerp(_bump[y1 * n + x0], _bump[y1 * n + x1], tx), ty);
+                _ashV[vj * g + vi] = Lerp(Lerp(_ash[y0 * n + x0], _ash[y0 * n + x1], tx), Lerp(_ash[y1 * n + x0], _ash[y1 * n + x1], tx), ty);
+                _lavaV[vj * g + vi] = Lerp(Lerp(_lava[y0 * n + x0], _lava[y0 * n + x1], tx), Lerp(_lava[y1 * n + x0], _lava[y1 * n + x1], tx), ty);
             }
         }
         if (_showWaves) ComputeBackend.AddScaled(_y, _bumpV, 1f);
+        ComputeBackend.AddScaled(_y, _ashV, 0.05f * unit);   // The ash blanket has thickness
+        ComputeBackend.AddScaled(_y, _lavaV, 0.03f * unit);
 
         Array.Clear(_waveP);
         Array.Clear(_waveS);
@@ -823,10 +918,20 @@ public sealed partial class Subsurface3DView
 
     private Color SurfaceColor(int vertex, float lit)
     {
-        var c = Shade(_vertexColor[vertex], lit);
+        var c = _vertexColor[vertex];
+        float ash = _ashV[vertex], lava = _lavaV[vertex];
+        if (ash > 0.01f) c = Color.Lerp(c, new Color(104, 100, 104), MathF.Min(0.9f, ash * 1.6f));
+        c = Shade(c, lit);
+        if (lava > 0.03f)
+        {
+            // Glowing while hot, black basalt once cooled
+            Color rock = lava > 0.45f ? Color.Lerp(new Color(200, 50, 10), new Color(255, 210, 80), (lava - 0.45f) / 0.55f)
+                                      : Color.Lerp(new Color(40, 34, 36), new Color(200, 50, 10), lava / 0.45f);
+            c = Color.Lerp(c, rock, MathF.Min(1f, lava * 3f));
+        }
         float p = MathF.Abs(_waveP[vertex]), s = MathF.Abs(_waveS[vertex]);
-        if (p > 0.02f) c = Color.Lerp(c, new Color(120, 210, 255), MathF.Min(0.7f, p * 1.2f));   // P front
-        if (s > 0.02f) c = Color.Lerp(c, new Color(255, 110, 90), MathF.Min(0.75f, s * 1.2f));   // S front
+        if (p > 0.02f) c = Color.Lerp(c, new Color(120, 210, 255), MathF.Min(0.4f, p * 0.9f));   // P front
+        if (s > 0.02f) c = Color.Lerp(c, new Color(255, 110, 90), MathF.Min(0.45f, s * 0.9f));   // S front
         return c;
     }
 
@@ -1057,7 +1162,18 @@ public sealed partial class Subsurface3DView
                     FlatQuad(SidePoint(side, ua, _ya[i] + w, skin), SidePoint(side, ub, _yb[i] + w, skin), SidePoint(side, ub, _yb[i] - w, skin), SidePoint(side, ua, _ya[i] - w, skin), line);
                 }
 
+                // Fresh ash and lava from an eruption in progress: a new bed on top of the column
+                float ashA = Lerp(_ash[a0], _ash[a1], ta) + Lerp(_lava[a0], _lava[a1], ta);
+                float ashB = Lerp(_ash[b0], _ash[b1], tb) + Lerp(_lava[b0], _lava[b1], tb);
+                if (ashA > 0.03f || ashB > 0.03f)
+                {
+                    Color fresh = new Color(120, 60, 70, 250);
+                    FlatQuad(SidePoint(side, ua, _ya[0], skin * 1.2f), SidePoint(side, ub, _yb[0], skin * 1.2f),
+                        SidePoint(side, ub, _yb[0] - MathF.Min(1f, ashB) * 0.07f * unit, skin * 1.2f), SidePoint(side, ua, _ya[0] - MathF.Min(1f, ashA) * 0.07f * unit, skin * 1.2f), fresh);
+                }
+
                 DrawBand(side, ua, ub, a0, a1, ta, b0, b1, tb, skin * 1.5f, BandKind.Salt);
+                DrawBand(side, ua, ub, a0, a1, ta, b0, b1, tb, skin * 1.8f, BandKind.Unconformity);
                 DrawBand(side, ua, ub, a0, a1, ta, b0, b1, tb, skin * 2f, BandKind.Brine);
                 DrawBand(side, ua, ub, a0, a1, ta, b0, b1, tb, skin * 2.5f, BandKind.Hydrocarbon);
                 DrawBand(side, ua, ub, a0, a1, ta, b0, b1, tb, skin * 2f, BandKind.Slab);
@@ -1075,34 +1191,33 @@ public sealed partial class Subsurface3DView
                 float surfaceKm = -_elev[cell] * KmPerElevation;
                 float top = _y[SideVertex(side, Math.Min(k * Sub + Sub / 2 + 1, SideLength(side) * Sub))];
 
-                // Fault: a plane dipping away from the surface trace
+                // Faults take the shape of their tectonic setting
                 if ((_flags[cell] & FlagFault) != 0)
                 {
-                    var type = (FaultType)_faultType[cell];
-                    float dip = type switch
-                    {
-                        FaultType.Thrust => 0.55f,          // Low angle
-                        FaultType.Reverse => 1.0f,
-                        FaultType.Normal => 1.7f,
-                        _ => 12f                             // Strike-slip: near vertical
-                    };
-                    float direction = ((cell * 2654435761u) & 1) == 0 ? 1f : -1f;
-                    float bottom = AbsY(surfaceKm + 26f);
-                    float shift = (top - bottom) / dip / unit * direction * 1.6f;
-                    float glow = MathF.Max(_flash[cell], Math.Clamp((_stress[cell] - 0.4f) * 1.2f, 0f, 0.8f));
-                    Color color = Color.Lerp(new Color(140, 20, 20, 235), new Color(255, 230, 120, 255), glow);
-                    float width = (0.05f + 0.08f * _flash[cell]) * unit;
-                    Line(SidePoint(side, u, top, skin * 3f), SidePoint(side, u + shift, bottom, skin * 3f), width, color);
+                    DrawFaultOnFace(side, k, cell, top, surfaceKm, skin, front);
+                }
 
-                    // Slip arrows on either side of a fault that has just broken
-                    if (_flash[cell] > 0.15f && type != FaultType.Strike_Slip)
+                // Accretionary wedge: sediment scraped off the down-going plate, stacked in slices
+                if ((_flags[cell] & FlagSubducting) != 0 && _elev[cell] < -0.3f)
+                {
+                    int toward = SlabDirection(side, k);
+                    if (toward != 0)
                     {
-                        float up = type == FaultType.Normal ? -1f : 1f;
-                        float mid = Lerp(top, bottom, 0.3f);
-                        Arrow(SidePoint(side, u + shift * 0.3f + 0.45f * direction, mid, skin * 4f), new Vector3(0, up * 0.5f * unit, 0), 0.07f * unit, Color.White * _flash[cell]);
-                        Arrow(SidePoint(side, u + shift * 0.3f - 0.45f * direction, mid, skin * 4f), new Vector3(0, -up * 0.5f * unit, 0), 0.07f * unit, Color.White * _flash[cell]);
+                        int next = SideCell(side, k + toward * 2);
+                        float tipY = top;
+                        float backTop = _y[SideVertex(side, Math.Clamp((k + toward * 2) * Sub + Sub / 2 + 1, 0, SideLength(side) * Sub))];
+                        float backBase = AbsY(-_elev[next] * KmPerElevation + MathF.Max(8f, _slab[next]));
+                        Color wedge = new Color(150, 128, 96, 235);
+                        Tri(SidePoint(side, u, tipY, skin * 2.2f), SidePoint(side, u + toward * 2f, backTop, skin * 2.2f), SidePoint(side, u + toward * 2f, backBase, skin * 2.2f),
+                            wedge, wedge, Shade(wedge, 0.7f), Vector2.Zero, Vector2.Zero, Vector2.Zero);
+                        for (int slice = 1; slice <= 3; slice++)
+                        {
+                            float f = slice / 4f;
+                            Line(SidePoint(side, u + toward * 2f * f, Lerp(tipY, backTop, f), skin * 2.6f),
+                                 SidePoint(side, u + toward * 2f * (f + 0.22f), Lerp(tipY, backBase, f + 0.22f), skin * 2.6f), 0.02f * unit, new Color(60, 30, 24, 230));
+                        }
+                        if (front) _labels.Add((SidePoint(side, u + toward * 1.4f, Lerp(backTop, backBase, 0.45f), 0.1f), "Accretionary wedge", new Color(214, 188, 130), 7));
                     }
-                    if (front && k % 3 == 1) _labels.Add((SidePoint(side, u + shift * 0.5f, Lerp(top, bottom, 0.5f), 0.1f), $"{FaultName(type)} fault", new Color(255, 90, 80), 3));
                 }
 
                 // Magma: chamber under a volcano, plume under a hot spot
@@ -1161,7 +1276,7 @@ public sealed partial class Subsurface3DView
         BuildBoreholes(skin);
     }
 
-    private enum BandKind { Hydrocarbon, Brine, Salt, Slab }
+    private enum BandKind { Hydrocarbon, Brine, Salt, Slab, Unconformity }
 
     /// <summary>A band between two depths on a face, where both neighbouring columns have it.</summary>
     private void DrawBand(Side side, float ua, float ub, int a0, int a1, float ta, int b0, int b1, float tb, float outward, BandKind kind)
@@ -1202,6 +1317,7 @@ public sealed partial class Subsurface3DView
         BandKind.Hydrocarbon => _columns[cell].HasReservoir && _columns[cell].FluidContact > _columns[cell].ReservoirTop,
         BandKind.Brine => _columns[cell].HasReservoir && _columns[cell].ReservoirBottom > _columns[cell].FluidContact,
         BandKind.Salt => _columns[cell].HasSalt,
+        BandKind.Unconformity => _columns[cell].UnconformityKm > 0.02f,
         _ => _slab[cell] > 0f
     };
 
@@ -1225,12 +1341,286 @@ public sealed partial class Subsurface3DView
                 bottom = column.SedimentKm;
                 color = BedColor(RockKind.Salt);
                 break;
+            case BandKind.Unconformity:
+                // Buried erosion surface: older beds are cut off below this line
+                top = column.UnconformityKm - 0.012f;
+                bottom = column.UnconformityKm + 0.012f;
+                color = new Color(230, 60, 50, 235);
+                break;
             default:
                 top = _slab[cell];
                 bottom = _slab[cell] + 9f;
                 color = SlabColor;
                 break;
         }
+    }
+
+    /// <summary>Which way along a face the slab deepens (the side of the overriding plate); 0 if no slab.</summary>
+    private int SlabDirection(Side side, int k)
+    {
+        int length = SideLength(side);
+        float here = _slab[SideCell(side, k)];
+        float right = k + 1 < length ? _slab[SideCell(side, k + 1)] : 0f;
+        float left = k > 0 ? _slab[SideCell(side, k - 1)] : 0f;
+        if (right > here && right >= left) return 1;
+        if (left > here) return -1;
+        return 0;
+    }
+
+    /// <summary>Direction along a face towards the nearest spreading axis within a few cells; 0 if none.</summary>
+    private int RiftDirection(Side side, int k)
+    {
+        int length = SideLength(side);
+        for (int d = 1; d <= 4; d++)
+        {
+            if (k + d < length && _boundary[SideCell(side, k + d)] == (byte)PlateBoundaryType.Divergent) return 1;
+            if (k - d >= 0 && _boundary[SideCell(side, k - d)] == (byte)PlateBoundaryType.Divergent) return -1;
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// A fault in section. Extension: listric normal faults, steep at the surface and
+    /// flattening into a detachment, dipping towards the rift. Compression: thrusts dipping
+    /// under the overriding plate and soling into the plate interface or a decollement.
+    /// Strike-slip: vertical.
+    /// </summary>
+    private void DrawFaultOnFace(Side side, int k, int cell, float top, float surfaceKm, float skin, bool front)
+    {
+        float unit = Unit;
+        float u = k + 0.5f;
+        var type = (FaultType)_faultType[cell];
+        float glow = MathF.Max(_flash[cell], Math.Clamp((_stress[cell] - 0.4f) * 1.2f, 0f, 0.8f));
+        Color color = Color.Lerp(new Color(150, 20, 20, 240), new Color(255, 230, 120, 255), glow);
+        float width = (0.05f + 0.08f * _flash[cell]) * unit;
+        int hash = (int)((uint)(cell * 2654435761u) >> 31) == 0 ? 1 : -1;
+        string name;
+        Vector3 labelAt;
+        Vector3 slipAt;       // Where to put the slip arrows
+        float hangingSide;    // Which side of the fault is the hanging wall (+1 / -1 along the face)
+        float hangingMove;    // +1 the hanging wall goes up, -1 down
+
+        if (type == FaultType.Normal)
+        {
+            int toward = RiftDirection(side, k);
+            if (toward == 0) toward = hash;
+            const float detachmentKm = 13f, reach = 2.4f;
+            const int steps = 10;
+            var previous = SidePoint(side, u, top, skin * 3f);
+            slipAt = previous;
+            for (int i = 1; i <= steps; i++)
+            {
+                float f = i / (float)steps;
+                // Listric: the dip shallows with depth
+                var point = SidePoint(side, u + toward * reach * MathF.Pow(f, 2.2f), AbsY(surfaceKm + detachmentKm * (1f - MathF.Pow(1f - f, 1.6f))), skin * 3f);
+                Line(previous, point, width, color);
+                if (i == 3) slipAt = point;
+                previous = point;
+            }
+            // Detachment the fault merges into
+            var end = SidePoint(side, u + toward * (reach + 1.6f), AbsY(surfaceKm + detachmentKm + 0.6f), skin * 3f);
+            Line(previous, end, width * 0.8f, Shade(color, 0.85f));
+            // A smaller fault dipping the other way bounds the tilted block
+            Line(SidePoint(side, u + toward * 1.5f, top, skin * 3f), SidePoint(side, u + toward * 0.9f, AbsY(surfaceKm + 5f), skin * 3f), width * 0.6f, Shade(color, 0.8f));
+            name = "Listric normal fault";
+            labelAt = SidePoint(side, u + toward * 1.1f, AbsY(surfaceKm + 9f), 0.1f);
+            hangingSide = toward;
+            hangingMove = -1f;
+            if (front && k % 4 == 1) _labels.Add((end, "Detachment", new Color(255, 170, 150), 4));
+        }
+        else if (type is FaultType.Thrust or FaultType.Reverse)
+        {
+            int toward = SlabDirection(side, k);
+            bool megathrust = toward != 0;
+            if (toward == 0) toward = hash;
+            float soleKm = megathrust ? 0f : (type == FaultType.Thrust ? 16f : 22f);
+            float reach = type == FaultType.Thrust ? 3.2f : 1.8f;
+            const int steps = 8;
+            var previous = SidePoint(side, u, top, skin * 3f);
+            slipAt = previous;
+            for (int i = 1; i <= steps; i++)
+            {
+                float f = i / (float)steps;
+                float along = u + toward * reach * f;
+                float depth;
+                if (megathrust)
+                {
+                    // Follows the top of the down-going slab
+                    int under = SideCell(side, (int)MathF.Round(along - 0.5f));
+                    depth = MathF.Max(2f * f, MathF.Min(_slab[under] > 0f ? _slab[under] : 40f, 45f) * f);
+                }
+                else
+                {
+                    depth = soleKm * MathF.Pow(f, 0.7f); // Ramp, then flat
+                }
+                var point = SidePoint(side, along, MathF.Min(top, AbsY(surfaceKm + depth)), skin * 3f);
+                Line(previous, point, width, color);
+                if (i == 3) slipAt = point;
+                previous = point;
+            }
+            name = megathrust ? "Megathrust" : type == FaultType.Thrust ? "Thrust fault" : "Reverse fault";
+            labelAt = SidePoint(side, u + toward * reach * 0.55f, AbsY(surfaceKm + 9f), 0.1f);
+            hangingSide = toward;
+            hangingMove = 1f;
+        }
+        else
+        {
+            float bottom = AbsY(surfaceKm + 26f);
+            Line(SidePoint(side, u, top, skin * 3f), SidePoint(side, u + 0.08f * hash, bottom, skin * 3f), width, color);
+            // Motion in and out of the section: dot (towards) and cross (away)
+            float my = Lerp(top, bottom, 0.25f), r = 0.07f * unit;
+            var dot = SidePoint(side, u - 0.4f, my, skin * 4f);
+            var cross = SidePoint(side, u + 0.4f, my, skin * 4f);
+            Line(dot - new Vector3(0, r * 0.4f, 0), dot + new Vector3(0, r * 0.4f, 0), r * 0.8f, Color.White);
+            Line(cross + new Vector3(0, r, 0), cross - new Vector3(0, r, 0), r * 0.35f, Color.White);
+            Line(SidePoint(side, u + 0.4f - 0.12f, my, skin * 4f), SidePoint(side, u + 0.4f + 0.12f, my, skin * 4f), r * 0.35f, Color.White);
+            name = "Strike-slip fault";
+            labelAt = SidePoint(side, u + 0.5f, Lerp(top, bottom, 0.5f), 0.1f);
+            slipAt = default;
+            hangingSide = 0f;
+            hangingMove = 0f;
+        }
+
+        // Slip arrows when the fault has just broken: hanging wall one way, footwall the other
+        if (_flash[cell] > 0.15f && hangingSide != 0f)
+        {
+            var offset = (SidePoint(side, 1f, 0f) - SidePoint(side, 0f, 0f)) * (0.45f * hangingSide);
+            Arrow(slipAt + offset, new Vector3(0, hangingMove * 0.5f * unit, 0), 0.07f * unit, Color.White * _flash[cell]);
+            Arrow(slipAt - offset, new Vector3(0, -hangingMove * 0.5f * unit, 0), 0.07f * unit, Color.White * _flash[cell]);
+        }
+        if (front && k % 3 == 1) _labels.Add((labelAt, name, new Color(255, 110, 96), 3));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Cities
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Small models of the settlements in the block, each built from its own seed in the style
+    /// of its people. Seismic waves and ruptures make the buildings sway.
+    /// </summary>
+    private void BuildCities()
+    {
+        Pass(_white, BlendState.Opaque, true);
+        int rows = Math.Min(_n, _cut);
+        float unit = Unit;
+
+        foreach (var city in _cities)
+        {
+            if (city.J >= rows) continue;
+            int cell = city.J * _n + city.I;
+            var ground = CellTop(city.I, city.J);
+            int vertex = Math.Clamp(city.J * Sub + Sub / 2 + 1, 0, _g - 1) * _g + Math.Clamp(city.I * Sub + Sub / 2 + 1, 0, _g - 1);
+
+            // Ground motion under the city: S waves sway, P waves jolt, a nearby rupture rattles
+            float sway = _waveS[vertex] * 0.16f + _waveP[vertex] * 0.05f;
+            float rattle = _flash[cell] * 0.06f;
+            float shaking = MathF.Abs(_waveS[vertex]) + MathF.Abs(_waveP[vertex]) * 0.5f + _flash[cell];
+
+            var rnd = new Random(city.Id * 7919 + 13);
+            int count = city.Type switch { CityType.Village => 5, CityType.Town => 9, CityType.City => 16, _ => 26 };
+            float radius = city.Type switch { CityType.Village => 0.42f, CityType.Town => 0.55f, CityType.City => 0.75f, _ => 0.95f };
+            float tall = city.Type switch { CityType.Village => 0.10f, CityType.Town => 0.15f, CityType.City => 0.26f, _ => 0.45f };
+            bool modern = city.Style == CityStyle.Modern;
+            if (modern) tall *= 1.5f;
+
+            for (int b = 0; b < count; b++)
+            {
+                double angle = rnd.NextDouble() * Math.PI * 2;
+                float distance = (float)Math.Sqrt(rnd.NextDouble()) * radius;
+                float centrality = 1f - distance / radius;
+                float w = 0.07f + 0.07f * (float)rnd.NextDouble(), d = 0.07f + 0.07f * (float)rnd.NextDouble();
+                float h = unit * tall * (0.45f + 0.9f * (float)rnd.NextDouble()) * (0.5f + centrality);
+                float phase = (float)rnd.NextDouble() * 6.28f;
+                var basePoint = ground + new Vector3((float)Math.Cos(angle) * distance, 0, (float)Math.Sin(angle) * distance);
+
+                // Taller buildings swing further; each has its own rhythm
+                float lean = (sway + rattle * MathF.Sin(_time * 34f + phase)) * (0.6f + h / (unit * 0.2f));
+                var topShift = new Vector3(lean, 0, lean * 0.6f * MathF.Cos(phase));
+
+                Color wall, roof;
+                bool pitched = true, tiers = false, stilts = false;
+                switch (city.Style)
+                {
+                    case CityStyle.Timber: wall = new Color(150, 104, 66); roof = new Color(70, 48, 36); break;
+                    case CityStyle.Adobe: wall = new Color(214, 178, 128); roof = new Color(190, 150, 104); pitched = false; break;
+                    case CityStyle.Stilt: wall = new Color(196, 168, 104); roof = new Color(150, 120, 60); stilts = true; break;
+                    case CityStyle.Pagoda: wall = new Color(196, 60, 50); roof = new Color(60, 70, 64); tiers = true; break;
+                    case CityStyle.Terraced: wall = new Color(206, 196, 176); roof = new Color(150, 84, 60); break;
+                    case CityStyle.Modern: wall = new Color(150, 176, 200); roof = new Color(96, 110, 128); pitched = false; break;
+                    default: wall = new Color(196, 190, 180); roof = new Color(176, 84, 56); break;
+                }
+                wall = Shade(wall, 0.85f + 0.3f * (float)rnd.NextDouble());
+
+                if (stilts)
+                {
+                    float legs = h * 0.4f;
+                    Box(basePoint, w * 0.25f, d * 0.25f, legs, Vector3.Zero, new Color(90, 70, 50), new Color(90, 70, 50));
+                    basePoint.Y += legs;
+                    h *= 0.6f;
+                }
+
+                Box(basePoint, w, d, h, topShift, wall, pitched ? wall : roof);
+                if (tiers)
+                {
+                    // Stacked, shrinking storeys with wide eaves
+                    Box(basePoint + topShift + new Vector3(0, h, 0), w * 1.35f, d * 1.35f, h * 0.08f, Vector3.Zero, roof, roof);
+                    Box(basePoint + topShift + new Vector3(0, h * 1.08f, 0), w * 0.7f, d * 0.7f, h * 0.5f, topShift * 0.5f, wall, roof);
+                    Box(basePoint + topShift * 1.5f + new Vector3(0, h * 1.58f, 0), w * 1.0f, d * 1.0f, h * 0.07f, Vector3.Zero, roof, roof);
+                }
+                else if (pitched)
+                {
+                    Roof(basePoint + topShift + new Vector3(0, h, 0), w * 1.1f, d * 1.1f, MathF.Min(h * 0.6f, 0.08f * unit), roof);
+                }
+                else if (modern && h > unit * 0.12f)
+                {
+                    // Lit window bands
+                    for (float level = 0.25f; level < 0.95f; level += 0.22f)
+                    {
+                        var at = basePoint + topShift * level + new Vector3(0, h * level, 0);
+                        Box(at, w * 1.03f, d * 1.03f, h * 0.035f, Vector3.Zero, new Color(255, 230, 150), new Color(255, 230, 150));
+                    }
+                }
+            }
+
+            if (shaking > 0.35f && _random.NextDouble() < 0.3)
+            {
+                _particles.Add(new Particle
+                {
+                    Position = ground + new Vector3(Rand(-radius, radius), 0.02f * unit, Rand(-radius, radius)),
+                    Velocity = new Vector3(Rand(-0.1f, 0.1f), 0.2f, Rand(-0.1f, 0.1f)) * unit, MaxLife = 1.5f, Size = 0.12f, Growth = 0.25f,
+                    Floor = BottomY, Color = new Color(180, 168, 150) * 0.5f
+                });
+            }
+
+            string note = shaking > 0.35f ? "  -  shaking" : "";
+            _labels.Add((ground + new Vector3(0, tall * unit * 1.9f + 0.1f * unit, 0), $"{city.Name}  ({city.Type}, {city.Population:N0}){note}",
+                shaking > 0.35f ? UITheme.Bad : UITheme.Gold, shaking > 0.35f ? 16 : 10));
+        }
+    }
+
+    /// <summary>A box standing on a point; the top can be shifted sideways (a building swaying).</summary>
+    private void Box(Vector3 basePoint, float halfWidth, float halfDepth, float height, Vector3 topShift, Color wall, Color top)
+    {
+        Vector3 a = basePoint + new Vector3(-halfWidth, 0, -halfDepth), b = basePoint + new Vector3(halfWidth, 0, -halfDepth);
+        Vector3 c = basePoint + new Vector3(halfWidth, 0, halfDepth), d = basePoint + new Vector3(-halfWidth, 0, halfDepth);
+        var up = new Vector3(0, height, 0) + topShift;
+        FlatQuad(a, b, b + up, a + up, Shade(wall, 0.62f));
+        FlatQuad(b, c, c + up, b + up, Shade(wall, 0.80f));
+        FlatQuad(c, d, d + up, c + up, wall);
+        FlatQuad(d, a, a + up, d + up, Shade(wall, 0.72f));
+        FlatQuad(a + up, b + up, c + up, d + up, Shade(top, 1.08f));
+    }
+
+    private void Roof(Vector3 centre, float halfWidth, float halfDepth, float height, Color color)
+    {
+        Vector3 a = centre + new Vector3(-halfWidth, 0, -halfDepth), b = centre + new Vector3(halfWidth, 0, -halfDepth);
+        Vector3 c = centre + new Vector3(halfWidth, 0, halfDepth), d = centre + new Vector3(-halfWidth, 0, halfDepth);
+        var apex = centre + new Vector3(0, height, 0);
+        Tri(a, b, apex, Shade(color, 0.65f), Shade(color, 0.65f), Shade(color, 0.65f), Vector2.Zero, Vector2.Zero, Vector2.Zero);
+        Tri(b, c, apex, Shade(color, 0.85f), Shade(color, 0.85f), Shade(color, 0.85f), Vector2.Zero, Vector2.Zero, Vector2.Zero);
+        Tri(c, d, apex, color, color, color, Vector2.Zero, Vector2.Zero, Vector2.Zero);
+        Tri(d, a, apex, Shade(color, 0.75f), Shade(color, 0.75f), Shade(color, 0.75f), Vector2.Zero, Vector2.Zero, Vector2.Zero);
     }
 
     private static string FaultName(FaultType type) => type switch
@@ -1511,6 +1901,43 @@ public sealed partial class Subsurface3DView
                 Ribbon(at + side - direction * 0.35f, at, 0.14f, color);
             }
             _labels.Add((origin + new Vector3(0, 0.3f * unit, 0), $"Plate {plate + 1}  {speed * 12f:F1} cm/yr", Color.White, 6));
+        }
+
+        // Stress across plate boundaries: squeezing (red, inward) or stretching (blue, outward)
+        for (int j = 1; j < rows - 1; j += 2)
+        {
+            for (int i = 1; i < n - 1; i += 2)
+            {
+                int c = j * n + i;
+                var type = (PlateBoundaryType)_boundary[c];
+                if (type != PlateBoundaryType.Convergent && type != PlateBoundaryType.Divergent) continue;
+                if ((i + j) % 4 != 0) continue;
+
+                // Normal to the boundary: towards the neighbouring plate
+                Vector3 normal = Vector3.Zero;
+                foreach (var (di, dj) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                {
+                    int o = (j + dj) * n + (i + di);
+                    if (_plate[o] > _plate[c]) normal += new Vector3(di, 0, dj);
+                }
+                if (normal.LengthSquared() < 0.5f) continue;
+                normal.Normalize();
+
+                var centre = CellTop(i, j, 0.3f * unit) + normal * 0.5f;
+                float pulse = 0.3f * MathF.Sin(_time * 2.5f + c);
+                if (type == PlateBoundaryType.Convergent)
+                {
+                    Color squeeze = new Color(255, 90, 80);
+                    Arrow(centre - normal * (2.3f + pulse), normal * 1.5f, 0.09f * unit, squeeze);
+                    Arrow(centre + normal * (2.3f + pulse), -normal * 1.5f, 0.09f * unit, squeeze);
+                }
+                else
+                {
+                    Color stretch = new Color(110, 180, 255);
+                    Arrow(centre - normal * (0.5f + pulse), -normal * 1.5f, 0.09f * unit, stretch);
+                    Arrow(centre + normal * (0.5f + pulse), normal * 1.5f, 0.09f * unit, stretch);
+                }
+            }
         }
 
         // Uplift (green, up) and subsidence (blue, down)

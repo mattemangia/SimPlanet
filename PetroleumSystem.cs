@@ -340,7 +340,8 @@ public sealed class PetroleumSystem
 
         foreach (var reservoir in Reservoirs)
         {
-            if (reservoir.Offshore && !canDrillOffshore) continue;
+            // Early rigs stand on the sea bed in shallow water; deep water needs later technology
+            if (reservoir.Offshore && !canDrillOffshore && _map.Cells[reservoir.CenterX, reservoir.CenterY].Elevation < -0.18f) continue;
             if (!InReach(civ, reservoir)) continue;
             if (RemainingReserves(reservoir) < reservoir.InitialReserves * 0.1f) continue;
 
@@ -387,7 +388,8 @@ public sealed class PetroleumSystem
 
     private bool InReach(Civilization civ, Reservoir reservoir)
     {
-        int reach = reservoir.Offshore ? 7 : 0;
+        // Prospectors work a little beyond the settled land; crews at sea range further
+        int reach = reservoir.Offshore ? 7 : 3;
         foreach (var (x, y) in reservoir.Cells)
         {
             if (civ.Territory.Contains((x, y))) return true;

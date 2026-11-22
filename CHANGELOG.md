@@ -48,6 +48,21 @@ All notable changes to this project will be documented in this file.
   floor shading; zoom up to 8x.
 - Nation borders with glow, sharper settlements, armies, vehicles and routes.
 
+### Stratigraphy, tile panel and 3D additions
+
+- The tile panel is redrawn: sections with meters, and a stratigraphic log to scale (bed
+  thickness, grain-size profile, rock patterns, sea, pay zones, basement, erosion surfaces).
+- Sediment columns now record a history of environments (sea level rising and falling over a
+  drifting land), so beds differ from place to place and can be followed between cells.
+- Erosion strips beds from the top and leaves an erosion surface; buried, it shows as an
+  unconformity in the log and in the 3D sections. Erosion and deposition totals are tracked.
+- Subsurface 3D: listric normal faults with a detachment in extension, thrusts and
+  megathrusts following the slab in compression, accretionary wedges at trenches, squeeze
+  and stretch arrows across plate boundaries.
+- Subsurface 3D: models of the cities in the block (by size and building style) that sway
+  as seismic waves pass; eruptions lay down an ash blanket and lava flows that cool.
+- Early oil nations can drill shallow offshore fields.
+
 ### Other
 
 - Targets .NET 10.

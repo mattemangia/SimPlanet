@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework.Input;
 namespace SimPlanet;
 
 /// <summary>
-/// Displays the sediment column for a selected tile
+/// Tile inspector: everything known about a clicked cell, with its stratigraphic log
 /// </summary>
 public class SedimentColumnViewer
 {
@@ -39,10 +39,19 @@ public class SedimentColumnViewer
         _civManager = civManager;
     }
 
+    private PetroleumSystem? _oil;
+    private GeothermalSystem? _geothermal;
+
+    public void SetGeoscience(PetroleumSystem oil, GeothermalSystem geothermal)
+    {
+        _oil = oil;
+        _geothermal = geothermal;
+    }
+
     public void Update(MouseState mouseState, int cellSize, float cameraX, float cameraY, float zoomLevel, int mapRenderOffsetX, int mapRenderOffsetY, bool toolsActive = false)
     {
         int screenWidth = _graphicsDevice.Viewport.Width;
-        int panelWidth = 400;
+        int panelWidth = PanelWidth;
         int panelX = screenWidth - panelWidth - 10;
         int panelY = 40; // Below toolbar (36px high)
 
@@ -164,6 +173,13 @@ public class SedimentColumnViewer
     }
 
     private static readonly RasterizerState ScissorRasterizer = new RasterizerState { ScissorTestEnable = true };
+    private const int PanelWidth = 430;
+    private readonly StrataColumn _column = new();
+    private int _contentHeight;
+
+    // Layout cursor
+    private SpriteBatch _sb = null!;
+    private int _x, _w, _cy;
 
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
@@ -173,723 +189,490 @@ public class SedimentColumnViewer
         var cell = _map.Cells[x, y];
         var geo = cell.GetGeology();
 
-        // Panel dimensions - use almost full screen height
-        int panelWidth = 400;
-        int panelHeight = screenHeight - 50; // Account for toolbar (36px) + margins
-        int panelX = screenWidth - panelWidth - 10;
-        int panelY = 40; // Below toolbar (36px high)
+        int panelHeight = screenHeight - 50;
+        int panelX = screenWidth - PanelWidth - 10;
+        int panelY = 40;
+        var panel = new Rectangle(panelX, panelY, PanelWidth, panelHeight);
+        const int headerHeight = 58;
 
-        // Draw background (opaque so the map does not bleed through the text)
-        UITheme.DrawPanel(spriteBatch, new Rectangle(panelX, panelY, panelWidth, panelHeight), new Color(12, 17, 28, 250), UITheme.BorderBright);
+        UITheme.DrawPanel(spriteBatch, panel, new Color(12, 17, 28, 250), UITheme.BorderBright);
 
-        // Draw close button (X) in top right
-        Rectangle closeButtonBounds = new Rectangle(panelX + panelWidth - 30, panelY + 5, 25, 25);
+        // Header: biome swatch, name, position
+        var header = new Rectangle(panelX + 1, panelY + 1, PanelWidth - 2, headerHeight);
+        UITheme.FillRect(spriteBatch, header, UITheme.HeaderBg);
+        UITheme.FillRect(spriteBatch, new Rectangle(header.X, header.Bottom - 1, header.Width, 1), UITheme.Gold * 0.7f);
+        var swatch = new Rectangle(panelX + 14, panelY + 13, 32, 32);
+        UITheme.FillRounded(spriteBatch, swatch, GetBiomeColor(cell));
+        UITheme.OutlineRounded(spriteBatch, swatch, Color.Black * 0.5f);
+        UITheme.DrawText(spriteBatch, GetBiomeType(cell), new Vector2(panelX + 58, panelY + 9), UITheme.Gold, UITheme.FontLarge);
+        float lon = x / (float)_map.Width * 360f - 180f, lat = 90f - y / (float)_map.Height * 180f;
+        UITheme.DrawText(spriteBatch, $"cell {x}, {y}    {MathF.Abs(lat):F0}{(lat >= 0 ? "N" : "S")} {MathF.Abs(lon):F0}{(lon >= 0 ? "E" : "W")}",
+            new Vector2(panelX + 58, panelY + 35), UITheme.TextDim, UITheme.FontSmall);
+
+        Rectangle closeButtonBounds = new Rectangle(panelX + PanelWidth - 30, panelY + 5, 25, 25);
         bool hoverClose = closeButtonBounds.Contains(Mouse.GetState().Position);
         UITheme.FillRounded(spriteBatch, closeButtonBounds, hoverClose ? new Color(200, 60, 60) : new Color(60, 70, 92));
         UITheme.DrawTextCentered(spriteBatch, "X", closeButtonBounds, Color.White, UITheme.FontNormal);
 
-        // Set up clipping rectangle for scrollable content
-        Rectangle scissorRect = new Rectangle(panelX, panelY + 35, panelWidth, panelHeight - 70);
-        Rectangle oldScissorRect = spriteBatch.GraphicsDevice.ScissorRectangle;
-        RasterizerState oldRasterizer = spriteBatch.GraphicsDevice.RasterizerState;
-
-        RasterizerState rasterizerState = ScissorRasterizer;
-
-        int textY = panelY + 40 - _scrollOffset; // Apply scroll offset
-        int lineHeight = 20;
-        int contentStartY = textY; // Track where content starts
-
-        // Enable scissor test for scrollable content
-        spriteBatch.End();
-        spriteBatch.GraphicsDevice.ScissorRectangle = scissorRect;
-        spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, rasterizerState);
-
-        // Title
-        _font.DrawString(spriteBatch, $"TILE INFO ({x},{y})",
-            new Vector2(panelX + 10, textY), Color.Yellow);
-        textY += lineHeight + 5;
-
-        // === BIOME & TERRAIN ===
-        _font.DrawString(spriteBatch, "=== TERRAIN ===",
-            new Vector2(panelX + 10, textY), Color.Orange);
-        textY += lineHeight;
-
-        string biomeType = GetBiomeType(cell);
-        Color biomeColor = GetBiomeColor(cell);
-        _font.DrawString(spriteBatch, $"Biome: {biomeType}",
-            new Vector2(panelX + 10, textY), biomeColor);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Elevation: {cell.Elevation:F2}",
-            new Vector2(panelX + 10, textY), Color.White);
-        textY += lineHeight;
-
-        float altitudeMeters = cell.Elevation * 9000f; // Approx. -9 km (deep ocean) to +9 km (tall peaks)
-        string altitudeText = altitudeMeters >= 0
-            ? $"Altitude: {altitudeMeters:F0} m ASL"
-            : $"Altitude: {Math.Abs(altitudeMeters):F0} m below sea";
-        _font.DrawString(spriteBatch, altitudeText,
-            new Vector2(panelX + 10, textY), Color.LightBlue);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Temperature: {cell.Temperature:F1} C",
-            new Vector2(panelX + 10, textY), GetTempColor(cell.Temperature));
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Rainfall: {cell.Rainfall:F2}",
-            new Vector2(panelX + 10, textY), GetRainfallColor(cell.Rainfall));
-        textY += lineHeight + 3;
-
-        // === LIFE ===
-        if (cell.Biomass > 0.01f)
-        {
-            _font.DrawString(spriteBatch, "=== LIFE ===",
-                new Vector2(panelX + 10, textY), Color.LightGreen);
-            textY += lineHeight;
-
-            _font.DrawString(spriteBatch, $"Type: {cell.LifeType}",
-                new Vector2(panelX + 10, textY), Color.White);
-            textY += lineHeight;
-
-            _font.DrawString(spriteBatch, $"Biomass: {cell.Biomass:F2}",
-                new Vector2(panelX + 10, textY), Color.Green);
-            textY += lineHeight + 3;
-        }
-
-        // === CIVILIZATION ===
-        if (_civManager != null)
-        {
-            // Find civilization that owns this tile
-            var owningCiv = _civManager.Civilizations.FirstOrDefault(c => c.Territory.Contains((x, y)));
-
-            // Also check if there's a city at this location
-            var cityAtTile = _civManager.Civilizations
-                .SelectMany(c => c.Cities)
-                .FirstOrDefault(city => city.X == x && city.Y == y);
-
-            if (owningCiv != null || cityAtTile != null)
-            {
-                var civ = owningCiv ?? _civManager.Civilizations.First(c => c.Id == cityAtTile!.CivilizationId);
-
-                _font.DrawString(spriteBatch, "=== CIVILIZATION ===",
-                    new Vector2(panelX + 10, textY), Color.Gold);
-                textY += lineHeight;
-
-                _font.DrawString(spriteBatch, $"Name: {civ.Name}",
-                    new Vector2(panelX + 10, textY), Color.Yellow);
-                textY += lineHeight;
-
-                _font.DrawString(spriteBatch, $"Population: {civ.Population / 1000}K",
-                    new Vector2(panelX + 10, textY), Color.White);
-                textY += lineHeight;
-
-                _font.DrawString(spriteBatch, $"Tech Level: {civ.TechLevel} ({civ.CivType})",
-                    new Vector2(panelX + 10, textY), Color.Cyan);
-                textY += lineHeight;
-
-                // Government info
-                if (civ.Government != null)
-                {
-                    _font.DrawString(spriteBatch, $"Government: {civ.Government.Type}",
-                        new Vector2(panelX + 10, textY), Color.LightGoldenrodYellow);
-                    textY += lineHeight;
-
-                    if (civ.Government.CurrentRuler != null)
-                    {
-                        var ruler = civ.Government.CurrentRuler;
-                        _font.DrawString(spriteBatch, $"Ruler: {ruler.Name}",
-                            new Vector2(panelX + 10, textY), Color.Violet);
-                        textY += lineHeight;
-
-                        _font.DrawString(spriteBatch, $"  {ruler.Title}, Age {ruler.Age}",
-                            new Vector2(panelX + 10, textY), Color.LightGray, 12);
-                        textY += lineHeight;
-                    }
-
-                    _font.DrawString(spriteBatch, $"Stability: {civ.Government.Stability:P0}",
-                        new Vector2(panelX + 10, textY),
-                        civ.Government.Stability > 0.7f ? Color.LimeGreen :
-                        civ.Government.Stability > 0.4f ? Color.Yellow : Color.OrangeRed);
-                    textY += lineHeight;
-                }
-
-                // City info if there's a city here
-                if (cityAtTile != null)
-                {
-                    _font.DrawString(spriteBatch, $"City: {cityAtTile.Name}",
-                        new Vector2(panelX + 10, textY), Color.Orange);
-                    textY += lineHeight;
-
-                    _font.DrawString(spriteBatch, $"  {cityAtTile.Type}, Pop: {cityAtTile.Population / 1000}K",
-                        new Vector2(panelX + 10, textY), Color.LightGray, 12);
-                    textY += lineHeight;
-                }
-
-                // Resources
-                _font.DrawString(spriteBatch, $"Food: {civ.Food:F0} | Metal: {civ.Metal:F0}",
-                    new Vector2(panelX + 10, textY), Color.Wheat, 12);
-                textY += lineHeight + 3;
-            }
-        }
-
-        // === VOLCANO ===
-        if (geo.IsVolcano)
-        {
-            _font.DrawString(spriteBatch, "=== VOLCANO ===",
-                new Vector2(panelX + 10, textY), Color.Red);
-            textY += lineHeight;
-
-            _font.DrawString(spriteBatch, $"Activity: {geo.VolcanicActivity:P0}",
-                new Vector2(panelX + 10, textY), Color.OrangeRed);
-            textY += lineHeight;
-
-            _font.DrawString(spriteBatch, $"Magma Pressure: {geo.MagmaPressure:P0}",
-                new Vector2(panelX + 10, textY), GetPressureColor(geo.MagmaPressure));
-            textY += lineHeight;
-
-            string eruptionState = geo.MagmaPressure > 0.8f ? "ERUPTING!" :
-                                   geo.MagmaPressure > 0.6f ? "Critical" :
-                                   geo.MagmaPressure > 0.4f ? "Building" : "Dormant";
-            _font.DrawString(spriteBatch, $"State: {eruptionState}",
-                new Vector2(panelX + 10, textY),
-                geo.MagmaPressure > 0.8f ? Color.Yellow : Color.Gray);
-            textY += lineHeight + 3;
-        }
-
-        // === ATMOSPHERE ===
-        _font.DrawString(spriteBatch, "=== ATMOSPHERE ===",
-            new Vector2(panelX + 10, textY), Color.LightBlue);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Oxygen: {cell.Oxygen:F1}%",
-            new Vector2(panelX + 10, textY), Color.Cyan);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"CO2: {cell.CO2:F1}%",
-            new Vector2(panelX + 10, textY), Color.Yellow);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Humidity: {cell.Humidity:F2}",
-            new Vector2(panelX + 10, textY), Color.LightCyan);
-        textY += lineHeight + 3;
-
-        // === GEOLOGY ===
-        _font.DrawString(spriteBatch, "=== GEOLOGY ===",
-            new Vector2(panelX + 10, textY), Color.Orange);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Plate Boundary: {geo.BoundaryType}",
-            new Vector2(panelX + 10, textY), GetBoundaryColor(geo.BoundaryType));
-        textY += lineHeight;
-
-        if (geo.TectonicStress > 0.1f)
-        {
-            _font.DrawString(spriteBatch, $"Tectonic Stress: {geo.TectonicStress:P0}",
-                new Vector2(panelX + 10, textY), Color.Yellow);
-            textY += lineHeight;
-        }
-
-        _font.DrawString(spriteBatch, $"Sediment Layer: {geo.SedimentLayer:F2}",
-            new Vector2(panelX + 10, textY), Color.White);
-        textY += lineHeight + 5;
-
-        // Sediment column header
-        _font.DrawString(spriteBatch, "SEDIMENT COLUMN DIAGRAM:",
-            new Vector2(panelX + 10, textY), Color.Orange);
-        textY += lineHeight + 5;
-
-        if (geo.SedimentColumn.Count == 0 && !cell.IsIce)
-        {
-            _font.DrawString(spriteBatch, "No sediment layers",
-                new Vector2(panelX + 10, textY), Color.Gray);
-        }
-        else if (geo.SedimentColumn.Count == 0 && cell.IsIce)
-        {
-            // Draw just the ice layer with no sediments below
-            int columnWidth = 120;
-            int columnX = panelX + 20;
-            int columnStartY = textY;
-            int iceLayerHeight = 20;
-
-            // Draw column border
-            DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, iceLayerHeight + 4, Color.White, 2);
-
-            // Draw "Surface" label at top
-            _font.DrawString(spriteBatch, "<- SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
-
-            Color iceColor = new Color(200, 230, 255);
-
-            // Draw ice layer
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(columnX, columnStartY, columnWidth, iceLayerHeight),
-                iceColor);
-
-            // Draw ice pattern
-            DrawIcePattern(spriteBatch, columnX, columnStartY, columnWidth, iceLayerHeight);
-
-            // Draw ice border
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(columnX, columnStartY + iceLayerHeight - 1, columnWidth, 1),
-                new Color(80, 80, 80));
-
-            // Label ice layer
-            _font.DrawString(spriteBatch, "ICE",
-                new Vector2(columnX + 4, columnStartY + 4), new Color(0, 50, 100), 12);
-
-            // Draw "Bedrock" label at bottom
-            int bottomY = columnStartY + iceLayerHeight;
-            _font.DrawString(spriteBatch, "<- BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
-
-            // Draw legend
-            int legendX = columnX + columnWidth + 90;
-            int legendY = columnStartY;
-            _font.DrawString(spriteBatch, "LEGEND:", new Vector2(legendX, legendY), Color.Orange, 14);
-            legendY += 25;
-
-            int boxSize = 12;
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(legendX, legendY + 2, boxSize, boxSize),
-                iceColor);
-            DrawBorder(spriteBatch, legendX, legendY + 2, boxSize, boxSize, Color.Gray, 1);
-
-            _font.DrawString(spriteBatch, "Ice",
-                new Vector2(legendX + boxSize + 6, legendY), Color.White, 11);
-
-            textY = bottomY + 30;
-        }
-        else
-        {
-            // Draw geological column diagram (like a real stratigraphic column)
-            int columnWidth = 120;
-            int columnX = panelX + 20;
-            int columnStartY = textY;
-
-            // Check if ice is present
-            bool hasIce = cell.IsIce;
-            int iceLayerHeight = 20; // Ice layer is thicker for visibility
-
-            // Show all layers - scrolling allows viewing everything
-            int layersToShow = geo.SedimentColumn.Count;
-            var recentLayers = geo.SedimentColumn.AsEnumerable().Reverse().ToList();
-
-            int layerHeight = 15; // Fixed height per layer for consistency
-
-            // Calculate total height including ice if present
-            int totalColumnHeight = (layerHeight * layersToShow) + (hasIce ? iceLayerHeight : 0);
-
-            // Draw column border
-            DrawBorder(spriteBatch, columnX - 2, columnStartY - 2, columnWidth + 4, totalColumnHeight + 4, Color.White, 2);
-
-            // Draw "Surface" label at top
-            _font.DrawString(spriteBatch, "<- SURFACE", new Vector2(columnX + columnWidth + 10, columnStartY), Color.Yellow, 12);
-
-            int currentY = columnStartY;
-
-            // Draw ice layer at the very top if present
-            if (hasIce)
-            {
-                Color iceColor = new Color(200, 230, 255); // Light blue-white for ice
-
-                // Draw ice layer
-                spriteBatch.Draw(_pixelTexture,
-                    new Rectangle(columnX, currentY, columnWidth, iceLayerHeight),
-                    iceColor);
-
-                // Draw ice pattern
-                DrawIcePattern(spriteBatch, columnX, currentY, columnWidth, iceLayerHeight);
-
-                // Draw ice border
-                spriteBatch.Draw(_pixelTexture,
-                    new Rectangle(columnX, currentY + iceLayerHeight - 1, columnWidth, 1),
-                    new Color(80, 80, 80));
-
-                // Label ice layer
-                _font.DrawString(spriteBatch, "ICE",
-                    new Vector2(columnX + 4, currentY + 4), new Color(0, 50, 100), 12);
-
-                currentY += iceLayerHeight;
-            }
-
-            // Draw sediment layers below ice
-            for (int i = 0; i < layersToShow; i++)
-            {
-                var sedimentType = recentLayers[i];
-                Color layerColor = GetSedimentColor(sedimentType);
-                int layerY = currentY + (i * layerHeight);
-
-                // Draw sediment layer with pattern
-                spriteBatch.Draw(_pixelTexture,
-                    new Rectangle(columnX, layerY, columnWidth, layerHeight),
-                    layerColor);
-
-                // Draw horizontal lines for stratification
-                spriteBatch.Draw(_pixelTexture,
-                    new Rectangle(columnX, layerY, columnWidth, 1),
-                    new Color(0, 0, 0, 150));
-
-                // Draw pattern for different sediment types
-                DrawSedimentPattern(spriteBatch, columnX, layerY, columnWidth, layerHeight, sedimentType);
-
-                // Draw layer border
-                spriteBatch.Draw(_pixelTexture,
-                    new Rectangle(columnX, layerY + layerHeight - 1, columnWidth, 1),
-                    new Color(80, 80, 80));
-
-                // Label for key layers (every 3rd layer)
-                if (i % 3 == 0 || layersToShow < 10)
-                {
-                    string layerLabel = GetShortSedimentName(sedimentType);
-                    _font.DrawString(spriteBatch, layerLabel,
-                        new Vector2(columnX + 4, layerY + 2), Color.White, 10);
-                }
-            }
-
-            // Draw "Bedrock" label at bottom
-            int bottomY = columnStartY + totalColumnHeight;
-            _font.DrawString(spriteBatch, "<- BEDROCK", new Vector2(columnX + columnWidth + 10, bottomY - 6), Color.Gray, 12);
-
-            // Update textY for legend
-            textY = columnStartY;
-            int legendX = columnX + columnWidth + 90;
-
-            // Draw legend on the right side
-            _font.DrawString(spriteBatch, "LEGEND:", new Vector2(legendX, textY), Color.Orange, 14);
-            textY += 25;
-
-            // Add ice to legend if present
-            if (hasIce)
-            {
-                Color iceColor = new Color(200, 230, 255);
-                int boxSize = 12;
-                spriteBatch.Draw(_pixelTexture,
-                    new Rectangle(legendX, textY + 2, boxSize, boxSize),
-                    iceColor);
-                DrawBorder(spriteBatch, legendX, textY + 2, boxSize, boxSize, Color.Gray, 1);
-
-                _font.DrawString(spriteBatch, "Ice",
-                    new Vector2(legendX + boxSize + 6, textY), Color.White, 11);
-
-                textY += 18;
-            }
-
-            var uniqueTypes = recentLayers.Distinct().ToList();
-            foreach (var sedType in uniqueTypes)
-            {
-                Color layerColor = GetSedimentColor(sedType);
-
-                // Draw small color box
-                int boxSize = 12;
-                spriteBatch.Draw(_pixelTexture,
-                    new Rectangle(legendX, textY + 2, boxSize, boxSize),
-                    layerColor);
-                DrawBorder(spriteBatch, legendX, textY + 2, boxSize, boxSize, Color.Gray, 1);
-
-                // Draw type name
-                _font.DrawString(spriteBatch, sedType.ToString(),
-                    new Vector2(legendX + boxSize + 6, textY), Color.White, 11);
-
-                textY += 18;
-            }
-
-            // Update textY for rock composition section
-            textY = Math.Max(textY, bottomY + 30);
-        }
-
-        // Rock composition
-        textY += lineHeight * 2;
-        _font.DrawString(spriteBatch, "ROCK COMPOSITION:",
-            new Vector2(panelX + 10, textY), Color.Orange);
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Crystalline: {geo.CrystallineRock:P0}",
-            new Vector2(panelX + 10, textY), new Color(150, 150, 200));
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Sedimentary: {geo.SedimentaryRock:P0}",
-            new Vector2(panelX + 10, textY), new Color(200, 180, 140));
-        textY += lineHeight;
-
-        _font.DrawString(spriteBatch, $"Volcanic: {geo.VolcanicRock:P0}",
-            new Vector2(panelX + 10, textY), new Color(80, 80, 80));
-        textY += lineHeight * 2; // Add some padding at the bottom
-
-        // Calculate total content height and clamp scroll offset
-        int totalContentHeight = (textY + _scrollOffset) - contentStartY;
-        int visibleHeight = scissorRect.Height;
-        int maxScroll = Math.Max(0, totalContentHeight - visibleHeight);
+        // Scrollable content
+        var view = new Rectangle(panelX + 1, panelY + headerHeight + 2, PanelWidth - 2, panelHeight - headerHeight - 6);
+        int maxScroll = Math.Max(0, _contentHeight - view.Height);
         _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
 
-        // Disable scissor test for UI elements outside content area
+        var oldScissor = spriteBatch.GraphicsDevice.ScissorRectangle;
         spriteBatch.End();
-        spriteBatch.GraphicsDevice.ScissorRectangle = oldScissorRect;
-        spriteBatch.Begin();
+        spriteBatch.GraphicsDevice.ScissorRectangle = view;
+        spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, ScissorRasterizer);
 
-        // Draw scrollbar if content is scrollable
+        _sb = spriteBatch;
+        _x = panelX + 16;
+        _w = PanelWidth - 32 - (maxScroll > 0 ? 8 : 0);
+        _cy = view.Y + 10 - _scrollOffset;
+        int start = _cy;
+
+        // ---- Surface ----
+        Section("SURFACE");
+        float altitude = cell.Elevation * 4400f;
+        Row("Altitude", altitude >= 0 ? $"{altitude:N0} m" : $"{-altitude:N0} m below sea level", altitude >= 0 ? UITheme.Text : new Color(120, 190, 255));
+        Row("Temperature", $"{cell.Temperature:F1} C", GetTempColor(cell.Temperature));
+        Meter("Rainfall", Math.Clamp(cell.Rainfall, 0f, 1f), new Color(90, 160, 255), $"{cell.Rainfall:P0}");
+        Meter("Humidity", Math.Clamp(cell.Humidity, 0f, 1f), new Color(120, 200, 230), $"{cell.Humidity:P0}");
+        Row("Air", $"O2 {cell.Oxygen:F1}%    CO2 {cell.CO2:F2}%", UITheme.TextDim);
+
+        if (cell.Biomass > 0.01f && cell.LifeType != LifeForm.None)
+        {
+            Section("LIFE");
+            Row("Dominant", cell.LifeType.ToString(), UITheme.Good);
+            Meter("Biomass", Math.Clamp(cell.Biomass, 0f, 1f), UITheme.Good, $"{cell.Biomass:P0}");
+        }
+
+        DrawNation(x, y);
+
+        // ---- Tectonics ----
+        Section("TECTONICS");
+        string setting = geo.BoundaryType switch
+        {
+            PlateBoundaryType.Convergent => geo.IsSubducting ? "Convergent: this plate subducts" : "Convergent: overriding plate",
+            PlateBoundaryType.Divergent => cell.IsWater ? "Divergent: spreading ridge" : "Divergent: continental rift",
+            PlateBoundaryType.Transform => "Transform: plates slide past",
+            _ => "Plate interior"
+        };
+        Row("Setting", setting, GetBoundaryColor(geo.BoundaryType));
+        Row("Crust", $"{geo.CrustType}, {geo.CrustThickness:F0} km thick", UITheme.Text);
+        string motion = geo.UpliftRate > 0.0002f ? "rising" : geo.UpliftRate < -0.0002f ? "sinking" : "stable";
+        Row("Vertical motion", motion, geo.UpliftRate > 0.0002f ? UITheme.Good : geo.UpliftRate < -0.0002f ? new Color(120, 190, 255) : UITheme.TextDim);
+        if (geo.IsFault) Row("Fault", geo.FaultType.ToString().Replace('_', '-'), new Color(255, 120, 100));
+        Meter("Elastic strain", Math.Clamp(geo.SeismicStress / 1.5f, 0f, 1f), geo.SeismicStress > 0.6f ? UITheme.Bad : UITheme.Warn,
+            geo.SeismicStress > 0.6f ? "near failure" : "loading");
+        if (geo.IsVolcano)
+        {
+            string state = geo.MagmaPressure > 0.8f ? "about to erupt" : geo.VolcanicActivity > 0.3f ? "active" : "dormant";
+            Row(geo.IsHotSpot ? "Hot spot volcano" : "Volcano", state, new Color(255, 150, 60));
+            Meter("Magma pressure", Math.Clamp(geo.MagmaPressure, 0f, 1f), new Color(255, 120, 40), $"{Math.Clamp(geo.MagmaPressure, 0f, 1f):P0}");
+        }
+        if (_geothermal != null)
+        {
+            float heat = _geothermal.HeatFlow(x, y);
+            Row("Heat flow", $"{heat:F0} mW/m2    {heat / 2.5f:F0} C per km", heat >= GeothermalSystem.ViableHeatFlow ? new Color(255, 150, 60) : UITheme.TextDim);
+        }
+
+        // ---- Surface processes ----
+        Section("EROSION AND DEPOSITION");
+        float erosion = Math.Clamp(geo.ErosionRate / 0.6f, 0f, 1f);
+        float deposition = Math.Clamp(geo.DepositionRate, 0f, 1f);
+        Meter("Erosion", erosion, new Color(230, 120, 80), erosion > 0.01f ? "active" : cell.IsWater ? "none under water" : "slight");
+        Meter("Deposition", deposition, new Color(214, 188, 130), deposition > 0.02f ? "active" : "none");
+        string balance = erosion > deposition + 0.03f ? "wearing down" : deposition > erosion + 0.03f ? "building up" : "in balance";
+        Row("Balance", balance, erosion > deposition + 0.03f ? new Color(230, 120, 80) : deposition > erosion + 0.03f ? new Color(214, 188, 130) : UITheme.TextDim);
+        Row("Removed so far", $"{geo.CumulativeErosion * 4400f:N0} m", UITheme.TextDim);
+        Row("Laid down so far", $"{geo.CumulativeDeposition * 4400f:N0} m", UITheme.TextDim);
+        Row("Loose sediment in transit", $"{geo.SedimentLayer * 100f:F0}", UITheme.TextDim);
+
+        // ---- Stratigraphic log ----
+        Section("STRATIGRAPHIC LOG");
+        DrawLog(cell, x, y);
+
+        // ---- Resources ----
+        var resources = cell.GetResources();
+        if (resources.Count > 0)
+        {
+            Section("RESOURCES");
+            foreach (var deposit in resources)
+            {
+                if (deposit.Amount <= 0.0005f) continue;
+                UITheme.FillRounded(_sb, new Rectangle(_x, _cy + 3, 12, 12), ResourceExtensions.GetResourceColor(deposit.Type));
+                UITheme.OutlineRounded(_sb, new Rectangle(_x, _cy + 3, 12, 12), Color.White * 0.35f);
+                UITheme.DrawText(_sb, deposit.Type.ToString(), new Vector2(_x + 20, _cy), UITheme.Text, UITheme.FontNormal);
+                string note = (deposit.Discovered ? "known" : "undiscovered") + $", depth {deposit.Depth:P0}";
+                var size = UITheme.Measure(note, UITheme.FontSmall);
+                UITheme.DrawText(_sb, note, new Vector2(_x + _w - size.X, _cy + 2), UITheme.TextMuted, UITheme.FontSmall);
+                _cy += 20;
+            }
+        }
+
+        _cy += 14;
+        _contentHeight = _cy - start + 10;
+
+        spriteBatch.End();
+        spriteBatch.GraphicsDevice.ScissorRectangle = oldScissor;
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+
+        // Scroll bar
         if (maxScroll > 0)
         {
-            int scrollbarX = panelX + panelWidth - 12;
-            int scrollbarY = panelY + 35;
-            int scrollbarHeight = panelHeight - 70;
-            int scrollbarWidth = 8;
-
-            // Scrollbar track
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight),
-                new Color(50, 50, 50, 150));
-
-            // Scrollbar thumb
-            float scrollPercentage = (float)_scrollOffset / maxScroll;
-            float thumbHeight = Math.Max(20, scrollbarHeight * ((float)visibleHeight / totalContentHeight));
-            int thumbY = scrollbarY + (int)((scrollbarHeight - thumbHeight) * scrollPercentage);
-
-            spriteBatch.Draw(_pixelTexture,
-                new Rectangle(scrollbarX, thumbY, scrollbarWidth, (int)thumbHeight),
-                new Color(150, 150, 150, 200));
+            var track = new Rectangle(panel.Right - 8, view.Y + 4, 4, view.Height - 8);
+            UITheme.FillRect(spriteBatch, track, Color.White * 0.06f);
+            int thumb = Math.Max(24, track.Height * view.Height / _contentHeight);
+            int thumbY = track.Y + (track.Height - thumb) * _scrollOffset / maxScroll;
+            UITheme.FillRounded(spriteBatch, new Rectangle(track.X, thumbY, 4, thumb), UITheme.BorderBright);
         }
-
-        // Instructions (drawn outside scrollable area)
-        int instructionsY = panelY + panelHeight - 30;
-        _font.DrawString(spriteBatch, "Scroll wheel to scroll | Right-click or ESC to close",
-            new Vector2(panelX + 10, instructionsY), Color.Gray, 11);
     }
 
-    private void DrawIcePattern(SpriteBatch spriteBatch, int x, int y, int width, int height)
-    {
-        // Draw crystalline ice pattern
-        Random iceRandom = new Random(42); // Fixed seed for consistent pattern
+    // ---- Layout helpers ------------------------------------------------------------------
 
-        // Draw ice crystals - diagonal lines and snowflake-like patterns
-        for (int i = 0; i < width; i += 8)
+    private void Section(string title)
+    {
+        _cy += 12;
+        UITheme.DrawText(_sb, title, new Vector2(_x, _cy), UITheme.Accent, UITheme.FontSmall);
+        var size = UITheme.Measure(title, UITheme.FontSmall);
+        UITheme.FillRect(_sb, new Rectangle(_x + (int)size.X + 10, _cy + 8, _w - (int)size.X - 10, 1), UITheme.Border);
+        _cy += 24;
+    }
+
+    private void Row(string label, string value, Color valueColor)
+    {
+        UITheme.DrawText(_sb, label, new Vector2(_x, _cy), UITheme.TextDim, UITheme.FontNormal);
+        value = UITheme.Ellipsize(value, _w - 150, UITheme.FontNormal);
+        var size = UITheme.Measure(value, UITheme.FontNormal);
+        UITheme.DrawText(_sb, value, new Vector2(_x + _w - size.X, _cy), valueColor, UITheme.FontNormal);
+        _cy += 21;
+    }
+
+    private void Meter(string label, float value, Color color, string text)
+    {
+        UITheme.DrawText(_sb, label, new Vector2(_x, _cy), UITheme.TextDim, UITheme.FontNormal);
+        var size = UITheme.Measure(text, UITheme.FontSmall);
+        UITheme.DrawText(_sb, text, new Vector2(_x + _w - size.X, _cy + 1), color, UITheme.FontSmall);
+        var bar = new Rectangle(_x + 130, _cy + 6, _w - 130 - 96, 7);
+        UITheme.FillRounded(_sb, bar, new Color(4, 7, 12));
+        int fill = (int)(bar.Width * Math.Clamp(value, 0f, 1f));
+        if (fill > 1) UITheme.FillRounded(_sb, new Rectangle(bar.X, bar.Y, Math.Max(3, fill), bar.Height), color);
+        _cy += 21;
+    }
+
+    private void DrawNation(int x, int y)
+    {
+        if (_civManager == null) return;
+        Civilization? owner;
+        City? city;
+        try
         {
-            // Diagonal lines for crystalline structure
-            for (int j = 0; j < height; j += 1)
+            owner = _civManager.Civilizations.FirstOrDefault(c => c.Territory.Contains((x, y)));
+            city = _civManager.Civilizations.SelectMany(c => c.Cities).FirstOrDefault(c => c.X == x && c.Y == y);
+            if (owner == null && city != null) owner = _civManager.Civilizations.FirstOrDefault(c => c.Id == city.CivilizationId);
+        }
+        catch (InvalidOperationException)
+        {
+            return; // Lists changed while reading; next frame
+        }
+        if (owner == null) return;
+
+        Section("NATION");
+        Row("Name", owner.Name, UITheme.Gold);
+        if (city != null) Row(city.Type.ToString(), $"{city.Name}, {city.Population:N0} people", UITheme.Text);
+        Row("People", $"{owner.Population:N0}", UITheme.Text);
+        Row("Technology", $"{owner.TechLevel} ({owner.CivType})", UITheme.Accent);
+        if (owner.Government != null)
+        {
+            Row("Government", owner.Government.Type.ToString(), UITheme.Text);
+            if (owner.Government.CurrentRuler != null) Row("Ruler", $"{owner.Government.CurrentRuler.Title} {owner.Government.CurrentRuler.Name}", UITheme.TextDim);
+            Meter("Stability", Math.Clamp(owner.Government.Stability, 0f, 1f), owner.Government.Stability > 0.5f ? UITheme.Good : UITheme.Warn, $"{owner.Government.Stability:P0}");
+        }
+    }
+
+    // ---- Stratigraphic log ---------------------------------------------------------------
+
+    /// <summary>Grain size as the width of the bed in the log, the way sedimentologists draw it.</summary>
+    private static float GrainWidth(RockKind kind) => kind switch
+    {
+        RockKind.Organic => 0.34f,
+        RockKind.Clay => 0.40f,
+        RockKind.Silt => 0.52f,
+        RockKind.Limestone => 0.66f,
+        RockKind.Sand => 0.72f,
+        RockKind.Volcanic => 0.80f,
+        RockKind.Gravel => 0.94f,
+        RockKind.Salt => 0.60f,
+        _ => 1f
+    };
+
+    private static string RockName(RockKind kind) => kind switch
+    {
+        RockKind.Clay => "Claystone",
+        RockKind.Silt => "Siltstone",
+        RockKind.Sand => "Sandstone",
+        RockKind.Gravel => "Conglomerate",
+        RockKind.Organic => "Coal / black shale",
+        RockKind.Volcanic => "Tuff / lava",
+        RockKind.Limestone => "Limestone",
+        RockKind.Salt => "Salt",
+        RockKind.Basalt => "Basalt",
+        _ => "Granite"
+    };
+
+    private static Color RockColor(RockKind kind) => kind switch
+    {
+        RockKind.Clay => new Color(150, 118, 96),
+        RockKind.Silt => new Color(178, 150, 112),
+        RockKind.Sand => new Color(226, 200, 130),
+        RockKind.Gravel => new Color(160, 150, 138),
+        RockKind.Organic => new Color(58, 50, 44),
+        RockKind.Volcanic => new Color(112, 70, 78),
+        RockKind.Limestone => new Color(206, 214, 196),
+        RockKind.Salt => new Color(240, 226, 232),
+        RockKind.Basalt => new Color(74, 78, 92),
+        _ => new Color(196, 150, 150)
+    };
+
+    /// <summary>
+    /// The column under the cell, drawn to scale from the same model the 3D sections, the
+    /// seismic lines and the well logs use: bed thickness to scale, bed width by grain size,
+    /// a pattern per rock, the sea on top, erosion surfaces, pay zones and the basement.
+    /// </summary>
+    private void DrawLog(TerrainCell cell, int x, int y)
+    {
+        Stratigraphy.Build(_map, _oil, x, y, _column);
+        var column = _column;
+
+        const int logHeight = 330, scaleWidth = 46, logWidth = 150;
+        int waterPixels = column.WaterKm > 0 ? 26 : 0;
+        float basementKm = MathF.Max(0.25f, column.SedimentKm * 0.18f);
+        float totalKm = column.SedimentKm + basementKm;
+        int top = _cy + waterPixels;
+        int rockHeight = logHeight - waterPixels;
+        int logX = _x + scaleWidth;
+        int Y(float km) => top + (int)(km / totalKm * rockHeight);
+
+        // Sea
+        if (waterPixels > 0)
+        {
+            var sea = new Rectangle(logX, _cy, logWidth, waterPixels);
+            UITheme.FillRect(_sb, sea, new Color(30, 90, 160));
+            for (int wx = 4; wx < logWidth - 8; wx += 16) UITheme.DrawLine(_sb, new Vector2(logX + wx, _cy + 9), new Vector2(logX + wx + 8, _cy + 6), new Color(150, 200, 240), 1f);
+            UITheme.DrawText(_sb, $"sea, {column.WaterKm * 1000f:N0} m deep", new Vector2(logX + logWidth + 12, _cy + 5), new Color(120, 190, 255), UITheme.FontSmall);
+        }
+
+        // Track background and depth scale
+        UITheme.FillRect(_sb, new Rectangle(logX, top, logWidth, rockHeight), new Color(4, 7, 12));
+        float tick = totalKm > 4f ? 1f : totalKm > 1.6f ? 0.5f : totalKm > 0.6f ? 0.2f : 0.1f;
+        for (float d = 0f; d <= totalKm + 0.001f; d += tick)
+        {
+            int ty = Y(d);
+            UITheme.FillRect(_sb, new Rectangle(logX - 5, ty, 5, 1), UITheme.TextMuted);
+            string label = tick >= 0.5f ? $"{d:F1} km" : $"{d * 1000f:F0} m";
+            var size = UITheme.Measure(label, UITheme.FontSmall);
+            UITheme.DrawText(_sb, label, new Vector2(logX - 8 - size.X, ty - 7), UITheme.TextMuted, UITheme.FontSmall);
+        }
+
+        // Beds
+        int labelY = top;
+        for (int b = 0; b < StrataColumn.Beds; b++)
+        {
+            float from = column.BedTop[b], to = column.BedTop[b + 1];
+            if (to - from < 0.0005f) continue;
+            int y0 = Y(from), y1 = Y(to);
+            if (y1 <= y0) y1 = y0 + 1;
+            var kind = column.BedKind[b];
+            var bed = new Rectangle(logX, y0, (int)(logWidth * GrainWidth(kind)), y1 - y0);
+            UITheme.FillRect(_sb, bed, RockColor(kind));
+            DrawPattern(bed, kind);
+            UITheme.FillRect(_sb, new Rectangle(bed.X, bed.Bottom - 1, bed.Width, 1), Color.Black * 0.55f);
+
+            // Name and thickness, when there is room
+            if (y1 - y0 >= 13 && y0 >= labelY)
             {
-                int lineX = x + i + (j / 2);
-                int lineY = y + j;
-                if (lineX < x + width && lineY < y + height)
-                    spriteBatch.Draw(_pixelTexture, new Rectangle(lineX, lineY, 1, 1), new Color(255, 255, 255, 60));
+                float thickness = to - from;
+                string name = $"{RockName(kind)}  {(thickness >= 1f ? $"{thickness:F1} km" : $"{thickness * 1000f:F0} m")}";
+                UITheme.DrawText(_sb, name, new Vector2(logX + logWidth + 12, (y0 + y1) / 2 - 7), UITheme.TextDim, UITheme.FontSmall);
+                UITheme.FillRect(_sb, new Rectangle(bed.Right, (y0 + y1) / 2, logX + logWidth + 8 - bed.Right, 1), Color.White * 0.12f);
+                labelY = (y0 + y1) / 2 + 9;
             }
         }
 
-        // Add sparkle effect for ice
-        for (int i = 0; i < width / 15; i++)
+        // Salt body
+        if (column.HasSalt)
         {
-            for (int j = 0; j < height / 8; j++)
+            var salt = new Rectangle(logX, Y(column.SaltTop), (int)(logWidth * GrainWidth(RockKind.Salt)), Y(column.SedimentKm) - Y(column.SaltTop));
+            UITheme.FillRect(_sb, salt, RockColor(RockKind.Salt));
+            DrawPattern(salt, RockKind.Salt);
+        }
+
+        // Pay zone: gas or oil above the contact, salt water below
+        if (column.HasReservoir)
+        {
+            int r0 = Y(column.ReservoirTop), rc = Y(MathF.Min(column.FluidContact, column.ReservoirBottom)), r1 = Y(column.ReservoirBottom);
+            int width = (int)(logWidth * GrainWidth(RockKind.Sand));
+            bool gas = column.ReservoirFluid == PoreFluid.Gas;
+            if (rc > r0) UITheme.FillRect(_sb, new Rectangle(logX, r0, width, rc - r0), gas ? new Color(250, 226, 120) : new Color(34, 28, 24));
+            if (r1 > rc) UITheme.FillRect(_sb, new Rectangle(logX, rc, width, r1 - rc), new Color(150, 190, 214));
+            UITheme.DrawRectOutline(_sb, new Rectangle(logX, r0, width, Math.Max(2, r1 - r0)), UITheme.Good, 1);
+            UITheme.FillRect(_sb, new Rectangle(logX - 4, r0, 3, Math.Max(3, rc - r0)), UITheme.Good);
+            UITheme.DrawTextOutlined(_sb, gas ? "GAS" : "OIL", new Vector2(logX + width + 6, r0 - 2), UITheme.Good, UITheme.FontSmall);
+        }
+
+        // Basement
+        var basement = new Rectangle(logX, Y(column.SedimentKm), logWidth, top + rockHeight - Y(column.SedimentKm));
+        UITheme.FillRect(_sb, basement, RockColor(column.Basement));
+        DrawPattern(basement, column.Basement);
+        UITheme.FillRect(_sb, new Rectangle(basement.X, basement.Y, basement.Width, 2), Color.Black * 0.7f);
+        UITheme.DrawText(_sb, $"{RockName(column.Basement)} basement", new Vector2(logX + logWidth + 12, basement.Y + 4), RockColor(column.Basement), UITheme.FontSmall);
+        UITheme.DrawText(_sb, $"Moho at {column.CrustKm:F0} km", new Vector2(logX + logWidth + 12, basement.Y + 19), UITheme.TextMuted, UITheme.FontSmall);
+
+        // Erosion surface: beds below it are cut off; time is missing from the record here
+        if (column.UnconformityKm >= 0f && column.UnconformityKm < column.SedimentKm)
+        {
+            int uy = Y(column.UnconformityKm);
+            var previous = new Vector2(logX - 2, uy);
+            for (int wx = 4; wx <= logWidth + 2; wx += 4)
             {
-                int sparkleX = x + i * 15 + iceRandom.Next(8);
-                int sparkleY = y + j * 8 + iceRandom.Next(4);
-                if (sparkleY < y + height)
-                {
-                    // Small sparkle
-                    spriteBatch.Draw(_pixelTexture, new Rectangle(sparkleX, sparkleY, 2, 2), new Color(255, 255, 255, 150));
-                }
+                var next = new Vector2(logX - 2 + wx, uy + ((wx / 4) % 2 == 0 ? -2 : 2));
+                UITheme.DrawLine(_sb, previous, next, new Color(240, 70, 60), 2f);
+                previous = next;
             }
+            string label = column.UnconformityKm <= 0.0001f ? "eroding surface" : "unconformity (old erosion surface)";
+            UITheme.DrawTextOutlined(_sb, label, new Vector2(logX + 6, uy - (column.UnconformityKm <= 0.0001f ? -4 : 17)), new Color(255, 120, 110), UITheme.FontSmall);
         }
 
-        // Horizontal cracks in ice
-        for (int i = 0; i < height; i += 6)
-        {
-            int crackY = y + i + iceRandom.Next(2);
-            if (crackY < y + height)
-                spriteBatch.Draw(_pixelTexture, new Rectangle(x, crackY, width, 1), new Color(100, 150, 200, 80));
-        }
+        UITheme.DrawRectOutline(_sb, new Rectangle(logX, _cy, logWidth, logHeight), UITheme.Border, 1);
+
+        // Grain size axis
+        _cy += logHeight + 4;
+        UITheme.DrawText(_sb, "mud", new Vector2(logX + logWidth * 0.34f, _cy), UITheme.TextMuted, UITheme.FontSmall);
+        UITheme.DrawText(_sb, "sand", new Vector2(logX + logWidth * 0.62f, _cy), UITheme.TextMuted, UITheme.FontSmall);
+        UITheme.DrawText(_sb, "gravel", new Vector2(logX + logWidth * 0.86f, _cy), UITheme.TextMuted, UITheme.FontSmall);
+        UITheme.DrawText(_sb, "grain size", new Vector2(_x - 4, _cy), UITheme.TextMuted, UITheme.FontSmall);
+        _cy += 20;
+        Row("Sediment pile", column.SedimentKm >= 1f ? $"{column.SedimentKm:F1} km in {column.BedCount} beds" : $"{column.SedimentKm * 1000f:F0} m in {column.BedCount} beds", UITheme.Text);
     }
 
-    private void DrawSedimentPattern(SpriteBatch spriteBatch, int x, int y, int width, int height, SedimentType type)
+    /// <summary>Standard lithology symbols, drawn sparsely over the bed colour.</summary>
+    private void DrawPattern(Rectangle r, RockKind kind)
     {
-        // Draw patterns to distinguish sediment types (like geological diagrams)
-        Random patternRandom = new Random(type.GetHashCode());
-
-        switch (type)
+        if (r.Height < 4 || r.Width < 6) return;
+        Color ink = Color.Black * 0.35f;
+        switch (kind)
         {
-            case SedimentType.Sand:
-                // Dotted pattern for sand
-                for (int i = 0; i < width / 8; i++)
-                {
-                    for (int j = 0; j < height / 4; j++)
+            case RockKind.Sand: // Dots
+                for (int py = r.Y + 3; py < r.Bottom - 1; py += 6)
+                    for (int px = r.X + 4 + ((py / 6) % 2) * 4; px < r.Right - 2; px += 8)
+                        UITheme.FillRect(_sb, new Rectangle(px, py, 2, 2), ink);
+                break;
+            case RockKind.Gravel: // Pebbles
+                for (int py = r.Y + 3; py < r.Bottom - 4; py += 9)
+                    for (int px = r.X + 5 + ((py / 9) % 2) * 7; px < r.Right - 6; px += 14)
+                        UITheme.DrawRectOutline(_sb, new Rectangle(px, py, 6, 4), ink, 1);
+                break;
+            case RockKind.Clay: // Short dashes
+                for (int py = r.Y + 3; py < r.Bottom - 1; py += 5)
+                    for (int px = r.X + 3 + ((py / 5) % 2) * 6; px < r.Right - 7; px += 12)
+                        UITheme.FillRect(_sb, new Rectangle(px, py, 6, 1), ink);
+                break;
+            case RockKind.Silt: // Dash-dot
+                for (int py = r.Y + 3; py < r.Bottom - 1; py += 6)
+                    for (int px = r.X + 3 + ((py / 6) % 2) * 5; px < r.Right - 8; px += 13)
                     {
-                        int dotX = x + i * 8 + patternRandom.Next(4);
-                        int dotY = y + j * 4 + patternRandom.Next(3);
-                        if (dotY < y + height)
-                            spriteBatch.Draw(_pixelTexture, new Rectangle(dotX, dotY, 1, 1), new Color(0, 0, 0, 100));
+                        UITheme.FillRect(_sb, new Rectangle(px, py, 5, 1), ink);
+                        UITheme.FillRect(_sb, new Rectangle(px + 8, py, 1, 1), ink);
                     }
+                break;
+            case RockKind.Limestone: // Bricks
+                for (int py = r.Y + 7; py < r.Bottom; py += 8)
+                {
+                    UITheme.FillRect(_sb, new Rectangle(r.X, py, r.Width, 1), ink);
+                    for (int px = r.X + 8 + ((py / 8) % 2) * 9; px < r.Right - 1; px += 18)
+                        UITheme.FillRect(_sb, new Rectangle(px, py - 7, 1, 7), ink);
                 }
                 break;
-
-            case SedimentType.Gravel:
-                // Small circles for gravel
-                for (int i = 0; i < width / 12; i++)
-                {
-                    for (int j = 0; j < height / 10; j++)
+            case RockKind.Volcanic: // v
+                for (int py = r.Y + 3; py < r.Bottom - 4; py += 8)
+                    for (int px = r.X + 5 + ((py / 8) % 2) * 6; px < r.Right - 6; px += 12)
                     {
-                        int circleX = x + i * 12 + patternRandom.Next(6);
-                        int circleY = y + j * 10 + patternRandom.Next(5);
-                        if (circleY < y + height)
-                        {
-                            spriteBatch.Draw(_pixelTexture, new Rectangle(circleX, circleY, 3, 3), new Color(60, 60, 60, 120));
-                            spriteBatch.Draw(_pixelTexture, new Rectangle(circleX + 1, circleY + 1, 1, 1), new Color(120, 120, 120, 150));
-                        }
+                        UITheme.DrawLine(_sb, new Vector2(px, py), new Vector2(px + 2, py + 4), Color.White * 0.4f, 1f);
+                        UITheme.DrawLine(_sb, new Vector2(px + 2, py + 4), new Vector2(px + 4, py), Color.White * 0.4f, 1f);
                     }
-                }
                 break;
-
-            case SedimentType.Clay:
-                // Horizontal lines for clay
-                for (int i = 0; i < height; i += 2)
-                {
-                    spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + i, width, 1), new Color(0, 0, 0, 60));
-                }
+            case RockKind.Organic: // Solid with light partings
+                for (int py = r.Y + 4; py < r.Bottom - 1; py += 5)
+                    UITheme.FillRect(_sb, new Rectangle(r.X + 2, py, r.Width - 4, 1), Color.White * 0.12f);
                 break;
-
-            case SedimentType.Limestone:
-                // Cross-hatch pattern for limestone
-                for (int i = 0; i < width; i += 8)
-                {
-                    spriteBatch.Draw(_pixelTexture, new Rectangle(x + i, y, 1, height), new Color(200, 200, 180, 40));
-                }
+            case RockKind.Salt: // Crosshatch
+                for (int px = r.X; px < r.Right + r.Height; px += 9)
+                    UITheme.DrawLine(_sb, new Vector2(Math.Min(px, r.Right), r.Y + Math.Max(0, px - r.Right)), new Vector2(Math.Max(r.X, px - r.Height), Math.Min(r.Bottom, r.Y + px - r.X)), ink, 1f);
                 break;
-
-            case SedimentType.Volcanic:
-                // Irregular blocky pattern for volcanic
-                for (int i = 0; i < width / 10; i++)
-                {
-                    for (int j = 0; j < height / 8; j++)
+            case RockKind.Granite: // Plus signs
+                for (int py = r.Y + 5; py < r.Bottom - 4; py += 11)
+                    for (int px = r.X + 6 + ((py / 11) % 2) * 7; px < r.Right - 6; px += 14)
                     {
-                        int blockX = x + i * 10 + patternRandom.Next(4);
-                        int blockY = y + j * 8 + patternRandom.Next(4);
-                        if (blockY < y + height)
-                            spriteBatch.Draw(_pixelTexture, new Rectangle(blockX, blockY, 3, 3), new Color(255, 255, 255, 80));
+                        UITheme.FillRect(_sb, new Rectangle(px - 2, py, 5, 1), ink);
+                        UITheme.FillRect(_sb, new Rectangle(px, py - 2, 1, 5), ink);
                     }
-                }
                 break;
-
-            case SedimentType.Organic:
-                // Wavy lines for organic
-                for (int i = 0; i < height; i += 3)
-                {
-                    for (int j = 0; j < width; j += 4)
-                    {
-                        spriteBatch.Draw(_pixelTexture, new Rectangle(x + j, y + i, 2, 1), new Color(0, 0, 0, 80));
-                    }
-                }
+            case RockKind.Basalt: // Columns
+                for (int px = r.X + 7; px < r.Right - 2; px += 10)
+                    UITheme.FillRect(_sb, new Rectangle(px, r.Y + 2, 1, r.Height - 3), Color.White * 0.14f);
                 break;
         }
     }
 
-    private string GetShortSedimentName(SedimentType type)
-    {
-        return type switch
-        {
-            SedimentType.Sand => "Sand",
-            SedimentType.Silt => "Silt",
-            SedimentType.Clay => "Clay",
-            SedimentType.Gravel => "Grvl",
-            SedimentType.Organic => "Org",
-            SedimentType.Volcanic => "Volc",
-            SedimentType.Limestone => "Lmst",
-            _ => "???"
-        };
-    }
-
-    private Color GetSedimentColor(SedimentType type)
-    {
-        return type switch
-        {
-            SedimentType.Sand => new Color(240, 230, 140),      // Khaki
-            SedimentType.Silt => new Color(210, 180, 140),      // Tan
-            SedimentType.Clay => new Color(160, 120, 80),       // Brown
-            SedimentType.Gravel => new Color(128, 128, 128),    // Gray
-            SedimentType.Organic => new Color(60, 40, 20),      // Dark brown
-            SedimentType.Volcanic => new Color(40, 40, 40),     // Very dark gray
-            SedimentType.Limestone => new Color(245, 245, 220), // Beige
-            _ => Color.White
-        };
-    }
-
-    private Color GetFloodColor(float floodLevel)
-    {
-        if (floodLevel < 0.1f) return Color.Green;
-        if (floodLevel < 0.3f) return Color.Yellow;
-        if (floodLevel < 0.6f) return Color.Orange;
-        return Color.Red;
-    }
+    // ---- Classification helpers ------------------------------------------------------------
 
     private string GetBiomeType(TerrainCell cell)
     {
-        if (cell.Elevation < 0.0f) return "Ocean";
-        if (cell.Elevation < 0.05f) return "Coastal";
-        if (cell.Temperature < -20f) return "Polar Ice";
-        if (cell.Temperature < 0f && cell.Rainfall > 0.3f) return "Tundra";
-        if (cell.Temperature < 0f) return "Polar Desert";
-        if (cell.Rainfall < 0.1f && cell.Temperature > 25f) return "Desert";
-        if (cell.Rainfall < 0.2f && cell.Temperature > 20f) return "Arid";
-        if (cell.Rainfall > 0.7f && cell.Temperature > 20f) return "Rainforest";
-        if (cell.Rainfall > 0.5f && cell.Temperature > 15f) return "Tropical Forest";
-        if (cell.Rainfall > 0.4f && cell.Temperature > 10f) return "Temperate Forest";
-        if (cell.Rainfall > 0.3f && cell.Temperature > 5f) return "Grassland";
-        if (cell.Rainfall < 0.3f) return "Savanna";
-        if (cell.Elevation > 0.6f) return "Mountain";
-        return "Plains";
+        if (cell.IsIce) return cell.IsWater ? "Sea ice" : "Ice sheet";
+        if (cell.IsWater) return cell.Elevation < -0.5f ? "Deep ocean" : cell.Elevation < -0.15f ? "Ocean" : "Shallow sea";
+        if (cell.Geology.IsVolcano) return "Volcano";
+        return cell.GetTerrainType() switch
+        {
+            TerrainType.Beach => "Coast",
+            TerrainType.Plains => "Plains",
+            TerrainType.Grassland => "Grassland",
+            TerrainType.Forest => "Forest",
+            TerrainType.Desert => "Desert",
+            TerrainType.Mountain => "Mountains",
+            TerrainType.Tundra => "Tundra",
+            _ => "Land"
+        };
     }
 
     private Color GetBiomeColor(TerrainCell cell)
     {
-        if (cell.Elevation < 0.0f) return new Color(50, 100, 200); // Ocean
-        if (cell.Temperature < -20f) return Color.White; // Ice
-        if (cell.Temperature < 0f) return Color.LightBlue; // Cold
-        if (cell.Rainfall < 0.1f) return new Color(240, 200, 100); // Desert
-        if (cell.Rainfall > 0.7f) return new Color(0, 150, 0); // Rainforest
-        if (cell.Rainfall > 0.4f) return new Color(50, 200, 50); // Forest
-        return new Color(150, 200, 100); // Grassland
+        if (cell.IsIce) return new Color(230, 240, 250);
+        if (cell.IsWater) return cell.Elevation < -0.5f ? new Color(20, 50, 120) : new Color(50, 120, 200);
+        if (cell.Geology.IsVolcano) return new Color(150, 60, 40);
+        return cell.GetTerrainType() switch
+        {
+            TerrainType.Beach => new Color(226, 206, 150),
+            TerrainType.Forest => new Color(40, 110, 56),
+            TerrainType.Desert => new Color(214, 180, 110),
+            TerrainType.Mountain => new Color(140, 130, 124),
+            TerrainType.Tundra => new Color(160, 170, 160),
+            _ => new Color(110, 160, 80)
+        };
     }
 
     private Color GetTempColor(float temp)
     {
-        if (temp < -20f) return new Color(150, 200, 255); // Very cold
-        if (temp < 0f) return Color.Cyan; // Cold
-        if (temp < 15f) return Color.LightGreen; // Cool
-        if (temp < 25f) return Color.Yellow; // Warm
-        if (temp < 35f) return Color.Orange; // Hot
-        return Color.Red; // Very hot
+        if (temp < 0) return new Color(140, 200, 255);
+        if (temp < 18) return new Color(170, 230, 190);
+        if (temp < 30) return new Color(255, 220, 130);
+        return new Color(255, 130, 100);
     }
 
-    private Color GetRainfallColor(float rainfall)
+    private Color GetBoundaryColor(PlateBoundaryType boundaryType) => boundaryType switch
     {
-        if (rainfall < 0.1f) return new Color(200, 150, 100); // Arid
-        if (rainfall < 0.3f) return Color.Yellow; // Dry
-        if (rainfall < 0.5f) return Color.LightGreen; // Moderate
-        if (rainfall < 0.7f) return Color.Green; // Wet
-        return new Color(0, 100, 200); // Very wet
-    }
-
-    private Color GetPressureColor(float pressure)
-    {
-        if (pressure > 0.8f) return Color.Red; // Critical
-        if (pressure > 0.6f) return Color.Orange; // High
-        if (pressure > 0.4f) return Color.Yellow; // Medium
-        return Color.Gray; // Low
-    }
-
-    private Color GetBoundaryColor(PlateBoundaryType boundaryType)
-    {
-        return boundaryType switch
-        {
-            PlateBoundaryType.Divergent => Color.Yellow,
-            PlateBoundaryType.Convergent => Color.Red,
-            PlateBoundaryType.Transform => Color.Orange,
-            _ => Color.Gray
-        };
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        // Top
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        // Bottom
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        // Left
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        // Right
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
-    }
+        PlateBoundaryType.Convergent => new Color(255, 120, 100),
+        PlateBoundaryType.Divergent => new Color(120, 190, 255),
+        PlateBoundaryType.Transform => new Color(255, 190, 90),
+        _ => UITheme.TextDim
+    };
 }

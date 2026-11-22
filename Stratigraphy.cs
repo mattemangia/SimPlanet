@@ -46,6 +46,9 @@ public sealed class StrataColumn
     public bool HasSalt;
     public float SaltTop;
 
+    public int BedCount;                        // Beds actually present (the rest have no thickness)
+    public float UnconformityKm = -1f;          // Depth of the latest erosion surface (-1 = none, 0 = the ground)
+
     /// <summary>Rock at a depth (km below the surface or sea floor).</summary>
     public RockSample Sample(float depth)
     {
@@ -212,35 +215,61 @@ public static class Stratigraphy
         }
         column.SedimentKm = sedimentKm;
 
-        // Beds: the cell's sediment column, youngest on top. Beds drape over a trap, the more
-        // the deeper they are; the ones above it thin towards the crest.
+        // Beds: runs of the same sediment in the cell's column, youngest on top, each as thick
+        // as its share of the record. A place that kept little (eroded uplands) has a thin pile.
         var beds = geo.SedimentColumn;
         int count = 0;
         try { count = beds.Count; } catch { }
-        float reservoirDepth = reservoir?.DepthKm ?? sedimentKm;
-        for (int b = 0; b <= StrataColumn.Beds; b++)
-        {
-            float flat = sedimentKm * b / StrataColumn.Beds;
-            float drape = relief * Math.Clamp(flat / MathF.Max(0.5f, reservoirDepth), 0f, 1f);
-            column.BedTop[b] = MathF.Max(flat * 0.2f, flat - drape);
-        }
-        column.BedTop[StrataColumn.Beds] = sedimentKm - relief * 0.3f;   // Basement is gently involved too
-        column.SedimentKm = column.BedTop[StrataColumn.Beds];
+        float preserved = Math.Clamp(count / 10f, 0.12f, 1f);
+        if (reservoir == null || offset >= 1.6f) sedimentKm *= preserved;
 
-        for (int b = 0; b < StrataColumn.Beds; b++)
+        Span<int> runLength = stackalloc int[StrataColumn.Beds];
+        int runs = 0, layers = 0;
+        SedimentType current = SedimentType.Clay;
+        for (int i = count - 1; i >= 0; i--)
         {
             SedimentType type;
-            if (count > 0)
+            try { type = beds[i]; } catch { break; }
+            if (runs == 0 || (type != current && runs < StrataColumn.Beds))
             {
-                int index = Math.Clamp(count - 1 - b * count / StrataColumn.Beds, 0, count - 1);
-                try { type = beds[index]; } catch { type = SedimentType.Clay; }
+                current = type;
+                column.BedKind[runs] = StrataColumn.FromSediment(type);
+                runLength[runs++] = 0;
             }
-            else
-            {
-                type = (SedimentType)((b * 5 + cx + cy) % 7);
-            }
-            column.BedKind[b] = StrataColumn.FromSediment(type);
+            runLength[runs - 1]++; // Beyond the last slot everything older joins the bottom bed
+            layers++;
         }
+        if (runs == 0)
+        {
+            column.BedKind[0] = RockKind.Gravel;
+            runLength[0] = 1;
+            runs = 1;
+            layers = 1;
+        }
+        column.BedCount = runs;
+
+        float reservoirDepth = reservoir?.DepthKm ?? sedimentKm;
+        int above = 0;
+        int unconformityLayers = geo.UnconformityBeds;
+        column.UnconformityKm = unconformityLayers == 0 ? 0f : -1f;
+        for (int b = 0; b <= StrataColumn.Beds; b++)
+        {
+            float flat = sedimentKm * Math.Min(above, layers) / layers;
+            float drape = relief * Math.Clamp(flat / MathF.Max(0.5f, reservoirDepth), 0f, 1f);
+            column.BedTop[b] = MathF.Max(flat * 0.2f, flat - drape);
+            if (unconformityLayers > 0 && above <= unconformityLayers && b < runs && above + runLength[b] >= unconformityLayers)
+            {
+                // The erosion surface lies inside or at the base of this bed
+                float at = sedimentKm * unconformityLayers / layers;
+                column.UnconformityKm = MathF.Max(at * 0.2f, at - relief * Math.Clamp(at / MathF.Max(0.5f, reservoirDepth), 0f, 1f));
+                unconformityLayers = -1;
+            }
+            if (b < runs) above += runLength[b];
+            if (b >= runs && b < StrataColumn.Beds) column.BedKind[b] = column.BedKind[runs - 1];
+        }
+        column.BedTop[StrataColumn.Beds] = sedimentKm - relief * 0.3f;   // Basement is gently involved too
+        for (int b = 0; b < StrataColumn.Beds; b++) column.BedTop[b] = MathF.Min(column.BedTop[b], column.BedTop[StrataColumn.Beds]);
+        column.SedimentKm = column.BedTop[StrataColumn.Beds];
 
         column.HasReservoir = false;
         column.HasSalt = false;

@@ -444,6 +444,7 @@ public class SimPlanetGame : Game
         _interactiveControls = new InteractiveControls(GraphicsDevice, _font, _map);
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
         _sedimentViewer.SetCivilizationManager(_civilizationManager);
+        _sedimentViewer.SetGeoscience(_updateManager.Petroleum, _updateManager.Geothermal);
         _playerCivControl = new PlayerCivilizationControl(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI = new DivinePowersUI(GraphicsDevice, _font, _civilizationManager);
         _divinePowersUI.ArmageddonRequested = TriggerArmageddon;
@@ -814,6 +815,7 @@ public class SimPlanetGame : Game
         _subsurface?.Dispose();
         _subsurface = new Subsurface3DView(GraphicsDevice, _map);
         _subsurface.SetSystems(_geologicalSimulator, _updateManager.Petroleum, _updateManager.Seismology, _updateManager.Geothermal);
+        _subsurface.SetCivilizations(_civilizationManager);
         bool oil = _geoOverlay?.ShowPetroleum ?? true, stations = _geoOverlay?.ShowSeismographs ?? true, tomo = _geoOverlay?.ShowTomography ?? false;
         _geoOverlay = new GeoscienceOverlay(_map) { ShowPetroleum = oil, ShowSeismographs = stations, ShowTomography = tomo };
         _geoOverlay.SetSystems(_updateManager.Petroleum, _updateManager.Seismology, _updateManager.Geothermal);
@@ -1451,6 +1453,7 @@ public class SimPlanetGame : Game
             // Update sediment viewer with new map reference
             _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
             _sedimentViewer.SetCivilizationManager(_civilizationManager);
+        _sedimentViewer.SetGeoscience(_updateManager.Petroleum, _updateManager.Geothermal);
 
             // Update other interactive tools with new map
             _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);
@@ -1602,6 +1605,7 @@ public class SimPlanetGame : Game
         // Update sediment viewer with new map reference
         _sedimentViewer = new SedimentColumnViewer(GraphicsDevice, _font, _map);
         _sedimentViewer.SetCivilizationManager(_civilizationManager);
+        _sedimentViewer.SetGeoscience(_updateManager.Petroleum, _updateManager.Geothermal);
 
         // Update other interactive tools with new map
         _disasterControlUI = new DisasterControlUI(GraphicsDevice, _font, _disasterManager, _map);

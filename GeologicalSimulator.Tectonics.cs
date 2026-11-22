@@ -25,6 +25,7 @@ public partial class GeologicalSimulator
     private float[,] _tectWeight = new float[0, 0];
     private float[,] _magmaSupply = new float[0, 0];
     private float[,] _depositAcc = new float[0, 0];
+    private float[,] _erodeAcc = new float[0, 0];
     private float _aerosol;
 
     private const float UpliftSpeed = 0.003f;       // Elevation units per second at full strength
@@ -45,6 +46,7 @@ public partial class GeologicalSimulator
         _tectWeight = new float[_map.Width, _map.Height];
         _magmaSupply = new float[_map.Width, _map.Height];
         _depositAcc = new float[_map.Width, _map.Height];
+        _erodeAcc = new float[_map.Width, _map.Height];
     }
 
     /// <summary>Plate velocity in cells per (arbitrary) time unit, for views.</summary>
@@ -74,10 +76,12 @@ public partial class GeologicalSimulator
     {
         var column = geo.SedimentColumn;
         column.Add(type);
+        if (geo.UnconformityBeds >= 0) geo.UnconformityBeds++; // The erosion surface is buried one bed deeper
         if (column.Count > MaxColumnLayers)
         {
             column.RemoveRange(0, column.Count - MaxColumnLayers);
         }
+        if (geo.UnconformityBeds > column.Count) geo.UnconformityBeds = -1;
     }
 
     private static bool IsOceanicCrust(GeologicalData geo) => geo.CrustType == CrustType.Oceanic;
@@ -599,6 +603,18 @@ public partial class GeologicalSimulator
                 {
                     cell.Elevation -= erosion;
                     geo.SedimentLayer += erosion;
+                    geo.CumulativeErosion += erosion;
+
+                    // Erosion strips the record from the top: beds are lost and the ground
+                    // becomes an erosion surface (a future unconformity once it is buried)
+                    _erodeAcc[x, y] += erosion;
+                    if (_erodeAcc[x, y] > 0.004f)
+                    {
+                        _erodeAcc[x, y] = 0f;
+                        var beds = geo.SedimentColumn;
+                        if (beds.Count > 1) beds.RemoveAt(beds.Count - 1);
+                        geo.UnconformityBeds = 0;
+                    }
                 }
                 geo.ErosionRate = erosion / deltaTime * 1000f;
 
@@ -656,6 +672,7 @@ public partial class GeologicalSimulator
     private void RecordDeposit(int x, int y, GeologicalData geo, float amount, float deltaTime, SedimentType type)
     {
         geo.DepositionRate = MathF.Min(1f, geo.DepositionRate + amount / deltaTime * 200f);
+        geo.CumulativeDeposition += amount;
         _depositAcc[x, y] += amount;
         if (_depositAcc[x, y] > 0.003f)
         {

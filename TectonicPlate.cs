@@ -112,6 +112,9 @@ public class GeologicalData
     public bool IsSubducting { get; set; }     // This side of a convergent boundary goes down into the mantle
     public float UpliftRate { get; set; }      // Current tectonic vertical motion (+ up, - down), elevation units per second
     public float DepositionRate { get; set; }  // Recent sediment deposition (fades when deposition stops)
+    public float CumulativeErosion { get; set; }    // Total thickness removed by erosion (elevation units)
+    public float CumulativeDeposition { get; set; } // Total thickness laid down (elevation units)
+    public int UnconformityBeds { get; set; } = -1; // Beds lying above the latest erosion surface (0 = it is the ground; -1 = none)
 
     // Crust properties
     public CrustType CrustType { get; set; } = CrustType.Continental;
