@@ -299,6 +299,9 @@ public class HeadlessSimulation
             {
                 _civilizationManager.Update(simDeltaTime, _year);
                 _diseaseManager.Update(simDeltaTime, _year);
+                _updateManager.Petroleum.Update(simDeltaTime, _year, _civilizationManager.Civilizations);
+                _updateManager.Geothermal.Update(simDeltaTime, _year, _civilizationManager.Civilizations);
+                if (_year != _lastLifeYear) _updateManager.Seismology.UpdateNetworks(_civilizationManager.Civilizations, _year);
                 if (_year != _lastLifeYear)
                 {
                     // Vegetation regrows once per year so hunting grounds recover
@@ -455,6 +458,8 @@ public class HeadlessSimulation
         Console.WriteLine($"   Migration (last years): {string.Join(" ", _civilizationManager.GetMigrations().GroupBy(m => m.Kind).Select(g => $"{g.Key}:{g.Sum(m => m.People):N0}"))}");
         var spies = _civilizationManager.Civilizations.SelectMany(c => c.SpyNetworks).ToList();
         Console.WriteLine($"   Spy networks: {spies.Count} (agents {spies.Sum(n => n.Agents)}, compromised {spies.Count(n => n.Compromised)}, missions {string.Join(",", spies.GroupBy(n => n.Mission).Select(g => $"{g.Key}:{g.Count()}"))}) | animal groups: {string.Join(" ", _civilizationManager.GetAnimalGroups().GroupBy(g => g.Name).Select(g => $"{g.Key}:{g.Count()}"))}");
+        var oil = _updateManager.Petroleum;
+        Console.WriteLine($"   Petroleum: reservoirs {oil.Reservoirs.Count} (surveyed {oil.Reservoirs.Count(r => r.Surveyed)}, discovered {oil.Reservoirs.Count(r => r.Discovered)}) | surveys {oil.Surveys.Count} (active {oil.Surveys.Count(s => !s.Completed)}) | wells: {string.Join(" ", oil.Wells.GroupBy(w => (w.Offshore ? "platform-" : "well-") + w.Status).Select(g => $"{g.Key}:{g.Count()}"))} | seismographs {_updateManager.Seismology.Stations.Count} | geothermal plants {_updateManager.Geothermal.Plants.Count} (producing {_updateManager.Geothermal.Plants.Count(p => p.Producing)})");
         Console.WriteLine($"   People in space: {_civilizationManager.PeopleInSpace} | Nuclear winter: {_civilizationManager.NuclearWinter:F2} | Active diseases: {_diseaseManager.Diseases.Count(d => d.IsActive && !d.CureDeployed)}");
         Console.WriteLine($"Year: {_year} | Speed: {_timeSpeed}x | " +
                           $"Temp: {_map.GlobalTemperature:F1}C | O2: {_map.GlobalOxygen:F1}% | CO2: {_map.GlobalCO2:F2}% | " +

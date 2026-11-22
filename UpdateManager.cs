@@ -23,6 +23,16 @@ namespace SimPlanet
         private readonly EcosystemSimulator _ecosystemSimulator;
         private readonly SimulationInterconnect _interconnect;
         private readonly PlanetMap _map;
+        private int _lastNetworkYear = int.MinValue;
+
+        /// <summary>Oil and gas fields, seismic surveys, wells and platforms.</summary>
+        public PetroleumSystem Petroleum { get; }
+
+        /// <summary>Geothermal prospects and power plants.</summary>
+        public GeothermalSystem Geothermal { get; }
+
+        /// <summary>Seismograph networks, wave propagation and tomography.</summary>
+        public SeismologyManager Seismology { get; }
 
         public UpdateManager(
             PlanetMap map,
@@ -59,6 +69,12 @@ namespace SimPlanet
             _diseaseManager = diseaseManager;
             _ecosystemSimulator = ecosystemSimulator;
             _interconnect = new SimulationInterconnect(map);
+            Petroleum = new PetroleumSystem(map, map.Width * 31 + map.Height);
+            Petroleum.Chronicle = (year, text, x, y, civId) =>
+                _civilizationManager.RecordHistory(year, HistoryCategory.Science, text, x, y, civId);
+            Geothermal = new GeothermalSystem(map, map.Width * 17 + map.Height);
+            Geothermal.Chronicle = Petroleum.Chronicle;
+            Seismology = new SeismologyManager(map);
         }
 
         public void Update(float simDeltaTime, int newYear, float timeSpeed)
@@ -84,6 +100,15 @@ namespace SimPlanet
                 Task.Run(() => _disasterManager.Update(simDeltaTime, newYear))
             };
             Task.WhenAll(stage2Tasks).Wait();
+
+            // Oil exploration and seismograph networks follow the civilizations
+            Petroleum.Update(simDeltaTime, newYear, _civilizationManager.Civilizations);
+            Geothermal.Update(simDeltaTime, newYear, _civilizationManager.Civilizations);
+            if (newYear != _lastNetworkYear)
+            {
+                _lastNetworkYear = newYear;
+                Seismology.UpdateNetworks(_civilizationManager.Civilizations, newYear);
+            }
 
             // Stage 3: Systems that depend on weather and civilization.
             var stage3Tasks = new Task[]

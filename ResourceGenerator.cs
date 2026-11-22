@@ -59,21 +59,28 @@ public class ResourceGenerator
             (cell) => cell.IsLand && cell.Elevation > 0.3f);
     }
 
+    /// <summary>
+    /// Fossil fuels form in thick piles of sediment: continental shelves, deltas and lowland basins.
+    /// </summary>
+    private static bool IsSedimentaryBasin(TerrainCell cell, int minBeds)
+    {
+        var geo = cell.GetGeology();
+        return geo.SedimentaryRock > 0.5f || geo.SedimentColumn.Count >= minBeds;
+    }
+
     private void GenerateFossilFuels()
     {
         // Coal - sedimentary rock, ancient forests
         GenerateResourceDeposits(ResourceType.Coal, 80, 0.08f, 0.2f,
-            (cell) => cell.IsLand && cell.GetGeology().SedimentaryRock > 0.4f);
+            (cell) => cell.IsLand && cell.Elevation < 0.45f && IsSedimentaryBasin(cell, 8));
 
         // Oil - sedimentary basins, often offshore
         GenerateResourceDeposits(ResourceType.Oil, 60, 0.06f, 0.15f,
-            (cell) => cell.GetGeology().SedimentaryRock > 0.5f &&
-                     (cell.IsWater || cell.Elevation < 0.2f));
+            (cell) => IsSedimentaryBasin(cell, 10) && cell.Elevation > -0.5f && cell.Elevation < 0.2f);
 
         // Natural Gas - often found with oil
         GenerateResourceDeposits(ResourceType.NaturalGas, 70, 0.07f, 0.18f,
-            (cell) => cell.GetGeology().SedimentaryRock > 0.5f &&
-                     (cell.IsWater || cell.Elevation < 0.2f));
+            (cell) => IsSedimentaryBasin(cell, 10) && cell.Elevation > -0.5f && cell.Elevation < 0.2f);
     }
 
     private void GenerateIndustrialMinerals()

@@ -21,14 +21,19 @@ public partial class TerrainRenderer
     // --- High resolution ("detail") terrain texture ---------------------
     // Every cell is expanded to _detailScale x _detailScale texels with smooth,
     // coastline-aware interpolation, hill shading, political borders and roads.
-    private readonly int _detailScale;
+    private float _viewScale = 1f;      // Texels per cell of the detail texture
+    private float _viewX0, _viewY0;    // Cell coordinates of its top-left corner
+    private int _viewW, _viewH;
+    private bool _hdDirty = true;
+    private long _lastHdBuild;
+    private float[] _cellShadeSea = Array.Empty<float>();
     private Texture2D? _detailTexture;
     private Color[] _detailColors = Array.Empty<Color>();
     private readonly float[] _cellField;      // signed land/water field per cell (water < 0)
     private readonly float[] _cellShade;      // hill-shade multiplier per cell
     private readonly bool[] _cellRoad;        // road present on the cell
     private readonly bool[] _cellIce;         // ice-covered cell (sea ice or glacier)
-    private readonly float[] _detailNoise;    // static per-texel noise in [-1, 1]
+    private static readonly float[] NoiseTable = BuildNoiseTable();
     private bool _hasTerritory;
     private DateTime _lastTextureUpdate = DateTime.MinValue;
     private RenderMode _lastRenderedMode = (RenderMode)(-1);
@@ -119,19 +124,7 @@ public partial class TerrainRenderer
         _cellIce = new bool[map.Width * map.Height];
         _cellRoadType = new byte[map.Width * map.Height];
 
-        // Pick the detail scale so the texture stays around half a megapixel and
-        // within the Reach profile limit of 2048 texels per side.
-        int cells = map.Width * map.Height;
-        int scale = (int)MathF.Floor(MathF.Sqrt(600000f / Math.Max(1, cells)));
-        scale = Math.Clamp(scale, 1, 6);
-        while (scale > 1 && (map.Width * scale > 2048 || map.Height * scale > 2048)) scale--;
-        _detailScale = scale;
-        if (_detailScale > 1)
-        {
-            _detailTexture = new Texture2D(_graphicsDevice, map.Width * _detailScale, map.Height * _detailScale);
-            _detailColors = new Color[map.Width * _detailScale * map.Height * _detailScale];
-        }
-        _detailNoise = BuildDetailNoise(map.Width * _detailScale, map.Height * _detailScale);
+        _cellShadeSea = new float[map.Width * map.Height];
 
         _nightTexture = new Texture2D(_graphicsDevice, map.Width, map.Height);
         _nightColors = new Color[map.Width * map.Height];
@@ -285,12 +278,8 @@ public partial class TerrainRenderer
 
         _terrainTexture.SetData(_terrainColors);
 
-        if (_detailTexture != null)
-        {
-            ComputeHillShade();
-            BuildDetailTexture();
-            _detailTexture.SetData(_detailColors);
-        }
+        ComputeHillShade();
+        _hdDirty = true; // The view texture is redrawn from these arrays at screen resolution
     }
 
     // ------------------------------------------------------------------
@@ -320,16 +309,23 @@ public partial class TerrainRenderer
                 float eD = Math.Max(0f, _cellField[yd * w + x]);
                 // Light from the north-west
                 float slope = (eL - eR) + (eU - eD);
-                _cellShade[y * w + x] = Math.Clamp(1f + slope * 2.2f, 0.62f, 1.32f);
+                _cellShade[y * w + x] = Math.Clamp(1f + slope * 2.6f, 0.55f, 1.38f);
+
+                // Sea floor relief, seen dimly through the water
+                float seaSlope = (Math.Min(0f, _cellField[y * w + xl]) - Math.Min(0f, _cellField[y * w + xr]))
+                               + (Math.Min(0f, _cellField[yu * w + x]) - Math.Min(0f, _cellField[yd * w + x]));
+                _cellShadeSea[y * w + x] = Math.Clamp(1f + seaSlope * 0.9f, 0.8f, 1.2f);
             }
         }
     }
 
     private void BuildDetailTexture()
     {
-        int s = _detailScale;
+        float sf = _viewScale;
+        int s = Math.Max(1, (int)MathF.Round(sf)); // Texels per cell, for cell-edge features
         int w = _map.Width, h = _map.Height;
-        int dw = w * s, dh = h * s;
+        int dw = _viewW, dh = _viewH;
+        float viewX0 = _viewX0, viewY0 = _viewY0;
         bool terrainLike = Mode is RenderMode.Terrain or RenderMode.TerrainClean;
         bool shaded = IsShadedMode(Mode);
         bool discrete = IsDiscreteMode(Mode);
@@ -337,26 +333,44 @@ public partial class TerrainRenderer
         bool roads = (Mode == RenderMode.Terrain || Mode == RenderMode.Civilizations || Mode == RenderMode.Infrastructure) && s >= 3;
         bool typedRoads = Mode == RenderMode.Infrastructure;
         bool societyBorders = IsSocietyMode(Mode) && _hasTerritory;
+        bool fine = sf >= 5f; // Close enough for the finest octave to matter
         int mid = s / 2;
 
         Parallel.For(0, dh, py =>
         {
-            float fy = (py + 0.5f) / s - 0.5f;
+            float cyf = viewY0 + (py + 0.5f) / sf;
+            if (cyf < 0f || cyf >= h)
+            {
+                Array.Fill(_detailColors, Color.Transparent, py * dw, dw);
+                return;
+            }
+            float fy = cyf - 0.5f;
             int y0 = (int)MathF.Floor(fy);
             float ty = fy - y0;
             int y1 = Math.Min(h - 1, y0 + 1);
             y0 = Math.Max(0, y0);
-            int cy = py / s, ly = py % s;
+            int cy = (int)cyf, ly = Math.Min(s - 1, (int)((cyf - cy) * s));
 
             for (int px = 0; px < dw; px++)
             {
-                float fx = (px + 0.5f) / s - 0.5f;
+                float cxf = viewX0 + (px + 0.5f) / sf;
+                if (cxf < 0f || cxf >= w)
+                {
+                    _detailColors[py * dw + px] = Color.Transparent;
+                    continue;
+                }
+                float fx = cxf - 0.5f;
                 int x0 = (int)MathF.Floor(fx);
                 float tx = fx - x0;
                 int x1 = x0 + 1;
                 if (x0 < 0) x0 += w;
                 if (x1 >= w) x1 -= w;
-                int cx = px / s, lx = px % s;
+                int cx = (int)cxf, lx = Math.Min(s - 1, (int)((cxf - cx) * s));
+
+                // Procedural detail in world coordinates: the same ground looks the same at any zoom
+                float n1 = Noise(cxf * 0.55f, cyf * 0.55f);
+                float n2 = Noise(cxf * 2.3f + 17f, cyf * 2.3f + 5f);
+                float n3 = fine ? Noise(cxf * 7.1f + 3f, cyf * 7.1f + 11f) : 0f;
 
                 int i00 = y0 * w + x0, i10 = y0 * w + x1, i01 = y1 * w + x0, i11 = y1 * w + x1;
                 float w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
@@ -364,7 +378,7 @@ public partial class TerrainRenderer
                 float f00 = _cellField[i00], f10 = _cellField[i10], f01 = _cellField[i01], f11 = _cellField[i11];
                 bool wa = f00 < 0, wb = f10 < 0, wc = f01 < 0, wd = f11 < 0;
                 bool mixed = !(wa == wb && wb == wc && wc == wd);
-                float noise = _detailNoise[py * dw + px];
+                float noise = n2 * 0.65f + n3 * 0.35f;
 
                 float field = f00 * w00 + f10 * w10 + f01 * w01 + f11 * w11;
                 if (mixed) field += noise * 0.03f; // natural, slightly ragged coastlines
@@ -498,7 +512,11 @@ public partial class TerrainRenderer
                         {
                             r *= 0.72f; g *= 0.72f; b *= 0.72f;
                         }
-                        float grain = 1f + noise * 0.05f;
+                        // Micro relief: rougher on high ground, lit from the north-west like the hills
+                        float height = Math.Clamp(field, 0f, 1f);
+                        float bump = n2 - Noise(cxf * 2.3f + 17.22f, cyf * 2.3f + 5.22f);
+                        if (fine) bump += 0.6f * (n3 - Noise(cxf * 7.1f + 3.3f, cyf * 7.1f + 11.3f));
+                        float grain = (1f + bump * (0.35f + 1.3f * height) * Math.Clamp(sf / 9f, 0.4f, 1f)) * (1f + n1 * 0.07f);
                         r *= grain; g *= grain; b *= grain;
                     }
                 }
@@ -510,7 +528,9 @@ public partial class TerrainRenderer
                         float t = (1f + field / 0.03f) * 0.5f;
                         r += (170 - r) * t; g += (215 - g) * t; b += (230 - b) * t;
                     }
-                    float grain = 1f + noise * 0.025f;
+                    // Sea floor relief and swell
+                    float sea = _cellShadeSea[i00] * w00 + _cellShadeSea[i10] * w10 + _cellShadeSea[i01] * w01 + _cellShadeSea[i11] * w11;
+                    float grain = sea * (1f + n1 * 0.04f + n2 * 0.025f + n3 * 0.03f);
                     r *= grain; g *= grain; b *= grain;
                 }
 
@@ -560,35 +580,65 @@ public partial class TerrainRenderer
         return false;
     }
 
-    private static float[] BuildDetailNoise(int w, int h)
-    {
-        var noise = new float[Math.Max(1, w * h)];
-        const int grid = 3;
-        int gw = w / grid + 2, gh = h / grid + 2;
-        var lattice = new float[gw * gh];
-        for (int i = 0; i < lattice.Length; i++)
-            lattice[i] = ((Hash(i % gw, i / gw, 4242) & 1023) / 1023f) * 2f - 1f;
+    private const int NoiseSize = 256;
 
-        for (int y = 0; y < h; y++)
+    /// <summary>Tileable smooth noise in [-1, 1].</summary>
+    private static float[] BuildNoiseTable()
+    {
+        var table = new float[NoiseSize * NoiseSize];
+        var rnd = new Random(4242);
+        for (int i = 0; i < table.Length; i++) table[i] = (float)rnd.NextDouble() * 2f - 1f;
+        return table;
+    }
+
+    private static float Noise(float x, float y)
+    {
+        int x0 = (int)MathF.Floor(x), y0 = (int)MathF.Floor(y);
+        float tx = x - x0, ty = y - y0;
+        tx = tx * tx * (3f - 2f * tx);
+        ty = ty * ty * (3f - 2f * ty);
+        int xa = x0 & (NoiseSize - 1), xb = (x0 + 1) & (NoiseSize - 1);
+        int ya = (y0 & (NoiseSize - 1)) * NoiseSize, yb = ((y0 + 1) & (NoiseSize - 1)) * NoiseSize;
+        float a = NoiseTable[ya + xa], b = NoiseTable[ya + xb], c = NoiseTable[yb + xa], d = NoiseTable[yb + xb];
+        return a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty;
+    }
+
+    /// <summary>
+    /// Redraws the detail texture for the part of the map on screen, one texel per screen pixel,
+    /// so the terrain is sharp at every zoom level.
+    /// </summary>
+    private void RefreshViewTexture(Rectangle area, int camX, int camY, float cellPx)
+    {
+        if (area.Width < 8 || area.Height < 8) return;
+        float reduce = MathF.Min(1f, 2048f / Math.Max(area.Width, area.Height)); // Reach texture limit
+        int tw = (int)(area.Width * reduce), th = (int)(area.Height * reduce);
+        if (_detailTexture == null || _detailTexture.Width != tw || _detailTexture.Height != th)
         {
-            float gy = (float)y / grid;
-            int y0 = (int)gy;
-            float ty = gy - y0;
-            ty = ty * ty * (3 - 2 * ty);
-            for (int x = 0; x < w; x++)
-            {
-                float gx = (float)x / grid;
-                int x0 = (int)gx;
-                float tx = gx - x0;
-                tx = tx * tx * (3 - 2 * tx);
-                float a = lattice[y0 * gw + x0], b = lattice[y0 * gw + x0 + 1];
-                float c = lattice[(y0 + 1) * gw + x0], d = lattice[(y0 + 1) * gw + x0 + 1];
-                float smooth = a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty;
-                float fine = ((Hash(x, y, 777) & 255) / 255f) * 2f - 1f;
-                noise[y * w + x] = Math.Clamp(smooth * 0.75f + fine * 0.25f, -1f, 1f);
-            }
+            _detailTexture?.Dispose();
+            _detailTexture = new Texture2D(_graphicsDevice, tw, th);
+            _detailColors = new Color[tw * th];
+            _viewW = tw;
+            _viewH = th;
+            _lastHdBuild = 0;
+            _hdDirty = true;
         }
-        return noise;
+
+        float scale = cellPx * reduce;
+        float x0 = (area.X - camX) / cellPx, y0 = (area.Y - camY) / cellPx;
+        bool moved = MathF.Abs(scale - _viewScale) > 1e-4f || MathF.Abs(x0 - _viewX0) > 1e-3f || MathF.Abs(y0 - _viewY0) > 1e-3f;
+        long now = Environment.TickCount64;
+
+        // Follow the camera closely; data changes can wait a little longer
+        if ((moved && now - _lastHdBuild >= 30) || (_hdDirty && now - _lastHdBuild >= 220) || _lastHdBuild == 0)
+        {
+            _viewScale = scale;
+            _viewX0 = x0;
+            _viewY0 = y0;
+            BuildDetailTexture();
+            _detailTexture.SetData(_detailColors);
+            _hdDirty = false;
+            _lastHdBuild = now;
+        }
     }
 
     /// <summary>Tileable monochrome noise: dark and light specks around transparent.</summary>
@@ -759,7 +809,18 @@ public partial class TerrainRenderer
             spriteBatch.Draw(_pixelTexture, glow, new Color(40, 90, 160) * (0.07f / i));
         }
 
-        spriteBatch.Draw(_detailTexture ?? _terrainTexture, mapRect, Color.White);
+        // Cell-resolution map underneath (covers the moment before the sharp view catches up)
+        spriteBatch.Draw(_terrainTexture, mapRect, Color.White);
+
+        float viewCellPx = CellSize * ZoomLevel;
+        RefreshViewTexture(area, camX, camY, viewCellPx);
+        if (_detailTexture != null)
+        {
+            var viewRect = new Rectangle(
+                (int)MathF.Round(camX + _viewX0 * viewCellPx), (int)MathF.Round(camY + _viewY0 * viewCellPx),
+                (int)MathF.Round(_viewW / _viewScale * viewCellPx), (int)MathF.Round(_viewH / _viewScale * viewCellPx));
+            spriteBatch.Draw(_detailTexture, viewRect, Color.White);
+        }
 
         // Fine surface grain when zoomed in, so close-ups don't look blurry
         float cellPx = CellSize * ZoomLevel;
