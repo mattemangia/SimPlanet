@@ -72,6 +72,9 @@ public partial class TerrainRenderer
     {
         _hoverTargets.Clear();
         float cellPx = CellSize * ZoomLevel;
+        MapGfx.Ensure(_graphicsDevice);
+        // Society views draw the frontier overlay before their own networks
+        if (!IsSocietyMode(Mode)) DrawTerritoryOverlay(sb, offsetX, offsetY);
         UpdateSmoothing(data);
 
         if (ShowsTransport(cellPx))
@@ -91,7 +94,9 @@ public partial class TerrainRenderer
     private void DrawMobilityOverlay(SpriteBatch sb, CivRenderData data, int offsetX, int offsetY, Rectangle clip, float time)
     {
         float cellPx = CellSize * ZoomLevel;
+        DrawBattleEffects(sb, data, offsetX, offsetY, clip, cellPx, time);
         if (ShowsTransport(cellPx)) DrawVehicles(sb, data, offsetX, offsetY, clip, cellPx, time, airborne: true);
+        DrawNationNames(sb, data, offsetX, offsetY, clip, cellPx);
     }
 
     /// <summary>Tooltip for the nearest hover target under the mouse (true when one was shown).</summary>
@@ -364,9 +369,9 @@ public partial class TerrainRenderer
                         {
                             int t = tech.GetValueOrDefault(g.CivId);
                             float width = (t >= 20 ? 2.2f : t >= 10 ? 1.6f : 1.2f) * (0.85f + 0.5f * traffic);
-                            for (int i = 1; i < pts.Length; i++) UITheme.DrawLine(sb, pts[i - 1], pts[i], Color.Black * 0.5f, width + 1.6f);
+                            for (int i = 1; i < pts.Length; i++) MapGfx.Line(sb, pts[i - 1], pts[i], Color.Black * 0.5f, width + 1.6f);
                             var col = RoadColor(t);
-                            for (int i = 1; i < pts.Length; i++) UITheme.DrawLine(sb, pts[i - 1], pts[i], col, width);
+                            for (int i = 1; i < pts.Length; i++) MapGfx.Line(sb, pts[i - 1], pts[i], col, width);
                             break;
                         }
                         case TransportKind.Railway:
@@ -374,7 +379,9 @@ public partial class TerrainRenderer
                             DrawTrack(sb, pts, cellPx, full ? 1f : 0.85f);
                             break;
                         case TransportKind.SeaLane:
-                            DrawDottedPath(sb, pts, SeaLaneColor * ((full ? 0.75f : 0.5f) + 0.25f * traffic), g.International ? 2.2f : 1.7f, 7f, time * 5f + g.Id);
+                            // A faint continuous wake line carries the route; drifting dots show the direction of travel
+                            MapGfx.Polyline(sb, pts, SeaLaneColor * ((full ? 0.16f : 0.09f) + 0.08f * traffic), 1f);
+                            DrawDottedPath(sb, pts, SeaLaneColor * ((full ? 0.62f : 0.36f) + 0.25f * traffic), (g.International ? 2.6f : 2.1f) + traffic * 0.6f, 9f, time * 5f + g.Id);
                             break;
                         case TransportKind.AirRoute:
                         {
@@ -401,7 +408,7 @@ public partial class TerrainRenderer
     {
         var bed = new Color(34, 28, 26) * alpha;
         var rail = new Color(236, 228, 210) * alpha;
-        for (int i = 1; i < pts.Length; i++) UITheme.DrawLine(sb, pts[i - 1], pts[i], bed, 4f);
+        for (int i = 1; i < pts.Length; i++) MapGfx.Line(sb, pts[i - 1], pts[i], bed, 4f);
         if (cellPx >= 9f)
         {
             // Close up: sleepers across a pair of rails
@@ -418,12 +425,12 @@ public partial class TerrainRenderer
                 for (float t = carry; t < len; t += 5f)
                 {
                     var p = a + dir * t;
-                    UITheme.DrawLine(sb, p - n * 2.6f, p + n * 2.6f, tie, 1.2f);
+                    MapGfx.Line(sb, p - n * 2.6f, p + n * 2.6f, tie, 1.2f);
                 }
                 carry = (carry - len) % 5f;
                 if (carry < 0) carry += 5f;
-                UITheme.DrawLine(sb, a + n * 1.1f, pts[i] + n * 1.1f, rail, 0.8f);
-                UITheme.DrawLine(sb, a - n * 1.1f, pts[i] - n * 1.1f, rail, 0.8f);
+                MapGfx.Line(sb, a + n * 1.1f, pts[i] + n * 1.1f, rail, 0.8f);
+                MapGfx.Line(sb, a - n * 1.1f, pts[i] - n * 1.1f, rail, 0.8f);
             }
         }
         else
@@ -438,7 +445,7 @@ public partial class TerrainRenderer
                 if (len < 0.01f) continue;
                 var dir = d / len;
                 for (float t = carry; t < len; t += 10f)
-                    UITheme.DrawLine(sb, a + dir * t, a + dir * Math.Min(len, t + 5f), rail, 1.6f);
+                    MapGfx.Line(sb, a + dir * t, a + dir * Math.Min(len, t + 5f), rail, 1.6f);
                 carry = (carry - len) % 10f;
                 if (carry < 0) carry += 10f;
             }
@@ -458,8 +465,7 @@ public partial class TerrainRenderer
             float t = carry;
             for (; t < len; t += spacing)
             {
-                var p = a + dir * t;
-                sb.Draw(_pixelTexture, new Rectangle((int)(p.X - dot / 2), (int)(p.Y - dot / 2), (int)MathF.Ceiling(dot), (int)MathF.Ceiling(dot)), color);
+                MapGfx.Dot(sb, a + dir * t, dot * 0.5f, color);
             }
             carry = t - len;
         }
@@ -553,8 +559,8 @@ public partial class TerrainRenderer
                 // Wake: a white V behind the stern
                 var stern = pos - dir * size * 0.4f;
                 float wl = size * (1.1f + 0.1f * MathF.Sin(time * 3f + v.Id));
-                UITheme.DrawLine(sb, stern, stern - dir * wl + nrm * size * 0.45f, Color.White * 0.35f, 1.2f);
-                UITheme.DrawLine(sb, stern, stern - dir * wl - nrm * size * 0.45f, Color.White * 0.35f, 1.2f);
+                MapGfx.Line(sb, stern, stern - dir * wl + nrm * size * 0.45f, Color.White * 0.35f, 1.2f);
+                MapGfx.Line(sb, stern, stern - dir * wl - nrm * size * 0.45f, Color.White * 0.35f, 1.2f);
                 UITheme.DrawGlow(sb, stern - dir * size * 0.2f, size * 0.35f, new Color(220, 240, 255, 0) * 0.35f);
             }
             else if (air)
@@ -564,7 +570,7 @@ public partial class TerrainRenderer
                 for (int k = 0; k < 4; k++)
                 {
                     float a0 = size * (0.1f + k * 0.6f), a1 = size * (0.1f + (k + 1) * 0.6f);
-                    UITheme.DrawLine(sb, tail - dir * a0, tail - dir * a1, Color.White * (0.38f * (1f - k / 4f)), 1.6f - k * 0.25f);
+                    MapGfx.Line(sb, tail - dir * a0, tail - dir * a1, Color.White * (0.38f * (1f - k / 4f)), 1.6f - k * 0.25f);
                 }
                 UITheme.DrawGlow(sb, pos + new Vector2(size * 0.25f, size * 0.35f), size * 0.35f, Color.Black * 0.25f); // shadow
             }
@@ -582,8 +588,8 @@ public partial class TerrainRenderer
             var sprite = _icons.VehicleSprite(v.Kind);
             if (sprite != null)
             {
-                float scale = size / MapIcons.SmallIconSize;
-                var origin = new Vector2(MapIcons.SmallIconSize / 2f);
+                float scale = size / sprite.Value.Base.Width;
+                var origin = new Vector2(sprite.Value.Base.Width / 2f);
                 sb.Draw(sprite.Value.Base, pos, null, Color.White, heading, origin, scale, SpriteEffects.None, 0f);
                 sb.Draw(sprite.Value.Mask, pos, null, civColor, heading, origin, scale, SpriteEffects.None, 0f);
             }
@@ -652,8 +658,8 @@ public partial class TerrainRenderer
                     float rise = unit * (0.35f + 0.45f * flap);
                     var tipL = p + new Vector2(-unit * 1.4f, -rise);
                     var tipR = p + new Vector2(unit * 1.4f, -rise);
-                    UITheme.DrawLine(sb, p, tipL, col, Math.Max(1f, unit * 0.4f));
-                    UITheme.DrawLine(sb, p, tipR, col, Math.Max(1f, unit * 0.4f));
+                    MapGfx.Line(sb, p, tipL, col, Math.Max(1f, unit * 0.4f));
+                    MapGfx.Line(sb, p, tipR, col, Math.Max(1f, unit * 0.4f));
                 }
             }
             else if (a.Marine)
@@ -669,8 +675,8 @@ public partial class TerrainRenderer
                     var tail = p - dir * unit;
                     DrawEllipse(sb, p, disp.Heading, unit * 2.4f, Math.Max(1.4f, unit * 0.9f), col);
                     var tailDir = -dir * unit * 0.8f;
-                    UITheme.DrawLine(sb, tail, tail + tailDir + nrm * unit * (0.5f + wig), col, 1f);
-                    UITheme.DrawLine(sb, tail, tail + tailDir - nrm * unit * (0.5f - wig), col, 1f);
+                    MapGfx.Line(sb, tail, tail + tailDir + nrm * unit * (0.5f + wig), col, 1f);
+                    MapGfx.Line(sb, tail, tail + tailDir - nrm * unit * (0.5f - wig), col, 1f);
                 }
             }
             else
@@ -807,10 +813,9 @@ public partial class TerrainRenderer
                 if (dir.LengthSquared() > 0.01f)
                 {
                     dir.Normalize();
-                    var nn = new Vector2(-dir.Y, dir.X);
-                    float hs = 4f + thickness * 1.3f;
-                    UITheme.DrawLine(sb, tip, tip - dir * hs + nn * hs * 0.6f, col * alpha, Math.Max(1.5f, thickness * 0.7f));
-                    UITheme.DrawLine(sb, tip, tip - dir * hs - nn * hs * 0.6f, col * alpha, Math.Max(1.5f, thickness * 0.7f));
+                    float hs = 5f + thickness * 1.5f;
+                    MapGfx.ArrowHead(sb, tip + dir * 1.5f, dir, hs + 2f, Color.Black * (0.35f * alpha));
+                    MapGfx.ArrowHead(sb, tip, dir, hs, col * alpha);
                 }
 
                 for (float t = 0.2f; t < 0.9f; t += 0.2f)
@@ -859,9 +864,8 @@ public partial class TerrainRenderer
                     if (t > 1f) continue;
                     var p = Bezier(a, c, b, t);
                     float r = thickness * 0.9f + 1f;
-                    sb.Draw(_pixelTexture, new Rectangle((int)(p.X - r - 0.5f), (int)(p.Y - r - 0.5f), (int)(r * 2 + 1), (int)(r * 2 + 1)), Color.Black * (0.45f * alpha));
-                    sb.Draw(_pixelTexture, new Rectangle((int)(p.X - r / 2 - 0.5f), (int)(p.Y - r / 2 - 0.5f), (int)Math.Max(1, r + 1), (int)Math.Max(1, r + 1)),
-                        (net.Compromised && i % 2 == 0 ? new Color(255, 70, 70) : col) * alpha);
+                    MapGfx.Dot(sb, p, r + 0.8f, Color.Black * (0.45f * alpha));
+                    MapGfx.Dot(sb, p, r * 0.6f + 0.5f, (net.Compromised && i % 2 == 0 ? new Color(255, 70, 70) : col) * alpha);
                 }
 
                 // Agents travelling to the target
@@ -875,8 +879,8 @@ public partial class TerrainRenderer
                 {
                     var mid = Bezier(a, c, b, 0.5f);
                     UITheme.DrawGlow(sb, mid, 8f, Color.Black * 0.6f);
-                    UITheme.DrawLine(sb, mid + new Vector2(-4, -4), mid + new Vector2(4, 4), new Color(255, 80, 80), 2f);
-                    UITheme.DrawLine(sb, mid + new Vector2(-4, 4), mid + new Vector2(4, -4), new Color(255, 80, 80), 2f);
+                    MapGfx.Line(sb, mid + new Vector2(-4, -4), mid + new Vector2(4, 4), new Color(255, 80, 80), 2f);
+                    MapGfx.Line(sb, mid + new Vector2(-4, 4), mid + new Vector2(4, -4), new Color(255, 80, 80), 2f);
                 }
 
                 for (float t = 0.15f; t < 0.95f; t += 0.14f)
@@ -911,14 +915,15 @@ public partial class TerrainRenderer
     private void DrawSpecializationBadge(SpriteBatch sb, CivRenderData.CityInfo city, Rectangle iconRect, int size, float cellPx, float time)
     {
         if (_icons == null || city.Specialization == CitySpecialization.Capital) return;
-        float minCellPx = city.Type == 0 ? 8f : 4.5f;
-        if (cellPx < minCellPx) return;
+        // Badges are a close-up detail: on the overview they would bury the map
+        float minCellPx = city.Type == 0 ? 13f : 9.5f;
+        float fade = Math.Clamp((cellPx - minCellPx) / 1.5f, 0f, 1f);
+        if (fade <= 0.02f) return;
         var badge = _icons.SpecializationBadge(city.Specialization);
         if (badge == null) return;
-        _discTexture ??= BuildDisc(_graphicsDevice, 64);
 
-        int bs = Math.Max(10, (int)(size * 0.46f));
-        var center = new Vector2(iconRect.Right - bs * 0.2f, iconRect.Bottom - bs * 0.35f);
+        int bs = Math.Max(9, (int)(size * 0.34f));
+        var center = new Vector2(iconRect.Right - bs * 0.15f, iconRect.Bottom - bs * 0.55f);
 
         if (city.Specialization == CitySpecialization.Industrial)
         {
@@ -927,18 +932,17 @@ public partial class TerrainRenderer
             {
                 float t = (time * 0.35f + k / 3f + city.X * 0.07f) % 1f;
                 var p = center + new Vector2(bs * 0.12f + t * bs * 0.6f, -bs * 0.45f - t * bs * 1.3f);
-                UITheme.DrawGlow(sb, p, bs * (0.18f + t * 0.35f), new Color(150, 150, 156) * (0.55f * (1f - t)));
+                UITheme.DrawGlow(sb, p, bs * (0.18f + t * 0.35f), new Color(150, 150, 156) * (0.5f * (1f - t) * fade));
             }
         }
 
-        // Light medallion with a ring in the nation's colour
-        var disc = new Rectangle((int)(center.X - bs * 0.6f), (int)(center.Y - bs * 0.6f), (int)(bs * 1.2f), (int)(bs * 1.2f));
-        var ring = new Rectangle(disc.X - 2, disc.Y - 2, disc.Width + 4, disc.Height + 4);
-        sb.Draw(_discTexture, new Rectangle(ring.X - 1, ring.Y - 1, ring.Width + 2, ring.Height + 2), Color.Black * 0.6f);
-        sb.Draw(_discTexture, ring, GetCivColor(city.CivId));
-        sb.Draw(_discTexture, disc, new Color(238, 232, 214));
-        float bob = city.Specialization is CitySpecialization.Port or CitySpecialization.Fishing ? MathF.Sin(time * 2.2f + city.Y) * 0.8f : 0f;
-        int inner = (int)(bs * 0.92f);
-        sb.Draw(badge, new Rectangle((int)(center.X - inner / 2f), (int)(center.Y - inner / 2f + bob), inner, inner), Color.White);
+        // Parchment medallion with a ring in the nation's colour
+        float rad = bs * 0.62f;
+        MapGfx.Dot(sb, center + new Vector2(0.6f, 1.2f), rad + 2.6f, Color.Black * (0.45f * fade));
+        MapGfx.Dot(sb, center, rad + 1.8f, GetCivColor(city.CivId) * fade);
+        MapGfx.Dot(sb, center, rad, new Color(240, 234, 216) * fade);
+        float bob = city.Specialization is CitySpecialization.Port or CitySpecialization.Fishing ? MathF.Sin(time * 2.2f + city.Y) * 0.6f : 0f;
+        int inner = (int)(bs * 0.96f);
+        sb.Draw(badge, new Rectangle((int)(center.X - inner / 2f), (int)(center.Y - inner / 2f + bob), inner, inner), Color.White * fade);
     }
 }
