@@ -27,7 +27,8 @@ public enum EnergySource
     Nuclear,
     Wind,
     Solar,
-    Fusion
+    Fusion,
+    Geothermal // Heat of the crust near magma
 }
 
 public enum SpaceStage

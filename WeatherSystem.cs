@@ -93,18 +93,18 @@ public class WeatherSystem
     {
         _turbulenceTime += deltaTime * 0.5f; // Slow evolution of turbulence patterns
 
-        UpdateSeasons(deltaTime, currentYear);
-        UpdateAirPressure();
-        UpdatePressureCells(deltaTime); // Create rotating pressure systems
-        UpdateWindPatterns();
-        UpdateVorticity(deltaTime); // Calculate atmospheric rotation
-        UpdateBaroclinicInstability(deltaTime); // Mid-latitude eddy formation
-        UpdateEvaporation(deltaTime); // Continuous water evaporation
-        UpdateCloudCover();
+        { long t = Perf.Start(); UpdateSeasons(deltaTime, currentYear); Perf.Stop("wx:UpdateSeasons", t); }
+        { long t = Perf.Start(); UpdateAirPressure(); Perf.Stop("wx:UpdateAirPressure", t); }
+        { long t = Perf.Start(); UpdatePressureCells(deltaTime); Perf.Stop("wx:UpdatePressureCells", t); } // Create rotating pressure systems
+        { long t = Perf.Start(); UpdateWindPatterns(); Perf.Stop("wx:UpdateWindPatterns", t); }
+        { long t = Perf.Start(); UpdateVorticity(deltaTime); Perf.Stop("wx:UpdateVorticity", t); } // Calculate atmospheric rotation
+        { long t = Perf.Start(); UpdateBaroclinicInstability(deltaTime); Perf.Stop("wx:UpdateBaroclinicInstability", t); } // Mid-latitude eddy formation
+        { long t = Perf.Start(); UpdateEvaporation(deltaTime); Perf.Stop("wx:UpdateEvaporation", t); } // Continuous water evaporation
+        { long t = Perf.Start(); UpdateCloudCover(); Perf.Stop("wx:UpdateCloudCover", t); }
 
         float rainfallMultiplier = _map.PlanetaryControls?.RainfallMultiplier ?? 1f;
-        UpdateStorms(deltaTime, currentYear, rainfallMultiplier);
-        UpdatePrecipitation(deltaTime, rainfallMultiplier);
+        { long t = Perf.Start(); UpdateStorms(deltaTime, currentYear, rainfallMultiplier); Perf.Stop("wx:UpdateStorms", t); }
+        { long t = Perf.Start(); UpdatePrecipitation(deltaTime, rainfallMultiplier); Perf.Stop("wx:UpdatePrecipitation", t); }
     }
 
     private void UpdateSeasons(float deltaTime, int currentYear)
@@ -209,7 +209,7 @@ public class WeatherSystem
         // Global wind patterns with Coriolis effect
         // ENHANCED: Now with turbulence and pressure-driven flow to break up banding
         float windMultiplier = _map.PlanetaryControls?.WindStrengthMultiplier ?? 1f;
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -329,7 +329,7 @@ public class WeatherSystem
                 met.WindSpeedX = windX;
                 met.WindSpeedY = windY;
             }
-        }
+        });
     }
 
     private void UpdateAirPressure()
@@ -664,8 +664,15 @@ public class WeatherSystem
             storm.VelocityY = steeringWindY + steeringWindX * coriolisDeflection;
 
             // Move storm with realistic speed (tropical cyclones move ~10-30 km/h)
-            storm.CenterX += (int)(storm.VelocityX * deltaTime * 8);
-            storm.CenterY += (int)(storm.VelocityY * deltaTime * 8);
+            // Storms drift a fraction of a cell at a time (they used to leap whole cells per
+            // step and cross an ocean in seconds); the remainder is carried to the next step
+            storm.FractionX += storm.VelocityX * deltaTime * 0.6f;
+            storm.FractionY += storm.VelocityY * deltaTime * 0.6f;
+            int stepX = (int)storm.FractionX, stepY = (int)storm.FractionY;
+            storm.FractionX -= stepX;
+            storm.FractionY -= stepY;
+            storm.CenterX += stepX;
+            storm.CenterY += stepY;
 
             // Wrap around horizontally
             storm.CenterX = ((storm.CenterX % _map.Width) + _map.Width) % _map.Width;
@@ -992,7 +999,7 @@ public class WeatherSystem
                 float rainIntensity = dist < radius * 0.3f ? effectStrength * 1.5f : effectStrength;
                 met.Precipitation = Math.Max(met.Precipitation, rainIntensity);
 
-                float rainfallContribution = rainIntensity * 0.08f * deltaTime * rainfallMultiplier;
+                float rainfallContribution = rainIntensity * 0.08f * deltaTime * rainfallMultiplier * StormExposure;
                 if (rainfallContribution > 0)
                 {
                     cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallContribution, 0f, 1f);
@@ -1042,11 +1049,11 @@ public class WeatherSystem
                 bool isMajorHurricane = storm.Type >= StormType.HurricaneCategory3;
                 if (isMajorHurricane && effectStrength > 0.5f)
                 {
-                    cell.Biomass *= 0.93f; // Severe storm damage
+                    cell.Biomass *= MathF.Pow(0.93f, StormExposure); // Severe storm damage
                 }
                 else if ((storm.Type >= StormType.TropicalStorm) && effectStrength > 0.6f)
                 {
-                    cell.Biomass *= 0.97f; // Moderate storm damage
+                    cell.Biomass *= MathF.Pow(0.97f, StormExposure); // Moderate storm damage
                 }
 
                 // Storm surge damage on coastlines (hurricanes only)
@@ -1057,13 +1064,13 @@ public class WeatherSystem
 
                     if (nearWater)
                     {
-                        cell.Biomass *= 0.85f; // Coastal flooding damage
+                        cell.Biomass *= MathF.Pow(0.85f, StormExposure); // Coastal flooding damage
                     }
                 }
 
                 // Tornadoes can spawn in strong thunderstorms
                 if (storm.Type == StormType.Thunderstorm && effectStrength > 0.6f &&
-                    _random.NextDouble() < 0.0005)
+                    _random.NextDouble() < 0.0005 * StormExposure)
                 {
                     cell.Biomass *= 0.4f; // Severe localized tornado damage
                 }
@@ -1090,7 +1097,7 @@ public class WeatherSystem
 
     private void ApplyPrecipitationStep(float deltaTime, float rainfallMultiplier)
     {
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -1141,7 +1148,7 @@ public class WeatherSystem
                     float orographicLift = Math.Max(0f, cell.Elevation - 0.25f);
                     float advectedMoisture = Math.Max(0f, (avgNeighborHumidity * 0.6f + cell.Humidity * 0.4f + coastalFeed * 0.8f) - 0.35f);
                     float inlandRain = advectedMoisture * (0.03f + orographicLift * 0.07f) * rainfallMultiplier * deltaTime;
-                    inlandRain *= 1f + landDryness * 1.8f;
+                    // (no bonus for dry ground: air that reaches a desert has little left to give)
                     if (inlandRain > 0)
                     {
                         met.Precipitation += inlandRain;
@@ -1184,10 +1191,12 @@ public class WeatherSystem
                 }
 
                 // Convert active precipitation into the long-term rainfall metric
-                float rainfallGain = met.Precipitation * 0.08f * deltaTime * rainfallMultiplier; // Was 0.025f
-                if (cell.IsLand && cell.Rainfall < 0.3f)
+                // Rainfall is the long-term climate figure that decides what grows where. One wet
+                // season only nudges it: otherwise every desert turned green once a year.
+                float rainfallGain = met.Precipitation * 0.02f * deltaTime * rainfallMultiplier;
+                if (cell.IsLand && cell.Rainfall < 0.25f)
                 {
-                    rainfallGain *= 1.5f; // Extra boost for dry land
+                    rainfallGain *= 0.1f; // A passing shower does not turn a desert green
                 }
                 if (rainfallGain > 0)
                 {
@@ -1203,7 +1212,7 @@ public class WeatherSystem
                     cell.Elevation += met.Precipitation * 0.0001f;
                 }
             }
-        }
+        });
     }
 
     private void UpdateEvaporation(float deltaTime)
@@ -1284,7 +1293,7 @@ public class WeatherSystem
     {
         // CONTINUOUS CLOUD FORMATION from humidity (from evaporation!)
         // NOW WITH CYCLONIC SPIRAL PATTERNS!
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -1392,10 +1401,32 @@ public class WeatherSystem
                 // Reset storm flag
                 met.InStorm = false;
             }
-        }
+        });
     }
 
+    // Storms now cross a cell about thirteen times more slowly than they used to, so what
+    // they do to a cell per step is scaled down to leave the total per storm unchanged.
+    private const float StormExposure = 0.6f / 8f;
+
     public List<Storm> GetActiveStorms() => _storms;
+
+    /// <summary>Starts a storm at a place (manual disasters, divine intervention).</summary>
+    public void SpawnStorm(int x, int y, StormType type, float intensity)
+    {
+        if (x < 0 || x >= _map.Width || y < 0 || y >= _map.Height) return;
+        var cell = _map.Cells[x, y];
+        float latitude = (y - _map.Height / 2f) / (_map.Height / 2f);
+        bool tropical = type >= StormType.TropicalDepression && type <= StormType.HurricaneCategory5;
+        _storms.Add(new Storm
+        {
+            CenterX = x, CenterY = y, Intensity = Math.Clamp(intensity, 0.1f, 1f), Type = type,
+            VelocityX = latitude > 0 ? 0.5f : -0.5f, VelocityY = latitude > 0 ? 0.2f : -0.2f,
+            CentralPressure = tropical ? 1000f - 80f * intensity : 1005f,
+            MaxWindSpeed = tropical ? 33f + 40f * intensity : 20f,
+            SeaSurfaceTemp = cell.Temperature, OverLand = cell.IsLand,
+            RotationDirection = latitude > 0 ? 1f : -1f
+        });
+    }
 
     public void LoadStorms(List<StormData> stormData)
     {
@@ -1429,4 +1460,6 @@ public class Storm
     public float SeaSurfaceTemp { get; set; } = 0f;  // Track temp for growth/decay
     public bool OverLand { get; set; } = false;  // Weakens over land
     public float RotationDirection { get; set; } = 0f;  // 1 for counterclockwise (NH), -1 for clockwise (SH)
+    public float FractionX { get; set; }  // Sub-cell position carried between steps
+    public float FractionY { get; set; }
 }

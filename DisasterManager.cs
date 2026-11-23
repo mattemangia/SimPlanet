@@ -92,6 +92,100 @@ public class DisasterManager
         CheckForRockfalls(deltaTime, currentYear);
     }
 
+    /// <summary>Set by the game so storms can be started by hand.</summary>
+    public WeatherSystem? Weather { get; set; }
+
+    /// <summary>
+    /// Makes the volcano at (or nearest to) a cell erupt; with none within reach, magma breaks
+    /// through and a new volcano is born there.
+    /// </summary>
+    public void TriggerEruption(int x, int y, int year)
+    {
+        (int x, int y) vent = (x, y);
+        float best = float.MaxValue;
+        bool found = false;
+        for (int dy = -4; dy <= 4; dy++)
+        {
+            int ny = y + dy;
+            if (ny < 0 || ny >= _map.Height) continue;
+            for (int dx = -4; dx <= 4; dx++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                if (!_map.Cells[nx, ny].GetGeology().IsVolcano) continue;
+                float d = dx * dx + dy * dy;
+                if (d < best) { best = d; vent = (nx, ny); found = true; }
+            }
+        }
+        var geo = _map.Cells[vent.x, vent.y].GetGeology();
+        if (!found)
+        {
+            geo.IsVolcano = true;
+            geo.VolcanicActivity = 0.6f;
+            geo.LastEruptionYear = year;
+        }
+        _geoSimulator.TriggerEruption(vent.x, vent.y, year);
+        RecentDisasters.Add(new DisasterEvent { Type = DisasterType.VolcanicEruption, X = vent.x, Y = vent.y, Year = year, Magnitude = geo.EruptionIntensity });
+    }
+
+    /// <summary>A river or coastal flood: low ground around the point goes under water for a while.</summary>
+    public void TriggerFlood(int x, int y, int year)
+    {
+        const int radius = 5;
+        float level = _map.Cells[x, y].Elevation;
+        for (int dy = -radius; dy <= radius; dy++)
+        {
+            int ny = y + dy;
+            if (ny < 0 || ny >= _map.Height) continue;
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                int nx = (x + dx + _map.Width) % _map.Width;
+                float distance = MathF.Sqrt(dx * dx + dy * dy);
+                if (distance > radius) continue;
+                var target = _map.Cells[nx, ny];
+                if (!target.IsLand || target.Elevation > level + 0.08f) continue; // Water finds the low ground
+                var geo = target.GetGeology();
+                geo.FloodLevel = MathF.Max(geo.FloodLevel, 0.7f * (1f - distance / (radius + 1f)));
+                geo.SoilMoisture = 1f;
+                target.Biomass *= 0.9f;
+            }
+        }
+        RecentDisasters.Add(new DisasterEvent { Type = DisasterType.Flood, X = x, Y = y, Year = year, Magnitude = 5 });
+    }
+
+    /// <summary>A tsunami from the nearest sea to the chosen point.</summary>
+    public void TriggerTsunami(int x, int y, int year)
+    {
+        (int x, int y) source = (x, y);
+        if (_map.Cells[x, y].IsLand)
+        {
+            float best = float.MaxValue;
+            foreach (var (nx, ny, cell) in _map.GetNeighbors(x, y, 8))
+            {
+                if (!cell.IsWater) continue;
+                float d = MathF.Abs(nx - x) + MathF.Abs(ny - y);
+                if (d < best) { best = d; source = (nx, ny); }
+            }
+        }
+        TsunamiSystem.InitiateTsunami(_map, source.x, source.y, 8.6f, year);
+        RecentDisasters.Add(new DisasterEvent { Type = DisasterType.Tsunami, X = source.x, Y = source.y, Year = year, Magnitude = 8.6f });
+    }
+
+    /// <summary>A tropical cyclone (or, over cold land, a severe storm) at the chosen point.</summary>
+    public void TriggerHurricane(int x, int y, int size, int year)
+    {
+        if (Weather == null) return;
+        var type = size switch
+        {
+            <= 1 => StormType.TropicalStorm,
+            2 => StormType.HurricaneCategory1,
+            3 => StormType.HurricaneCategory3,
+            4 => StormType.HurricaneCategory4,
+            _ => StormType.HurricaneCategory5
+        };
+        Weather.SpawnStorm(x, y, type, 0.4f + 0.12f * Math.Clamp(size, 1, 5));
+        RecentDisasters.Add(new DisasterEvent { Type = DisasterType.Hurricane, X = x, Y = y, Year = year, Magnitude = size });
+    }
+
     public void TriggerAsteroid(int x, int y, int size, int year)
     {
         var cell = _map.Cells[x, y];
@@ -106,6 +200,8 @@ public class DisasterManager
             Year = year,
             Magnitude = size
         });
+
+        GeoEvents.Publish(new GeoEvent { Kind = GeoEventKind.Impact, X = x, Y = y, Magnitude = size, Year = year, Radius = size * 10 });
 
         // MASSIVE crater formation - asteroids are devastating
         int craterRadius = size * 5;          // Much larger crater
@@ -253,7 +349,7 @@ public class DisasterManager
 
         // Phase 4: GLOBAL EFFECTS - Impact winter
         float globalEffect = size * size * 0.02f;  // Exponential with size
-        _map.SolarEnergy -= globalEffect;          // Dust blocks sunlight
+        _geoSimulator.AddStratosphericDust(globalEffect);          // Dust blocks sunlight
         _map.GlobalCO2 += size * 2.0f;             // Massive CO2 release
 
         // Trigger secondary effects
@@ -272,7 +368,7 @@ public class DisasterManager
         // EXTINCTION-LEVEL EVENT for size 5
         if (size >= 5)
         {
-            _map.SolarEnergy -= 0.3f;  // Severe impact winter
+            _geoSimulator.AddStratosphericDust(0.3f);  // Severe impact winter
             _map.GlobalCO2 += 20.0f;    // Massive greenhouse gas release
 
             // Global temperature drop followed by warming
@@ -423,6 +519,9 @@ public class DisasterManager
             Magnitude = magnitude
         });
 
+        // The fault itself breaks and deforms the ground coherently along the rupture
+        EarthquakeSystem.Rupture(_map, x, y, year, magnitude);
+
         int radius = (int)(magnitude * 5);
 
         for (int dx = -radius; dx <= radius; dx++)
@@ -438,10 +537,7 @@ public class DisasterManager
 
                 var target = _map.Cells[nx, ny];
                 var targetGeo = target.GetGeology();
-                float effect = (1.0f - distance / radius) * magnitude;
-
-                // Ground deformation
-                target.Elevation += (float)(_random.NextDouble() - 0.5) * 0.05f * effect;
+                float effect = (1.0f - distance / radius) * magnitude / 9f;
 
                 // Building damage (affects civilizations)
                 target.Biomass *= (1.0f - 0.3f * effect);
@@ -484,7 +580,9 @@ public class DisasterManager
         if (stressedCells.Any())
         {
             var chosen = stressedCells[_random.Next(stressedCells.Count)];
-            float magnitude = 4.0f + (float)_random.NextDouble() * 5.0f; // 4.0-9.0
+            // Mostly moderate shocks; great earthquakes are rare
+            float roll = (float)_random.NextDouble();
+            float magnitude = 4.5f + 4.0f * roll * roll * roll;
             TriggerEarthquake(chosen.x, chosen.y, magnitude, year);
 
             // Release tectonic stress
@@ -678,7 +776,7 @@ public class DisasterManager
         if (isWeapon)
         {
             // Nuclear winter effect
-            _map.SolarEnergy -= 0.05f;
+            _geoSimulator.AddStratosphericDust(0.05f);
             _map.GlobalCO2 += 1.0f;  // Fires release CO2
 
             // EMP (Electromagnetic Pulse) effect - disables all electronics in large radius
@@ -1070,5 +1168,7 @@ public enum DisasterType
     HeavyRain,
     Flood,
     Rockfall,
-    EMP  // Electromagnetic Pulse from nuclear weapons
+    EMP,  // Electromagnetic Pulse from nuclear weapons
+    Tsunami,
+    Hurricane
 }

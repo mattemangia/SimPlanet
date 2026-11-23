@@ -2,7 +2,129 @@
 
 All notable changes to this project will be documented in this file.
 
-## Latest Changes
+## Version 2.0.0
+
+### Subsurface 3D
+
+- New view (Tools > Subsurface 3D, or `Z`): click a region to see an isometric block of crust.
+  Sections show sediment beds, crust, Moho, mantle, subducting slabs, magma, faults, salt,
+  oil and gas fields, wells and geothermal doublets. Depth is exaggerated near the surface so
+  beds stay visible next to the Moho.
+- Animated from the simulation: plate motion, uplift and subsidence, fault ruptures and slip,
+  P and S waves displacing the surface, eruptions, asteroid impacts, sedimentation.
+- Panels: seismograms of the nearest station, the reflection seismic section of the field in
+  view, and the wireline log (gamma ray, resistivity, sonic) of a clicked well.
+
+### Geology
+
+- Fixed: plate boundary type depended on the game speed, and convergent and divergent were
+  swapped; at normal speed every boundary was treated as a transform fault.
+- Fixed: trenches and mountains grew without limit; land area crept up over time.
+- Fixed: thousands of earthquakes per year, at a rate tied to the frame rate; faults appearing
+  and vanishing at random. Earthquakes are now ruptures along stressed faults.
+- Fixed: new arc volcanoes died without erupting; large eruptions dimmed the sun permanently.
+- Fixed: coal, oil and gas were never generated.
+- Fixed: "ground deformation" from disaster earthquakes was random noise.
+- Mountain belts with an isostatic limit, island arcs, ridges, rifts, sea-floor subsidence,
+  stream-power erosion with transport and deposition, coseismic uplift and subsidence.
+
+### Oil, gas and geothermal
+
+- Reservoirs with trap types; reflection seismic surveys (land crews and vessels); wells,
+  dry holes and offshore platforms; fields deplete.
+- Geothermal plants on high heat flow near volcanoes, plumes and rifts; a new energy source.
+- One stratigraphy model feeds the 3D sections, the synthetic seismics and the well logs.
+
+### Seismology
+
+- Seismograph networks built by scientific nations, recording P and S arrivals from a wave
+  field propagated through a crust whose velocity follows the geology.
+- Epicentre location from S-P times and travel-time tomography (map overlay and 3D sections).
+- SIMD and optional OpenCL compute backend.
+
+### Graphics
+
+- Terrain rendered at screen resolution for the visible area, with procedural relief and sea
+  floor shading; zoom up to 8x.
+- Nation borders with glow, sharper settlements, armies, vehicles and routes.
+
+### Stratigraphy, tile panel and 3D additions
+
+- The tile panel is redrawn: sections with meters, and a stratigraphic log to scale (bed
+  thickness, grain-size profile, rock patterns, sea, pay zones, basement, erosion surfaces).
+- Sediment columns now record a history of environments (sea level rising and falling over a
+  drifting land), so beds differ from place to place and can be followed between cells.
+- Erosion strips beds from the top and leaves an erosion surface; buried, it shows as an
+  unconformity in the log and in the 3D sections. Erosion and deposition totals are tracked.
+- Subsurface 3D: listric normal faults with a detachment in extension, thrusts and
+  megathrusts following the slab in compression, accretionary wedges at trenches, squeeze
+  and stretch arrows across plate boundaries.
+- Subsurface 3D: models of the cities in the block (by size and building style) that sway
+  as seismic waves pass; eruptions lay down an ash blanket and lava flows that cool.
+- Early oil nations can drill shallow offshore fields.
+
+### Saved games, basins, climate and speed
+
+- Saved games keep the layers under every cell, faults, oil and gas fields with what is left
+  in them, wells, seismic surveys, geothermal plants and seismographs.
+- Foredeep basins: a mountain belt bends the crust at its foot into a trough that sinks and
+  fills with flysch and molasse. Most gas fields now lie in these basins.
+- Climate: the stabilizer removes excess greenhouse gases before it dims the sun, gives the
+  sunlight back afterwards and no longer darkens the planet for a local hot spot. Ecosystems
+  led by animals still photosynthesize, so the air does not lose its oxygen as life evolves.
+- Speed: slow simulators run on staggered beats (about half the tick time, same results); the
+  sharp map view is built off the render thread and at half resolution while the camera moves.
+- Epicentres are located by fitting P and S arrival times with free velocities.
+- Subsurface 3D: Quake, Erupt and Impact buttons cause the event in the block being viewed.
+- `SIMPLANET_PERF=1` prints timings; headless `--save-test` checks a save/load round trip.
+- Fixed: new civilizations could arise on the open sea and drown at once; intelligence and
+  first villages now need land. Erosion no longer cuts land below sea level, land foredeeps
+  stay above it, and the stabilizer does not flood land a nation holds.
+- All the in-game panels (planet controls, disasters, diseases, divine powers, tools, profile
+  viewer, about, civilization control) share one set of themed controls.
+
+### Weather, deserts, magma and manual disasters
+
+- Disasters panel: Eruption, Flood, Tsunami and Hurricane can now be struck by hand, next to
+  Asteroid, Earthquake, Nuclear, Acid rain, Tornado and Heavy rain. The 3D block has Quake,
+  Erupt, Storm and Impact buttons for the region in view.
+- Deserts: rainfall follows the general circulation (wet equator, dry subtropics, wet storm
+  tracks, dry poles), the prevailing wind and rain shadows. The stabilizer no longer waters
+  every dry cell. About a sixth of the land is desert instead of almost none.
+- Subsurface 3D sky: clouds from the simulated cloud cover with shadows on the ground, rain,
+  snow, thunderstorm towers with lightning, and tropical cyclones with eye, eyewall and
+  spiral bands.
+- Subsurface 3D magma: plume tail and a head ponded under the lithosphere, melting in the
+  mantle wedge above a slab or by decompression under a rift, diapirs, sills at the base of
+  the crust, a lens of crystal mush with a melt-rich cap, feeder dikes.
+- Eruption columns by type: sustained columns that rise to an umbrella cloud and drift
+  downwind, pyroclastic currents, lava fountains, tephra fall and an ash blanket.
+- Storms drift at a believable pace; dust from impacts settles instead of dimming the sun
+  for good.
+- Speed: the heaviest weather steps run in parallel; frames never wait for the simulation.
+
+### Volcano types, steady sun, lasting deserts
+
+- Volcanoes take their type from the tectonic setting: stratovolcanoes (steep cones, explosive
+  Vulcanian and Plinian eruptions) above subduction zones, shield volcanoes (broad domes,
+  Hawaiian lava fountains and long flows) over hot spots, fissure volcanoes along rifts and
+  ridges. Each has its own shape in Subsurface 3D, its own lava reach, and is named in the
+  tile panel. Plinian eruptions could never happen before; now they can.
+- The sun stays at its normal output: the stabilizer clears nitrous oxide, methane and CO2 in
+  proportion to their excess and touches the sun only as a last resort, then gives it back.
+- Deserts last: the emergency life protection used to set the rainfall of every dry cell to
+  0.3, which erased all deserts for decades at a time. One wet season no longer greens them
+  either. Roughly a fifth to a quarter of the land is desert, steadily.
+- Storm damage and rain per cell are scaled to the slower storms, so a storm does about the
+  same total harm as before.
+
+### Other
+
+- Targets .NET 10.
+- Sandbox start options for the game: `--civs N --start-tech N`.
+- Headless checks: `--geo-report`, `--geo-only`, `--seismo-test`.
+
+## Earlier Changes
 
 ### Living Civilizations: villages, economy, armies and history
 

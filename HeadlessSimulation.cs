@@ -73,6 +73,12 @@ public class HeadlessSimulation
         Console.WriteLine($"Seed: {_mapOptions.Seed}");
         Console.Out.Flush();
 
+        if (_seismoTest)
+        {
+            RunSeismologyTest();
+            return;
+        }
+
         // Define test phases
         var phases = _years > 0
             ? new[] { new { DurationYears = _years, Speed = 64.0f } }
@@ -90,6 +96,8 @@ public class HeadlessSimulation
             RunPhase(phase.DurationYears, phase.Speed);
         }
 
+        if (_saveTest) RunSaveTest();
+
         Console.WriteLine("\nSimulation Complete.");
         Console.Out.Flush();
     }
@@ -103,11 +111,19 @@ public class HeadlessSimulation
     private bool _civOnly = false; // --civ-only: skip planetary physics to quickly test societies
     private int _doomsdayYear = -1; // --doomsday N: global nuclear war in year N
     private int _peaceYear = -1;    // --peace N: divine world peace in year N
-    private int _startTech = 0;     // --start-tech N: seeded civilizations start at this tech level
+    private int _startTech = 0;
+    private bool _geoOnly = false;    // --geo-only: only tectonics, volcanism, erosion and earthquakes (fast)
+    private bool _seismoTest = false; // --seismo-test: check wave propagation, picks, location and tomography
+    private bool _saveTest = false;   // --save-test: after the run, save, reload into a fresh world and compare
+    private bool _geoReport = false; // --geo-report: print tectonic / seismic / volcanic statistics     // --start-tech N: seeded civilizations start at this tech level
 
     private void ParseArguments(string[] args)
     {
         _civOnly = args.Contains("--civ-only");
+        _geoReport = args.Contains("--geo-report");
+        _geoOnly = args.Contains("--geo-only");
+        _seismoTest = args.Contains("--seismo-test");
+        _saveTest = args.Contains("--save-test");
         for (int i = 0; i < args.Length - 1; i++)
         {
             switch (args[i])
@@ -278,10 +294,18 @@ public class HeadlessSimulation
                 _civilizationManager.TriggerGlobalNuclearWar(_year);
             }
 
-            if (_civOnly)
+            if (_geoOnly)
+            {
+                _geologicalSimulator.Update(simDeltaTime, _year);
+                EarthquakeSystem.Update(_map, simDeltaTime, _year, out _, out _, out _);
+            }
+            else if (_civOnly)
             {
                 _civilizationManager.Update(simDeltaTime, _year);
                 _diseaseManager.Update(simDeltaTime, _year);
+                _updateManager.Petroleum.Update(simDeltaTime, _year, _civilizationManager.Civilizations);
+                _updateManager.Geothermal.Update(simDeltaTime, _year, _civilizationManager.Civilizations);
+                if (_year != _lastLifeYear) _updateManager.Seismology.UpdateNetworks(_civilizationManager.Civilizations, _year);
                 if (_year != _lastLifeYear)
                 {
                     // Vegetation regrows once per year so hunting grounds recover
@@ -291,7 +315,10 @@ public class HeadlessSimulation
             }
             else
             {
+                long tick = Perf.Start();
                 _updateManager.Update(simDeltaTime, _year, _timeSpeed);
+                Perf.Stop("sim-tick", tick);
+                Perf.Report();
             }
 
             // Check for NaNs
@@ -306,7 +333,7 @@ public class HeadlessSimulation
             if (_year > lastLogYear && (_year - lastLogYear) >= logInterval)
             {
                 UpdateGlobalStats(); // Refresh stats in map
-                LogStatus();
+                if (_geoReport) LogGeology(); else LogStatus();
                 lastLogYear = _year;
 
                 ValidateParameters();
@@ -429,6 +456,26 @@ public class HeadlessSimulation
                 if (c.IsLand) { landTemp += c.Temperature; landCells++; }
             }
         }
+        int desert = 0, dry = 0, wet = 0, landTotal = 0, forest = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var c = _map.Cells[x, y];
+                if (!c.IsLand || c.IsIce) continue;
+                landTotal++;
+                if (c.Rainfall < 0.2f) desert++;
+                else if (c.Rainfall < 0.4f) dry++;
+                else wet++;
+                if (c.IsForest) forest++;
+            }
+        }
+        var volcanoTypes = new int[3];
+        for (int x = 0; x < _map.Width; x++)
+            for (int y = 0; y < _map.Height; y++)
+                if (_map.Cells[x, y].Geology.IsVolcano) volcanoTypes[(int)_map.Cells[x, y].Geology.VolcanoType]++;
+        Console.WriteLine($"   Volcanoes: stratovolcano {volcanoTypes[0]} | shield {volcanoTypes[1]} | fissure {volcanoTypes[2]}");
+        Console.WriteLine($"   Land cover: desert {desert * 100f / Math.Max(1, landTotal):F0}% | dry {dry * 100f / Math.Max(1, landTotal):F0}% | wet {wet * 100f / Math.Max(1, landTotal):F0}% | forest {forest * 100f / Math.Max(1, landTotal):F0}% | rainfall multiplier {_map.PlanetaryControls.RainfallMultiplier:F2}");
         Console.WriteLine($"   Climate: CH4 {ch4 / cells:F3} N2O {n2o / cells:F3} greenhouse {gh / cells:F3} solar {_map.SolarEnergy:F3} land temp {landTemp / Math.Max(1, landCells):F1}C");
         var allCities = _civilizationManager.Civilizations.SelectMany(c => c.Cities).ToList();
         var routes = _civilizationManager.Civilizations.SelectMany(c => c.TransportRoutes).ToList();
@@ -438,10 +485,181 @@ public class HeadlessSimulation
         Console.WriteLine($"   Migration (last years): {string.Join(" ", _civilizationManager.GetMigrations().GroupBy(m => m.Kind).Select(g => $"{g.Key}:{g.Sum(m => m.People):N0}"))}");
         var spies = _civilizationManager.Civilizations.SelectMany(c => c.SpyNetworks).ToList();
         Console.WriteLine($"   Spy networks: {spies.Count} (agents {spies.Sum(n => n.Agents)}, compromised {spies.Count(n => n.Compromised)}, missions {string.Join(",", spies.GroupBy(n => n.Mission).Select(g => $"{g.Key}:{g.Count()}"))}) | animal groups: {string.Join(" ", _civilizationManager.GetAnimalGroups().GroupBy(g => g.Name).Select(g => $"{g.Key}:{g.Count()}"))}");
+        var oil = _updateManager.Petroleum;
+        Console.WriteLine($"   Petroleum: reservoirs {oil.Reservoirs.Count} (onshore {oil.Reservoirs.Count(r => !r.Offshore)}, gas fields in foredeeps {oil.Reservoirs.Count(r => r.HasGas && r.InForedeep)}/{oil.Reservoirs.Count(r => r.HasGas)} holding {oil.Reservoirs.Where(r => r.HasGas && r.InForedeep).Sum(r => r.InitialReserves) / Math.Max(0.001f, oil.Reservoirs.Where(r => r.HasGas).Sum(r => r.InitialReserves)):P0} of the gas, surveyed {oil.Reservoirs.Count(r => r.Surveyed)}, discovered {oil.Reservoirs.Count(r => r.Discovered)}) | surveys {oil.Surveys.Count} (active {oil.Surveys.Count(s => !s.Completed)}) | wells: {string.Join(" ", oil.Wells.GroupBy(w => (w.Offshore ? "platform-" : "well-") + w.Status).Select(g => $"{g.Key}:{g.Count()}"))} | seismographs {_updateManager.Seismology.Stations.Count} | geothermal plants {_updateManager.Geothermal.Plants.Count} (producing {_updateManager.Geothermal.Plants.Count(p => p.Producing)})");
         Console.WriteLine($"   People in space: {_civilizationManager.PeopleInSpace} | Nuclear winter: {_civilizationManager.NuclearWinter:F2} | Active diseases: {_diseaseManager.Diseases.Count(d => d.IsActive && !d.CureDeployed)}");
         Console.WriteLine($"Year: {_year} | Speed: {_timeSpeed}x | " +
                           $"Temp: {_map.GlobalTemperature:F1}C | O2: {_map.GlobalOxygen:F1}% | CO2: {_map.GlobalCO2:F2}% | " +
                           $"Life: {lifeCells} ({lifeCells/(float)totalCells*100:F1}%) | " +
                           $"Civs: {civCount} (Pop: {totalPop}) | Stabilizer: {_planetStabilizer.LastAction}");
+    }
+
+    private int _lastQuakeTotal;
+    private int _lastEruptionTotal;
+    private int _lastGeoYear;
+
+    /// <summary>Geological health report: boundaries, relief, volcanoes, faults and event rates.</summary>
+    private void LogGeology()
+    {
+        int conv = 0, div = 0, trans = 0, volcanoes = 0, faults = 0, land = 0, high = 0, cells = 0;
+        float minE = float.MaxValue, maxE = float.MinValue, sumStress = 0, maxSed = 0, sumSed = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var c = _map.Cells[x, y];
+                var g = c.Geology;
+                cells++;
+                if (g.BoundaryType == PlateBoundaryType.Convergent) conv++;
+                else if (g.BoundaryType == PlateBoundaryType.Divergent) div++;
+                else if (g.BoundaryType == PlateBoundaryType.Transform) trans++;
+                if (g.IsVolcano) volcanoes++;
+                if (g.IsFault) faults++;
+                if (c.IsLand) land++;
+                if (c.Elevation > 0.7f) high++;
+                minE = Math.Min(minE, c.Elevation);
+                maxE = Math.Max(maxE, c.Elevation);
+                sumStress += g.SeismicStress;
+                sumSed += g.SedimentLayer;
+                maxSed = Math.Max(maxSed, g.SedimentLayer);
+            }
+        }
+        int years = Math.Max(1, _year - _lastGeoYear);
+        int quakes = EarthquakeSystem.TotalEarthquakes - _lastQuakeTotal;
+        int eruptions = _geologicalSimulator.TotalEruptions - _lastEruptionTotal;
+        _lastQuakeTotal = EarthquakeSystem.TotalEarthquakes;
+        _lastEruptionTotal = _geologicalSimulator.TotalEruptions;
+        _lastGeoYear = _year;
+        Console.WriteLine($"GEO y{_year,5} | land {land * 100f / cells,5:F1}% elev [{minE:F2},{maxE:F2}] mountains {high * 100f / cells:F2}% | " +
+                          $"boundary conv {conv} div {div} trans {trans} | volcanoes {volcanoes} faults {faults} | " +
+                          $"quakes/yr {quakes / (float)years:F1} eruptions/yr {eruptions / (float)years:F2} | stress avg {sumStress / cells:F2} | sediment avg {sumSed / cells:F2} max {maxSed:F1}");
+    }
+
+    /// <summary>
+    /// Exercises the seismology chain end to end and compares the compute backends.
+    /// </summary>
+    private void RunSeismologyTest()
+    {
+        ComputeBackend.Initialize();
+        Console.WriteLine($"Compute backend: {ComputeBackend.Preferred} ({ComputeBackend.Description}); OpenCL available: {ComputeBackend.OpenClAvailable}");
+
+        // Let the geology settle so there are boundaries, basins and volcanoes to image
+        for (int i = 0; i < 600; i++) _geologicalSimulator.Update(1f, i / 10);
+
+        var seismo = new SeismologyManager(_map);
+        var rnd = new Random(_seed);
+        while (seismo.Stations.Count < 40)
+        {
+            int x = rnd.Next(_map.Width), y = rnd.Next(_map.Height / 8, _map.Height * 7 / 8);
+            if (_map.Cells[x, y].IsLand) seismo.AddStation(x, y, 0, 0);
+        }
+
+        // Backend agreement and speed on the real grid
+        int n = _map.Width * _map.Height;
+        var courant = new float[n];
+        for (int i = 0; i < n; i++) courant[i] = seismo.VelocityP[i] / SeismologyManager.MaxSpeedKmS * 0.6f;
+        var kinds = new List<ComputeKind> { ComputeKind.Scalar, ComputeKind.Simd };
+        if (ComputeBackend.OpenClAvailable) kinds.Add(ComputeKind.OpenCL);
+        float[]? reference = null;
+        foreach (var kind in kinds)
+        {
+            using var solver = new SeismicWaveSolver(_map.Width, _map.Height, courant, kind);
+            solver.Inject(_map.Width / 2, _map.Height / 2, 1f);
+            var sw = Stopwatch.StartNew();
+            for (int b = 0; b < 50; b++) solver.Advance(4);
+            sw.Stop();
+            float diff = 0f;
+            if (reference == null) reference = (float[])solver.Field.Clone();
+            else for (int i = 0; i < n; i++) diff = Math.Max(diff, Math.Abs(solver.Field[i] - reference[i]));
+            Console.WriteLine($"  {solver.Kind,-7} 200 steps on {_map.Width}x{_map.Height}: {sw.Elapsed.TotalMilliseconds,8:F1} ms  ({n * 200 / sw.Elapsed.TotalSeconds / 1e6:F0} M cells/s)  max diff vs scalar {diff:E2}");
+        }
+
+        // A great earthquake recorded by the whole network
+        var faults = new List<(int x, int y)>();
+        for (int x = 0; x < _map.Width; x++)
+            for (int y = 6; y < _map.Height - 6; y++)
+                if (_map.Cells[x, y].Geology.BoundaryType != PlateBoundaryType.None) faults.Add((x, y));
+
+        var first = faults[rnd.Next(faults.Count)];
+        seismo.BeginEvent(first.x, first.y, 8.0f, 1);
+        seismo.RunToCompletion();
+        var rec = seismo.Records.Last();
+        Console.WriteLine($"M8.0 at ({first.x},{first.y}): P at {rec.StationsP}/{seismo.Stations.Count} stations, S at {rec.StationsS}; located ({rec.LocatedX},{rec.LocatedY}), error {rec.LocationErrorKm:F0} km; {rec.DurationSeconds:F0} s of record");
+        float sumP = 0, sumS = 0; int cnt = 0;
+        foreach (var st in seismo.Stations.Where(s => s.PickP > 0 && s.PickS > 0 && s.DistanceKm > 1500).Take(8))
+        {
+            Console.WriteLine($"   station ({st.X,3},{st.Y,3}) {st.DistanceKm,6:F0} km  P {st.PickP,6:F0} s ({st.DistanceKm / st.PickP:F2} km/s)  S {st.PickS,6:F0} s ({st.DistanceKm / st.PickS:F2} km/s)  S-P {st.PickS - st.PickP:F0} s");
+        }
+        foreach (var st in seismo.Stations.Where(s => s.PickP > 0 && s.PickS > 0 && s.DistanceKm > 1500))
+        {
+            sumP += st.DistanceKm / st.PickP; sumS += st.DistanceKm / st.PickS; cnt++;
+        }
+        if (cnt > 0) Console.WriteLine($"   apparent velocities: P {sumP / cnt:F2} km/s, S {sumS / cnt:F2} km/s, ratio {sumP / sumS:F2}");
+
+        // Many events build up the tomography
+        float errSum = 0; int errCount = 0;
+        for (int e = 0; e < 40; e++)
+        {
+            var c = faults[rnd.Next(faults.Count)];
+            seismo.BeginEvent(c.x, c.y, 6.3f + (float)rnd.NextDouble() * 1.7f, 2 + e);
+            seismo.RunToCompletion();
+            var r = seismo.Records.Last();
+            if (r.LocationErrorKm >= 0) { errSum += r.LocationErrorKm; errCount++; }
+            if (e % 10 == 9)
+            {
+                int covered = seismo.TomoCoverage.Count(v => v > 0);
+                Console.WriteLine($"   after {e + 1} events: {seismo.TomoRays} rays, {covered * 100 / seismo.TomoCoverage.Length}% of blocks crossed, reference {seismo.TomoReference:F2} km/s, correlation with true crust {seismo.TomoCorrelation:F2}");
+            }
+        }
+        Console.WriteLine($"   mean location error {errSum / Math.Max(1, errCount):F0} km over {errCount} located events (cell = {seismo.CellKm:F0} km)");
+        seismo.Dispose();
+    }
+
+    private string GeoscienceSummary()
+    {
+        var oil = _updateManager.Petroleum;
+        long columns = 0;
+        int faults = 0, unconformities = 0;
+        for (int x = 0; x < _map.Width; x++)
+        {
+            for (int y = 0; y < _map.Height; y++)
+            {
+                var geo = _map.Cells[x, y].Geology;
+                int k = 0;
+                foreach (var bed in geo.SedimentColumn) columns += ((int)bed + 1) * (++k);
+                if (geo.IsFault) faults++;
+                if (geo.UnconformityBeds >= 0) unconformities++;
+            }
+        }
+        return $"wells {string.Join(",", oil.Wells.GroupBy(w => w.Status).OrderBy(g => g.Key).Select(g => $"{g.Key}:{g.Count()}"))} | " +
+               $"surveys {oil.Surveys.Count} (done {oil.Surveys.Count(s => s.Completed)}, with image {oil.Surveys.Count(s => s.Section.Length > 0)}) | " +
+               $"fields surveyed {oil.Reservoirs.Count(r => r.Surveyed)} discovered {oil.Reservoirs.Count(r => r.Discovered)} reserves {oil.Reservoirs.Sum(r => oil.RemainingReserves(r)):F1} | " +
+               $"geothermal {_updateManager.Geothermal.Plants.Count} | seismographs {_updateManager.Seismology.Stations.Count} | " +
+               $"faults {faults} | erosion surfaces {unconformities} | layers checksum {columns}";
+    }
+
+    /// <summary>Saves the world, loads it into a freshly generated one and checks nothing was lost.</summary>
+    private void RunSaveTest()
+    {
+        string before = GeoscienceSummary();
+        var saves = new SaveLoadManager();
+        var state = new GameState { Year = _year, TimeSpeed = 1f };
+        saves.SaveGame(_map, state, _civilizationManager, _weatherSystem, _hydrologySimulator, "HeadlessSaveTest",
+            data => data.Geoscience = GeoscienceSaveData.Capture(_map, _updateManager));
+
+        _civCount = 0;
+        Initialize(); // A brand new world from the same seed
+        string fresh = GeoscienceSummary();
+
+        var loaded = saves.LoadGame("HeadlessSaveTest")!;
+        saves.ApplySaveData(loaded, _map, state, _civilizationManager, _weatherSystem, _hydrologySimulator);
+        _geologicalSimulator.SyncPlatesFromCells();
+        loaded.Geoscience?.Restore(_map, _updateManager);
+        string after = GeoscienceSummary();
+
+        Console.WriteLine($"SAVE TEST before : {before}");
+        Console.WriteLine($"SAVE TEST fresh  : {fresh}");
+        Console.WriteLine($"SAVE TEST loaded : {after}");
+        Console.WriteLine(before == after ? "SAVE TEST PASSED: the loaded world matches the saved one" : "SAVE TEST FAILED: differences above");
     }
 }

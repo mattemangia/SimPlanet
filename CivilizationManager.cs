@@ -166,7 +166,8 @@ public partial class CivilizationManager
                 var cell = _map.Cells[x, y];
 
                 // Intelligence level life can form civilizations
-                if (cell.LifeType == LifeForm.Intelligence &&
+                // (on land: a people cannot found its first village on the open sea)
+                if (cell.LifeType == LifeForm.Intelligence && cell.IsLand && !cell.IsIce &&
                     cell.Biomass > 0.6f &&
                     _random.NextDouble() < 0.01 &&
                     OwnerAt(x, y) == 0 &&
@@ -467,6 +468,9 @@ public partial class CivilizationManager
 
             foreach (var deposit in resources)
             {
+                // Oil and gas come from wells and platforms (see PetroleumSystem), not from the surface
+                if (deposit.Type is ResourceType.Oil or ResourceType.NaturalGas) continue;
+
                 // Can we extract this resource?
                 if (deposit.RequiredTech > civTech) continue;
                 if (deposit.Amount <= 0) continue;
@@ -2186,6 +2190,7 @@ public class Civilization
     public Dictionary<ResourceType, float> ResourceStockpile { get; set; } = new();
     public Dictionary<ResourceType, float> AnnualProduction { get; set; } = new();
     public List<(int x, int y, ResourceType type)> ActiveMines { get; set; } = new();
+    public int GeothermalPlants { get; set; }   // Producing geothermal power plants (see GeothermalSystem)
     public float ProductionBonus { get; set; } = 1.0f; // Multiplier from resources
 
     // Internal health

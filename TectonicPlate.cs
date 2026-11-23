@@ -57,6 +57,14 @@ public enum EruptionType
     Phreatomagmatic  // Explosive interaction with water
 }
 
+/// <summary>What kind of volcano the tectonic setting builds.</summary>
+public enum VolcanoType
+{
+    Stratovolcano,  // Steep cone of lava and ash above a subduction zone; viscous magma, explosive
+    Shield,         // Broad gentle dome of fluid basalt over a hot spot; Hawaiian eruptions
+    Fissure         // Rift or ridge volcanism: lava from long cracks, low spatter cones
+}
+
 public enum CrustType
 {
     Oceanic,      // Basaltic, dense, thin (~7 km)
@@ -108,6 +116,14 @@ public class GeologicalData
     public PlateBoundaryType BoundaryType { get; set; }
     public float TectonicStress { get; set; }  // Builds up at boundaries
     public float SubductionRate { get; set; }  // Rate of subduction at convergent boundaries
+    public float Convergence { get; set; }     // Signed closing speed across the boundary (+ converging, - diverging)
+    public bool IsSubducting { get; set; }     // This side of a convergent boundary goes down into the mantle
+    public bool IsForedeep { get; set; }       // Foreland basin: crust bent down in front of a mountain belt, filling with its debris
+    public float UpliftRate { get; set; }      // Current tectonic vertical motion (+ up, - down), elevation units per second
+    public float DepositionRate { get; set; }  // Recent sediment deposition (fades when deposition stops)
+    public float CumulativeErosion { get; set; }    // Total thickness removed by erosion (elevation units)
+    public float CumulativeDeposition { get; set; } // Total thickness laid down (elevation units)
+    public int UnconformityBeds { get; set; } = -1; // Beds lying above the latest erosion surface (0 = it is the ground; -1 = none)
 
     // Crust properties
     public CrustType CrustType { get; set; } = CrustType.Continental;
@@ -122,6 +138,7 @@ public class GeologicalData
     public EruptionType LastEruptionType { get; set; } = EruptionType.Effusive;
     public int EruptionIntensity { get; set; } = 1; // VEI 0-8 scale
     public bool IsHotSpot { get; set; }  // Hot spot volcano (away from plate boundaries)
+    public VolcanoType VolcanoType { get; set; } = VolcanoType.Stratovolcano;
 
     // Seismic activity (earthquakes and faults)
     public bool IsManualFault { get; set; } // User-created fault line

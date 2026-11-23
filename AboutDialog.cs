@@ -19,7 +19,7 @@ public class AboutDialog
     public bool IsVisible { get; set; } = false;
 
     // Version information
-    private const string Version = "1.0.0";
+    private const string Version = "2.0.0";
     private const string GitHubUrl = "https://github.com/mattemangia/SimPlanet";
 
     private Rectangle _closeButtonBounds;
@@ -76,6 +76,8 @@ public class AboutDialog
     {
         if (!IsVisible) return;
 
+        Layout(_graphics.Viewport.Width, _graphics.Viewport.Height);
+
         // Check if mouse is over GitHub link
         _githubLinkHovered = _githubLinkBounds.Contains(mouseState.Position);
 
@@ -83,7 +85,7 @@ public class AboutDialog
         if (mouseState.LeftButton == ButtonState.Released &&
             previousMouseState.LeftButton == ButtonState.Pressed)
         {
-            if (_closeButtonBounds.Contains(mouseState.Position))
+            if (_closeButtonBounds.Contains(mouseState.Position) || _closeCrossBounds.Contains(mouseState.Position))
             {
                 IsVisible = false;
             }
@@ -113,12 +115,40 @@ public class AboutDialog
         }
     }
 
+    // ---- Layout (shared by Update and Draw) ---------------------------------------------
+
+    private const int DialogWidth = 520;
+    private const int DialogHeight = 318;
+    private const float LinkFontSize = UITheme.FontNormal;
+
+    private Rectangle _dialog;
+    private Rectangle _closeCrossBounds;
+
+    private void Layout(int screenWidth, int screenHeight)
+    {
+        _dialog = new Rectangle((screenWidth - DialogWidth) / 2, (screenHeight - DialogHeight) / 2, DialogWidth, DialogHeight);
+        _closeCrossBounds = UIWidgets.CloseButtonRect(_dialog);
+
+        // The link is as wide as its text
+        var linkSize = _font.MeasureString(GitHubUrl, LinkFontSize);
+        _githubLinkBounds = new Rectangle(
+            _dialog.X + (DialogWidth - (int)linkSize.X) / 2 - 8,
+            _dialog.Y + 196,
+            (int)linkSize.X + 16,
+            (int)linkSize.Y + 10);
+
+        const int buttonWidth = 130, buttonHeight = 34;
+        _closeButtonBounds = new Rectangle(_dialog.X + (DialogWidth - buttonWidth) / 2, _dialog.Bottom - buttonHeight - 18, buttonWidth, buttonHeight);
+    }
+
     public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
     {
         if (!IsVisible) return;
-        
+
         // Ensure we have valid resources
         if (_pixel == null || _font == null) return;
+
+        Layout(screenWidth, screenHeight);
 
         // Draw black background first
         spriteBatch.Draw(_pixel,
@@ -140,139 +170,35 @@ public class AboutDialog
 
             spriteBatch.Draw(_splashBackground,
                 new Rectangle(x, y, displayWidth, displayHeight),
-                Color.White * 0.15f); // Very subtle transparency
+                Color.White * 0.22f);
         }
 
-        // Semi-transparent overlay for contrast
-        spriteBatch.Draw(_pixel, new Rectangle(0, 0, screenWidth, screenHeight),
-            new Color(0, 0, 0, 150));
+        UIWidgets.DrawWindow(spriteBatch, _dialog, "ABOUT", UITheme.Gold);
 
-        // Calculate dialog dimensions
-        int dialogWidth = 500;
-        int dialogHeight = 300;
-        int dialogX = (screenWidth - dialogWidth) / 2;
-        int dialogY = (screenHeight - dialogHeight) / 2;
+        // Name, tagline and version, centred
+        int cx = _dialog.X;
+        UITheme.DrawTextCentered(spriteBatch, "SIMPLANET", new Rectangle(cx, _dialog.Y + 56, DialogWidth, 34), UITheme.Gold, UITheme.FontTitle);
+        UITheme.DrawTextCentered(spriteBatch, "Planetary Evolution Simulator", new Rectangle(cx, _dialog.Y + 94, DialogWidth, 20),
+            UITheme.TextDim, UITheme.FontMedium);
 
-        // Draw dialog background
-        spriteBatch.Draw(_pixel,
-            new Rectangle(dialogX, dialogY, dialogWidth, dialogHeight),
-            new Color(20, 30, 50, 230));
+        string versionText = $"VERSION {Version}";
+        int pillWidth = (int)UITheme.Measure(versionText, 11f).X + 16;
+        UIWidgets.DrawPill(spriteBatch, cx + (DialogWidth - pillWidth) / 2, _dialog.Y + 126, versionText, UITheme.Accent);
 
-        // Draw dialog border
-        int borderThickness = 2;
-        Color borderColor = new Color(100, 150, 200);
-        DrawBorder(spriteBatch, dialogX, dialogY, dialogWidth, dialogHeight, borderColor, borderThickness);
+        UIWidgets.DrawDivider(spriteBatch, _dialog.X + 40, _dialog.Y + 164, DialogWidth - 80);
 
-        // Draw title with debug background
-        string title = "ABOUT SIMPLANET";
-        float titleFontSize = 24f; // Actual pixel size, not scale
-        Vector2 titleSize = _font.MeasureString(title, titleFontSize);
-        Vector2 titlePos = new Vector2(
-            dialogX + (dialogWidth - titleSize.X) / 2,
-            dialogY + 30
-        );
-        
-        // Debug: Draw background rectangle to see where text should be
-        if (titleSize != Vector2.Zero)
-        {
-            spriteBatch.Draw(_pixel, 
-                new Rectangle((int)titlePos.X - 2, (int)titlePos.Y - 2, 
-                              (int)titleSize.X + 4, (int)titleSize.Y + 4), 
-                new Color(50, 50, 50, 100));
-        }
-        
-        _font.DrawString(spriteBatch, title, titlePos, Color.Yellow, titleFontSize); // Use bright yellow
+        // Source code link
+        UITheme.DrawTextCentered(spriteBatch, "Source code and updates", new Rectangle(cx, _dialog.Y + 174, DialogWidth, 18),
+            UITheme.TextMuted, UITheme.FontSmall);
+        Color linkColor = _githubLinkHovered ? UITheme.Gold : UITheme.Accent;
+        if (_githubLinkHovered) UITheme.FillRounded(spriteBatch, _githubLinkBounds, UITheme.ButtonHover * 0.6f);
+        var linkSize = UITheme.Measure(GitHubUrl, LinkFontSize);
+        var linkPos = new Vector2(_githubLinkBounds.X + 8, _githubLinkBounds.Y + 4);
+        UITheme.DrawText(spriteBatch, GitHubUrl, linkPos, linkColor, LinkFontSize);
+        UITheme.FillRect(spriteBatch, new Rectangle((int)linkPos.X, (int)(linkPos.Y + linkSize.Y) + 1, (int)linkSize.X, 1),
+            linkColor * (_githubLinkHovered ? 1f : 0.45f));
 
-        // Draw subtitle
-        string subtitle = "Planetary Evolution Simulator";
-        float subtitleFontSize = 16f; // Actual pixel size
-        Vector2 subtitleSize = _font.MeasureString(subtitle, subtitleFontSize);
-        Vector2 subtitlePos = new Vector2(
-            dialogX + (dialogWidth - subtitleSize.X) / 2,
-            dialogY + 75
-        );
-        _font.DrawString(spriteBatch, subtitle, subtitlePos, new Color(150, 200, 255), subtitleFontSize);
-
-        // Draw version
-        string versionText = $"Version {Version}";
-        float versionFontSize = 20f; // Actual pixel size
-        Vector2 versionSize = _font.MeasureString(versionText, versionFontSize);
-        Vector2 versionPos = new Vector2(
-            dialogX + (dialogWidth - versionSize.X) / 2,
-            dialogY + 120
-        );
-        _font.DrawString(spriteBatch, versionText, versionPos, Color.White, versionFontSize);
-
-        // Draw GitHub link
-        string githubText = "GitHub: " + GitHubUrl;
-        float githubFontSize = 16f; // Actual pixel size
-        Vector2 githubSize = _font.MeasureString(githubText, githubFontSize);
-        Vector2 githubPos = new Vector2(
-            dialogX + (dialogWidth - githubSize.X) / 2,
-            dialogY + 170
-        );
-
-        // Store GitHub link bounds for click detection
-        _githubLinkBounds = new Rectangle(
-            (int)githubPos.X - 5,
-            (int)githubPos.Y - 5,
-            (int)githubSize.X + 10,
-            (int)githubSize.Y + 10
-        );
-
-        // Draw GitHub link with hover effect
-        Color githubColor = _githubLinkHovered ? new Color(255, 255, 100) : new Color(100, 200, 255);
-        _font.DrawString(spriteBatch, githubText, githubPos, githubColor, githubFontSize);
-
-        // Draw underline for GitHub link if hovered
-        if (_githubLinkHovered)
-        {
-            spriteBatch.Draw(_pixel,
-                new Rectangle((int)githubPos.X, (int)(githubPos.Y + githubSize.Y), (int)githubSize.X, 1),
-                new Color(255, 255, 100));
-        }
-
-        // Draw close button
-        int buttonWidth = 120;
-        int buttonHeight = 40;
-        int buttonX = dialogX + (dialogWidth - buttonWidth) / 2;
-        int buttonY = dialogY + dialogHeight - 70;
-
-        _closeButtonBounds = new Rectangle(buttonX, buttonY, buttonWidth, buttonHeight);
-
-        // Draw button background
-        Color buttonBg = _closeButtonBounds.Contains(Mouse.GetState().Position)
-            ? new Color(70, 140, 255, 200)
-            : new Color(30, 60, 100, 180);
-        spriteBatch.Draw(_pixel, _closeButtonBounds, buttonBg);
-
-        // Draw button border
-        Color buttonBorder = _closeButtonBounds.Contains(Mouse.GetState().Position)
-            ? new Color(120, 200, 255)
-            : new Color(80, 120, 160);
-        DrawBorder(spriteBatch, buttonX, buttonY, buttonWidth, buttonHeight, buttonBorder, 2);
-
-        // Draw button text
-        string buttonText = "Close";
-        float buttonFontSize = 16f; // Actual pixel size
-        Vector2 buttonTextSize = _font.MeasureString(buttonText, buttonFontSize);
-        Vector2 buttonTextPos = new Vector2(
-            buttonX + (buttonWidth - buttonTextSize.X) / 2,
-            buttonY + (buttonHeight - buttonTextSize.Y) / 2
-        );
-        _font.DrawString(spriteBatch, buttonText, buttonTextPos, Color.White, buttonFontSize);
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        // Top
-        spriteBatch.Draw(_pixel, new Rectangle(x, y, width, thickness), color);
-        // Bottom
-        spriteBatch.Draw(_pixel, new Rectangle(x, y + height - thickness, width, thickness), color);
-        // Left
-        spriteBatch.Draw(_pixel, new Rectangle(x, y, thickness, height), color);
-        // Right
-        spriteBatch.Draw(_pixel, new Rectangle(x + width - thickness, y, thickness, height), color);
+        UIWidgets.DrawButton(spriteBatch, _closeButtonBounds, "Close", fontSize: UITheme.FontMedium);
     }
 
     public void Dispose()

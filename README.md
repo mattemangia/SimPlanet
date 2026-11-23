@@ -4,7 +4,7 @@
   
 <img src="splash.png" alt="SimPlanet Logo" width="400"/>
 
-[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=.net)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=.net)](https://dotnet.microsoft.com/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](#installation)
 [![License](https://img.shields.io/badge/license-MIT-green)](#license)
 
@@ -399,7 +399,7 @@ SimPlanet uses **true multithreading** for maximum performance and responsivenes
 
 ## Requirements
 
-- .NET 8.0 SDK or later
+- .NET 10.0 SDK or later
 - Works on Linux, macOS, and Windows
 - OpenGL-compatible graphics
 - Window is resizable! Default: 1600×900 (previously 1280×720)
@@ -409,11 +409,11 @@ SimPlanet uses **true multithreading** for maximum performance and responsivenes
 ### On Linux/macOS:
 
 ```bash
-# Install .NET 8 if not already installed
+# Install .NET 10 if not already installed
 # For Ubuntu/Debian:
 wget https://dot.net/v1/dotnet-install.sh
 chmod +x dotnet-install.sh
-./dotnet-install.sh --channel 8.0
+./dotnet-install.sh --channel 10.0
 
 # Build and run
 cd SimPlanet
@@ -432,7 +432,7 @@ dotnet run -- --no-gui
 ### On Windows:
 
 ```powershell
-# Install .NET 8 from https://dotnet.microsoft.com/download/dotnet/8.0
+# Install .NET 10 from https://dotnet.microsoft.com/download/dotnet/10.0
 
 # Build and run
 cd SimPlanet
@@ -468,6 +468,7 @@ The game features a comprehensive toolbar at the top of the screen with clickabl
 | **L** | Toggle Life Painter |
 | **M** | Toggle Map Options Menu (when in game) |
 | **T** | Toggle Terraforming Tool (Height Modifier) |
+| **Z** | Subsurface 3D: pick a region, view the crust beneath it (click a well or geothermal plant on the map to open it there) |
 | **U** | Toggle Manual Fault Tool |
 | **Y** | Toggle Graphs |
 | **\** | Toggle auto-stabilization system |
@@ -788,6 +789,37 @@ Potential additions (not yet implemented):
 - Multiple planet simulations running simultaneously
 
 ## What's New in This Version
+
+### Version 2.0 - Subsurface 3D, working geology, oil, geothermal and seismology
+
+- **Subsurface 3D** (Tools menu or `Z`): click a region of the map and look at an isometric
+  block of the crust under it. The top is the live landscape; the sides are geological sections
+  with sediment beds, granite or basalt crust, the Moho, the mantle, subducting slabs, magma
+  chambers and plumes, faults, salt domes, oil and gas fields. It is animated from the running
+  simulation: plate motion arrows, uplift and subsidence, fault ruptures with slip, P and S
+  waves shaking the surface, eruption columns, asteroid impacts, sediment settling on the sea
+  floor. Drag to orbit, right-drag or WASD to slide the block across the planet, `[` `]` to
+  move the section, `Q` `E` to rotate.
+- **Geology that works**: plate boundaries are classified from plate motion alone (it used to
+  depend on game speed, so nothing converged at normal speed). Ranges rise in belts to an
+  isostatic limit, sea floor subsides with age, erosion moves sediment downhill, volcanoes live
+  while their setting feeds them, and earthquakes are fault ruptures whose length sets the
+  magnitude.
+- **Oil and gas**: fields in sedimentary basins with anticline, fault, salt-dome and
+  stratigraphic traps. Industrial nations shoot reflection seismic lines, drill wells on what
+  the sections show, and build platforms offshore. Click a well to see its borehole, its
+  wireline log and the seismic section in Subsurface 3D. Sections, seismic images and logs
+  are all computed from the same layers.
+- **Geothermal energy**: nations drill well pairs into hot rock near volcanoes, plumes and
+  rifts and run power plants on it.
+- **Seismology**: scientific nations build seismograph networks that record P and S arrivals
+  from a simulated wave field, locate earthquakes from S-P times and build a travel-time
+  tomography of the crust (Overlays > Tomography).
+- **Sharper graphics**: terrain is drawn at screen resolution for the visible area with
+  procedural relief, up to 8x zoom; nation borders, settlements, armies and routes redrawn.
+- **Compute**: wave propagation and related maths use SIMD (AVX2/AVX-512, NEON) and OpenCL
+  when a GPU is present (`SIMPLANET_COMPUTE=scalar|simd|opencl` to force one).
+- **.NET 10**, plus a sandbox start: `./SimPlanet --civs 6 --start-tech 62`.
 
 ### Latest Update - Political Map, Disaster Zones & Headless Mode
 

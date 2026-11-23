@@ -62,13 +62,22 @@ public class AtmosphereSimulator
                     oxygenChange += cell.Biomass * 0.8f * (1f - cell.HumanFootprint) * deltaTime;
                 }
 
-                // Animals consume oxygen
-                if (cell.LifeType == LifeForm.SimpleAnimals ||
-                    cell.LifeType == LifeForm.ComplexAnimals ||
-                    cell.LifeType == LifeForm.Intelligence ||
-                    cell.LifeType == LifeForm.Civilization)
+                else if (cell.LifeType != LifeForm.None)
+                {
+                    // Animals live among the plants and plankton that feed them: an ecosystem led
+                    // by animals still photosynthesizes. (Treating such cells as producing nothing
+                    // made the air lose its oxygen as life evolved.)
+                    oxygenChange += cell.Biomass * (cell.IsWater ? 0.5f : 0.9f) * deltaTime;
+                }
+
+                // Animals consume oxygen: every animal-led ecosystem breathes, on land more than in the sea
+                if (cell.LifeType == LifeForm.Civilization)
                 {
                     oxygenChange -= cell.Biomass * 0.3f * deltaTime;
+                }
+                else if (cell.LifeType >= LifeForm.SimpleAnimals)
+                {
+                    oxygenChange -= cell.Biomass * (cell.IsWater ? 0.12f : 0.25f) * deltaTime;
                 }
 
                 // Fire/volcanoes consume oxygen (simplified)

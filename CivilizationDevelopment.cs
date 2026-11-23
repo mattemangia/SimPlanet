@@ -74,6 +74,7 @@ public partial class CivilizationManager
         if (tech >= 45) weights[EnergySource.Wind] = 0.3f + civ.EcoFriendliness * 0.5f;
         if (tech >= 80) weights[EnergySource.Solar] = 0.5f + civ.EcoFriendliness * 0.8f;
         if (civ.HasProject("Fusion Power")) weights[EnergySource.Fusion] = 3f;
+        if (civ.GeothermalPlants > 0) weights[EnergySource.Geothermal] = MathF.Min(1.6f, 0.45f * civ.GeothermalPlants);
 
         bool green = ideology == Ideology.Green || civ.HasProject("Renewable Transition") || civ.InClimateAgreement;
         if (green)

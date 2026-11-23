@@ -63,8 +63,29 @@ public class Graphs
         _backgroundTexture.SetData(new[] { new Color(0, 0, 0, 200) });
     }
 
+    private Microsoft.Xna.Framework.Input.MouseState _previousMouse;
+
+    /// <summary>Window rectangle, shared by Update (close button) and Draw.</summary>
+    private static Rectangle GetPanel(int screenWidth, int screenHeight)
+    {
+        int panelWidth = Math.Min(860, screenWidth - 40);
+        int panelHeight = Math.Min(600, screenHeight - 140);
+        return new Rectangle((screenWidth - panelWidth) / 2, (screenHeight - panelHeight) / 2, panelWidth, panelHeight);
+    }
+
     public void Update(float deltaTime)
     {
+        // Close button in the title bar
+        var mouse = Microsoft.Xna.Framework.Input.Mouse.GetState();
+        if (IsVisible &&
+            mouse.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Released &&
+            _previousMouse.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed)
+        {
+            var panel = GetPanel(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height);
+            if (UIWidgets.CloseButtonRect(panel, 40).Contains(mouse.Position)) IsVisible = false;
+        }
+        _previousMouse = mouse;
+
         // Keep sampling while hidden so the history is there when the panel opens
         _updateTimer += deltaTime;
         if (_updateTimer >= UPDATE_INTERVAL)
@@ -101,15 +122,14 @@ public class Graphs
 
         // Small multiples: one chart per measure, each with its own y-scale
         // (different units must never share an axis).
-        int panelWidth = Math.Min(860, screenWidth - 40);
-        int panelHeight = Math.Min(600, screenHeight - 140);
-        var panel = new Rectangle((screenWidth - panelWidth) / 2, (screenHeight - panelHeight) / 2, panelWidth, panelHeight);
+        var panel = GetPanel(screenWidth, screenHeight);
+        int panelWidth = panel.Width;
 
         spriteBatch.End();
         spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
 
-        int contentY = UITheme.DrawTitledPanel(spriteBatch, panel, "PLANETARY STATISTICS", UITheme.Gold, 40);
-        UITheme.DrawText(spriteBatch, "Sampled every 2 s  -  Y to close", new Vector2(panel.Right - 220, panel.Y + 12), UITheme.TextMuted, UITheme.FontSmall);
+        int contentY = UIWidgets.DrawWindow(spriteBatch, panel, "PLANETARY STATISTICS", UITheme.Gold, closeButton: true,
+            note: "Sampled every 2 s  -  Y to close", headerHeight: 40);
 
         var series = _graphData.Values.ToList();
         int cols = 2;

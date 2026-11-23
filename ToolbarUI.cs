@@ -145,6 +145,7 @@ namespace SimPlanet
             AddSubButton(toolsGroup, "Terraforming Tool (T)", "Feature", "Terraforming", "T", () => game.ToggleTerraformingTool());
             AddSubButton(toolsGroup, "Manual Fault Tool", "Feature", "Draw Faults", "U", () => game.ToggleManualFaultTool());
             AddSubButton(toolsGroup, "Geological Profile (J)", "Feature", "Geological Profile", "J", () => game.ToggleProfileTool());
+            AddSubButton(toolsGroup, "Subsurface 3D (Z)", "Feature", "Subsurface 3D", "Z", () => game.ToggleSubsurface());
             AddSubButton(toolsGroup, "Planet Controls (X)", "Feature", "Planet Controls", "X", () => game.TogglePlanetControls());
             buttons.Add(toolsGroup);
 
@@ -160,6 +161,9 @@ namespace SimPlanet
             AddSubButton(uiGroup, "Wildlife herds", "UI", "Wildlife herds", "", () => game.ToggleWildlife());
             AddSubButton(uiGroup, "Plates (N)", "UI", "Plate Boundaries", "N", () => game.TogglePlates());
             AddSubButton(uiGroup, "Earthquakes Overlay (.)", "UI", "Earthquakes", ".", () => game.ToggleEarthquakes());
+            AddSubButton(uiGroup, "Oil & gas fields and wells", "UI", "Oil & Gas", "", () => game.TogglePetroleumOverlay());
+            AddSubButton(uiGroup, "Seismograph networks", "UI", "Seismographs", "", () => game.ToggleSeismographOverlay());
+            AddSubButton(uiGroup, "Seismic tomography", "UI", "Tomography", "", () => game.ToggleTomography());
             AddSubButton(uiGroup, "Stabilizer (\\)", "UI", "Auto-Stabilizer", "\\", () => game.ToggleStabilizer());
             buttons.Add(uiGroup);
 

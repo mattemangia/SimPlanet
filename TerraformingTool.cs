@@ -87,28 +87,15 @@ public class TerraformingTool : IDisposable
     {
         if (!IsVisible) return;
 
-        string mode = _isRaising ? "Raising" : "Lowering";
-        string text = $"Terraforming | Brush: {_brushSize} | Mode: {mode}";
-        var textSize = _font.MeasureString(text, 14);
-        int panelWidth = (int)textSize.X + 20;
-        int panelHeight = 40;
-        int xPos = (screenWidth - panelWidth) / 2;
-        int yPos = screenHeight - panelHeight - 75; // Moved up to avoid bottom button bar
-
-        // Background
-        spriteBatch.Draw(_pixelTexture, new Rectangle(xPos, yPos, panelWidth, panelHeight), new Color(0, 0, 0, 200));
-        // Border
-        DrawBorder(spriteBatch, xPos, yPos, panelWidth, panelHeight, Color.White, 2);
-
-        _font.DrawString(spriteBatch, text, new Vector2(xPos + 10, yPos + 10), Color.White, 14);
-    }
-
-    private void DrawBorder(SpriteBatch spriteBatch, int x, int y, int width, int height, Color color, int thickness)
-    {
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y + height - thickness, width, thickness), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x, y, thickness, height), color);
-        spriteBatch.Draw(_pixelTexture, new Rectangle(x + width - thickness, y, thickness, height), color);
+        // Status bar above the bottom button bar
+        var items = new (string, string, Color?)[]
+        {
+            ("Mode", _isRaising ? "Raise land" : "Lower land", _isRaising ? UITheme.Good : UITheme.Warn),
+            ("Brush", _brushSize.ToString(), UITheme.Gold),
+        };
+        UIWidgets.DrawToolBar(spriteBatch, screenWidth / 2, screenHeight - 115, screenWidth, "Terraforming",
+            _isRaising ? UITheme.Good : UITheme.Warn, items,
+            "Hold left button: sculpt  -  right-click: raise/lower  -  wheel: brush size");
     }
 
     public void Dispose()

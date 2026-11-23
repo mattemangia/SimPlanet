@@ -12,173 +12,210 @@ public static class EarthquakeSystem
     // Queue for UI to read recent earthquakes
     public static ConcurrentQueue<EarthquakeEvent> RecentSystemEarthquakes = new();
 
+    /// <summary>Running count of earthquakes since start (statistics and tests).</summary>
+    public static int TotalEarthquakes;
+
     /// <summary>
-    /// Update seismic stress and trigger earthquakes
+    /// Loads faults and plate boundaries with elastic strain and releases it as ruptures.
+    /// Rates are per unit of simulated time, so the seismicity does not depend on frame rate.
     /// </summary>
     public static void Update(PlanetMap map, float deltaTime, int currentYear, out bool tsunamiTriggered, out (int x, int y) tsunamiEpicenter, out float tsunamiMagnitude)
     {
         tsunamiTriggered = false;
         tsunamiEpicenter = (0, 0);
         tsunamiMagnitude = 0f;
+        if (float.IsNaN(deltaTime) || deltaTime <= 0) return;
 
-        // First pass: Build up seismic stress
+        float shakeDecay = deltaTime * 0.5f;
+
         for (int x = 0; x < map.Width; x++)
         {
             for (int y = 0; y < map.Height; y++)
             {
                 var cell = map.Cells[x, y];
+                var geo = cell.Geology;
                 AccumulateSeismicStress(cell, deltaTime);
 
-                // Decay earthquake intensity from previous earthquakes
-                if (cell.Geology.EarthquakeIntensity > 0)
+                if (geo.EarthquakeIntensity > 0)
                 {
-                    cell.Geology.EarthquakeIntensity = MathF.Max(0, cell.Geology.EarthquakeIntensity - deltaTime * 10f);
+                    geo.EarthquakeIntensity = MathF.Max(0, geo.EarthquakeIntensity - shakeDecay);
                 }
-                if (cell.Geology.EarthquakeMagnitude > 0 && cell.Geology.IsEpicenter)
+                if (geo.IsEpicenter && currentYear > geo.LastEarthquakeYear + 1)
                 {
-                    // Earthquake epicenter lasts for a year
-                    if (currentYear > cell.Geology.LastEarthquakeYear + 1)
-                    {
-                        cell.Geology.EarthquakeMagnitude = 0;
-                        cell.Geology.IsEpicenter = false;
-                    }
-                }
-            }
-        }
-
-        // Second pass: Trigger earthquakes where stress exceeds threshold
-        for (int x = 0; x < map.Width; x++)
-        {
-            for (int y = 0; y < map.Height; y++)
-            {
-                var cell = map.Cells[x, y];
-
-                // Check if stress threshold exceeded
-                // Lower thresholds for more frequent small earthquakes
-                float threshold = cell.Geology.IsFault ? 0.3f : 0.6f; // Faults trigger much easier
-
-                // Higher stress = higher probability
-                double triggerChance = cell.Geology.IsFault ? 0.05 : 0.02; // 5% for faults, 2% otherwise
-
-                // Plate boundaries get extra activity
-                if (cell.Geology.BoundaryType != PlateBoundaryType.None)
-                {
-                    triggerChance *= 3.0; // 3x more earthquakes at plate boundaries
+                    geo.EarthquakeMagnitude = 0;
+                    geo.IsEpicenter = false;
                 }
 
-                if (cell.Geology.SeismicStress > threshold && _random.NextDouble() < triggerChance)
+                // Elastic rebound: the further past its strength a fault is loaded, the sooner it fails
+                bool weak = geo.IsFault || geo.BoundaryType != PlateBoundaryType.None;
+                float threshold = weak ? 0.6f : 1.0f;
+                if (geo.SeismicStress <= threshold) continue;
+
+                float hazard = 0.05f * (geo.SeismicStress - threshold) / threshold;
+                if (_random.NextDouble() >= hazard * deltaTime) continue;
+
+                float magnitude = Rupture(map, x, y, currentYear, 0f);
+
+                // Great subduction earthquakes under or beside the sea raise tsunamis
+                bool nearWater = cell.IsWater || IsAdjacentToWater(map, x, y);
+                if (magnitude >= 7.0f && nearWater && geo.BoundaryType == PlateBoundaryType.Convergent)
                 {
-                    // Trigger earthquake!
-                    float magnitude = CalculateMagnitude(cell.Geology.SeismicStress);
-                    TriggerEarthquake(map, x, y, magnitude, currentYear);
+                    tsunamiTriggered = true;
+                    tsunamiEpicenter = (x, y);
+                    tsunamiMagnitude = magnitude;
+                }
 
-                    // Reset stress after release
-                    cell.Geology.SeismicStress *= 0.1f; // Keep 10% residual stress
-
-                    // Large ocean earthquakes at subduction zones can trigger tsunamis
-                    bool nearWater = cell.IsWater || IsAdjacentToWater(map, x, y);
-                    if (magnitude >= 7.0f && nearWater && cell.Geology.BoundaryType == PlateBoundaryType.Convergent)
-                    {
-                        tsunamiTriggered = true;
-                        tsunamiEpicenter = (x, y);
-                        tsunamiMagnitude = magnitude;
-                    }
-
-                    // Large earthquakes (M > 6.5) can create new faults (but only once per location every 100 years)
-                    if (magnitude >= 6.5f && !cell.Geology.IsFault)
-                    {
-                        // Only create fault if one doesn't already exist here
-                        CreateFaultLine(map, x, y, currentYear);
-                    }
+                // A large intraplate shock breaks fresh rock and leaves a new fault
+                if (magnitude >= 6.5f && !geo.IsFault)
+                {
+                    CreateFaultLine(map, x, y, currentYear);
                 }
             }
         }
     }
 
     /// <summary>
-    /// Accumulate seismic stress based on tectonic activity and faults
+    /// Strain builds where plates grind (tectonic stress) and on active faults.
     /// </summary>
     private static void AccumulateSeismicStress(TerrainCell cell, float deltaTime)
     {
-        // Baseline intraplate stress so faults can grow away from plate margins
-        // (mantle convection, isostatic adjustment, and crustal flexure).
-        float stressRate = 0.01f * deltaTime;
+        var geo = cell.Geology;
 
-        // Stress builds up at plate boundaries
-        switch (cell.Geology.BoundaryType)
-        {
-            case PlateBoundaryType.Convergent:
-                stressRate = 0.05f * deltaTime; // Highest stress (collision zones)
-                break;
-            case PlateBoundaryType.Transform:
-                stressRate = 0.04f * deltaTime; // High stress (strike-slip)
-                break;
-            case PlateBoundaryType.Divergent:
-                stressRate = 0.02f * deltaTime; // Moderate stress (rifting)
-                break;
-        }
+        float rate = 0.00002f;                               // Far-field intraplate loading
+        rate += 0.0012f * MathF.Min(geo.TectonicStress, 2f); // Plate boundary loading
+        if (geo.IsFault) rate += 0.0005f * geo.FaultActivity;
+        if (geo.InducedSeismicity) rate += 0.0008f;          // Fluid injection and extraction
 
-        // Even within a single plate, slow loading occurs from far-field forces
-        // (e.g., ridge push, slab pull). Apply a mild background to every cell so
-        // earthquakes and faults are not limited to plate edges.
-        if (cell.Geology.BoundaryType == PlateBoundaryType.None)
-        {
-            stressRate += 0.005f * deltaTime;
-        }
-
-        // Extra stress on active faults
-        if (cell.Geology.IsFault)
-        {
-            stressRate += 0.03f * cell.Geology.FaultActivity * deltaTime;
-        }
-
-        // Induced seismicity from civilization (fracking, geothermal, oil extraction)
-        if (cell.Geology.InducedSeismicity)
-        {
-            stressRate += 0.02f * deltaTime;
-        }
-
-        cell.Geology.SeismicStress = MathF.Min(1.5f, cell.Geology.SeismicStress + stressRate);
+        geo.SeismicStress = MathF.Min(1.5f, geo.SeismicStress + rate * deltaTime);
     }
 
+    private static readonly List<(int x, int y)> _ruptureCells = new();
+    private static readonly Queue<(int x, int y)> _ruptureFrontier = new();
+    private static readonly HashSet<(int x, int y)> _ruptureSeen = new();
+
     /// <summary>
-    /// Calculate earthquake magnitude from stress level (Richter scale)
-    /// Follows Gutenberg-Richter law: many small earthquakes, few large ones
+    /// Breaks a fault starting at the hypocentre. The rupture runs along connected stressed
+    /// fault cells; its length and stress drop set the magnitude, so long faults give great
+    /// earthquakes and most events stay small (Gutenberg-Richter).
+    /// Pass a positive magnitude to force an event of that size.
     /// </summary>
-    private static float CalculateMagnitude(float stress)
+    public static float Rupture(PlanetMap map, int startX, int startY, int currentYear, float forcedMagnitude)
     {
-        // Use exponential distribution for realistic earthquake magnitudes
-        // Most earthquakes should be small (M 2-4), very few large (M 7+)
+        var start = map.Cells[startX, startY].Geology;
+        int wanted = forcedMagnitude > 0
+            ? Math.Clamp((int)MathF.Pow(10f, (forcedMagnitude - 4.5f) / 2f), 1, 80)
+            : 80;
 
-        // Random value determines magnitude category
-        double roll = _random.NextDouble();
+        _ruptureCells.Clear();
+        _ruptureFrontier.Clear();
+        _ruptureSeen.Clear();
+        _ruptureFrontier.Enqueue((startX, startY));
+        _ruptureSeen.Add((startX, startY));
+        float stressSum = 0f;
 
-        float magnitude;
-        if (roll < 0.70) // 70% are minor (M 2.0-4.0)
+        while (_ruptureFrontier.Count > 0 && _ruptureCells.Count < wanted)
         {
-            magnitude = 2.0f + (float)(_random.NextDouble() * 2.0);
-        }
-        else if (roll < 0.90) // 20% are light-moderate (M 4.0-5.5)
-        {
-            magnitude = 4.0f + (float)(_random.NextDouble() * 1.5);
-        }
-        else if (roll < 0.97) // 7% are moderate-strong (M 5.5-6.5)
-        {
-            magnitude = 5.5f + (float)(_random.NextDouble() * 1.0);
-        }
-        else if (roll < 0.995) // 2.5% are major (M 6.5-7.5)
-        {
-            magnitude = 6.5f + (float)(_random.NextDouble() * 1.0);
-        }
-        else // 0.5% are great earthquakes (M 7.5-9.0)
-        {
-            magnitude = 7.5f + (float)(_random.NextDouble() * 1.5);
+            var (cx, cy) = _ruptureFrontier.Dequeue();
+            var geo = map.Cells[cx, cy].Geology;
+            _ruptureCells.Add((cx, cy));
+            stressSum += geo.SeismicStress;
+
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                int ny = cy + dy;
+                if (ny < 0 || ny >= map.Height) continue;
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    int nx = (cx + dx + map.Width) % map.Width;
+                    if (_ruptureSeen.Contains((nx, ny))) continue;
+
+                    var next = map.Cells[nx, ny].Geology;
+                    if (!next.IsFault && next.BoundaryType == PlateBoundaryType.None) continue;
+
+                    // The front only keeps going through fault that is itself close to failure
+                    float pass = forcedMagnitude > 0 ? 0.9f : Math.Clamp((next.SeismicStress - 0.3f) * 1.4f, 0f, 0.88f);
+                    if (_random.NextDouble() >= pass) continue;
+
+                    _ruptureSeen.Add((nx, ny));
+                    _ruptureFrontier.Enqueue((nx, ny));
+                }
+            }
         }
 
-        // Stress level modifies magnitude (higher stress = potential for larger quake)
-        magnitude += stress * 0.5f; // Stress can add up to +0.75 to magnitude
+        int length = _ruptureCells.Count;
+        float meanStress = stressSum / length;
+        float magnitude = forcedMagnitude > 0
+            ? forcedMagnitude
+            : 2.6f + 1.4f * meanStress + 2.0f * MathF.Log10(length) + (float)(_random.NextDouble() - 0.5);
+        magnitude = Math.Clamp(magnitude, 2.0f, 9.5f);
 
-        return MathF.Max(2.0f, MathF.Min(9.5f, magnitude));
+        FaultType faultType = start.FaultType != FaultType.None ? start.FaultType : start.BoundaryType switch
+        {
+            PlateBoundaryType.Convergent => FaultType.Thrust,
+            PlateBoundaryType.Divergent => FaultType.Normal,
+            PlateBoundaryType.Transform => FaultType.Strike_Slip,
+            _ => FaultType.Oblique
+        };
+
+        // Coseismic slip: thrusts lift the ground, normal faults drop it, strike-slip moves sideways
+        float slip = Math.Clamp(0.004f * MathF.Pow(10f, (magnitude - 6f) / 2f), 0f, 0.03f);
+        float vertical = faultType switch
+        {
+            FaultType.Thrust or FaultType.Reverse => slip,
+            FaultType.Normal => -slip,
+            FaultType.Oblique => slip * 0.4f,
+            _ => 0f
+        };
+
+        foreach (var (rx, ry) in _ruptureCells)
+        {
+            var cell = map.Cells[rx, ry];
+            var geo = cell.Geology;
+            geo.SeismicStress *= 0.1f;                                 // Stress drop
+            geo.FaultActivity = MathF.Min(1f, geo.FaultActivity + 0.1f);
+            geo.LastEarthquakeYear = currentYear;
+            if (vertical != 0f && !geo.IsSubducting)
+            {
+                cell.Elevation = Math.Clamp(cell.Elevation + vertical, -1.2f, 1.25f);
+            }
+        }
+
+        // Stress shed by the rupture loads the fault beyond its tips: aftershocks and sequences
+        foreach (var (rx, ry) in _ruptureCells)
+        {
+            for (int dy = -2; dy <= 2; dy++)
+            {
+                int ny = ry + dy;
+                if (ny < 0 || ny >= map.Height) continue;
+                for (int dx = -2; dx <= 2; dx++)
+                {
+                    int nx = (rx + dx + map.Width) % map.Width;
+                    if (_ruptureSeen.Contains((nx, ny))) continue;
+                    var near = map.Cells[nx, ny].Geology;
+                    if (near.IsFault || near.BoundaryType != PlateBoundaryType.None)
+                    {
+                        near.SeismicStress = MathF.Min(1.5f, near.SeismicStress + 0.01f * magnitude / 8f);
+                    }
+                }
+            }
+        }
+
+        TriggerEarthquake(map, startX, startY, magnitude, currentYear);
+
+        GeoEvents.Publish(new GeoEvent
+        {
+            Kind = GeoEventKind.Earthquake,
+            X = startX,
+            Y = startY,
+            Magnitude = magnitude,
+            Year = currentYear,
+            Fault = faultType,
+            Rupture = _ruptureCells.ToArray(),
+            Radius = magnitude * 5f
+        });
+
+        return magnitude;
     }
 
     /// <summary>
@@ -186,6 +223,8 @@ public static class EarthquakeSystem
     /// </summary>
     public static void TriggerEarthquake(PlanetMap map, int epicenterX, int epicenterY, float magnitude, int currentYear)
     {
+        TotalEarthquakes++;
+
         // Add to recent queue for UI
         RecentSystemEarthquakes.Enqueue(new EarthquakeEvent
         {
@@ -336,6 +375,9 @@ public static class EarthquakeSystem
 
                         cell.Geology.FaultActivity = 0.3f + (float)_random.NextDouble() * 0.7f;
                     }
+
+                    // Faults start at different points of their seismic cycle
+                    cell.Geology.SeismicStress = (float)_random.NextDouble() * 0.65f;
                 }
 
                 // Small chance of intraplate faults (within plates, away from boundaries)

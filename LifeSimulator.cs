@@ -475,7 +475,8 @@ public class LifeSimulator
                 break;
 
             case LifeForm.ComplexAnimals:
-                if (cell.Oxygen > 18)
+                // Tool users arise on land
+                if (cell.Oxygen > 18 && cell.IsLand)
                 {
                     evolvedLifeType = LifeForm.Intelligence;
                     evolvedBiomass = 0.2f;

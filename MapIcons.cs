@@ -13,8 +13,15 @@ namespace SimPlanet;
 /// </summary>
 public partial class MapIcons : IDisposable
 {
+    /// <summary>Design grid of the settlement sprites (their textures are <see cref="SettlementScale"/> times larger).</summary>
     public const int SettlementSize = 40;
     public const int SmallIconSize = 24;
+
+    // Sprites that only appear on the map are rasterized larger than their design grid, to a
+    // power-of-two size with mipmaps: sharp when zoomed in, clean when zoomed out. Icons shared
+    // with the panels and toolbar stay at 24 px, where they are drawn 1:1.
+    private const float SettlementScale = 1.6f;      // 40 -> 64 px
+    private const float MapSpriteScale = 4f / 3f;    // 24 -> 32 px
 
     public Texture2D[] SettlementBase { get; } = new Texture2D[4];
     public Texture2D[] SettlementMask { get; } = new Texture2D[4];
@@ -140,14 +147,23 @@ public partial class MapIcons : IDisposable
     internal sealed class Canvas
     {
         private const int SS = 4;
+        /// <summary>Logical size: the coordinate space of every drawing call (0..Size).</summary>
         public readonly int Size;
+        /// <summary>Size of the produced texture in pixels (Size x scale).</summary>
+        public readonly int PixelSize;
+        private readonly float _k;      // supersampled pixels per logical unit
         private readonly int _hi;
         private readonly Vector4[] _px; // premultiplied RGBA
 
-        public Canvas(int size)
+        /// <param name="size">Logical size; drawing coordinates run from 0 to this value.</param>
+        /// <param name="scale">Texture pixels per logical unit: sprites designed on a small grid
+        /// can be rasterized at a higher resolution so they stay sharp when zoomed in.</param>
+        public Canvas(int size, float scale = 1f)
         {
             Size = size;
-            _hi = size * SS;
+            PixelSize = Math.Max(1, (int)MathF.Round(size * scale));
+            _hi = PixelSize * SS;
+            _k = _hi / (float)size;
             _px = new Vector4[_hi * _hi];
         }
 
@@ -160,38 +176,43 @@ public partial class MapIcons : IDisposable
 
         public void Rect(float x, float y, float w, float h, Color c)
         {
-            int x0 = (int)MathF.Round(x * SS), y0 = (int)MathF.Round(y * SS);
-            int x1 = (int)MathF.Round((x + w) * SS), y1 = (int)MathF.Round((y + h) * SS);
+            int x0 = (int)MathF.Round(x * _k), y0 = (int)MathF.Round(y * _k);
+            int x1 = (int)MathF.Round((x + w) * _k), y1 = (int)MathF.Round((y + h) * _k);
             for (int py = Math.Max(0, y0); py < Math.Min(_hi, y1); py++)
                 for (int px = Math.Max(0, x0); px < Math.Min(_hi, x1); px++)
                     Blend(py * _hi + px, c);
         }
 
-        public void Circle(float cx, float cy, float r, Color c)
-        {
-            float r2 = r * r;
-            int x0 = (int)((cx - r) * SS) - 1, x1 = (int)((cx + r) * SS) + 1;
-            int y0 = (int)((cy - r) * SS) - 1, y1 = (int)((cy + r) * SS) + 1;
-            for (int py = Math.Max(0, y0); py < Math.Min(_hi, y1); py++)
-            {
-                for (int px = Math.Max(0, x0); px < Math.Min(_hi, x1); px++)
-                {
-                    float fx = (px + 0.5f) / SS - cx, fy = (py + 0.5f) / SS - cy;
-                    if (fx * fx + fy * fy <= r2) Blend(py * _hi + px, c);
-                }
-            }
-        }
+        public void Circle(float cx, float cy, float r, Color c) => Ellipse(cx, cy, r, r, c);
 
         public void Ring(float cx, float cy, float rOuter, float rInner, Color c)
         {
             float o2 = rOuter * rOuter, i2 = rInner * rInner;
-            for (int py = 0; py < _hi; py++)
+            int x0 = Math.Max(0, (int)((cx - rOuter) * _k) - 1), x1 = Math.Min(_hi, (int)((cx + rOuter) * _k) + 1);
+            int y0 = Math.Max(0, (int)((cy - rOuter) * _k) - 1), y1 = Math.Min(_hi, (int)((cy + rOuter) * _k) + 1);
+            for (int py = y0; py < y1; py++)
             {
-                for (int px = 0; px < _hi; px++)
+                for (int px = x0; px < x1; px++)
                 {
-                    float fx = (px + 0.5f) / SS - cx, fy = (py + 0.5f) / SS - cy;
+                    float fx = (px + 0.5f) / _k - cx, fy = (py + 0.5f) / _k - cy;
                     float d = fx * fx + fy * fy;
                     if (d <= o2 && d >= i2) Blend(py * _hi + px, c);
+                }
+            }
+        }
+
+        /// <summary>Filled ellipse (domes, contact shadows).</summary>
+        public void Ellipse(float cx, float cy, float rx, float ry, Color c)
+        {
+            if (rx <= 0 || ry <= 0) return;
+            int x0 = (int)((cx - rx) * _k) - 1, x1 = (int)((cx + rx) * _k) + 1;
+            int y0 = (int)((cy - ry) * _k) - 1, y1 = (int)((cy + ry) * _k) + 1;
+            for (int py = Math.Max(0, y0); py < Math.Min(_hi, y1); py++)
+            {
+                for (int px = Math.Max(0, x0); px < Math.Min(_hi, x1); px++)
+                {
+                    float fx = ((px + 0.5f) / _k - cx) / rx, fy = ((py + 0.5f) / _k - cy) / ry;
+                    if (fx * fx + fy * fy <= 1f) Blend(py * _hi + px, c);
                 }
             }
         }
@@ -205,14 +226,14 @@ public partial class MapIcons : IDisposable
         {
             float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
             foreach (var p in pts) { minX = Math.Min(minX, p.X); minY = Math.Min(minY, p.Y); maxX = Math.Max(maxX, p.X); maxY = Math.Max(maxY, p.Y); }
-            int x0 = Math.Max(0, (int)(minX * SS) - 1), x1 = Math.Min(_hi, (int)(maxX * SS) + 1);
-            int y0 = Math.Max(0, (int)(minY * SS) - 1), y1 = Math.Min(_hi, (int)(maxY * SS) + 1);
+            int x0 = Math.Max(0, (int)(minX * _k) - 1), x1 = Math.Min(_hi, (int)(maxX * _k) + 1);
+            int y0 = Math.Max(0, (int)(minY * _k) - 1), y1 = Math.Min(_hi, (int)(maxY * _k) + 1);
             for (int py = y0; py < y1; py++)
             {
-                float fy = (py + 0.5f) / SS;
+                float fy = (py + 0.5f) / _k;
                 for (int px = x0; px < x1; px++)
                 {
-                    float fx = (px + 0.5f) / SS;
+                    float fx = (px + 0.5f) / _k;
                     bool inside = false;
                     for (int i = 0, j = pts.Length - 1; i < pts.Length; j = i++)
                     {
@@ -238,14 +259,36 @@ public partial class MapIcons : IDisposable
             Poly(c, a + n, b + n, b - n, a - n);
         }
 
+        /// <summary>
+        /// Gives everything drawn so far some volume: lit from the top-left and darker towards
+        /// the bottom-right, so flat-coloured shapes don't look like paper cut-outs.
+        /// </summary>
+        public void Light(float strength = 0.16f)
+        {
+            for (int y = 0; y < _hi; y++)
+            {
+                float ty = y / (float)(_hi - 1);
+                for (int x = 0; x < _hi; x++)
+                {
+                    int i = y * _hi + x;
+                    float a = _px[i].W;
+                    if (a <= 0f) continue;
+                    float tx = x / (float)(_hi - 1);
+                    float f = 1f + strength * (0.85f - 1.5f * ty - 0.5f * tx);
+                    var p = _px[i];
+                    _px[i] = new Vector4(Math.Min(a, p.X * f), Math.Min(a, p.Y * f), Math.Min(a, p.Z * f), a);
+                }
+            }
+        }
+
         /// <summary>Adds a dark outline of the given thickness around everything drawn so far.</summary>
         public void Outline(float thickness, Color c)
         {
-            int r = Math.Max(1, (int)MathF.Round(thickness * SS));
+            int r = Math.Max(1, (int)MathF.Round(thickness * _k));
             var alpha = new float[_hi * _hi];
             for (int i = 0; i < _px.Length; i++) alpha[i] = _px[i].W;
 
-            // Separable max filter (square dilation, then trimmed to a disc)
+            // Separable max filter (square dilation)
             var tmp = new float[_hi * _hi];
             for (int y = 0; y < _hi; y++)
                 for (int x = 0; x < _hi; x++)
@@ -281,25 +324,55 @@ public partial class MapIcons : IDisposable
             }
         }
 
+        /// <summary>
+        /// Produces the texture. Power-of-two textures get a full mipmap chain, so sprites
+        /// drawn much smaller than their source (zoomed-out map) stay clean instead of shimmering.
+        /// </summary>
         public Texture2D ToTexture(GraphicsDevice device)
         {
-            var data = new Color[Size * Size];
-            for (int y = 0; y < Size; y++)
+            int n = PixelSize;
+            var level = new Vector4[n * n];
+            for (int y = 0; y < n; y++)
             {
-                for (int x = 0; x < Size; x++)
+                for (int x = 0; x < n; x++)
                 {
                     Vector4 acc = Vector4.Zero;
                     for (int sy = 0; sy < SS; sy++)
                         for (int sx = 0; sx < SS; sx++)
                             acc += _px[(y * SS + sy) * _hi + x * SS + sx];
-                    acc /= SS * SS;
-                    // SpriteBatch default blend expects premultiplied alpha
-                    data[y * Size + x] = new Color(Math.Clamp(acc.X, 0, 1), Math.Clamp(acc.Y, 0, 1), Math.Clamp(acc.Z, 0, 1), Math.Clamp(acc.W, 0, 1));
+                    level[y * n + x] = acc / (SS * SS);
                 }
             }
-            var tex = new Texture2D(device, Size, Size);
-            tex.SetData(data);
+
+            bool mips = n >= 32 && (n & (n - 1)) == 0;
+            var tex = new Texture2D(device, n, n, mips, SurfaceFormat.Color);
+            tex.SetData(0, null, Pack(level), 0, n * n);
+            if (mips)
+            {
+                int mip = 1;
+                while (n > 1)
+                {
+                    int h = n / 2;
+                    var next = new Vector4[h * h];
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < h; x++)
+                            next[y * h + x] = (level[(y * 2) * n + x * 2] + level[(y * 2) * n + x * 2 + 1] +
+                                               level[(y * 2 + 1) * n + x * 2] + level[(y * 2 + 1) * n + x * 2 + 1]) * 0.25f;
+                    tex.SetData(mip++, null, Pack(next), 0, h * h);
+                    level = next;
+                    n = h;
+                }
+            }
             return tex;
+        }
+
+        private static Color[] Pack(Vector4[] src)
+        {
+            // SpriteBatch default blend expects premultiplied alpha
+            var data = new Color[src.Length];
+            for (int i = 0; i < src.Length; i++)
+                data[i] = new Color(Math.Clamp(src[i].X, 0, 1), Math.Clamp(src[i].Y, 0, 1), Math.Clamp(src[i].Z, 0, 1), Math.Clamp(src[i].W, 0, 1));
+            return data;
         }
     }
 
@@ -336,8 +409,8 @@ public partial class MapIcons : IDisposable
     private static (Texture2D, Texture2D) BuildSettlement(GraphicsDevice device, int type)
     {
         int s = SettlementSize;
-        var b = new Canvas(s);
-        var m = new Canvas(s);
+        var b = new Canvas(s, SettlementScale);
+        var m = new Canvas(s, SettlementScale);
         float ground = s - 6;
 
         switch (type)
@@ -406,74 +479,123 @@ public partial class MapIcons : IDisposable
                 break;
         }
 
-        b.Outline(1.1f, Outline);
+        b.Light();
+        b.Outline(1.0f, Outline);
         return (b.ToTexture(device), m.ToTexture(device));
     }
 
     private static Texture2D BuildCrown(GraphicsDevice device)
     {
         var c = new Canvas(SmallIconSize);
-        var gold = new Color(255, 205, 60);
-        c.Poly(gold, V(3, 18), V(3, 8), V(8, 13), V(12, 5), V(16, 13), V(21, 8), V(21, 18));
-        c.Rect(3, 17, 18, 3, new Color(220, 160, 40));
-        c.Circle(12, 5, 1.6f, new Color(255, 240, 180));
-        c.Circle(3, 8, 1.4f, new Color(255, 240, 180));
-        c.Circle(21, 8, 1.4f, new Color(255, 240, 180));
-        c.Circle(12, 15, 1.6f, new Color(220, 40, 60));
+        var gold = new Color(255, 208, 64);
+        var goldDark = new Color(214, 150, 36);
+        c.Poly(gold, V(3, 18), V(2.5f, 8), V(8, 13), V(12, 4.5f), V(16, 13), V(21.5f, 8), V(21, 18));
+        // Shaded right half and a jewelled band
+        c.Poly(goldDark, V(12, 4.5f), V(16, 13), V(21.5f, 8), V(21, 18), V(12, 18));
+        c.Poly(new Color(255, 232, 130), V(4.2f, 10.5f), V(7.6f, 13.6f), V(6.2f, 15.5f), V(4.4f, 15.5f));
+        c.Rect(3, 16.5f, 18, 3.5f, new Color(232, 172, 44));
+        c.Rect(3, 16.5f, 18, 1f, new Color(255, 232, 150));
+        c.Circle(12, 4.6f, 1.7f, new Color(255, 244, 190));
+        c.Circle(2.8f, 8, 1.5f, new Color(255, 244, 190));
+        c.Circle(21.2f, 8, 1.5f, new Color(255, 244, 190));
+        c.Circle(12, 18.2f, 1.5f, new Color(226, 44, 66));
+        c.Circle(7, 18.2f, 1.1f, new Color(70, 150, 240));
+        c.Circle(17, 18.2f, 1.1f, new Color(70, 200, 120));
         c.Outline(1.1f, Outline);
         return c.ToTexture(device);
     }
 
     private static Texture2D BuildWallRing(GraphicsDevice device)
     {
+        // Drawn squashed into an ellipse around the foot of a walled settlement: the top half
+        // behind the buildings, the bottom half in front. Kept slim so it frames the town
+        // instead of hiding it.
         const int s = 64;
         var c = new Canvas(s);
-        c.Ring(32, 32, 29, 25, Stone);
-        c.Ring(32, 32, 26.5f, 25, StoneDark);
+        c.Ring(32, 32, 29, 26.2f, Stone);
+        c.Ring(32, 32, 27.2f, 26.2f, StoneDark);
+        c.Ring(32, 32, 29, 28.3f, new Color(206, 206, 212));
         for (int i = 0; i < 8; i++)
         {
-            float a = i * MathF.PI / 4f;
-            c.Circle(32 + MathF.Cos(a) * 27, 32 + MathF.Sin(a) * 27, 4f, Stone);
-            c.Circle(32 + MathF.Cos(a) * 27 + 0.8f, 32 + MathF.Sin(a) * 27 + 0.8f, 2.4f, StoneDark);
+            float a = i * MathF.PI / 4f + MathF.PI / 8f;
+            float tx = 32 + MathF.Cos(a) * 27.6f, ty = 32 + MathF.Sin(a) * 27.6f;
+            c.Circle(tx, ty, 3.3f, Stone);
+            c.Circle(tx + 0.7f, ty + 0.7f, 2f, StoneDark);
+            c.Circle(tx - 0.5f, ty - 0.6f, 1.1f, new Color(214, 214, 220));
         }
-        c.Outline(1.2f, Outline);
+        // Gate facing the viewer
+        c.Rect(28.5f, 56.4f, 7, 4.6f, Stone);
+        c.Rect(30.6f, 58, 2.8f, 3f, Door);
+        c.Outline(1.1f, Outline);
         return c.ToTexture(device);
     }
 
     private static (Texture2D, Texture2D) BuildArmy(GraphicsDevice device)
     {
         int s = SmallIconSize;
-        var b = new Canvas(s);
-        var m = new Canvas(s);
-        // Pole
-        b.Rect(5, 2, 1.8f, 20, new Color(92, 66, 40));
-        b.Circle(5.9f, 2.2f, 1.4f, new Color(230, 200, 90));
-        // Swallow-tail banner (tinted)
-        var flag = new[] { V(6.8f, 3), V(21, 3), V(17, 8), V(21, 13), V(6.8f, 13) };
-        b.Poly(new Color(128, 128, 128), flag);
+        var b = new Canvas(s, MapSpriteScale);
+        var m = new Canvas(s, MapSpriteScale);
+        var steel = new Color(214, 220, 232);
+        var steelDark = new Color(150, 158, 176);
+        var skin = new Color(236, 196, 156);
+        var tintBase = new Color(128, 128, 128);
+
+        // Spears behind the troop
+        foreach (float x in new[] { 12.6f, 17.2f, 21.6f })
+        {
+            b.Rect(x, 10, 0.8f, 12, new Color(110, 80, 50));
+            b.Poly(steel, V(x - 0.8f, 10.4f), V(x + 0.4f, 7.4f), V(x + 1.6f, 10.4f));
+        }
+
+        // Standard: pole with a swallow-tail banner in the nation's colour
+        b.Rect(4.6f, 2, 1.7f, 20.5f, new Color(104, 74, 44));
+        b.Circle(5.45f, 2.2f, 1.5f, new Color(240, 206, 96));
+        var flag = new[] { V(6.3f, 2.4f), V(18.5f, 3.2f), V(15.2f, 6.2f), V(18.5f, 9.2f), V(6.3f, 10f) };
+        b.Poly(tintBase, flag);
         m.Poly(MaskLight, flag);
-        m.Poly(MaskShade, V(6.8f, 9.5f), V(19, 9.5f), V(21, 13), V(6.8f, 13));
-        // Emblem
-        b.Circle(12, 8, 2.2f, new Color(245, 240, 225));
-        // Shield at the foot
-        b.Poly(new Color(210, 210, 220), V(9, 15), V(17, 15), V(17, 18.5f), V(13, 22), V(9, 18.5f));
-        b.Rect(12.4f, 15, 1.2f, 6.5f, new Color(150, 40, 40));
-        b.Outline(1.0f, Outline);
+        m.Poly(MaskShade, V(6.3f, 7f), V(16f, 7f), V(18.5f, 9.2f), V(6.3f, 10f));
+        b.Rect(6.3f, 5.5f, 9.4f, 1.3f, new Color(250, 246, 232));
+        m.Rect(6.3f, 5.5f, 9.4f, 1.3f, new Color(255, 255, 255, 40));
+
+        // Three soldiers: helmet, face, tunic in the nation's colour and a round shield
+        foreach (float x in new[] { 10f, 14.6f, 19.2f })
+        {
+            b.Rect(x - 2f, 16.6f, 4f, 5.6f, tintBase);
+            m.Rect(x - 2f, 16.6f, 4f, 5.6f, MaskShade);
+            b.Circle(x, 14.6f, 2f, skin);
+            b.Poly(steel, V(x - 2.2f, 14.4f), V(x - 1.6f, 12.6f), V(x, 11.9f), V(x + 1.6f, 12.6f), V(x + 2.2f, 14.4f));
+            b.Rect(x - 0.3f, 14.2f, 0.6f, 1.5f, steelDark);
+            b.Circle(x - 0.7f, 19.4f, 1.5f, new Color(226, 190, 96));
+            b.Circle(x - 0.7f, 19.4f, 0.6f, new Color(150, 110, 50));
+        }
+        b.Outline(0.9f, Outline);
         return (b.ToTexture(device), m.ToTexture(device));
     }
 
     private static Texture2D BuildSwords(GraphicsDevice device)
     {
-        var c = new Canvas(SmallIconSize);
-        var steel = new Color(225, 230, 240);
-        var hilt = new Color(230, 180, 60);
-        c.Line(V(4, 4), V(18, 18), 2.4f, steel);
-        c.Line(V(20, 4), V(6, 18), 2.4f, steel);
-        c.Line(V(14, 19), V(19, 14), 2.0f, hilt);
-        c.Line(V(10, 19), V(5, 14), 2.0f, hilt);
-        c.Circle(20, 20, 1.8f, hilt);
-        c.Circle(4, 20, 1.8f, hilt);
-        c.Outline(1.1f, Outline);
+        var c = new Canvas(SmallIconSize, MapSpriteScale);
+        var steel = new Color(232, 236, 246);
+        var steelDark = new Color(168, 176, 196);
+        var hilt = new Color(236, 184, 64);
+        var grip = new Color(120, 70, 40);
+        void Sword(float dir)
+        {
+            // Blade from the pommel corner up to the opposite corner
+            var tip = V(12 + dir * 8.6f, 2.6f);
+            var guard = V(12 - dir * 3.4f, 14.6f);
+            var d = Vector2.Normalize(tip - guard);
+            var n = new Vector2(-d.Y, d.X);
+            c.Poly(steel, guard + n * 1.5f, tip - d * 2.2f + n * 1.5f, tip, tip - d * 2.2f - n * 1.5f, guard - n * 1.5f);
+            c.Poly(steelDark, guard, tip, tip - d * 2.2f - n * 1.5f, guard - n * 1.5f);
+            c.Line(guard - n * 3.6f, guard + n * 3.6f, 1.9f, hilt);
+            c.Line(guard, guard - d * 4.6f, 1.7f, grip);
+            var pommel = guard - d * 5.4f;
+            c.Circle(pommel.X, pommel.Y, 1.6f, hilt);
+        }
+        Sword(1f);
+        Sword(-1f);
+        c.Outline(1.0f, Outline);
         return c.ToTexture(device);
     }
 

@@ -7,10 +7,10 @@ REM This is the main building script for Windows
 REM Check if dotnet is installed
 dotnet --version >nul 2>&1
 if errorlevel 1 (
-    echo X .NET 8 SDK is not installed!
+    echo X .NET 10 SDK is not installed!
     echo.
-    echo Please install .NET 8 from:
-    echo   https://dotnet.microsoft.com/download/dotnet/8.0
+    echo Please install .NET 10 from:
+    echo   https://dotnet.microsoft.com/download/dotnet/10.0
     echo.
     pause
     exit /b 1
@@ -51,6 +51,6 @@ echo To run the game:
 echo   cd SimPlanet ^&^& dotnet run
 echo.
 echo Or to run the optimized release build:
-echo   cd SimPlanet\bin\Release\net8.0 ^&^& SimPlanet.exe
+echo   cd SimPlanet\bin\Release\net10.0 ^&^& SimPlanet.exe
 echo.
 pause

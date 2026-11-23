@@ -69,8 +69,8 @@ public partial class MapIcons
 
     private static (Texture2D, Texture2D) BuildStyled(GraphicsDevice device, CityStyle style, int type)
     {
-        var b = new Canvas(SettlementSize);
-        var m = new Canvas(SettlementSize);
+        var b = new Canvas(SettlementSize, SettlementScale);
+        var m = new Canvas(SettlementSize, SettlementScale);
         float g = SettlementSize - 6;
         switch (style)
         {
@@ -83,7 +83,8 @@ public partial class MapIcons
             case CityStyle.Modern: Modern(b, m, type, g); break;
             default: Futuristic(b, m, type, g); break;
         }
-        b.Outline(1.1f, Outline);
+        b.Light();
+        b.Outline(1.0f, Outline);
         return (b.ToTexture(device), m.ToTexture(device));
     }
 
@@ -762,7 +763,7 @@ public partial class MapIcons
 
     private static Texture2D BuildBadge(GraphicsDevice device, CitySpecialization spec)
     {
-        var c = new Canvas(SmallIconSize);
+        var c = new Canvas(SmallIconSize, MapSpriteScale);
         switch (spec)
         {
             case CitySpecialization.Farming:

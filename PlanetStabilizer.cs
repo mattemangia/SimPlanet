@@ -158,6 +158,9 @@ public class PlanetStabilizer
         PreventExtremeFeedbacks();
     }
 
+    /// <summary>Set by the game: true where a nation holds the land.</summary>
+    public Func<int, int, bool>? IsClaimed { get; set; }
+
     private static bool IsCivilizationCell(TerrainCell cell)
     {
         return cell.LifeType == LifeForm.Civilization;
@@ -230,32 +233,49 @@ public class PlanetStabilizer
             float avgN2O = CalculateAverageN2O();
             string reason = tempDeviation > 1f ? "avg temp" : "max temp";
 
-            // Prioritize removing the most potent gases first
-            if (avgN2O > 0.1f)
+            // Draw down every greenhouse gas that is in excess, faster the more there is of it
+            // and the further the planet is from its target
+            bool gasesHigh = false;
+            float urgency = 1f + Math.Clamp(tempDeviation - 1f, 0f, 4f);
+            if (avgN2O > 0.05f)
             {
-                ReduceN2OGlobally(0.05f); // Reduced from 0.5f
+                ReduceN2OGlobally(MathF.Min(0.5f, (0.02f + avgN2O * 0.3f) * urgency));
                 LastAction = $"Removing N2O to cool planet ({reason}: {avgTemp:F1}°C)";
-                AdjustmentsMade++;
+                gasesHigh = true;
             }
-            else if (avgMethane > 0.2f)
+            if (avgMethane > 0.2f)
             {
-                ReduceMethaneGlobally(0.05f); // Reduced from 0.5f
+                ReduceMethaneGlobally(MathF.Min(1.5f, (0.03f + avgMethane * 0.15f) * urgency));
                 LastAction = $"Removing methane to cool planet ({reason}: {avgTemp:F1}°C)";
-                AdjustmentsMade++;
+                gasesHigh = true;
             }
-            else if (avgCO2 > 0.1f)
+            if (avgCO2 > _maxCO2)
             {
-                AdjustCO2Globally(-0.02f); // Reduced from -0.2f
+                // (as rock weathering does in nature)
+                AdjustCO2Globally(-MathF.Min(0.6f, (0.02f + (avgCO2 - _maxCO2) * 0.25f) * urgency));
                 LastAction = $"Removing CO2 to cool planet ({reason}: {avgTemp:F1}°C)";
-                AdjustmentsMade++;
+                gasesHigh = true;
             }
-            
-            // Decrease solar energy
-            if (_map.SolarEnergy > 0.6f)
+            if (gasesHigh) AdjustmentsMade++;
+
+            // The sun is the very last resort: only with clean air and a planet far too warm.
+            // Otherwise it goes back to its normal output.
+            if (!gasesHigh && tempDeviation > 5f && _map.SolarEnergy > 0.85f)
             {
-                _map.SolarEnergy -= 0.001f * _responseMultiplier; // Reduced from 0.01f
+                _map.SolarEnergy -= 0.0005f * _responseMultiplier;
                 LastAction = $"Decreasing solar energy ({reason}: {avgTemp:F1}°C)";
             }
+            else if (MathF.Abs(_map.SolarEnergy - 1f) > 0.001f)
+            {
+                float step = 0.0006f * _responseMultiplier;
+                _map.SolarEnergy += Math.Clamp(1f - _map.SolarEnergy, -step, step);
+            }
+        }
+        else if (MathF.Abs(_map.SolarEnergy - 1f) > 0.002f)
+        {
+            // Temperature is where it should be: let the sun drift back to its normal output,
+            // so an old correction does not become permanent
+            _map.SolarEnergy += MathF.Sign(1f - _map.SolarEnergy) * MathF.Min(0.0004f * _responseMultiplier, MathF.Abs(1f - _map.SolarEnergy));
         }
 
         // EMERGENCY: Direct temperature reduction if critically high anywhere
@@ -272,11 +292,8 @@ public class PlanetStabilizer
         {
             // Boost photosynthesis massively
             BoostPlantGrowth();
-            // Direct injection if critically low
-            if (avgOxygen < 10f)
-            {
-                InjectOxygenGlobally(0.05f); // Reduced from 0.5f
-            }
+            // Direct injection, stronger the further the air is from breathable
+            InjectOxygenGlobally(MathF.Min(0.2f, (lowOxygenThreshold - avgOxygen) * 0.03f));
             LastAction = $"Boosting O2 production (current: {avgOxygen:F1}%)";
             AdjustmentsMade++;
         }
@@ -284,6 +301,14 @@ public class PlanetStabilizer
         {
             ReduceOxygenGlobally(0.05f); // Reduced from 0.5f
             LastAction = $"Reducing excess O2 (current: {avgOxygen:F1}%)";
+            AdjustmentsMade++;
+        }
+
+        // Far too much CO2 is drawn down whatever the temperature (weathering and ocean uptake)
+        if (avgCO2 > _maxCO2 * 3f)
+        {
+            AdjustCO2Globally(-MathF.Min(0.2f, (avgCO2 - _maxCO2 * 3f) * 0.05f));
+            LastAction = $"Drawing down excess CO2 (current: {avgCO2:F2}%)";
             AdjustmentsMade++;
         }
 
@@ -370,15 +395,8 @@ public class PlanetStabilizer
             }
         }
 
-        if (_map.SolarEnergy > 0.85f)
-        {
-            float newEnergy = Math.Max(0.65f, _map.SolarEnergy - 0.0008f * _responseMultiplier);
-            if (Math.Abs(newEnergy - _map.SolarEnergy) > 0.0001f)
-            {
-                adjusted = true;
-                _map.SolarEnergy = newEnergy;
-            }
-        }
+        // The poles are cooled locally. The sun itself is left alone: dimming it to grow ice
+        // starved the whole planet of light and was never undone.
 
         if (adjusted)
         {
@@ -700,7 +718,9 @@ public class PlanetStabilizer
             for (int y = 0; y < _map.Height; y++)
             {
                 var cell = _map.Cells[x, y];
-                if (cell.IsLand && cell.Elevation < 0.2f && !IsCivilizationCell(cell))
+                // Settled land is left alone, and the sea only creeps in from the shore
+                if (cell.IsLand && cell.Elevation < 0.2f && !IsCivilizationCell(cell) && !(IsClaimed?.Invoke(x, y) ?? false) &&
+                    (cell.Elevation > 0.03f || cell.IsCoastal))
                 {
                     cell.Elevation -= elevationChange;
                 }
@@ -746,7 +766,7 @@ public class PlanetStabilizer
         var controls = _map.PlanetaryControls;
         if (controls == null) return;
 
-        float droughtThreshold = 0.25f; // Slightly higher threshold
+        float droughtThreshold = 0.15f; // A drought of the whole land surface, not the presence of deserts
         float floodThreshold = 0.7f;
 
         // Remove time scaling from response
@@ -770,6 +790,9 @@ public class PlanetStabilizer
 
     private void ReinforceMoistureCorridors(float avgLandRainfall)
     {
+        // Deserts are part of a healthy planet (the subtropical belts, rain shadows, deep
+        // interiors). Only a drought of the whole land surface is something to correct.
+        if (avgLandRainfall >= 0.15f) return;
         bool urgent = _emergencyLifeProtection || avgLandRainfall < 0.2f;
         if (!urgent && _adjustmentTimer < 1.0f) return;
 
@@ -801,6 +824,8 @@ public class PlanetStabilizer
 
     private void CombatRapidDesertification(float avgLandRainfall)
     {
+        if (avgLandRainfall >= 0.15f) return; // Natural deserts are left alone
+
         float severityScale = avgLandRainfall < 0.18f ? 1.5f : 1f;
         float rainfallBoost = 0.01f * _responseMultiplier * severityScale; // Reduced from 0.1f
         float cooling = 0.2f * _responseMultiplier * severityScale; // Reduced from 2f
@@ -925,10 +950,12 @@ public class PlanetStabilizer
                 // 3. FORCE WATER/RAINFALL (Land Plants/Animals)
                 if (cell.IsLand && cell.LifeType != LifeForm.Bacteria)
                 {
-                    if (cell.Rainfall < 0.2f)
+                    // Desert life is adapted to its desert. Only ground too dry for anything to
+                    // survive is given a little water, and it stays a desert.
+                    if (cell.Rainfall < 0.05f)
                     {
-                        cell.Rainfall = 0.3f; // Instant hydration
-                        cell.Humidity = Math.Max(cell.Humidity, 0.4f);
+                        cell.Rainfall = 0.07f;
+                        cell.Humidity = Math.Max(cell.Humidity, 0.15f);
                         modified = true;
                     }
                 }
