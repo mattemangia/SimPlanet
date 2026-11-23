@@ -57,8 +57,23 @@ public sealed partial class Subsurface3DView
     private float _seismogramHold;
     private float _impactFlash;
 
+    // ---- Atmosphere --------------------------------------------------------------------
+    private WeatherSystem? _weather;
+    private float[] _cloud = Array.Empty<float>(), _precip = Array.Empty<float>(), _temp = Array.Empty<float>();
+    private float[] _windX = Array.Empty<float>(), _windY = Array.Empty<float>(), _cloudV = Array.Empty<float>();
+    private bool[] _stormy = Array.Empty<bool>();
+    private byte[] _eruptType = Array.Empty<byte>();
+    private readonly List<(float i, float j, StormType type, float intensity, float rotation, float wind)> _storms = new();
+    private Vector3 _cameraRight, _cameraUp;
+
+    public void SetWeather(WeatherSystem weather) => _weather = weather;
+
+    private float CloudBase => 2.1f * Unit;
+
     private struct Particle
     {
+        public float Ceiling;      // Height at which a rising plume stops and spreads (0 = none)
+        public Vector3 Drift;      // Velocity once it has spread
         public Vector3 Position, Velocity;
         public float Life, MaxLife, Size, Growth, Gravity, Floor;
         public Color Color;
@@ -182,6 +197,8 @@ public sealed partial class Subsurface3DView
         for (int i = 0; i < cells; i++) _columns[i] = new StrataColumn();
         _bump = new float[cells]; _flash = new float[cells]; _erupting = new float[cells];
         _ash = new float[cells]; _lava = new float[cells];
+        _cloud = new float[cells]; _precip = new float[cells]; _temp = new float[cells];
+        _windX = new float[cells]; _windY = new float[cells]; _stormy = new bool[cells]; _eruptType = new byte[cells];
         _lavaFronts.Clear();
 
         _g = _n * Sub + 1;
@@ -189,7 +206,7 @@ public sealed partial class Subsurface3DView
         _baseY = new float[vertices]; _y = new float[vertices];
         _waveP = new float[vertices]; _waveS = new float[vertices]; _bumpV = new float[vertices];
         _vertexColor = new Color[vertices];
-        _ashV = new float[vertices]; _lavaV = new float[vertices];
+        _ashV = new float[vertices]; _lavaV = new float[vertices]; _cloudV = new float[vertices];
         _pendingSlip.Clear();
         _hasSnapshot = false;
     }
@@ -227,12 +244,33 @@ public sealed partial class Subsurface3DView
                 if (geo.IsForedeep) flags |= FlagForedeep;
                 _flags[c] = flags;
                 _cellColor[c] = TerrainColor(cell);
+                var met = cell.Meteorology;
+                _cloud[c] = met.CloudCover;
+                _precip[c] = met.Precipitation;
+                _stormy[c] = met.InStorm;
+                _windX[c] = met.WindSpeedX;
+                _windY[c] = met.WindSpeedY;
+                _temp[c] = cell.Temperature;
                 Stratigraphy.Build(_map, _oil, mx, my, _columns[c]);
                 if (_seismo != null) _velocity[c] = _seismo.VelocityP[my * _map.Width + mx];
             }
         }
 
         ComputeSlab();
+
+        _storms.Clear();
+        if (_weather != null)
+        {
+            foreach (var storm in _weather.GetActiveStorms())
+            {
+                float si = storm.CenterX - OriginX;
+                si = ((si % _map.Width) + _map.Width) % _map.Width;
+                if (si > _map.Width / 2f) si -= _map.Width;
+                float sj = storm.CenterY - OriginY;
+                if (si < -12 || si > n + 12 || sj < -12 || sj > n + 12) continue;
+                _storms.Add((si, sj, storm.Type, storm.Intensity, storm.RotationDirection == 0 ? 1f : storm.RotationDirection, storm.MaxWindSpeed));
+            }
+        }
 
         _cities.Clear();
         if (_civilizations != null)
@@ -396,6 +434,7 @@ public sealed partial class Subsurface3DView
                 {
                     AddTicker($"{e.Eruption} eruption  -  VEI {e.Magnitude:F0}", new Color(255, 140, 60));
                     _erupting[j * _n + i] = 5f + e.Magnitude;
+                    _eruptType[j * _n + i] = (byte)e.Eruption;
                     if (e.Eruption is EruptionType.Effusive or EruptionType.Strombolian) _lavaFronts.Add((j * _n + i, 0f, 0));
                     break;
                 }
@@ -504,12 +543,12 @@ public sealed partial class Subsurface3DView
                     _ash[oj * n + oi] = MathF.Min(1f, _ash[oj * n + oi] + dt * 0.3f * (1f - d / reach));
                 }
             }
-            for (int fall = 0; fall < 3; fall++)
+            for (int fall = 0; fall < 2; fall++)
             {
                 var from = CellTop(ci, cj, 2.6f * unit) + new Vector3(Rand(-reach, reach) * 0.7f, Rand(-0.4f, 0.4f) * unit, Rand(-reach, reach) * 0.7f);
                 _particles.Add(new Particle
                 {
-                    Position = from, Velocity = new Vector3(0.1f, -0.5f * unit, 0.05f), MaxLife = 5f, Size = 0.08f,
+                    Position = from, Velocity = new Vector3(0.1f, -0.5f * unit, 0.05f), MaxLife = 5f, Size = 0.035f,
                     Gravity = 0.25f * unit, Floor = ElevY(_elev[c]) - 0.5f * unit, Color = new Color(70, 66, 70)
                 });
             }
@@ -565,21 +604,59 @@ public sealed partial class Subsurface3DView
                     var vent = CellTop(i, j, 0.05f);
                     if (_erupting[c] > 0f)
                     {
-                        for (int k = 0; k < 5; k++)
+                        var kind = (EruptionType)_eruptType[c];
+                        bool explosive = kind is EruptionType.Plinian or EruptionType.Vulcanian or EruptionType.Phreatomagmatic;
+                        var downwind = new Vector3(_windX[c], 0, _windY[c]);
+                        downwind = downwind.LengthSquared() > 0.01f ? Vector3.Normalize(downwind) : new Vector3(1, 0, 0);
+
+                        if (explosive)
                         {
-                            // The column rises, slows, and spreads sideways into an umbrella cloud
+                            // Sustained column: a jet of gas and ash that rises by its own heat to
+                            // where it is no lighter than the air, then spreads downwind as an umbrella
+                            float ceiling = vent.Y + (kind == EruptionType.Plinian ? 3.4f : 2.3f) * unit;
+                            for (int k = 0; k < 7; k++)
+                            {
+                                double angle = _random.NextDouble() * Math.PI * 2;
+                                var radial = new Vector3((float)Math.Cos(angle), 0, (float)Math.Sin(angle));
+                                bool steam = kind == EruptionType.Phreatomagmatic && k % 2 == 0;
+                                _particles.Add(new Particle
+                                {
+                                    Position = vent + radial * 0.08f, Velocity = new Vector3(Rand(-0.12f, 0.12f), Rand(1.9f, 2.6f), Rand(-0.12f, 0.12f)) * unit,
+                                    MaxLife = Rand(5f, 8f), Size = 0.3f, Growth = 0.45f, Gravity = 0.35f * unit, Floor = vent.Y - unit,
+                                    Ceiling = ceiling + Rand(-0.2f, 0.2f) * unit, Drift = (downwind * Rand(0.6f, 1.3f) + radial * Rand(0.2f, 0.7f)) * 1.2f,
+                                    Color = steam ? new Color(230, 232, 236) * 0.45f : new Color(78, 72, 76) * 0.6f
+                                });
+                            }
+                            // Pyroclastic density currents: hot ash avalanches hugging the ground
+                            if (kind != EruptionType.Phreatomagmatic || _random.NextDouble() < 0.4)
+                            {
+                                double angle = _random.NextDouble() * Math.PI * 2;
+                                var radial = new Vector3((float)Math.Cos(angle), 0, (float)Math.Sin(angle));
+                                _particles.Add(new Particle
+                                {
+                                    Position = vent, Velocity = radial * Rand(1.0f, 1.9f) + new Vector3(0, -0.12f * unit, 0),
+                                    MaxLife = Rand(2f, 3.2f), Size = 0.22f, Growth = 0.35f, Floor = BottomY, Color = new Color(150, 128, 112) * 0.45f
+                                });
+                            }
+                        }
+                        else
+                        {
+                            // Fountain: a little ash and gas over a spray of incandescent bombs
                             _particles.Add(new Particle
                             {
-                                Position = vent, Velocity = new Vector3(Rand(-0.5f, 0.5f), Rand(1.3f, 2.3f), Rand(-0.5f, 0.5f)) * unit * 0.6f,
-                                MaxLife = Rand(3.5f, 6f), Size = 0.4f, Growth = 0.9f, Gravity = 0.28f * unit, Floor = vent.Y,
-                                Color = new Color(84, 78, 82) * 0.8f
+                                Position = vent, Velocity = new Vector3(Rand(-0.2f, 0.2f), Rand(0.8f, 1.3f), Rand(-0.2f, 0.2f)) * unit * 0.6f,
+                                MaxLife = Rand(2.5f, 4f), Size = 0.3f, Growth = 0.5f, Gravity = 0.1f * unit, Floor = vent.Y,
+                                Color = new Color(110, 104, 108) * 0.6f
                             });
+                            for (int k = 0; k < 3; k++)
+                            {
+                                _particles.Add(new Particle
+                                {
+                                    Position = vent, Velocity = new Vector3(Rand(-0.5f, 0.5f), Rand(1.0f, 1.9f), Rand(-0.5f, 0.5f)) * unit * 0.55f,
+                                    MaxLife = Rand(1f, 1.8f), Size = 0.1f, Gravity = 1.7f * unit, Floor = BottomY, Color = new Color(255, 170, 50)
+                                });
+                            }
                         }
-                        _particles.Add(new Particle
-                        {
-                            Position = vent, Velocity = new Vector3(Rand(-0.7f, 0.7f), Rand(0.8f, 1.6f), Rand(-0.7f, 0.7f)) * unit * 0.5f,
-                            MaxLife = Rand(0.9f, 1.6f), Size = 0.14f, Gravity = 1.6f * unit, Floor = BottomY, Color = new Color(255, 150, 40)
-                        });
                     }
                     else if (_random.NextDouble() < dt * (0.6f + 2f * _pressure[c]))
                     {
@@ -607,6 +684,14 @@ public sealed partial class Subsurface3DView
         {
             var p = _particles[k];
             p.Life += dt;
+            if (p.Ceiling > 0f && p.Position.Y >= p.Ceiling)
+            {
+                // The column has reached its level of neutral buoyancy: it spreads as an umbrella
+                p.Velocity = p.Drift;
+                p.Gravity = 0.03f * unit;
+                p.Growth *= 1.6f;
+                p.Ceiling = 0f;
+            }
             p.Velocity.Y -= p.Gravity * dt;
             p.Position += p.Velocity * dt;
             p.Size += p.Growth * dt;
@@ -851,6 +936,7 @@ public sealed partial class Subsurface3DView
                 int x0 = (int)fx, x1 = Math.Min(n - 1, x0 + 1);
                 float tx = fx - x0;
                 _bumpV[vj * g + vi] = Lerp(Lerp(_bump[y0 * n + x0], _bump[y0 * n + x1], tx), Lerp(_bump[y1 * n + x0], _bump[y1 * n + x1], tx), ty);
+                _cloudV[vj * g + vi] = Lerp(Lerp(_cloud[y0 * n + x0], _cloud[y0 * n + x1], tx), Lerp(_cloud[y1 * n + x0], _cloud[y1 * n + x1], tx), ty);
                 _ashV[vj * g + vi] = Lerp(Lerp(_ash[y0 * n + x0], _ash[y0 * n + x1], tx), Lerp(_ash[y1 * n + x0], _ash[y1 * n + x1], tx), ty);
                 _lavaV[vj * g + vi] = Lerp(Lerp(_lava[y0 * n + x0], _lava[y0 * n + x1], tx), Lerp(_lava[y1 * n + x0], _lava[y1 * n + x1], tx), ty);
             }
@@ -923,6 +1009,8 @@ public sealed partial class Subsurface3DView
         var c = _vertexColor[vertex];
         float ash = _ashV[vertex], lava = _lavaV[vertex];
         if (ash > 0.01f) c = Color.Lerp(c, new Color(72, 68, 74), MathF.Min(0.92f, ash * 2.2f));
+        // Cloud shadows
+        if (_showSky) lit *= 1f - 0.28f * Math.Clamp((_cloudV[vertex] - 0.35f) * 1.6f, 0f, 1f);
         c = Shade(c, lit);
         if (lava > 0.03f)
         {
@@ -1222,44 +1310,9 @@ public sealed partial class Subsurface3DView
                     }
                 }
 
-                // Magma: chamber under a volcano, plume under a hot spot
                 if ((_flags[cell] & FlagVolcano) != 0)
                 {
-                    float pulse = 0.75f + 0.25f * MathF.Sin(_time * 3f + cell);
-                    float pressure = Math.Clamp(_pressure[cell], 0f, 1.2f);
-                    if (_erupting[cell] > 0f) pressure = 1.2f; // Lit up while it erupts
-                    float chamberTop = AbsY(surfaceKm + 3.5f), chamberBottom = AbsY(surfaceKm + 9f + 3f * pressure);
-                    float centreY = (chamberTop + chamberBottom) * 0.5f, radiusY = (chamberTop - chamberBottom) * 0.5f, radiusX = 0.55f + 0.35f * pressure;
-                    Color hot = Color.Lerp(new Color(200, 60, 20, 230), new Color(255, 200, 70, 255), pressure * pulse);
-
-                    if ((_flags[cell] & FlagHotSpot) != 0)
-                    {
-                        Color plume = new Color(255, 120, 40, 120);
-                        FlatQuad(SidePoint(side, u - 1.3f, BottomY, skin * 3f), SidePoint(side, u + 1.3f, BottomY, skin * 3f),
-                            SidePoint(side, u + 0.4f, centreY, skin * 3f), SidePoint(side, u - 0.4f, centreY, skin * 3f), plume);
-                        if (front) _labels.Add((SidePoint(side, u, Lerp(BottomY, centreY, 0.45f), 0.1f), "Mantle plume", MagmaColor, 6));
-                    }
-                    else if (_slab[cell] > 0f)
-                    {
-                        // Water driven off the slab melts the mantle above it; the melt rises to the arc
-                        float source = AbsY(MathF.Min(BottomKm - 4f, surfaceKm + _slab[cell]));
-                        FlatQuad(SidePoint(side, u - 0.18f, source, skin * 3f), SidePoint(side, u + 0.18f, source, skin * 3f),
-                            SidePoint(side, u + 0.1f, centreY, skin * 3f), SidePoint(side, u - 0.1f, centreY, skin * 3f), new Color(255, 130, 40, 150));
-                    }
-
-                    // Conduit and chamber
-                    FlatQuad(SidePoint(side, u - 0.07f, top, skin * 3.5f), SidePoint(side, u + 0.07f, top, skin * 3.5f),
-                        SidePoint(side, u + 0.1f, centreY, skin * 3.5f), SidePoint(side, u - 0.1f, centreY, skin * 3.5f), hot);
-                    const int fan = 18;
-                    var centre = SidePoint(side, u, centreY, skin * 4f);
-                    for (int f = 0; f < fan; f++)
-                    {
-                        float aa = f * MathHelper.TwoPi / fan, ab = (f + 1) * MathHelper.TwoPi / fan;
-                        Tri(centre, SidePoint(side, u + MathF.Cos(aa) * radiusX, centreY + MathF.Sin(aa) * radiusY, skin * 4f),
-                            SidePoint(side, u + MathF.Cos(ab) * radiusX, centreY + MathF.Sin(ab) * radiusY, skin * 4f),
-                            Color.Lerp(hot, Color.White, 0.25f), Shade(hot, 0.7f), Shade(hot, 0.7f), Vector2.Zero, Vector2.Zero, Vector2.Zero);
-                    }
-                    if (front) _labels.Add((SidePoint(side, u + radiusX + 0.2f, centreY, 0.1f), "Magma chamber", MagmaColor, 7));
+                    DrawMagmaSystem(side, k, cell, top, surfaceKm, skin, front);
                 }
 
                 if (front && column.HasReservoir && (k == 0 || !_columns[SideCell(side, k - 1)].HasReservoir))
@@ -1355,6 +1408,169 @@ public sealed partial class Subsurface3DView
                 bottom = _slab[cell] + 9f;
                 color = SlabColor;
                 break;
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Magma plumbing
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>An irregular body in the plane of a face (magma lens, plume head, diapir).</summary>
+    private void Blob(Side side, float u, float y, float radiusU, float radiusY, Color core, Color rim, int seed, float roughness, float outward)
+    {
+        const int fan = 26;
+        float p1 = Hash(seed) * 6.28f, p2 = Hash(seed + 7) * 6.28f, p3 = Hash(seed + 13) * 6.28f;
+        var centre = SidePoint(side, u, y, outward);
+        Vector3 previous = default;
+        for (int f = 0; f <= fan; f++)
+        {
+            float a = f * MathHelper.TwoPi / fan;
+            float r = 1f + roughness * (0.5f * MathF.Sin(2f * a + p1) + 0.3f * MathF.Sin(3f * a + p2) + 0.2f * MathF.Sin(5f * a + p3));
+            var point = SidePoint(side, u + MathF.Cos(a) * radiusU * r, y + MathF.Sin(a) * radiusY * r, outward);
+            if (f > 0) Tri(centre, previous, point, core, rim, rim, Vector2.Zero, Vector2.Zero, Vector2.Zero);
+            previous = point;
+        }
+    }
+
+    /// <summary>A dike: a thin sheet of magma that climbs in steps, jogging sideways as it goes.</summary>
+    private void Dike(Side side, float u0, float y0, float u1, float y1, float width, Color color, int seed, float outward)
+    {
+        const int steps = 6;
+        var previous = SidePoint(side, u0, y0, outward);
+        for (int i = 1; i <= steps; i++)
+        {
+            float f = i / (float)steps;
+            float jog = i == steps ? 0f : (Hash(seed + i * 3) - 0.5f) * 0.22f;
+            var point = SidePoint(side, Lerp(u0, u1, f) + jog, Lerp(y0, y1, f), outward);
+            Line(previous, point, width, color);
+            previous = point;
+        }
+    }
+
+    /// <summary>
+    /// The magmatic system under a volcano, drawn as it is understood today rather than as a
+    /// balloon on a stick: melt forms where the mantle can melt, rises as diapirs and dikes,
+    /// stalls in sills at the base of the crust, and feeds a shallow lens of crystal mush with
+    /// a melt-rich cap, from which a dike reaches the vent.
+    /// </summary>
+    private void DrawMagmaSystem(Side side, int k, int cell, float top, float surfaceKm, float skin, bool front)
+    {
+        float unit = Unit;
+        float u = k + 0.5f;
+        var column = _columns[cell];
+        bool erupting = _erupting[cell] > 0f;
+        float pressure = erupting ? 1.2f : Math.Clamp(_pressure[cell], 0f, 1.2f);
+        float pulse = 0.8f + 0.2f * MathF.Sin(_time * 3f + cell);
+        float heat = Math.Clamp(0.35f + pressure * 0.6f, 0f, 1f) * pulse;
+        Color melt = Color.Lerp(new Color(214, 70, 24, 235), new Color(255, 214, 96, 255), heat);
+        Color mush = new Color(168, 62, 34, 215);
+        Color faint = new Color(255, 130, 50, 110);
+        float o = skin * 3f;
+        float moho = MathF.Max(column.CrustKm, column.SedimentKm + 2f);
+        float mohoY = AbsY(surfaceKm + moho);
+        bool hotSpot = (_flags[cell] & FlagHotSpot) != 0;
+        bool rift = _boundary[cell] == (byte)PlateBoundaryType.Divergent;
+        bool arc = !hotSpot && !rift && _slab[cell] > 0f;
+
+        // ---- Where the melt comes from ----
+        float sourceY;
+        if (hotSpot)
+        {
+            // Mantle plume: a narrow hot tail rising from depth; its head flattens under the
+            // rigid lithosphere and spreads sideways
+            float headKm = MathF.Min(BottomKm - 14f, moho + 22f);
+            float headY = AbsY(surfaceKm + headKm);
+            const int segments = 12;
+            for (int i = 0; i < segments; i++)
+            {
+                float f0 = i / (float)segments, f1 = (i + 1) / (float)segments;
+                float y0 = Lerp(BottomY, headY, f0), y1 = Lerp(BottomY, headY, f1);
+                float sway0 = 0.18f * MathF.Sin(f0 * 5f + _time * 0.4f + cell), sway1 = 0.18f * MathF.Sin(f1 * 5f + _time * 0.4f + cell);
+                float half0 = 0.42f - 0.12f * f0, half1 = 0.42f - 0.12f * f1;
+                Color c0 = Color.Lerp(new Color(255, 96, 36, 70), new Color(255, 150, 60, 170), f0), c1 = Color.Lerp(new Color(255, 96, 36, 70), new Color(255, 150, 60, 170), f1);
+                Quad(SidePoint(side, u + sway0 - half0, y0, o), SidePoint(side, u + sway0 + half0, y0, o), SidePoint(side, u + sway1 + half1, y1, o), SidePoint(side, u + sway1 - half1, y1, o),
+                    c0, c0, c1, c1, Vector2.Zero, Vector2.Zero, Vector2.Zero, Vector2.Zero);
+            }
+            float headHalf = MathF.Min(2.6f, SideLength(side) * 0.25f);
+            Blob(side, u, headY, headHalf, 0.14f * unit, new Color(255, 170, 70, 200), new Color(255, 110, 40, 90), cell, 0.18f, o);
+            if (front)
+            {
+                _labels.Add((SidePoint(side, u + 0.6f, Lerp(BottomY, headY, 0.4f), 0.1f), "Plume tail", MagmaColor, 5));
+                _labels.Add((SidePoint(side, u + headHalf * 0.7f, headY, 0.1f), "Plume head (ponded under the lithosphere)", MagmaColor, 6));
+            }
+            sourceY = headY;
+        }
+        else if (arc)
+        {
+            // Subduction: water leaving the slab lowers the melting point of the mantle wedge
+            float slabKm = MathF.Min(BottomKm - 6f, _slab[cell]);
+            float slabY = AbsY(surfaceKm + slabKm);
+            float wedgeY = Lerp(slabY, mohoY, 0.35f);
+            for (int i = 0; i < 5; i++)
+            {
+                // Fluids streaming up from the slab
+                float phase = (_time * 0.25f + i * 0.2f + Hash(cell + i)) % 1f;
+                var drop = SidePoint(side, u - 0.6f + i * 0.3f, Lerp(slabY, wedgeY, phase), o);
+                Line(drop - new Vector3(0, 0.02f * unit, 0), drop + new Vector3(0, 0.02f * unit, 0), 0.05f * unit, new Color(150, 210, 255) * (1f - phase));
+            }
+            Blob(side, u, wedgeY, 1.1f, 0.2f * unit, new Color(255, 150, 60, 150), new Color(255, 110, 40, 40), cell, 0.3f, o);
+            // Diapirs: buoyant blobs of melt rising through the wedge
+            for (int i = 0; i < 3; i++)
+            {
+                float phase = (_time * 0.08f + i / 3f + Hash(cell * 3 + i)) % 1f;
+                float dy = Lerp(wedgeY, mohoY, phase);
+                Blob(side, u - 0.35f + i * 0.35f, dy, 0.16f, 0.07f * unit, melt, faint, cell + i * 5, 0.25f, o * 1.1f);
+            }
+            if (front)
+            {
+                _labels.Add((SidePoint(side, u + 1.2f, wedgeY, 0.1f), "Mantle wedge: melting where the slab releases water", MagmaColor, 6));
+            }
+            sourceY = wedgeY;
+        }
+        else
+        {
+            // Rift or ridge: the mantle rises, pressure drops and it melts over a broad region
+            // that narrows upward to the axis (decompression melting)
+            float baseKm = MathF.Min(BottomKm - 12f, moho + 45f);
+            float baseY = AbsY(surfaceKm + baseKm);
+            Color low = new Color(255, 110, 40, 60), high = new Color(255, 160, 60, 170);
+            Quad(SidePoint(side, u - 2.2f, baseY, o), SidePoint(side, u + 2.2f, baseY, o), SidePoint(side, u + 0.35f, mohoY, o), SidePoint(side, u - 0.35f, mohoY, o),
+                low, low, high, high, Vector2.Zero, Vector2.Zero, Vector2.Zero, Vector2.Zero);
+            if (front) _labels.Add((SidePoint(side, u + 1.2f, Lerp(baseY, mohoY, 0.45f), 0.1f), "Decompression melting", MagmaColor, 6));
+            sourceY = Lerp(baseY, mohoY, 0.7f);
+        }
+
+        // ---- Base of the crust: melt stalls and spreads into sills ----
+        float sillTopKm = MathF.Max(column.SedimentKm + 9f, moho - 9f);
+        for (int i = 0; i < 3; i++)
+        {
+            float depthKm = Lerp(moho - 0.5f, sillTopKm, i / 2f);
+            float half = 0.95f - 0.2f * i + 0.15f * Hash(cell + 40 + i);
+            Blob(side, u + (Hash(cell + 50 + i) - 0.5f) * 0.5f, AbsY(surfaceKm + depthKm), half, 0.035f * unit, melt, mush, cell + 60 + i, 0.12f, o * 1.05f);
+        }
+        Dike(side, u, sourceY, u, mohoY, 0.035f * unit, faint, cell + 11, o);
+        if (front) _labels.Add((SidePoint(side, u - 1.3f, AbsY(surfaceKm + moho - 4f), 0.1f), "Sills at the base of the crust", MagmaColor, 5));
+
+        // ---- Upper crust: a lens of crystal mush with a melt-rich cap ----
+        float roofKm = 3.2f, floorKm = 7.5f + 2f * pressure;
+        float roofY = AbsY(surfaceKm + roofKm), floorY = AbsY(surfaceKm + floorKm);
+        float centreY = (roofY + floorY) * 0.5f, halfY = (roofY - floorY) * 0.5f;
+        float halfU = 1.25f + 0.35f * pressure;
+        Dike(side, u - 0.25f, AbsY(surfaceKm + sillTopKm), u - 0.1f, floorY, 0.03f * unit, melt, cell + 21, o);
+        Dike(side, u + 0.3f, AbsY(surfaceKm + sillTopKm), u + 0.15f, floorY, 0.03f * unit, melt, cell + 31, o);
+        Blob(side, u, centreY, halfU, halfY, new Color(190, 76, 40, 235), mush, cell + 70, 0.16f, o * 1.2f);
+        // Eruptible melt collects under the roof
+        Blob(side, u, Lerp(centreY, roofY, 0.55f), halfU * 0.62f, halfY * 0.34f, Color.Lerp(melt, Color.White, 0.2f * heat), melt, cell + 80, 0.12f, o * 1.3f);
+
+        // ---- Conduit: a dike to the vent, with offshoots feeding flank vents ----
+        Dike(side, u, roofY, u, top, (0.03f + 0.03f * pressure) * unit, melt, cell + 91, o * 1.4f);
+        Dike(side, u + 0.1f, Lerp(roofY, top, 0.35f), u + 0.75f, Lerp(roofY, top, 0.85f), 0.018f * unit, Shade(melt, 0.9f), cell + 95, o * 1.4f);
+        Dike(side, u - 0.1f, Lerp(roofY, top, 0.5f), u - 0.6f, Lerp(roofY, top, 0.9f), 0.018f * unit, Shade(melt, 0.9f), cell + 97, o * 1.4f);
+
+        if (front)
+        {
+            _labels.Add((SidePoint(side, u + halfU + 0.2f, centreY, 0.1f), $"Magma reservoir: crystal mush, {roofKm:F0}-{floorKm:F0} km", MagmaColor, 8));
+            _labels.Add((SidePoint(side, u + 0.5f, Lerp(roofY, top, 0.5f), 0.1f), "Feeder dike", MagmaColor, 4));
         }
     }
 
@@ -1870,6 +2086,196 @@ public sealed partial class Subsurface3DView
 
         if (_showArrows) BuildForces(rows);
         BuildInstallations(rows);
+        if (_showSky) BuildRainAndLightning(rows);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Atmosphere
+    // ---------------------------------------------------------------------------------------
+
+    private static float Hash2(int a, int b) => Hash(a * 73856093 ^ b * 19349663);
+
+    /// <summary>Rain streaks under raining clouds and lightning under thunderstorms.</summary>
+    private void BuildRainAndLightning(int rows)
+    {
+        int n = _n;
+        float unit = Unit, cloudBase = CloudBase;
+        for (int j = 0; j < rows; j++)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                int c = j * n + i;
+                bool storm = _stormy[c];
+                float rain = MathF.Max(_precip[c], storm ? 0.4f : 0f);
+                if (rain < 0.12f || _cloud[c] < 0.3f) continue;
+                float ground = MathF.Max(0f, CellTop(i, j).Y);
+                bool snow = _temp[c] < 0f;
+                if (snow) continue; // Snow is drawn as flakes with the clouds
+
+                // Streaks slanted by the wind, falling from the cloud base
+                var slant = new Vector3(_windX[c], 0, _windY[c]) * 0.04f;
+                int streaks = rain > 0.5f ? 4 : 2;
+                for (int k = 0; k < streaks; k++)
+                {
+                    float phase = (_time * (1.5f + 0.4f * Hash2(c, k)) + Hash2(c, k + 9)) % 1f;
+                    float x = i + Hash2(c, k + 3) - n / 2f, z = j + Hash2(c, k + 5) - n / 2f;
+                    float head = Lerp(cloudBase, ground, phase);
+                    var from = new Vector3(x, head, z) + slant * (1f - phase);
+                    var to = from + new Vector3(0, -0.22f * unit, 0) - slant * 0.2f;
+                    if (to.Y < ground) to.Y = ground;
+                    Line(from, to, 0.025f * unit, new Color(170, 200, 235) * (0.55f * MathF.Min(1f, rain * 1.6f)));
+                }
+
+                // Lightning: a stepped leader from the cloud to the ground, now and then
+                if (storm)
+                {
+                    int tick = (int)(_time * 3f);
+                    if (Hash2(c, tick) > 0.985f)
+                    {
+                        var point = new Vector3(i + 0.5f - n / 2f, cloudBase, j + 0.5f - n / 2f);
+                        float flicker = 0.6f + 0.4f * Hash2(c, (int)(_time * 30f));
+                        for (int step = 1; step <= 6; step++)
+                        {
+                            float f = step / 6f;
+                            var next = new Vector3(i + 0.5f - n / 2f + (Hash2(c + step, tick) - 0.5f) * 0.9f, Lerp(cloudBase, ground, f), j + 0.5f - n / 2f + (Hash2(c + step * 7, tick) - 0.5f) * 0.9f);
+                            Line(point, next, 0.05f * unit, new Color(255, 250, 200) * flicker);
+                            point = next;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void Puff(Vector3 position, float size, Color color)
+    {
+        var r = _cameraRight * size;
+        var u = _cameraUp * size;
+        Quad(position - r + u, position + r + u, position + r - u, position - r - u,
+            color, color, color, color, new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1));
+    }
+
+    /// <summary>
+    /// The weather over the block, from the simulation: cloud where there is cloud cover,
+    /// darker where it rains, towers with anvils in thunderstorms, snow where it is freezing,
+    /// and the spiral bands and eye of a tropical cyclone.
+    /// </summary>
+    private void BuildSky()
+    {
+        int n = _n, rows = Math.Min(n, _cut);
+        float unit = Unit, cloudBase = CloudBase;
+        float half = n / 2f;
+
+        for (int j = 0; j < rows; j++)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                int c = j * n + i;
+                float cover = _cloud[c];
+                bool storm = _stormy[c];
+                float rain = _precip[c];
+                // Fair-weather cloud comes in scattered clumps; only rain and storms make a solid deck
+                float density = Math.Clamp((cover - 0.5f) * 1.6f + rain * 1.5f + (storm ? 1f : 0f), 0f, 1f);
+                if (density <= 0f || Hash2(c, 777) > density) continue;
+
+                // Inside a tropical cyclone the cloud is organised into bands, drawn below
+                bool inCyclone = false;
+                foreach (var (si, sj, type, intensity, _, _) in _storms)
+                {
+                    if (type < StormType.TropicalDepression || type > StormType.HurricaneCategory5) continue;
+                    float reachCells = 5f + 7f * intensity;
+                    if ((si - i) * (si - i) + (sj - j) * (sj - j) < reachCells * reachCells) { inCyclone = true; break; }
+                }
+                if (inCyclone) continue;
+                float dark = Math.Clamp(rain * 1.4f + (storm ? 0.45f : 0f), 0f, 0.8f);
+                bool flash = storm && Hash2(c, (int)(_time * 3f)) > 0.985f;
+                Color tone = flash ? new Color(255, 252, 230) : Color.Lerp(new Color(244, 246, 250), new Color(92, 98, 112), dark);
+
+                // Clouds drift with the wind
+                float driftX = (_windX[c] * _time * 0.03f) % 1f, driftZ = (_windY[c] * _time * 0.03f) % 1f;
+                int puffs = cover > 0.8f ? 2 : 1;
+                for (int k = 0; k < puffs; k++)
+                {
+                    var at = new Vector3(i + Hash2(c, k) + driftX * 0.5f - half, cloudBase + Hash2(c, k + 11) * 0.22f * unit, j + Hash2(c, k + 23) + driftZ * 0.5f - half);
+                    Puff(at, 0.45f + 0.35f * cover, tone * (0.10f + 0.16f * cover + 0.15f * dark));
+                }
+
+                if (storm)
+                {
+                    // Cumulonimbus: a tower that spreads into an anvil at the top
+                    for (int level = 1; level <= 5; level++)
+                    {
+                        float f = level / 5f;
+                        float spread = level == 5 ? 1.5f : 0.75f - 0.1f * f;
+                        var at = new Vector3(i + 0.5f - half + (Hash2(c, level + 40) - 0.5f) * 0.4f, cloudBase + f * 1.7f * unit, j + 0.5f - half + (Hash2(c, level + 50) - 0.5f) * 0.4f);
+                        Puff(at, spread, (flash ? new Color(255, 252, 230) : Color.Lerp(new Color(250, 250, 252), new Color(120, 124, 136), 0.5f - 0.4f * f)) * 0.3f);
+                    }
+                }
+
+                if (_temp[c] < 0f && rain > 0.1f)
+                {
+                    // Snow: slow flakes
+                    float ground = MathF.Max(0f, CellTop(i, j).Y);
+                    for (int k = 0; k < 3; k++)
+                    {
+                        float phase = (_time * 0.35f + Hash2(c, k + 60)) % 1f;
+                        var at = new Vector3(i + Hash2(c, k + 61) - half + 0.1f * MathF.Sin(_time * 2f + k), Lerp(cloudBase, ground, phase), j + Hash2(c, k + 62) - half);
+                        Puff(at, 0.045f, Color.White * 0.9f);
+                    }
+                }
+            }
+        }
+
+        // Tropical cyclones and organised storms
+        foreach (var (si, sj, type, intensity, rotation, wind) in _storms)
+        {
+            bool tropical = type >= StormType.TropicalDepression && type <= StormType.HurricaneCategory5;
+            if (!tropical) continue;
+            var centre = new Vector3(si + 0.5f - half, cloudBase + 0.15f * unit, sj + 0.5f - half);
+            float reach = 4f + 7f * intensity;
+            bool hasEye = type >= StormType.HurricaneCategory1;
+
+            // Rain bands spiralling into the centre, turning with the hemisphere
+            const int arms = 3, perArm = 46;
+            for (int arm = 0; arm < arms; arm++)
+            {
+                for (int k = 0; k < perArm; k++)
+                {
+                    float t = k / (float)perArm;
+                    float radius = (hasEye ? 1.1f : 0.3f) + t * reach;
+                    float angle = arm * MathHelper.TwoPi / arms + rotation * (t * 4.2f - _time * (0.5f + 0.6f * intensity));
+                    float px = centre.X + MathF.Cos(angle) * radius, pz = centre.Z + MathF.Sin(angle) * radius;
+                    if (px < -half - 1 || px > half + 1 || pz < -half - 1 || pz > rows - half + 1) continue;
+                    Puff(new Vector3(px, centre.Y + (1f - t) * 0.35f * unit, pz), 1.35f - 0.5f * t, Color.Lerp(new Color(244, 246, 250), new Color(120, 126, 142), 1f - t) * (0.5f - 0.25f * t));
+                }
+            }
+
+            // Eyewall: the ring of tallest cloud around the calm eye
+            if (hasEye)
+            {
+                for (int k = 0; k < 16; k++)
+                {
+                    float angle = k * MathHelper.TwoPi / 16f + rotation * _time * 0.9f;
+                    for (int level = 0; level < 3; level++)
+                    {
+                        var at = centre + new Vector3(MathF.Cos(angle) * 0.95f, level * 0.35f * unit, MathF.Sin(angle) * 0.95f);
+                        if (at.X < -half - 1 || at.X > half + 1 || at.Z < -half - 1 || at.Z > rows - half + 1) continue;
+                        Puff(at, 0.6f, new Color(250, 250, 252) * 0.4f);
+                    }
+                }
+            }
+
+            if (centre.X > -half && centre.X < half && centre.Z > -half && centre.Z < rows - half)
+            {
+                string name = type switch
+                {
+                    StormType.TropicalDepression => "Tropical depression",
+                    StormType.TropicalStorm => "Tropical storm",
+                    _ => $"Hurricane, category {(int)type - (int)StormType.HurricaneCategory1 + 1}"
+                };
+                _labels.Add((centre + new Vector3(0, 1.3f * unit, 0), $"{name}  -  {wind * 3.6f:F0} km/h", new Color(190, 220, 255), 15));
+            }
+        }
     }
 
     /// <summary>Plate motion and vertical movements.</summary>
@@ -2111,8 +2517,13 @@ public sealed partial class Subsurface3DView
         var inverse = Matrix.Invert(view);
         var right = inverse.Right;
         var up = inverse.Up;
+        _cameraRight = right;
+        _cameraUp = up;
+        if (_showSky) BuildSky();
+        float cutPlane = Math.Min(_n, _cut) - _n / 2f;
         foreach (var p in _particles)
         {
+            if (p.Position.Z > cutPlane) continue; // That part of the block has been cut away
             float t = p.Life / p.MaxLife;
             float alpha = MathF.Min(1f, 4f * (1f - t)) * MathF.Min(1f, t * 8f + 0.2f);
             var color = p.Color * alpha;

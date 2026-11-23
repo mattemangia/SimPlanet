@@ -83,6 +83,26 @@ All notable changes to this project will be documented in this file.
 - All the in-game panels (planet controls, disasters, diseases, divine powers, tools, profile
   viewer, about, civilization control) share one set of themed controls.
 
+### Weather, deserts, magma and manual disasters
+
+- Disasters panel: Eruption, Flood, Tsunami and Hurricane can now be struck by hand, next to
+  Asteroid, Earthquake, Nuclear, Acid rain, Tornado and Heavy rain. The 3D block has Quake,
+  Erupt, Storm and Impact buttons for the region in view.
+- Deserts: rainfall follows the general circulation (wet equator, dry subtropics, wet storm
+  tracks, dry poles), the prevailing wind and rain shadows. The stabilizer no longer waters
+  every dry cell. About a sixth of the land is desert instead of almost none.
+- Subsurface 3D sky: clouds from the simulated cloud cover with shadows on the ground, rain,
+  snow, thunderstorm towers with lightning, and tropical cyclones with eye, eyewall and
+  spiral bands.
+- Subsurface 3D magma: plume tail and a head ponded under the lithosphere, melting in the
+  mantle wedge above a slab or by decompression under a rift, diapirs, sills at the base of
+  the crust, a lens of crystal mush with a melt-rich cap, feeder dikes.
+- Eruption columns by type: sustained columns that rise to an umbrella cloud and drift
+  downwind, pyroclastic currents, lava fountains, tephra fall and an ash blanket.
+- Storms drift at a believable pace; dust from impacts settles instead of dimming the sun
+  for good.
+- Speed: the heaviest weather steps run in parallel; frames never wait for the simulation.
+
 ### Other
 
 - Targets .NET 10.

@@ -46,7 +46,7 @@ public sealed partial class Subsurface3DView : IDisposable
     private float _time;
 
     // Options
-    private bool _showArrows = true, _showWaves = true, _showLabels = true;
+    private bool _showArrows = true, _showWaves = true, _showLabels = true, _showSky = true;
     private int _tomoMode;            // 0 off, 1 recovered image, 2 true model
     private int? _focusWell;          // Well id the section is cut through
 
@@ -299,9 +299,11 @@ public sealed partial class Subsurface3DView : IDisposable
         Add("Impact", 60, () => RequestEvent?.Invoke("impact"), null, "Drop a small asteroid on the middle of the block");
         Add("Erupt", 54, () => RequestEvent?.Invoke("erupt"), null, "Make the nearest volcano in the block erupt");
         Add("Quake", 56, () => RequestEvent?.Invoke("quake"), null, "Break the nearest fault in the block");
+        Add("Storm", 54, () => RequestEvent?.Invoke("storm"), null, "Start a hurricane over the middle of the block");
         x -= 8;
         Add("Tomo", 54, () => _tomoMode = (_tomoMode + 1) % 3, () => _tomoMode != 0, "Seismic tomography on the sections: off / recovered by the networks / true crust");
         Add("Labels", 62, () => _showLabels = !_showLabels, () => _showLabels, "Names of the structures");
+        Add("Sky", 44, () => _showSky = !_showSky, () => _showSky, "Clouds, rain, snow, thunderstorms and cyclones over the block");
         Add("Waves", 58, () => _showWaves = !_showWaves, () => _showWaves, "Ground motion from seismic waves, ruptures and impacts");
         Add("Forces", 62, () => _showArrows = !_showArrows, () => _showArrows, "Plate motion, uplift and subsidence arrows");
         x -= 8;

@@ -93,18 +93,18 @@ public class WeatherSystem
     {
         _turbulenceTime += deltaTime * 0.5f; // Slow evolution of turbulence patterns
 
-        UpdateSeasons(deltaTime, currentYear);
-        UpdateAirPressure();
-        UpdatePressureCells(deltaTime); // Create rotating pressure systems
-        UpdateWindPatterns();
-        UpdateVorticity(deltaTime); // Calculate atmospheric rotation
-        UpdateBaroclinicInstability(deltaTime); // Mid-latitude eddy formation
-        UpdateEvaporation(deltaTime); // Continuous water evaporation
-        UpdateCloudCover();
+        { long t = Perf.Start(); UpdateSeasons(deltaTime, currentYear); Perf.Stop("wx:UpdateSeasons", t); }
+        { long t = Perf.Start(); UpdateAirPressure(); Perf.Stop("wx:UpdateAirPressure", t); }
+        { long t = Perf.Start(); UpdatePressureCells(deltaTime); Perf.Stop("wx:UpdatePressureCells", t); } // Create rotating pressure systems
+        { long t = Perf.Start(); UpdateWindPatterns(); Perf.Stop("wx:UpdateWindPatterns", t); }
+        { long t = Perf.Start(); UpdateVorticity(deltaTime); Perf.Stop("wx:UpdateVorticity", t); } // Calculate atmospheric rotation
+        { long t = Perf.Start(); UpdateBaroclinicInstability(deltaTime); Perf.Stop("wx:UpdateBaroclinicInstability", t); } // Mid-latitude eddy formation
+        { long t = Perf.Start(); UpdateEvaporation(deltaTime); Perf.Stop("wx:UpdateEvaporation", t); } // Continuous water evaporation
+        { long t = Perf.Start(); UpdateCloudCover(); Perf.Stop("wx:UpdateCloudCover", t); }
 
         float rainfallMultiplier = _map.PlanetaryControls?.RainfallMultiplier ?? 1f;
-        UpdateStorms(deltaTime, currentYear, rainfallMultiplier);
-        UpdatePrecipitation(deltaTime, rainfallMultiplier);
+        { long t = Perf.Start(); UpdateStorms(deltaTime, currentYear, rainfallMultiplier); Perf.Stop("wx:UpdateStorms", t); }
+        { long t = Perf.Start(); UpdatePrecipitation(deltaTime, rainfallMultiplier); Perf.Stop("wx:UpdatePrecipitation", t); }
     }
 
     private void UpdateSeasons(float deltaTime, int currentYear)
@@ -209,7 +209,7 @@ public class WeatherSystem
         // Global wind patterns with Coriolis effect
         // ENHANCED: Now with turbulence and pressure-driven flow to break up banding
         float windMultiplier = _map.PlanetaryControls?.WindStrengthMultiplier ?? 1f;
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -329,7 +329,7 @@ public class WeatherSystem
                 met.WindSpeedX = windX;
                 met.WindSpeedY = windY;
             }
-        }
+        });
     }
 
     private void UpdateAirPressure()
@@ -664,8 +664,15 @@ public class WeatherSystem
             storm.VelocityY = steeringWindY + steeringWindX * coriolisDeflection;
 
             // Move storm with realistic speed (tropical cyclones move ~10-30 km/h)
-            storm.CenterX += (int)(storm.VelocityX * deltaTime * 8);
-            storm.CenterY += (int)(storm.VelocityY * deltaTime * 8);
+            // Storms drift a fraction of a cell at a time (they used to leap whole cells per
+            // step and cross an ocean in seconds); the remainder is carried to the next step
+            storm.FractionX += storm.VelocityX * deltaTime * 0.6f;
+            storm.FractionY += storm.VelocityY * deltaTime * 0.6f;
+            int stepX = (int)storm.FractionX, stepY = (int)storm.FractionY;
+            storm.FractionX -= stepX;
+            storm.FractionY -= stepY;
+            storm.CenterX += stepX;
+            storm.CenterY += stepY;
 
             // Wrap around horizontally
             storm.CenterX = ((storm.CenterX % _map.Width) + _map.Width) % _map.Width;
@@ -1090,7 +1097,7 @@ public class WeatherSystem
 
     private void ApplyPrecipitationStep(float deltaTime, float rainfallMultiplier)
     {
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -1203,7 +1210,7 @@ public class WeatherSystem
                     cell.Elevation += met.Precipitation * 0.0001f;
                 }
             }
-        }
+        });
     }
 
     private void UpdateEvaporation(float deltaTime)
@@ -1284,7 +1291,7 @@ public class WeatherSystem
     {
         // CONTINUOUS CLOUD FORMATION from humidity (from evaporation!)
         // NOW WITH CYCLONIC SPIRAL PATTERNS!
-        for (int x = 0; x < _map.Width; x++)
+        Parallel.For(0, _map.Width, x =>
         {
             for (int y = 0; y < _map.Height; y++)
             {
@@ -1392,7 +1399,7 @@ public class WeatherSystem
                 // Reset storm flag
                 met.InStorm = false;
             }
-        }
+        });
     }
 
     public List<Storm> GetActiveStorms() => _storms;
@@ -1447,4 +1454,6 @@ public class Storm
     public float SeaSurfaceTemp { get; set; } = 0f;  // Track temp for growth/decay
     public bool OverLand { get; set; } = false;  // Weakens over land
     public float RotationDirection { get; set; } = 0f;  // 1 for counterclockwise (NH), -1 for clockwise (SH)
+    public float FractionX { get; set; }  // Sub-cell position carried between steps
+    public float FractionY { get; set; }
 }

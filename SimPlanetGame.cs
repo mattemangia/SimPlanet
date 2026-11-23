@@ -819,6 +819,7 @@ public class SimPlanetGame : Game
         _subsurface = new Subsurface3DView(GraphicsDevice, _map);
         _subsurface.SetSystems(_geologicalSimulator, _updateManager.Petroleum, _updateManager.Seismology, _updateManager.Geothermal);
         _subsurface.SetCivilizations(_civilizationManager);
+        _subsurface.SetWeather(_weatherSystem);
         _subsurface.RequestEvent = TriggerSubsurfaceEvent;
         bool oil = _geoOverlay?.ShowPetroleum ?? true, stations = _geoOverlay?.ShowSeismographs ?? true, tomo = _geoOverlay?.ShowTomography ?? false;
         _geoOverlay = new GeoscienceOverlay(_map) { ShowPetroleum = oil, ShowSeismographs = stations, ShowTomography = tomo };
@@ -929,6 +930,9 @@ public class SimPlanetGame : Game
                     _geologicalSimulator.TriggerEruption(volcano.Value.x, volcano.Value.y, year);
                     break;
                 }
+                case "storm":
+                    _disasterManager.TriggerHurricane(cx, Math.Clamp(cy, 4, _map.Height - 5), 4, year);
+                    break;
                 case "impact":
                     _disasterManager.TriggerAsteroid(cx, Math.Clamp(cy, 4, _map.Height - 5), 1, year);
                     break;
@@ -1784,7 +1788,7 @@ public class SimPlanetGame : Game
             // Update terrain texture only when dirty (performance optimization)
             // Avoid blocking the render thread if the simulation is writing map data,
             // but wait a little when the view is stale (e.g. right after a view mode change)
-            if (Monitor.TryEnter(_mapDataLock, _terrainRenderer.NeedsUrgentUpdate ? 60 : 0))
+            if (Monitor.TryEnter(_mapDataLock, _terrainRenderer.NeedsUrgentUpdate ? 6 : 0)) // Never stall a frame waiting for the simulation
             {
                 try
                 {
