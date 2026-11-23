@@ -814,8 +814,10 @@ public class ClimateSimulator
                 // Sea ice doesn't change sea level (it's already floating)
                 if (cell.IsLand && cell.IsIce && cell.Elevation > 0)
                 {
-                    // Ice volume is proportional to elevation above sea level
-                    iceVolume += cell.Elevation;
+                    // An ice sheet's thickness does not depend on how high the rock under it
+                    // stands, so the water it holds goes with the area it covers. (Counting
+                    // the elevation instead made a rising mountain range look like new ice.)
+                    iceVolume += 1f;
                 }
             }
         }
@@ -836,7 +838,10 @@ public class ClimateSimulator
         // Convert ice volume change to water level change
         // Scaling factor: ice sheet volume to global sea level
         // Negative because more ice = lower sea level
-        float waterLevelChange = -iceVolumeChange * 0.0001f;
+        // Glaciating all the land would lower the sea by about 130 m (0.03 elevation units),
+        // which is what the last glacial maximum did on Earth
+        float landCells = MathF.Max(1f, _map.Width * _map.Height * 0.3f);
+        float waterLevelChange = -iceVolumeChange * (0.03f / landCells);
 
         // Apply water level change
         _map.Options.WaterLevel = Math.Clamp(_map.Options.WaterLevel + waterLevelChange, -1.0f, 1.0f);
@@ -868,7 +873,7 @@ public class ClimateSimulator
             // We lowered elevations by `waterLevelChange`, so next frame's volume calculation
             // will be lower by `iceArea * waterLevelChange` purely due to this shift.
             // We pre-adjust `currentIceVolume` (which becomes `_previousIceVolume`) to match this new baseline.
-            currentIceVolume -= iceArea * waterLevelChange;
+            _ = iceArea; // Area-based volume needs no correction for the shifted reference level
         }
 
         // Update tracking
