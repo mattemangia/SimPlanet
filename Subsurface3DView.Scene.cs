@@ -13,7 +13,10 @@ public sealed partial class Subsurface3DView
     private BasicEffect _effect = null!;
     private Texture2D _grain = null!, _dot = null!, _white = null!;
     private Matrix _viewProjection;
-    private const float SuperSample = 1.5f;
+    // The block is rendered larger than shown and scaled down for smooth edges. On a slow
+    // machine that costs too much, so the factor follows the frame rate.
+    private float _superSample = 1.5f;
+    private float _smoothedFrame = 0.016f;
 
     // ---- Snapshot of the region ----------------------------------------------------------
     private const int Sub = 3;                    // Surface vertices per cell edge
@@ -744,7 +747,10 @@ public sealed partial class Subsurface3DView
         UpdateEffects(deltaTime);
         UpdateSurfaceHeights();
 
-        int width = Math.Min(2600, (int)(_panel.Width * SuperSample)), height = (int)(width * (float)_panel.Height / _panel.Width);
+        _smoothedFrame += (Math.Min(deltaTime, 0.25f) - _smoothedFrame) * 0.05f;
+        if (_smoothedFrame > 0.045f) _superSample = 1f;          // Below about 22 frames a second: plain resolution
+        else if (_smoothedFrame < 0.024f) _superSample = 1.5f;   // Comfortably fast: smooth edges again
+        int width = Math.Min(2600, (int)(_panel.Width * _superSample)), height = (int)(width * (float)_panel.Height / _panel.Width);
         if (_target == null || _target.Width != width || _target.Height != height)
         {
             _target?.Dispose();
