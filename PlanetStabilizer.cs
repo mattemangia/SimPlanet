@@ -233,41 +233,42 @@ public class PlanetStabilizer
             float avgN2O = CalculateAverageN2O();
             string reason = tempDeviation > 1f ? "avg temp" : "max temp";
 
-            // Draw down every greenhouse gas that is in excess, the most potent ones hardest
+            // Draw down every greenhouse gas that is in excess, faster the more there is of it
+            // and the further the planet is from its target
             bool gasesHigh = false;
-            if (avgN2O > 0.1f)
+            float urgency = 1f + Math.Clamp(tempDeviation - 1f, 0f, 4f);
+            if (avgN2O > 0.05f)
             {
-                ReduceN2OGlobally(0.05f);
+                ReduceN2OGlobally(MathF.Min(0.5f, (0.02f + avgN2O * 0.3f) * urgency));
                 LastAction = $"Removing N2O to cool planet ({reason}: {avgTemp:F1}°C)";
                 gasesHigh = true;
             }
             if (avgMethane > 0.2f)
             {
-                ReduceMethaneGlobally(0.05f);
+                ReduceMethaneGlobally(MathF.Min(1.5f, (0.03f + avgMethane * 0.15f) * urgency));
                 LastAction = $"Removing methane to cool planet ({reason}: {avgTemp:F1}°C)";
                 gasesHigh = true;
             }
             if (avgCO2 > _maxCO2)
             {
-                // The more CO2 there is, the faster it goes (as rock weathering does in nature)
-                AdjustCO2Globally(-MathF.Min(0.4f, 0.02f + (avgCO2 - _maxCO2) * 0.25f));
+                // (as rock weathering does in nature)
+                AdjustCO2Globally(-MathF.Min(0.6f, (0.02f + (avgCO2 - _maxCO2) * 0.25f) * urgency));
                 LastAction = $"Removing CO2 to cool planet ({reason}: {avgTemp:F1}°C)";
                 gasesHigh = true;
             }
             if (gasesHigh) AdjustmentsMade++;
 
-            // The sun is dimmed only when the air is already clean and the planet as a whole is too warm
-            // (a local hot spot is handled where it is, by the clamp below, not by darkening the planet)
-            // or when clearing the air is not keeping up and the planet is well above its target
-            if ((!gasesHigh || tempDeviation > 3f) && tempDeviation > 1f && _map.SolarEnergy > 0.6f)
+            // The sun is the very last resort: only with clean air and a planet far too warm.
+            // Otherwise it goes back to its normal output.
+            if (!gasesHigh && tempDeviation > 5f && _map.SolarEnergy > 0.85f)
             {
-                _map.SolarEnergy -= 0.001f * _responseMultiplier;
+                _map.SolarEnergy -= 0.0005f * _responseMultiplier;
                 LastAction = $"Decreasing solar energy ({reason}: {avgTemp:F1}°C)";
             }
-            else if (gasesHigh && tempDeviation < 2f && _map.SolarEnergy < 1f)
+            else if (MathF.Abs(_map.SolarEnergy - 1f) > 0.001f)
             {
-                // Cooling is being done by clearing the air: give back the sunlight taken earlier
-                _map.SolarEnergy = MathF.Min(1f, _map.SolarEnergy + 0.0004f * _responseMultiplier);
+                float step = 0.0006f * _responseMultiplier;
+                _map.SolarEnergy += Math.Clamp(1f - _map.SolarEnergy, -step, step);
             }
         }
         else if (MathF.Abs(_map.SolarEnergy - 1f) > 0.002f)
@@ -765,7 +766,7 @@ public class PlanetStabilizer
         var controls = _map.PlanetaryControls;
         if (controls == null) return;
 
-        float droughtThreshold = 0.25f; // Slightly higher threshold
+        float droughtThreshold = 0.15f; // A drought of the whole land surface, not the presence of deserts
         float floodThreshold = 0.7f;
 
         // Remove time scaling from response
@@ -791,7 +792,7 @@ public class PlanetStabilizer
     {
         // Deserts are part of a healthy planet (the subtropical belts, rain shadows, deep
         // interiors). Only a drought of the whole land surface is something to correct.
-        if (avgLandRainfall >= 0.25f) return;
+        if (avgLandRainfall >= 0.15f) return;
         bool urgent = _emergencyLifeProtection || avgLandRainfall < 0.2f;
         if (!urgent && _adjustmentTimer < 1.0f) return;
 
@@ -823,7 +824,7 @@ public class PlanetStabilizer
 
     private void CombatRapidDesertification(float avgLandRainfall)
     {
-        if (avgLandRainfall >= 0.25f) return; // Natural deserts are left alone
+        if (avgLandRainfall >= 0.15f) return; // Natural deserts are left alone
 
         float severityScale = avgLandRainfall < 0.18f ? 1.5f : 1f;
         float rainfallBoost = 0.01f * _responseMultiplier * severityScale; // Reduced from 0.1f
@@ -949,10 +950,12 @@ public class PlanetStabilizer
                 // 3. FORCE WATER/RAINFALL (Land Plants/Animals)
                 if (cell.IsLand && cell.LifeType != LifeForm.Bacteria)
                 {
-                    if (cell.Rainfall < 0.2f)
+                    // Desert life is adapted to its desert. Only ground too dry for anything to
+                    // survive is given a little water, and it stays a desert.
+                    if (cell.Rainfall < 0.05f)
                     {
-                        cell.Rainfall = 0.3f; // Instant hydration
-                        cell.Humidity = Math.Max(cell.Humidity, 0.4f);
+                        cell.Rainfall = 0.07f;
+                        cell.Humidity = Math.Max(cell.Humidity, 0.15f);
                         modified = true;
                     }
                 }

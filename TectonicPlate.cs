@@ -57,6 +57,14 @@ public enum EruptionType
     Phreatomagmatic  // Explosive interaction with water
 }
 
+/// <summary>What kind of volcano the tectonic setting builds.</summary>
+public enum VolcanoType
+{
+    Stratovolcano,  // Steep cone of lava and ash above a subduction zone; viscous magma, explosive
+    Shield,         // Broad gentle dome of fluid basalt over a hot spot; Hawaiian eruptions
+    Fissure         // Rift or ridge volcanism: lava from long cracks, low spatter cones
+}
+
 public enum CrustType
 {
     Oceanic,      // Basaltic, dense, thin (~7 km)
@@ -130,6 +138,7 @@ public class GeologicalData
     public EruptionType LastEruptionType { get; set; } = EruptionType.Effusive;
     public int EruptionIntensity { get; set; } = 1; // VEI 0-8 scale
     public bool IsHotSpot { get; set; }  // Hot spot volcano (away from plate boundaries)
+    public VolcanoType VolcanoType { get; set; } = VolcanoType.Stratovolcano;
 
     // Seismic activity (earthquakes and faults)
     public bool IsManualFault { get; set; } // User-created fault line

@@ -444,9 +444,9 @@ public class ClimateSimulator
                 //    along the mid-latitude storm tracks and is dry near the poles.
                 float latitude = (0.5f - (y + 0.5f) / _map.Height) * 180f;
                 float absLatitude = MathF.Abs(latitude);
-                float circulation = 0.11f
+                float circulation = 0.07f
                     + 1.35f * MathF.Exp(-(absLatitude / 13f) * (absLatitude / 13f))
-                    + 1.00f * MathF.Exp(-((absLatitude - 50f) / 14f) * ((absLatitude - 50f) / 14f));
+                    + 1.00f * MathF.Exp(-((absLatitude - 50f) / 11f) * ((absLatitude - 50f) / 11f));
 
                 // 2. Moisture comes with the prevailing wind: trade winds blow from the east in
                 //    the tropics, westerlies from the west in mid-latitudes, easterlies again

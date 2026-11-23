@@ -268,7 +268,14 @@ public class SedimentColumnViewer
         if (geo.IsVolcano)
         {
             string state = geo.MagmaPressure > 0.8f ? "about to erupt" : geo.VolcanicActivity > 0.3f ? "active" : "dormant";
-            Row(geo.IsHotSpot ? "Hot spot volcano" : "Volcano", state, new Color(255, 150, 60));
+            string kind = geo.VolcanoType switch
+            {
+                VolcanoType.Shield => "Shield volcano",
+                VolcanoType.Fissure => "Fissure volcano",
+                _ => "Stratovolcano"
+            };
+            Row(kind, state, new Color(255, 150, 60));
+            Row("Typical eruptions", geo.VolcanoType == VolcanoType.Stratovolcano ? "explosive: ash columns" : "Hawaiian: lava fountains and flows", UITheme.TextDim);
             Meter("Magma pressure", Math.Clamp(geo.MagmaPressure, 0f, 1f), new Color(255, 120, 40), $"{Math.Clamp(geo.MagmaPressure, 0f, 1f):P0}");
         }
         if (_geothermal != null)

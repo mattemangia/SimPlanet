@@ -999,7 +999,7 @@ public class WeatherSystem
                 float rainIntensity = dist < radius * 0.3f ? effectStrength * 1.5f : effectStrength;
                 met.Precipitation = Math.Max(met.Precipitation, rainIntensity);
 
-                float rainfallContribution = rainIntensity * 0.08f * deltaTime * rainfallMultiplier;
+                float rainfallContribution = rainIntensity * 0.08f * deltaTime * rainfallMultiplier * StormExposure;
                 if (rainfallContribution > 0)
                 {
                     cell.Rainfall = Math.Clamp(cell.Rainfall + rainfallContribution, 0f, 1f);
@@ -1049,11 +1049,11 @@ public class WeatherSystem
                 bool isMajorHurricane = storm.Type >= StormType.HurricaneCategory3;
                 if (isMajorHurricane && effectStrength > 0.5f)
                 {
-                    cell.Biomass *= 0.93f; // Severe storm damage
+                    cell.Biomass *= MathF.Pow(0.93f, StormExposure); // Severe storm damage
                 }
                 else if ((storm.Type >= StormType.TropicalStorm) && effectStrength > 0.6f)
                 {
-                    cell.Biomass *= 0.97f; // Moderate storm damage
+                    cell.Biomass *= MathF.Pow(0.97f, StormExposure); // Moderate storm damage
                 }
 
                 // Storm surge damage on coastlines (hurricanes only)
@@ -1064,13 +1064,13 @@ public class WeatherSystem
 
                     if (nearWater)
                     {
-                        cell.Biomass *= 0.85f; // Coastal flooding damage
+                        cell.Biomass *= MathF.Pow(0.85f, StormExposure); // Coastal flooding damage
                     }
                 }
 
                 // Tornadoes can spawn in strong thunderstorms
                 if (storm.Type == StormType.Thunderstorm && effectStrength > 0.6f &&
-                    _random.NextDouble() < 0.0005)
+                    _random.NextDouble() < 0.0005 * StormExposure)
                 {
                     cell.Biomass *= 0.4f; // Severe localized tornado damage
                 }
@@ -1148,7 +1148,7 @@ public class WeatherSystem
                     float orographicLift = Math.Max(0f, cell.Elevation - 0.25f);
                     float advectedMoisture = Math.Max(0f, (avgNeighborHumidity * 0.6f + cell.Humidity * 0.4f + coastalFeed * 0.8f) - 0.35f);
                     float inlandRain = advectedMoisture * (0.03f + orographicLift * 0.07f) * rainfallMultiplier * deltaTime;
-                    inlandRain *= 1f + landDryness * 1.8f;
+                    // (no bonus for dry ground: air that reaches a desert has little left to give)
                     if (inlandRain > 0)
                     {
                         met.Precipitation += inlandRain;
@@ -1191,10 +1191,12 @@ public class WeatherSystem
                 }
 
                 // Convert active precipitation into the long-term rainfall metric
-                float rainfallGain = met.Precipitation * 0.08f * deltaTime * rainfallMultiplier; // Was 0.025f
+                // Rainfall is the long-term climate figure that decides what grows where. One wet
+                // season only nudges it: otherwise every desert turned green once a year.
+                float rainfallGain = met.Precipitation * 0.02f * deltaTime * rainfallMultiplier;
                 if (cell.IsLand && cell.Rainfall < 0.25f)
                 {
-                    rainfallGain *= 0.35f; // A passing shower does not turn a desert green
+                    rainfallGain *= 0.1f; // A passing shower does not turn a desert green
                 }
                 if (rainfallGain > 0)
                 {
@@ -1401,6 +1403,10 @@ public class WeatherSystem
             }
         });
     }
+
+    // Storms now cross a cell about thirteen times more slowly than they used to, so what
+    // they do to a cell per step is scaled down to leave the total per storm unchanged.
+    private const float StormExposure = 0.6f / 8f;
 
     public List<Storm> GetActiveStorms() => _storms;
 

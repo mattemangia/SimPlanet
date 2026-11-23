@@ -65,7 +65,7 @@ public sealed partial class Subsurface3DView
     private float[] _cloud = Array.Empty<float>(), _precip = Array.Empty<float>(), _temp = Array.Empty<float>();
     private float[] _windX = Array.Empty<float>(), _windY = Array.Empty<float>(), _cloudV = Array.Empty<float>();
     private bool[] _stormy = Array.Empty<bool>();
-    private byte[] _eruptType = Array.Empty<byte>();
+    private byte[] _eruptType = Array.Empty<byte>(), _volcanoType = Array.Empty<byte>();
     private readonly List<(float i, float j, StormType type, float intensity, float rotation, float wind)> _storms = new();
     private Vector3 _cameraRight, _cameraUp;
 
@@ -201,7 +201,7 @@ public sealed partial class Subsurface3DView
         _bump = new float[cells]; _flash = new float[cells]; _erupting = new float[cells];
         _ash = new float[cells]; _lava = new float[cells];
         _cloud = new float[cells]; _precip = new float[cells]; _temp = new float[cells];
-        _windX = new float[cells]; _windY = new float[cells]; _stormy = new bool[cells]; _eruptType = new byte[cells];
+        _windX = new float[cells]; _windY = new float[cells]; _stormy = new bool[cells]; _eruptType = new byte[cells]; _volcanoType = new byte[cells];
         _lavaFronts.Clear();
 
         _g = _n * Sub + 1;
@@ -247,6 +247,7 @@ public sealed partial class Subsurface3DView
                 if (geo.IsForedeep) flags |= FlagForedeep;
                 _flags[c] = flags;
                 _cellColor[c] = TerrainColor(cell);
+                _volcanoType[c] = (byte)geo.VolcanoType;
                 var met = cell.Meteorology;
                 _cloud[c] = met.CloudCover;
                 _precip[c] = met.Precipitation;
@@ -435,10 +436,21 @@ public sealed partial class Subsurface3DView
                 }
                 case GeoEventKind.Eruption:
                 {
-                    AddTicker($"{e.Eruption} eruption  -  VEI {e.Magnitude:F0}", new Color(255, 140, 60));
+                    var edifice = (VolcanoType)_volcanoType[j * _n + i];
+                    string style = e.Eruption == EruptionType.Effusive
+                        ? (edifice == VolcanoType.Shield ? "Hawaiian eruption: lava fountains and long flows"
+                           : edifice == VolcanoType.Fissure ? "Fissure eruption: a curtain of lava along the rift" : "Effusive eruption: a thick, slow lava flow")
+                        : $"{e.Eruption} eruption";
+                    AddTicker($"{style}  -  VEI {e.Magnitude:F0}", new Color(255, 140, 60));
                     _erupting[j * _n + i] = 5f + e.Magnitude;
                     _eruptType[j * _n + i] = (byte)e.Eruption;
-                    if (e.Eruption is EruptionType.Effusive or EruptionType.Strombolian) _lavaFronts.Add((j * _n + i, 0f, 0));
+                    if (e.Eruption is EruptionType.Effusive or EruptionType.Strombolian)
+                    {
+                        // Fluid basalt travels far; sticky arc lava stops close to the vent
+                        int reach = edifice == VolcanoType.Stratovolcano ? 2 : edifice == VolcanoType.Shield ? 12 : 8;
+                        _lavaFronts.Add((j * _n + i, 0f, -reach));
+                        if (edifice != VolcanoType.Stratovolcano) _lavaFronts.Add((j * _n + i, 0.45f, -reach));
+                    }
                     break;
                 }
                 case GeoEventKind.Impact:
@@ -579,7 +591,7 @@ public sealed partial class Subsurface3DView
                     }
                 }
                 front.steps++;
-                if (next < 0 || front.steps > 6 || _elev[next] < -0.05f) { _lavaFronts.RemoveAt(k); continue; }
+                if (next < 0 || front.steps > 0 || _elev[next] < -0.05f) { _lavaFronts.RemoveAt(k); continue; }
                 front.cell = next;
             }
             _lavaFronts[k] = front;
@@ -604,7 +616,7 @@ public sealed partial class Subsurface3DView
                 int c = j * n + i;
                 if ((_flags[c] & FlagVolcano) != 0)
                 {
-                    var vent = CellTop(i, j, 0.05f);
+                    var vent = CellTop(i, j, 0.03f + EdificeHeight(c));
                     if (_erupting[c] > 0f)
                     {
                         var kind = (EruptionType)_eruptType[c];
@@ -789,6 +801,7 @@ public sealed partial class Subsurface3DView
         BuildFaces();
         Flush(_grain, BlendState.Opaque, true);
 
+        BuildVolcanoes();
         BuildCities();
         Flush(_white, BlendState.Opaque, true);
 
@@ -1717,6 +1730,112 @@ public sealed partial class Subsurface3DView
     }
 
     // ---------------------------------------------------------------------------------------
+    // Volcanic edifices
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>Height of the edifice drawn on a volcano cell, in world units.</summary>
+    private float EdificeHeight(int cell)
+    {
+        if (cell < 0 || cell >= _flags.Length || (_flags[cell] & FlagVolcano) == 0) return 0f;
+        return (VolcanoType)_volcanoType[cell] switch
+        {
+            VolcanoType.Shield => 0.24f * Unit,
+            VolcanoType.Fissure => 0.09f * Unit,
+            _ => 0.6f * Unit
+        };
+    }
+
+    /// <summary>A ring of the edifice between two radii and heights, shaded as if lit from the north-west.</summary>
+    private void EdificeRing(Vector3 centre, float r0, float y0, float r1, float y1, Color c0, Color c1, int seed)
+    {
+        const int segments = 22;
+        for (int s = 0; s < segments; s++)
+        {
+            float a0 = s * MathHelper.TwoPi / segments, a1 = (s + 1) * MathHelper.TwoPi / segments;
+            float mid = (a0 + a1) * 0.5f;
+            // Lit side, shaded side, and gullies down the flanks
+            float lit = 0.9f + 0.32f * MathF.Cos(mid - 3.9f) + (Hash(seed + s) - 0.5f) * 0.12f;
+            var p0 = centre + new Vector3(MathF.Cos(a0) * r0, y0, MathF.Sin(a0) * r0);
+            var p1 = centre + new Vector3(MathF.Cos(a1) * r0, y0, MathF.Sin(a1) * r0);
+            var p2 = centre + new Vector3(MathF.Cos(a1) * r1, y1, MathF.Sin(a1) * r1);
+            var p3 = centre + new Vector3(MathF.Cos(a0) * r1, y1, MathF.Sin(a0) * r1);
+            // The edifice is sliced by the section like everything else
+            float cutPlane = Math.Min(_n, _cut) - _n / 2f;
+            if (p0.Z > cutPlane && p1.Z > cutPlane && p2.Z > cutPlane && p3.Z > cutPlane) continue;
+            p0.Z = MathF.Min(p0.Z, cutPlane); p1.Z = MathF.Min(p1.Z, cutPlane); p2.Z = MathF.Min(p2.Z, cutPlane); p3.Z = MathF.Min(p3.Z, cutPlane);
+            Quad(p0, p1, p2, p3, Shade(c0, lit), Shade(c0, lit), Shade(c1, lit), Shade(c1, lit), Vector2.Zero, Vector2.Zero, Vector2.Zero, Vector2.Zero);
+        }
+    }
+
+    /// <summary>
+    /// The shape of each volcano says what it erupts. A stratovolcano is a steep cone of
+    /// alternating lava and ash with a summit crater. A shield is a wide, low dome of thin
+    /// basalt flows with a caldera on top. A fissure is a crack lined with small spatter cones.
+    /// </summary>
+    private void BuildVolcanoes()
+    {
+        Pass(_white, BlendState.Opaque, true);
+        int n = _n, rows = Math.Min(n, _cut);
+        float unit = Unit;
+
+        for (int j = 0; j < rows; j++)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                int c = j * n + i;
+                if ((_flags[c] & FlagVolcano) == 0) continue;
+                var type = (VolcanoType)_volcanoType[c];
+                var ground = CellTop(i, j, -0.04f * unit);
+                float height = EdificeHeight(c);
+                bool erupting = _erupting[c] > 0f;
+                float glow = erupting ? 1f : Math.Clamp(_pressure[c], 0f, 1f) * (0.6f + 0.4f * MathF.Sin(_time * 4f + c));
+                Color lava = Color.Lerp(new Color(90, 30, 16), new Color(255, 200, 70), glow);
+
+                if (type == VolcanoType.Stratovolcano)
+                {
+                    // Concave cone: gentle apron, steep upper flanks
+                    Color apron = new Color(112, 98, 88), flank = new Color(88, 80, 76);
+                    bool snow = _temp[c] < 6f || _elev[c] > 0.55f;
+                    Color summit = snow ? new Color(236, 240, 246) : new Color(70, 62, 60);
+                    EdificeRing(ground, 0.95f, 0f, 0.5f, height * 0.32f, apron, flank, c);
+                    EdificeRing(ground, 0.5f, height * 0.32f, 0.22f, height * 0.74f, flank, flank, c + 31);
+                    EdificeRing(ground, 0.22f, height * 0.74f, 0.1f, height, flank, summit, c + 57);
+                    // Crater
+                    EdificeRing(ground, 0.1f, height, 0.03f, height * 0.9f, new Color(52, 44, 42), lava, c + 71);
+                }
+                else if (type == VolcanoType.Shield)
+                {
+                    // Convex dome a few degrees steep, far wider than it is high
+                    Color basalt = new Color(104, 92, 88), fresh = new Color(84, 74, 74);
+                    EdificeRing(ground, 2.0f, 0f, 1.3f, height * 0.5f, new Color(128, 114, 104), basalt, c);
+                    EdificeRing(ground, 1.3f, height * 0.5f, 0.7f, height * 0.86f, basalt, fresh, c + 31);
+                    EdificeRing(ground, 0.7f, height * 0.86f, 0.36f, height, fresh, fresh, c + 57);
+                    // Summit caldera with a lava lake
+                    EdificeRing(ground, 0.36f, height, 0.26f, height * 0.82f, new Color(40, 36, 38), new Color(40, 36, 38), c + 71);
+                    EdificeRing(ground, 0.26f, height * 0.82f, 0.01f, height * 0.82f, lava, Color.Lerp(lava, Color.White, 0.25f * glow), c + 83);
+                }
+                else
+                {
+                    // Spatter cones strung along the crack
+                    float angle = Hash(c + 5) * MathHelper.Pi;
+                    var along = new Vector3(MathF.Cos(angle), 0, MathF.Sin(angle));
+                    for (int k = -2; k <= 2; k++)
+                    {
+                        var at = ground + along * (k * 0.42f);
+                        float h = height * (0.7f + 0.5f * Hash(c + k + 9));
+                        EdificeRing(at, 0.2f, 0f, 0.06f, h, new Color(70, 60, 58), new Color(52, 44, 44), c + k);
+                        EdificeRing(at, 0.06f, h, 0.01f, h * 0.85f, lava, lava, c + k + 40);
+                    }
+                    var side = new Vector3(-along.Z, 0, along.X) * 0.035f;
+                    var a = ground - along * 1.0f + new Vector3(0, 0.045f * unit, 0);
+                    var b = ground + along * 1.0f + new Vector3(0, 0.045f * unit, 0);
+                    FlatQuad(a - side, a + side, b + side, b - side, lava);
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
     // Cities
     // ---------------------------------------------------------------------------------------
 
@@ -2083,10 +2202,14 @@ public sealed partial class Subsurface3DView
                 if ((_flags[c] & FlagVolcano) == 0) continue;
                 float heat = Math.Clamp(_pressure[c], 0.15f, 1f) * (0.7f + 0.3f * MathF.Sin(_time * 4f + c));
                 if (_erupting[c] > 0f) heat = 1f;
-                var p = CellTop(i, j, 0.03f * unit);
-                FlatQuad(p + new Vector3(-0.2f, 0, -0.2f), p + new Vector3(0.2f, 0, -0.2f), p + new Vector3(0.2f, 0, 0.2f), p + new Vector3(-0.2f, 0, 0.2f),
-                    Color.Lerp(new Color(120, 30, 10, 220), new Color(255, 200, 60, 255), heat));
-                _labels.Add((p + new Vector3(0, 0.45f * unit, 0), (_flags[c] & FlagHotSpot) != 0 ? "Hot spot volcano" : "Volcano", MagmaColor, _erupting[c] > 0f ? 12 : 3));
+                var p = CellTop(i, j, 0.03f * unit + EdificeHeight(c));
+                string volcanoName = (VolcanoType)_volcanoType[c] switch
+                {
+                    VolcanoType.Shield => "Shield volcano (hot spot, fluid basalt)",
+                    VolcanoType.Fissure => "Fissure volcano (rift)",
+                    _ => "Stratovolcano (subduction arc)"
+                };
+                _labels.Add((p + new Vector3(0, 0.3f * unit, 0), volcanoName, MagmaColor, _erupting[c] > 0f ? 12 : 3));
             }
         }
 

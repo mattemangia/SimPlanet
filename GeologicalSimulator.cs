@@ -479,6 +479,8 @@ public partial class GeologicalSimulator
 
                 if (!geo.IsVolcano) continue;
 
+                geo.VolcanoType = ClassifyVolcano(x, y, geo);
+
                 // Build magma pressure
                 geo.MagmaPressure += geo.VolcanicActivity * 0.01f * volcanicScale;
 
@@ -638,30 +640,50 @@ public partial class GeologicalSimulator
         ClampEruptionHeat(x, y, 8 + vei * 2);
         cell.Elevation = Math.Clamp(cell.Elevation, -1.2f, 1.25f);
         GeoEvents.Publish(new GeoEvent { Kind = GeoEventKind.Eruption, X = x, Y = y, Magnitude = vei, Year = year, Eruption = eruptionType });
+        if (Perf.Enabled) Console.WriteLine($"[eruption] {geo.VolcanoType} {eruptionType} VEI {vei} at {x},{y}");
 
         TryTriggerVolcanicTsunami(x, y, eruptionType, vei, year);
     }
 
+    /// <summary>
+    /// The style of an eruption follows the magma, and the magma follows the setting.
+    /// Hot spots and rifts erupt hot fluid basalt that lets its gas escape: lava fountains and
+    /// long flows (Hawaiian), sometimes Strombolian bursts. Subduction arcs erupt cooler,
+    /// stickier, gas-rich magma that plugs the vent and explodes: Vulcanian blasts and, when a
+    /// lot of pressure has built up, Plinian columns.
+    /// </summary>
     private EruptionType DetermineEruptionType(int x, int y, GeologicalData geo)
     {
-        // Water nearby = phreatomagmatic
-        bool hasWaterNeighbor = _map.GetNeighbors(x, y)
-            .Any(n => n.cell.IsWater);
+        bool hasWaterNeighbor = _map.GetNeighbors(x, y).Any(n => n.cell.IsWater);
+        double roll = _simulationRandom.NextDouble();
 
-        if (hasWaterNeighbor && _simulationRandom.NextDouble() < 0.3)
+        // Magma meeting water flashes it to steam, whatever the volcano
+        if (hasWaterNeighbor && _simulationRandom.NextDouble() < (geo.VolcanoType == VolcanoType.Stratovolcano ? 0.3 : 0.15))
             return EruptionType.Phreatomagmatic;
 
-        // High magma pressure = more explosive
-        if (geo.MagmaPressure > 2.0f && _simulationRandom.NextDouble() < 0.2)
-            return EruptionType.Plinian;
+        switch (geo.VolcanoType)
+        {
+            case VolcanoType.Shield:
+                return roll < 0.8 ? EruptionType.Effusive : EruptionType.Strombolian;
+            case VolcanoType.Fissure:
+                return roll < 0.9 ? EruptionType.Effusive : EruptionType.Strombolian;
+            default:
+                // The longer the repose and the higher the pressure, the bigger the blast
+                float charge = geo.MagmaPressure + geo.VolcanicActivity * 0.5f;
+                if (roll < 0.06 + 0.10 * Math.Clamp(charge - 1.0f, 0f, 1f)) return EruptionType.Plinian;
+                if (roll < 0.50) return EruptionType.Vulcanian;
+                if (roll < 0.85) return EruptionType.Strombolian;
+                return EruptionType.Effusive;
+        }
+    }
 
-        if (geo.MagmaPressure > 1.5f && _simulationRandom.NextDouble() < 0.4)
-            return EruptionType.Vulcanian;
-
-        if (_simulationRandom.NextDouble() < 0.3)
-            return EruptionType.Strombolian;
-
-        return EruptionType.Effusive; // Default
+    /// <summary>Volcano type from the tectonic setting of the cell.</summary>
+    private VolcanoType ClassifyVolcano(int x, int y, GeologicalData geo)
+    {
+        if (geo.IsHotSpot) return VolcanoType.Shield;
+        var mode = _tectMode[x, y];
+        if (mode == TectonicMode.Ridge || mode == TectonicMode.Rift || geo.BoundaryType == PlateBoundaryType.Divergent) return VolcanoType.Fissure;
+        return VolcanoType.Stratovolcano;
     }
 
     private int DetermineVEI(GeologicalData geo, EruptionType type)
@@ -701,7 +723,11 @@ public partial class GeologicalSimulator
             geo.Basalt += 0.2f;
         }
 
-        BuildEdifice(x, y, elevationIncrease, 2);
+        // Fluid basalt runs far and builds a broad, gently sloping shield; a fissure spreads a
+        // thin sheet; sticky arc lava piles up close to the vent
+        if (geo.VolcanoType == VolcanoType.Shield) BuildEdifice(x, y, elevationIncrease * 0.6f, 4);
+        else if (geo.VolcanoType == VolcanoType.Fissure) BuildEdifice(x, y, elevationIncrease * 0.4f, 3);
+        else BuildEdifice(x, y, elevationIncrease, 1);
         geo.VolcanicRock += 0.3f; // Direct lava adds to volcanic rock
         cell.Temperature += 20 * (vei + 1);
         cell.CO2 += 1.0f * (vei + 1);

@@ -470,6 +470,11 @@ public class HeadlessSimulation
                 if (c.IsForest) forest++;
             }
         }
+        var volcanoTypes = new int[3];
+        for (int x = 0; x < _map.Width; x++)
+            for (int y = 0; y < _map.Height; y++)
+                if (_map.Cells[x, y].Geology.IsVolcano) volcanoTypes[(int)_map.Cells[x, y].Geology.VolcanoType]++;
+        Console.WriteLine($"   Volcanoes: stratovolcano {volcanoTypes[0]} | shield {volcanoTypes[1]} | fissure {volcanoTypes[2]}");
         Console.WriteLine($"   Land cover: desert {desert * 100f / Math.Max(1, landTotal):F0}% | dry {dry * 100f / Math.Max(1, landTotal):F0}% | wet {wet * 100f / Math.Max(1, landTotal):F0}% | forest {forest * 100f / Math.Max(1, landTotal):F0}% | rainfall multiplier {_map.PlanetaryControls.RainfallMultiplier:F2}");
         Console.WriteLine($"   Climate: CH4 {ch4 / cells:F3} N2O {n2o / cells:F3} greenhouse {gh / cells:F3} solar {_map.SolarEnergy:F3} land temp {landTemp / Math.Max(1, landCells):F1}C");
         var allCities = _civilizationManager.Civilizations.SelectMany(c => c.Cities).ToList();

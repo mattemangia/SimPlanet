@@ -103,6 +103,21 @@ All notable changes to this project will be documented in this file.
   for good.
 - Speed: the heaviest weather steps run in parallel; frames never wait for the simulation.
 
+### Volcano types, steady sun, lasting deserts
+
+- Volcanoes take their type from the tectonic setting: stratovolcanoes (steep cones, explosive
+  Vulcanian and Plinian eruptions) above subduction zones, shield volcanoes (broad domes,
+  Hawaiian lava fountains and long flows) over hot spots, fissure volcanoes along rifts and
+  ridges. Each has its own shape in Subsurface 3D, its own lava reach, and is named in the
+  tile panel. Plinian eruptions could never happen before; now they can.
+- The sun stays at its normal output: the stabilizer clears nitrous oxide, methane and CO2 in
+  proportion to their excess and touches the sun only as a last resort, then gives it back.
+- Deserts last: the emergency life protection used to set the rainfall of every dry cell to
+  0.3, which erased all deserts for decades at a time. One wet season no longer greens them
+  either. Roughly a fifth to a quarter of the land is desert, steadily.
+- Storm damage and rain per cell are scaled to the slower storms, so a storm does about the
+  same total harm as before.
+
 ### Other
 
 - Targets .NET 10.
